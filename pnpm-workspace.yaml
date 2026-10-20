@@ -1,0 +1,10 @@
+# pnpm keeps package files in a content-addressable store and hard-links them
+# into node_modules. Hard links only work within one drive, so on Windows pnpm
+# would otherwise create the store at the root of the project's drive (e.g.
+# D:\.pnpm-store). This keeps it inside the project instead (git-ignored).
+storeDir: .pnpm-store
+
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  vue-demi: true

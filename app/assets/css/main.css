@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  /*
+   * Base text size: 20px instead of the browser's 16px. Tailwind and Nuxt UI
+   * size text, spacing and components in rem, so the whole interface scales
+   * up proportionally. Percent (not px) keeps the user's browser setting.
+   */
+  font-size: 125%;
+}
+
+/*
+ * The full-screen player covers the whole page while it is open, so it gets
+ * its own, slightly smaller scale (19px) through a class set on <html>.
+ */
+html.player-expanded {
+  font-size: 118.75%;
+}
+
+:root {
+  /* Height of the player bar: content leaves this much room at the bottom. */
+  --player-bar-height: 5.5rem;
+}
+
+/* Keeps content from ending up underneath the player bar. */
+.has-player {
+  padding-bottom: calc(var(--player-bar-height) + env(safe-area-inset-bottom));
+}

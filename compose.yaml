@@ -1,0 +1,16 @@
+# ChronoPlayer app container. Supabase (database, auth, storage) runs in its own
+# containers managed by the Supabase CLI. Use `pnpm docker` to start both:
+# it also writes the .env.docker file this service reads.
+name: chronoplayer
+
+services:
+  app:
+    build: .
+    image: chronoplayer:local
+    ports:
+      - "8080:3000"
+    env_file: .env.docker
+    extra_hosts:
+      # Lets the server reach Supabase on the host through host.docker.internal.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

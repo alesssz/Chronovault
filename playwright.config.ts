@@ -1,0 +1,38 @@
+import { defineConfig, devices } from '@playwright/test'
+
+/**
+ * End-to-end tests: they run the real app against the local Supabase stack.
+ * Prerequisites: `make db-start` (Docker) and the .env file (`make env`).
+ *
+ * By default they run on a production build (port 3100): faster and closer
+ * to the deployed app. With E2E_DEV=1 they use the dev server (port 3000).
+ */
+const useDev = process.env.E2E_DEV === '1'
+const PORT = Number(process.env.E2E_PORT ?? (useDev ? 3000 : 3100))
+const baseURL = `http://localhost:${PORT}`
+
+export default defineConfig({
+  testDir: 'test/e2e',
+  fullyParallel: false,
+  workers: 1,
+  retries: process.env.CI ? 1 : 0,
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  use: {
+    baseURL,
+    locale: 'en-US',
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+  ],
+  webServer: {
+    command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node .output/server/index.mjs',
+    env: { PORT: String(PORT) },
+    url: `${baseURL}/api/health`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 300_000,
+  },
+})

@@ -1,0 +1,27 @@
+# Dependencies and build output are recreated inside the image
+node_modules
+.pnpm-store
+.nuxt
+.output
+.data
+.nitro
+.cache
+dist
+
+# Secrets and local environment (passed at runtime instead)
+.env
+.env.*
+
+# Tests and tooling
+coverage
+playwright-report
+test-results
+blob-report
+.vscode
+.idea
+.github
+.git
+
+# Supabase local files
+supabase/.branches
+supabase/.temp

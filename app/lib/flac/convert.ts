@@ -1,0 +1,65 @@
+import type { FlacWorkerResponse } from './flac.worker'
+
+export type FlacConversion
+  = | { status: 'converted', file: File, md5: string }
+    | { status: 'kept', reason: string }
+
+/**
+ * Without any message from the worker for this long (no progress, no result),
+ * the conversion is abandoned and the original WAV is kept.
+ */
+const INACTIVITY_TIMEOUT_MS = 30_000
+
+/**
+ * Converts a WAV file to a verified, bit-identical FLAC in a Web Worker.
+ * It never throws and never hangs: whenever the conversion is not possible,
+ * not verified or the worker stops responding, the result is `kept` and the
+ * caller uploads the original WAV.
+ */
+export async function convertWavToFlac(file: File, onProgress?: (fraction: number) => void): Promise<FlacConversion> {
+  const buffer = await file.arrayBuffer()
+  const worker = new Worker(new URL('./flac.worker.ts', import.meta.url), { type: 'module' })
+  let watchdog: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await new Promise<FlacConversion>((resolve) => {
+      const keepAlive = () => {
+        clearTimeout(watchdog)
+        watchdog = setTimeout(
+          () => resolve({ status: 'kept', reason: 'The FLAC converter stopped responding' }),
+          INACTIVITY_TIMEOUT_MS,
+        )
+      }
+      keepAlive()
+
+      worker.onmessage = (event: MessageEvent<FlacWorkerResponse>) => {
+        keepAlive()
+        const message = event.data
+        if (message.type === 'progress') {
+          onProgress?.(message.value)
+        }
+        else if (message.type === 'converted') {
+          resolve({
+            status: 'converted',
+            file: new File([message.flac], toFlacName(file.name), { type: 'audio/flac', lastModified: file.lastModified }),
+            md5: message.md5,
+          })
+        }
+        else {
+          resolve({ status: 'kept', reason: message.reason })
+        }
+      }
+      worker.onerror = () => resolve({ status: 'kept', reason: 'The FLAC converter could not run in this browser' })
+      worker.onmessageerror = () => resolve({ status: 'kept', reason: 'The FLAC converter returned unreadable data' })
+      worker.postMessage({ buffer }, [buffer])
+    })
+  }
+  finally {
+    clearTimeout(watchdog)
+    worker.terminate()
+  }
+}
+
+function toFlacName(name: string): string {
+  return `${name.replace(/\.wave?$/i, '')}.flac`
+}

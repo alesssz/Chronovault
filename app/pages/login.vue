@@ -1,0 +1,114 @@
+<script setup lang="ts">
+import { z } from 'zod'
+import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
+
+definePageMeta({ layout: 'auth' })
+useSeoMeta({ title: 'Sign in · ChronoPlayer' })
+
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+const redirect = useSupabaseCookieRedirect()
+const toast = useToast()
+
+const mode = ref<'login' | 'register'>('login')
+const loading = ref(false)
+const confirmationSent = ref(false)
+
+const schema = z.object({
+  email: z.email('Invalid email'),
+  password: z.string().min(8, 'At least 8 characters'),
+})
+type Schema = z.output<typeof schema>
+
+const fields: AuthFormField[] = [
+  { name: 'email', type: 'email', label: 'Email', placeholder: 'name@example.com', required: true },
+  { name: 'password', type: 'password', label: 'Password', placeholder: '••••••••', required: true },
+]
+
+// As soon as a session exists, enter the app (also when landing here already signed in).
+watch(user, (value) => {
+  if (value) void navigateTo(redirect.pluck() || '/', { replace: true })
+}, { immediate: true })
+
+async function onSubmit(event: FormSubmitEvent<Schema>) {
+  loading.value = true
+  try {
+    if (mode.value === 'login') {
+      const { error } = await supabase.auth.signInWithPassword(event.data)
+      if (error) throw error
+      return
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      ...event.data,
+      options: { emailRedirectTo: `${window.location.origin}/confirm` },
+    })
+    if (error) throw error
+    // With email confirmation enabled, the session only arrives after clicking the link.
+    if (!data.session) confirmationSent.value = true
+  }
+  catch (error) {
+    toast.add({
+      title: mode.value === 'login' ? 'Sign-in failed' : 'Sign-up failed',
+      description: getErrorMessage(error),
+      color: 'error',
+      icon: 'i-lucide-circle-alert',
+    })
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+function toggleMode() {
+  mode.value = mode.value === 'login' ? 'register' : 'login'
+  confirmationSent.value = false
+}
+</script>
+
+<template>
+  <div
+    v-if="confirmationSent"
+    class="space-y-4 text-center"
+  >
+    <UIcon
+      name="i-lucide-mail-check"
+      class="size-10 text-primary"
+    />
+    <h1 class="text-lg font-semibold">
+      Check your email
+    </h1>
+    <p class="text-sm text-muted">
+      We sent you a link to confirm your account.
+    </p>
+    <UButton
+      variant="link"
+      label="Back to sign in"
+      @click="toggleMode"
+    />
+  </div>
+
+  <UAuthForm
+    v-else
+    :key="mode"
+    :schema="schema"
+    :fields="fields"
+    :loading="loading"
+    :title="mode === 'login' ? 'Welcome back' : 'Create an account'"
+    :description="mode === 'login' ? 'Sign in to your music library.' : 'Your music library, everywhere.'"
+    :submit="{ label: mode === 'login' ? 'Sign in' : 'Sign up', block: true }"
+    @submit="onSubmit"
+  >
+    <template #footer>
+      <p class="text-center text-sm text-muted">
+        {{ mode === 'login' ? 'No account yet?' : 'Already have an account?' }}
+        <UButton
+          variant="link"
+          class="p-0"
+          :label="mode === 'login' ? 'Sign up' : 'Sign in'"
+          @click="toggleMode"
+        />
+      </p>
+    </template>
+  </UAuthForm>
+</template>

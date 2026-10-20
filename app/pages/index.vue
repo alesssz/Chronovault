@@ -1,0 +1,204 @@
+<script setup lang="ts">
+import type { TrackSummary } from '~~/shared/types/track'
+import { tracksApi } from '~/services/api'
+
+useSeoMeta({ title: 'Library · ChronoPlayer' })
+
+const player = usePlayerStore()
+const toast = useToast()
+const { genres, genreName } = useGenres()
+
+const { data: tracks, status, error, refresh } = await useAsyncData('tracks', () => tracksApi.list(), {
+  default: () => [] as TrackSummary[],
+})
+
+// --- Search and filters ----------------------------------------------------------
+const search = ref('')
+const genreFilter = ref<string>('all')
+const masteredFilter = ref<'all' | 'yes' | 'no'>('all')
+const sort = ref<'recent' | 'title'>('recent')
+
+const genreOptions = computed(() => [
+  { label: 'All genres', value: 'all' },
+  ...genres.value
+    .filter(g => tracks.value.some(t => t.genreId === g.id))
+    .map(g => ({ label: g.name, value: g.id })),
+])
+
+const masteredOptions = [
+  { label: 'All', value: 'all' },
+  { label: 'Mastered', value: 'yes' },
+  { label: 'Not mastered', value: 'no' },
+]
+
+const sortOptions = [
+  { label: 'Most recent', value: 'recent' },
+  { label: 'Title A-Z', value: 'title' },
+]
+
+const filtered = computed(() => {
+  const q = search.value.trim().toLocaleLowerCase('en')
+  const list = tracks.value.filter((t) => {
+    if (genreFilter.value !== 'all' && t.genreId !== genreFilter.value) return false
+    if (masteredFilter.value !== 'all' && t.mastered !== (masteredFilter.value === 'yes')) return false
+    if (!q) return true
+    return [t.title, t.composers, t.album].some(v => v?.toLocaleLowerCase('en').includes(q))
+  })
+  return sort.value === 'title'
+    ? [...list].sort((a, b) => a.title.localeCompare(b.title, 'en'))
+    : list
+})
+
+const hasFilters = computed(() => !!search.value || genreFilter.value !== 'all' || masteredFilter.value !== 'all')
+
+function resetFilters() {
+  search.value = ''
+  genreFilter.value = 'all'
+  masteredFilter.value = 'all'
+}
+
+// --- Actions ---------------------------------------------------------------------
+function onPlay(track: TrackSummary) {
+  void player.playTrack(track, filtered.value)
+}
+
+const toDelete = ref<TrackSummary | null>(null)
+const deleting = ref(false)
+const deleteOpen = computed({
+  get: () => toDelete.value !== null,
+  set: (open) => {
+    if (!open) toDelete.value = null
+  },
+})
+
+async function confirmDelete() {
+  const track = toDelete.value
+  if (!track) return
+  deleting.value = true
+  try {
+    await tracksApi.remove(track.id)
+    player.removeTrack(track.id)
+    tracks.value = tracks.value.filter(t => t.id !== track.id)
+    toast.add({ title: 'Track deleted', description: track.title, icon: 'i-lucide-trash-2' })
+    toDelete.value = null
+  }
+  catch (err) {
+    toast.add({ title: 'Delete failed', description: getErrorMessage(err), color: 'error' })
+  }
+  finally {
+    deleting.value = false
+  }
+}
+</script>
+
+<template>
+  <UContainer class="py-6 sm:py-8">
+    <div class="mb-6 flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Your library
+        </h1>
+        <p class="text-sm text-muted">
+          {{ tracks.length === 1 ? '1 track' : `${tracks.length} tracks` }}
+        </p>
+      </div>
+    </div>
+
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-circle-alert"
+      title="Could not load the library"
+      :description="getErrorMessage(error)"
+      :actions="[{ label: 'Retry', onClick: () => refresh() }]"
+      class="mb-6"
+    />
+
+    <template v-else-if="status === 'pending' && tracks.length === 0">
+      <div class="space-y-3">
+        <div
+          v-for="n in 6"
+          :key="n"
+          class="flex items-center gap-3 px-2"
+        >
+          <USkeleton class="size-12 rounded-md" />
+          <div class="flex-1 space-y-2">
+            <USkeleton class="h-4 w-1/3" />
+            <USkeleton class="h-3 w-1/4" />
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <UEmpty
+      v-else-if="tracks.length === 0"
+      icon="i-lucide-library"
+      title="Your library is empty"
+      description="Upload your tracks: title, cover and duration are read from the files automatically."
+      :actions="[{ label: 'Upload tracks', icon: 'i-lucide-upload', to: '/tracks/new' }]"
+      class="py-16"
+    />
+
+    <template v-else>
+      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <UInput
+          v-model="search"
+          icon="i-lucide-search"
+          placeholder="Search title, composers, album…"
+          class="sm:max-w-xs sm:flex-1"
+          aria-label="Search the library"
+        />
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <USelect
+            v-model="genreFilter"
+            :items="genreOptions"
+            class="w-full sm:w-40"
+            aria-label="Filter by genre"
+          />
+          <USelect
+            v-model="masteredFilter"
+            :items="masteredOptions"
+            class="w-full sm:w-40"
+            aria-label="Filter by mastering"
+          />
+          <USelect
+            v-model="sort"
+            :items="sortOptions"
+            class="col-span-2 w-full sm:w-36"
+            aria-label="Sort"
+          />
+        </div>
+      </div>
+
+      <UCard
+        :ui="{ body: 'p-0 sm:p-0' }"
+        variant="outline"
+      >
+        <TrackList
+          v-if="filtered.length"
+          :tracks="filtered"
+          :genre-name="genreName"
+          @play="onPlay"
+          @delete="toDelete = $event"
+        />
+        <UEmpty
+          v-else
+          icon="i-lucide-search-x"
+          title="No results"
+          :actions="hasFilters ? [{ label: 'Clear filters', variant: 'subtle', onClick: resetFilters }] : []"
+          class="py-12"
+        />
+      </UCard>
+    </template>
+
+    <ConfirmDialog
+      v-model:open="deleteOpen"
+      title="Delete this track?"
+      :description="toDelete ? `“${toDelete.title}” and its files will be permanently deleted.` : undefined"
+      confirm-label="Delete"
+      :loading="deleting"
+      @confirm="confirmDelete"
+    />
+  </UContainer>
+</template>
