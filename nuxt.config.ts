@@ -49,10 +49,17 @@ export default defineNuxtConfig({
     },
   },
 
+  // A single copy of Pinia in the server bundle: otherwise the Pinia plugin and
+  // the stores get different copies, and server-rendered pages (/t/:id) fail
+  // with "no active Pinia".
+  build: {
+    transpile: ['pinia'],
+  },
+
   routeRules: {
     // App pages are personal and use browser APIs (Web Audio, File):
-    // they are rendered on the client only. SSR stays available for future
-    // public pages (e.g. sharing a track with a social preview).
+    // they are rendered on the client only. The public share page (/t/:id)
+    // is server-rendered, so link previews show the title and the cover.
     '/': { ssr: false },
     '/tracks/**': { ssr: false },
     // The sign-in form must never be server-rendered: submitted before
@@ -119,7 +126,8 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      exclude: [],
+      // Public share pages: no sign-in needed.
+      exclude: ['/t/*'],
       saveRedirectToCookie: true,
     },
     cookieOptions: {

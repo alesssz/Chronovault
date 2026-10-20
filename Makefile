@@ -7,7 +7,7 @@
 SHELL := bash
 .DEFAULT_GOAL := help
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
-        db-start db-stop db-status db-reset db-types db-migration db-lint db-test db-studio \
+        db-start db-stop db-status db-reset db-migrate db-types db-migration db-lint db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
         check ci clean clean-all
 
@@ -70,6 +70,9 @@ db-status: ## Show URLs and keys of the local stack
 
 db-reset: ## Recreate the local DB: migrations + seed (deletes data!)
 	$(SUPABASE) db reset
+
+db-migrate: ## Apply new migrations to the local DB, keeping its data
+	$(PNPM) db:migrate
 
 db-types: ## Regenerate TypeScript types from the schema
 	$(PNPM) db:types

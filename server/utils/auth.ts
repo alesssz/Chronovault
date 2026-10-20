@@ -20,3 +20,11 @@ export async function requireAuth(event: H3Event): Promise<AuthContext> {
   const db = await serverSupabaseClient<Database>(event)
   return { userId: claims.sub, db }
 }
+
+/**
+ * Supabase client for public endpoints: it carries the visitor's session
+ * when there is one, otherwise it acts as the anonymous role.
+ */
+export async function visitorClient(event: H3Event): Promise<DbClient> {
+  return serverSupabaseClient<Database>(event)
+}

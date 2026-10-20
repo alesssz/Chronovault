@@ -4,9 +4,9 @@ import { toHttpError } from '../utils/errors'
 import { TRACK_SUMMARY_COLUMNS, type TrackRow, type TrackSummaryRow } from '../mappers/track'
 
 /**
- * Access to the `tracks` table. Every query also filters on `user_id`:
- * RLS would expose other users' public tracks as well, while the library
- * must only show the user's own.
+ * Access to the `tracks` table. RLS already limits every user to their own
+ * rows; every query also filters on `user_id` as a second line of defense.
+ * Other people's tracks are only reachable through shared-tracks.repository.
  */
 
 export async function listTrackRows(db: DbClient, userId: string): Promise<TrackSummaryRow[]> {

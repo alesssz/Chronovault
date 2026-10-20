@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import type { TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import { setAudioEngine, type AudioEngineEvents, type PlaybackEngine } from '~/lib/audio-engine'
-import { tracksApi } from '~/services/api'
+import { sharedApi, tracksApi } from '~/services/api'
 import { usePlayerStore } from '~/stores/player'
 
 vi.mock('~/services/api', () => ({
   tracksApi: { get: vi.fn(), playback: vi.fn() },
+  sharedApi: { get: vi.fn(), playback: vi.fn() },
   genresApi: {},
 }))
 
@@ -94,6 +95,10 @@ beforeEach(() => {
   // Signed URLs like the server's: valid for six hours from now.
   vi.mocked(tracksApi.playback).mockImplementation(async id => ({
     url: `https://audio/${id}`,
+    expiresAt: new Date(Date.now() + SIX_HOURS).toISOString(),
+  }))
+  vi.mocked(sharedApi.playback).mockImplementation(async id => ({
+    url: `https://shared-audio/${id}`,
     expiresAt: new Date(Date.now() + SIX_HOURS).toISOString(),
   }))
 })
@@ -373,5 +378,51 @@ describe('expired or refused audio sources', () => {
 
     expect(player.status).toBe('error')
     expect(player.error).toBe('Failed to load because no supported source was found.')
+  })
+
+  describe('shared tracks (public page)', () => {
+    const shared: SharedTrack = {
+      id: 's', title: 'Shared', composers: null, album: null, year: null, genre: 'Ambient', description: null,
+      lyrics: null, lyricsSynced: null, peaks: [0.5], durationSeconds: 90, coverUrl: null,
+      visibility: 'unlisted', updatedAt: '',
+    }
+
+    it('cues a shared track without playing it, using the public API only', async () => {
+      const player = usePlayerStore()
+      await player.cueShared(shared)
+
+      expect(engine.load).toHaveBeenCalledWith('https://shared-audio/s')
+      expect(engine.play).not.toHaveBeenCalled()
+      expect(tracksApi.get).not.toHaveBeenCalled()
+      expect(tracksApi.playback).not.toHaveBeenCalled()
+      expect(player.status).toBe('paused')
+      expect(player.current?.id).toBe('s')
+      expect(player.duration).toBe(90)
+
+      await player.togglePlay()
+      expect(player.status).toBe('playing')
+    })
+
+    it('refreshes an expired URL of a shared track through the public API', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      const player = usePlayerStore()
+      await player.cueShared(shared)
+
+      vi.setSystemTime(Date.now() + SIX_HOURS + 1000)
+      await player.play()
+
+      expect(sharedApi.playback).toHaveBeenCalledTimes(2)
+      expect(tracksApi.playback).not.toHaveBeenCalled()
+      expect(player.status).toBe('playing')
+    })
+
+    it('playing from the library afterwards goes back to the library API', async () => {
+      const player = usePlayerStore()
+      await player.cueShared(shared)
+      await player.playTrack(library[0]!, library)
+
+      expect(engine.load).toHaveBeenLastCalledWith('https://audio/a')
+      expect(tracksApi.get).toHaveBeenCalledWith('a')
+    })
   })
 })

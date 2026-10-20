@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(31);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -29,6 +29,18 @@ insert into storage.objects (bucket_id, name) values
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.mp3'),
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2222222-2222-4222-8222-222222222222.mp3'),
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a3333333-3333-4333-8333-333333333333.mp3');
+
+-- -----------------------------------------------------------------------------
+-- Table privileges (explicit, independent of the project's default grants)
+-- -----------------------------------------------------------------------------
+select table_privs_are('public', 'tracks', 'anon', array[]::text[],
+  'anonymous visitors cannot touch the tracks table (sharing goes through get_shared_track)');
+select table_privs_are('public', 'genres', 'anon', array['SELECT'],
+  'anonymous visitors can only read genres');
+select table_privs_are('public', 'tracks', 'authenticated', array['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+  'signed-in users can read and write tracks (RLS limits the rows)');
+select table_privs_are('public', 'genres', 'authenticated', array['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+  'signed-in users can read and write genres (RLS limits the rows)');
 
 -- -----------------------------------------------------------------------------
 -- Schema constraints
@@ -67,10 +79,9 @@ select is(
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "role": "authenticated"}', true);
 
-select results_eq(
-  $$ select title from public.tracks order by title $$,
-  $$ values ('Public A') $$,
-  'B only sees A''s public tracks'
+select is_empty(
+  $$ select 1 from public.tracks $$,
+  'B cannot read A''s tracks from the table, not even public ones'
 );
 
 select is_empty(
@@ -82,6 +93,20 @@ select results_eq(
   $$ select title from public.get_shared_track('a2222222-2222-4222-8222-222222222222') $$,
   $$ values ('Unlisted A') $$,
   'get_shared_track returns unlisted tracks (link access)'
+);
+
+select results_eq(
+  $$ select title from public.get_shared_track('a3333333-3333-4333-8333-333333333333') $$,
+  $$ values ('Public A') $$,
+  'get_shared_track returns public tracks'
+);
+
+select is_empty(
+  $$ select 1
+     from pg_proc p, unnest(p.proargnames) as arg(name)
+     where p.oid = 'public.get_shared_track(uuid)'::regprocedure
+       and arg.name in ('suno_prompt', 'mastered', 'user_id') $$,
+  'get_shared_track never exposes the Suno prompt, the mastering status or the owner'
 );
 
 select is_empty(
@@ -176,10 +201,27 @@ select results_eq(
 set local role anon;
 select set_config('request.jwt.claims', '{"role": "anon"}', true);
 
-select results_eq(
+select throws_ok(
   $$ select title from public.tracks $$,
-  $$ values ('Public A') $$,
-  'an anonymous visitor only sees public tracks'
+  '42501', null,
+  'an anonymous visitor cannot read the tracks table'
+);
+
+select results_eq(
+  $$ select title, genre from public.get_shared_track('a2222222-2222-4222-8222-222222222222') $$,
+  $$ values ('Unlisted A', null::text) $$,
+  'an anonymous visitor opens an unlisted track by its link'
+);
+
+select is_empty(
+  $$ select 1 from public.get_shared_track('a1111111-1111-4111-8111-111111111111') $$,
+  'an anonymous visitor cannot open a private track, even with its id'
+);
+
+select results_eq(
+  $$ select count(*)::int from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' $$,
+  $$ values (2) $$,
+  'an anonymous visitor only reads files of non-private tracks'
 );
 
 select * from finish();

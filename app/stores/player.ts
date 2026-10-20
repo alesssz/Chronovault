@@ -1,11 +1,32 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import type { TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
-import { tracksApi } from '~/services/api'
+import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
+
+/** A queued track: what the player bar shows while the full data loads. */
+export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
+  & Partial<Pick<TrackSummary, 'genreId'>>
+
+/** The track being played: a library track or a shared one (public page). */
+export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced' | 'peaks'>
+
+/** Where the player gets track data and streaming URLs from. */
+export interface TrackSource {
+  get: (id: string) => Promise<PlayerTrack>
+  playback: (id: string) => Promise<PlaybackSource>
+}
+
+/** The user's own library (sign-in required). */
+const librarySource: TrackSource = { get: tracksApi.get, playback: tracksApi.playback }
+
+/** A track shared by link: its data is already known, audio URLs come from the public API. */
+function sharedSource(track: SharedTrack): TrackSource {
+  return { get: async () => track, playback: sharedApi.playback }
+}
 
 /** Past this point "previous" restarts the track instead of going back. */
 const RESTART_THRESHOLD = 3
@@ -26,9 +47,9 @@ const MAX_PLAYBACK_RATE = 2
  * reloaded once before an error is shown.
  */
 export const usePlayerStore = defineStore('player', () => {
-  const queue = ref<TrackSummary[]>([])
+  const queue = ref<QueueItem[]>([])
   const index = ref(-1)
-  const current = shallowRef<TrackDetail | null>(null)
+  const current = shallowRef<PlayerTrack | null>(null)
   const status = ref<PlayerStatus>('idle')
   const buffering = ref(false)
   const currentTime = ref(0)
@@ -47,6 +68,8 @@ export const usePlayerStore = defineStore('player', () => {
   const progress = computed(() => (duration.value > 0 ? Math.min(1, currentTime.value / duration.value) : 0))
 
   let engineRef: PlaybackEngine | null = null
+  /** Where the queued tracks come from: the library, or a shared link. */
+  let source: TrackSource = librarySource
   /** Incremented on every track change: responses of superseded loads are discarded. */
   let loadToken = 0
   /** Expiry (ms since epoch) of the signed URL loaded in the engine. */
@@ -104,11 +127,11 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Loads a fresh signed URL for `trackId` into the engine, starting at `position`. */
   async function loadSource(trackId: string, position: number, token: number): Promise<boolean> {
-    const source = await tracksApi.playback(trackId)
+    const playback = await source.playback(trackId)
     if (token !== loadToken) return false
     const e = engine()
-    e.load(source.url)
-    sourceExpiresAt = Date.parse(source.expiresAt) || 0
+    e.load(playback.url)
+    sourceExpiresAt = Date.parse(playback.expiresAt) || 0
     if (position > 0) e.seek(position)
     return true
   }
@@ -156,12 +179,12 @@ export const usePlayerStore = defineStore('player', () => {
     sourceRecovered = false
 
     try {
-      const [detail, source] = await Promise.all([tracksApi.get(summary.id), tracksApi.playback(summary.id)])
+      const [detail, playback] = await Promise.all([source.get(summary.id), source.playback(summary.id)])
       if (token !== loadToken) return
       // Audio source first, then the current track: the waveform mounted when
       // `current` changes already finds the audio element on the right file.
-      e.load(source.url)
-      sourceExpiresAt = Date.parse(source.expiresAt) || 0
+      e.load(playback.url)
+      sourceExpiresAt = Date.parse(playback.expiresAt) || 0
       current.value = detail
       if (detail.durationSeconds) duration.value = detail.durationSeconds
       if (!autoplay) {
@@ -183,15 +206,23 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   /** Plays `track`, using `context` (e.g. the library) as the queue. */
-  async function playTrack(track: TrackSummary, context: TrackSummary[] = [track]): Promise<void> {
-    if (current.value?.id === track.id && status.value !== 'error') {
+  async function playTrack(track: QueueItem, context: QueueItem[] = [track]): Promise<void> {
+    if (current.value?.id === track.id && source === librarySource && status.value !== 'error') {
       await togglePlay()
       return
     }
+    source = librarySource
     queue.value = [...context]
     const i = queue.value.findIndex(t => t.id === track.id)
     if (i === -1) queue.value = [track, ...queue.value]
     await loadIndex(Math.max(0, i), true)
+  }
+
+  /** Loads a track shared by link without starting it (public share page). */
+  async function cueShared(track: SharedTrack): Promise<void> {
+    source = sharedSource(track)
+    queue.value = [track]
+    await loadIndex(0, false)
   }
 
   async function play(): Promise<void> {
@@ -294,6 +325,7 @@ export const usePlayerStore = defineStore('player', () => {
     error.value = null
     sourceExpiresAt = 0
     sourceRecovered = false
+    source = librarySource
     if (playbackRate.value !== 1) {
       playbackRate.value = 1
       engineRef?.setPlaybackRate(1)
@@ -329,7 +361,7 @@ export const usePlayerStore = defineStore('player', () => {
     // derived
     isActive, isPlaying, hasNext, hasPrevious, progress,
     // commands
-    playTrack, play, pause, togglePlay, stop, next, previous, seek,
+    playTrack, cueShared, play, pause, togglePlay, stop, next, previous, seek,
     setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, close, syncTrack, removeTrack,
   }
 })

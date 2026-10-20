@@ -1,4 +1,4 @@
-import type { AudioUploadTarget, Genre, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 
 /**
@@ -14,6 +14,12 @@ export const tracksApi = {
   update: (id: string, body: TrackUpdateInput) => $fetch<TrackDetail>(`/api/tracks/${id}`, { method: 'PATCH', body }),
   remove: (id: string) => $fetch<null>(`/api/tracks/${id}`, { method: 'DELETE' }),
   playback: (id: string) => $fetch<PlaybackSource>(`/api/tracks/${id}/playback`),
+}
+
+/** Public endpoints of shared (unlisted/public) tracks: no sign-in needed. */
+export const sharedApi = {
+  get: (id: string) => $fetch<SharedTrack>(`/api/shared/${id}`),
+  playback: (id: string) => $fetch<PlaybackSource>(`/api/shared/${id}/playback`),
 }
 
 export const genresApi = {

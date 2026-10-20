@@ -55,6 +55,29 @@ export interface TrackDetail extends TrackSummary {
   coverPath: string | null
 }
 
+/**
+ * What anyone with the link sees of an 'unlisted' or 'public' track
+ * (the public share page). Never includes the Suno prompt, the mastering
+ * status or storage paths.
+ */
+export interface SharedTrack {
+  id: string
+  title: string
+  composers: string | null
+  album: string | null
+  year: number | null
+  /** Genre name (the genre itself may be one of the owner's custom genres). */
+  genre: string | null
+  description: string | null
+  lyrics: string | null
+  lyricsSynced: SyncedLyricLine[] | null
+  peaks: number[] | null
+  durationSeconds: number | null
+  coverUrl: string | null
+  visibility: Exclude<TrackVisibility, 'private'>
+  updatedAt: string
+}
+
 export interface PlaybackSource {
   url: string
   expiresAt: string

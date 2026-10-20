@@ -78,7 +78,7 @@ async function onCreateGenre(name: string) {
 const visibilityItems: { value: TrackVisibility, label: string, description: string }[] = [
   { value: 'private', label: 'Private', description: 'Only you can listen to it.' },
   { value: 'unlisted', label: 'Unlisted', description: 'Anyone with the link can listen.' },
-  { value: 'public', label: 'Public', description: 'Visible to everyone.' },
+  { value: 'public', label: 'Public', description: 'Anyone with the link can listen; search engines may list it.' },
 ]
 
 const tab = ref('details')
@@ -182,6 +182,11 @@ async function onDelete() {
 }
 
 const isCurrent = computed(() => player.current?.id === id)
+
+// --- Sharing -----------------------------------------------------------------------
+// Based on the saved visibility: a change only applies once saved.
+const { shareUrl, copyShareLink } = useShareLink()
+const isShared = computed(() => !!track.value && track.value.visibility !== 'private')
 </script>
 
 <template>
@@ -254,6 +259,45 @@ const isCurrent = computed(() => player.current?.id === id)
             {{ new Date(track.createdAt).toLocaleDateString() }}
           </dd>
         </dl>
+
+        <div
+          class="space-y-2"
+          data-testid="share-box"
+        >
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
+            Sharing
+          </h2>
+          <template v-if="isShared">
+            <p class="text-sm text-muted">
+              Anyone with the link can listen, without an account. The Suno prompt and the mastering status are never shown.
+            </p>
+            <UFieldGroup class="w-full">
+              <UButton
+                label="Copy share link"
+                icon="i-lucide-link"
+                color="neutral"
+                variant="subtle"
+                block
+                data-testid="copy-share-link"
+                @click="copyShareLink(id)"
+              />
+              <UButton
+                :to="shareUrl(id)"
+                target="_blank"
+                icon="i-lucide-external-link"
+                color="neutral"
+                variant="subtle"
+                aria-label="Open share page"
+              />
+            </UFieldGroup>
+          </template>
+          <p
+            v-else
+            class="text-sm text-muted"
+          >
+            Private: only you can listen. Set the visibility to Unlisted or Public and save to get a share link.
+          </p>
+        </div>
 
         <UButton
           label="Delete track"

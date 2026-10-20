@@ -65,36 +65,9 @@ isOneToOne: false
           Functions: {
             "get_shared_track":
 { Args: { "p_track_id": string }; Returns: {
-              "album": string | null,
-"audio_path": string,
-"composers": string | null,
-"cover_path": string | null,
-"created_at": string,
-"description": string | null,
-"duration_seconds": number | null,
-"genre_id": string | null,
-"has_lyrics": boolean | null,
-"has_synced_lyrics": boolean | null,
-"id": string,
-"lyrics": string | null,
-"lyrics_synced": Json | null,
-"mastered": boolean,
-"mime_type": string,
-"peaks": Json | null,
-"size_bytes": number,
-"suno_prompt": string | null,
-"title": string,
-"updated_at": string,
-"user_id": string,
-"visibility": Database["public"]['Enums']["track_visibility"],
-"year": number | null
+              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
             }[]
-                          SetofOptions: {
-        from: "*"
-        to: "tracks"
-        isOneToOne: false
-        isSetofReturn: true
-      } },
+                           },
 "is_shared_track_file":
 { Args: { "p_bucket": string,"p_path": string }; Returns: boolean
                            }

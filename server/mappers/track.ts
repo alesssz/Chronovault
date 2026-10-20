@@ -1,5 +1,5 @@
-import type { Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
-import type { SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
+import type { SharedTrack, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 
 /**
@@ -51,6 +51,30 @@ export function toTrackDetail(row: TrackRow, coverUrl: string | null): TrackDeta
     sizeBytes: row.size_bytes,
     audioPath: row.audio_path,
     coverPath: row.cover_path,
+  }
+}
+
+/** Row returned by the get_shared_track() database function. */
+export type SharedTrackRow = Database['public']['Functions']['get_shared_track']['Returns'][number]
+
+/** Public view of a shared track: only the fields that are meant to be shared. */
+export function toSharedTrack(row: SharedTrackRow, coverUrl: string | null): SharedTrack {
+  return {
+    id: row.id,
+    title: row.title,
+    composers: row.composers ?? null,
+    album: row.album ?? null,
+    year: row.year ?? null,
+    genre: row.genre ?? null,
+    description: row.description ?? null,
+    lyrics: row.lyrics ?? null,
+    lyricsSynced: (row.lyrics_synced as SyncedLyricLine[] | null) ?? null,
+    peaks: (row.peaks as number[] | null) ?? null,
+    durationSeconds: row.duration_seconds ?? null,
+    coverUrl,
+    // The database function never returns private tracks.
+    visibility: row.visibility === 'public' ? 'public' : 'unlisted',
+    updatedAt: row.updated_at,
   }
 }
 

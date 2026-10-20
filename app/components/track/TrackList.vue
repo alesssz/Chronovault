@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const player = usePlayerStore()
+const { copyShareLink } = useShareLink()
 
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
   private: { icon: 'i-lucide-lock', label: 'Private' },
@@ -37,6 +38,13 @@ function onTitleClick(track: TrackSummary) {
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
     [{ label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` }],
+    // Private tracks have no public page.
+    ...(track.visibility === 'private'
+      ? []
+      : [[
+          { label: 'Copy share link', icon: 'i-lucide-link', onSelect: () => void copyShareLink(track.id) },
+          { label: 'Open share page', icon: 'i-lucide-external-link', to: `/t/${track.id}`, target: '_blank' },
+        ]]),
     [{ label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => emit('delete', track) }],
   ]
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toTrackDetail, toTrackInsert, toTrackUpdate, type TrackRow } from '~~/server/mappers/track'
+import { toSharedTrack, toTrackDetail, toTrackInsert, toTrackUpdate, type TrackRow } from '~~/server/mappers/track'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
@@ -47,6 +47,23 @@ describe('toTrackDetail', () => {
       audioPath: `${USER}/${TRACK}.mp3`,
     })
     expect(detail).not.toHaveProperty('user_id')
+  })
+})
+
+describe('toSharedTrack', () => {
+  it('exposes only the shareable fields: no Suno prompt, mastering, owner or storage paths', () => {
+    const shared = toSharedTrack({
+      id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
+      description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
+      duration_seconds: 180.5, peaks: [0.1, 1], cover_path: `${USER}/${TRACK}.webp`,
+      audio_path: `${USER}/${TRACK}.mp3`, visibility: 'public', updated_at: '2026-10-18T11:00:00Z',
+    }, 'https://signed/cover')
+
+    expect(Object.keys(shared).sort()).toEqual([
+      'album', 'composers', 'coverUrl', 'description', 'durationSeconds', 'genre', 'id', 'lyrics',
+      'lyricsSynced', 'peaks', 'title', 'updatedAt', 'visibility', 'year',
+    ])
+    expect(shared).toMatchObject({ genre: 'Ambient', visibility: 'public', coverUrl: 'https://signed/cover' })
   })
 })
 

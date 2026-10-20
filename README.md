@@ -38,6 +38,7 @@ It works on desktop and smartphones and can be installed as a PWA.
 | **Expanded player** | Full-screen view with a large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls automatically, and clicking a line seeks there. |
 | **Editor** | Title, composers, album, year, genre (built-in + custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with sections (`[Verse]`, `[Chorus]`). |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× (pitch preserved), a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s adjustments (<kbd>←</kbd> <kbd>→</kbd>), undo, section headers kept, **LRC** import and export. |
+| **Sharing** | Unlisted and public tracks get a public page, `/t/<track id>`, that anyone with the link can open without an account: cover, title, composers, album, year, genre, description, lyrics (synced or plain) and a player with waveform. "Copy share link" in the track menu and on the edit page. The Suno prompt and the mastering status are never shared. Link previews (chat apps, social networks) show the title and the cover. |
 | **PWA** | Installable on phones and desktop, with icons and a manifest. |
 
 **No AI.** The app uses no artificial-intelligence services, SDKs or models. The "Suno prompt" field is just a text field to note down the prompt used elsewhere.
@@ -109,7 +110,7 @@ flowchart LR
 Key principles:
 
 1. **Files never go through Vercel.** Serverless functions accept requests of about 4.5 MB, while a FLAC weighs 30-50. The browser uploads audio straight to Cloudflare R2 (covers to Supabase Storage) and plays it from presigned URLs. The backend only handles lightweight data and signs URLs; R2 credentials never leave the server.
-2. **The backend uses the user's token, never the service key.** Every query goes through Postgres RLS policies, so even a bug in server code cannot expose another user's data.
+2. **The backend uses the user's token, never the service key.** Every query goes through Postgres RLS policies, so even a bug in server code cannot expose another user's data. The public share routes run as the anonymous role, which can only call `get_shared_track`.
 3. **Audio processing in the browser.** Tags, cover, duration and waveform peaks are computed before uploading, so the server never processes files.
 4. **A single audio engine.** The `<audio>` element lives outside components, while the UI (bar, expanded view, lyrics editor) is a "view" over the same store. That is why music keeps playing across page changes.
 5. **Layered backend.** `api` (HTTP) → `services` (logic, no Nuxt dependencies) → `repositories` (queries). Services are tested in isolation.
@@ -129,25 +130,26 @@ ChronoPlayer/
 │   │   ├── player/               # PlayerBar, PlayerExpanded, PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/               # LyricsView (synced/plain), LyricsSyncEditor (tap to sync)
 │   │   └── track/                # TrackList, TrackCover, TrackCoverPicker
-│   ├── composables/              # useTrackUploader (upload queue), useGenres
-│   ├── layouts/                  # default (header + player), auth (sign-in)
+│   ├── composables/              # useTrackUploader (upload queue), useGenres, useShareLink
+│   ├── layouts/                  # default (header + player), auth (sign-in), public (share page)
 │   ├── lib/                      # Browser code without Vue: audio-engine, audio-analysis,
 │   │   │                         #   direct-upload, image, media-session
 │   │   └── flac/                 # WAV parser, verified FLAC encoder, Web Worker
 │   ├── pages/
 │   │   ├── index.vue             # Library
 │   │   ├── login.vue, confirm.vue
-│   │   └── tracks/new.vue, tracks/[id]/edit.vue
+│   │   ├── tracks/new.vue, tracks/[id]/edit.vue
+│   │   └── t/[id].vue            # Public share page (server-rendered)
 │   ├── plugins/media-session.client.ts
 │   ├── services/api.ts           # Typed API client
 │   ├── stores/player.ts          # Pinia player store
 │   └── utils/errors.ts
 ├── server/                       # Backend (Nitro)
 │   ├── api/                      # HTTP routes: authenticate, validate, call a service
-│   ├── services/                 # Business logic (tracks, genres)
+│   ├── services/                 # Business logic (tracks, genres, sharing)
 │   ├── repositories/             # Postgres and Storage queries
 │   ├── mappers/                  # DB rows ↔ domain types
-│   └── utils/                    # auth (requireAuth), validation (Zod), errors
+│   └── utils/                    # auth (requireAuth, visitorClient), validation (Zod), errors
 ├── shared/                       # Code used by both client and server
 │   ├── schemas/track.ts          # Zod schemas
 │   ├── types/                    # Domain types + database.types.ts (generated)
@@ -284,13 +286,34 @@ sequenceDiagram
 
 ### Visibility and sharing
 
-| Value | Who can read it |
-|---|---|
-| `private` | Only the owner |
-| `unlisted` | Anyone with the track id, through the `get_shared_track(id)` function |
-| `public` | Anyone, even without signing in (table `select` policy) |
+| Value | Who can listen | Share page |
+|---|---|---|
+| `private` | Only the owner | None: the link answers `404`, exactly like a missing track |
+| `unlisted` | Anyone with the link | `noindex`: kept out of search engines |
+| `public` | Anyone with the link | Can be indexed by search engines |
 
-Storage policies allow reading the files of non-private tracks. The database is therefore already ready for a public sharing page (see [next steps](#known-limitations-and-next-steps)).
+There is no public catalog: other people only reach a track through its link, `/t/<track id>` (the id is a random UUID, so links cannot be guessed).
+
+```mermaid
+sequenceDiagram
+  participant V as Visitor (no account)
+  participant N as Nuxt (SSR)
+  participant DB as Postgres
+  participant R2 as Cloudflare R2
+  V->>N: GET /t/:id
+  N->>DB: get_shared_track(id) as anon
+  DB-->>N: shareable fields (none if private)
+  N-->>V: HTML with title, cover, lyrics, og: meta tags
+  V->>N: GET /api/shared/:id/playback
+  N->>DB: get_shared_track(id)
+  N-->>V: presigned GET URL (6 h)
+  V->>R2: streaming (range requests)
+```
+
+- **Only shareable fields leave the database.** Other people cannot read the `tracks` table at all; the `get_shared_track(id)` function (security definer) returns a non-private track's title, composers, album, year, genre name, description, lyrics, peaks and duration. The Suno prompt, the mastering status and the owner are never returned (checked by the pgTAP tests).
+- **The page is server-rendered** so link previews work: `og:title`, `og:description` and `og:image`. The image points to `/api/shared/:id/cover`, a stable address that redirects to a fresh signed URL, since previews are cached for a long time.
+- **Playback reuses the app's player store**, with the public API as its source: expired URLs are refreshed the same way as in the library.
+- **Making a track private again closes its page immediately**: the next request answers `404`; a URL already issued keeps working until it expires (at most 6 hours).
 
 ---
 
@@ -368,10 +391,12 @@ erDiagram
 | `…_schema.sql` | Tables, constraints (lengths, year, paths inside the owner's folder), indexes, `updated_at` trigger, owner-change guard, built-in genres |
 | `…_rls.sql` | RLS policies for `tracks` and `genres`, `get_shared_track` function |
 | `…_storage.sql` | Private buckets `covers` (10 MB, images) and `audio` (only used locally, where Supabase's S3 endpoint stands in for R2), storage policies |
+| `…_grants.sql` | Explicit table privileges for the `anon` and `authenticated` roles |
+| `…_public_sharing.sql` | The `tracks` table becomes owner-only; `get_shared_track` returns the shareable fields only |
 
 **Security guarantees**, verified by the pgTAP tests:
 
-- A user reads, updates and deletes only their own tracks and genres. Of other users' tracks, they only see public ones.
+- A user reads, updates and deletes only their own tracks and genres. Other users' tracks (and anonymous visitors) are only reachable by id through `get_shared_track`, which never returns private tracks, the Suno prompt or the mastering status.
 - Nobody can create tracks on behalf of someone else, or change the owner of a track.
 - Files can only be uploaded into one's own folder (`<user_id>/…`) and only read when they are one's own or belong to non-private tracks.
 - Buckets are private (Supabase covers and the R2 audio bucket): files are only reachable through expiring signed URLs, issued by the server after checking ownership. The R2 keys only live on the server.
@@ -381,7 +406,7 @@ erDiagram
 
 ## API
 
-Every route requires a valid session (cookie), otherwise it responds `401`. Validation errors: `400` with per-field `data.issues`.
+Every route requires a valid session (cookie), otherwise it responds `401`, except `/api/health` and the `/api/shared/*` routes, which are public. Validation errors: `400` with per-field `data.issues`.
 
 | Method | Path | Description |
 |---|---|---|
@@ -395,6 +420,9 @@ Every route requires a valid session (cookie), otherwise it responds `401`. Vali
 | `GET` | `/api/tracks/:id/playback` | Signed streaming URL `{ url, expiresAt }` |
 | `GET` | `/api/genres` | Built-in + custom genres |
 | `POST` | `/api/genres` | Creates a custom genre (or returns the existing one with the same name) |
+| `GET` | `/api/shared/:id` | Public: shareable data of an unlisted/public track (`404` for private ones) |
+| `GET` | `/api/shared/:id/playback` | Public: signed streaming URL of an unlisted/public track |
+| `GET` | `/api/shared/:id/cover` | Public: `302` to a fresh signed URL of the cover (used by link previews) |
 
 Response types live in `shared/types/track.ts`, request bodies in `shared/schemas/track.ts`.
 
@@ -498,7 +526,8 @@ Locally they are all generated with `make env` (or by `pnpm local` / `pnpm docke
 | `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright (headless / UI mode) |
 | `pnpm check` | lint + typecheck + test |
 | `pnpm db:start` / `db:stop` / `db:status` | Manage the local Supabase stack |
-| `pnpm db:reset` | Recreate the local DB from migrations and seed |
+| `pnpm db:reset` | Recreate the local DB from migrations and seed (**deletes local data**) |
+| `pnpm db:migrate` | Apply new migrations to the local DB, keeping its data |
 | `pnpm db:migration <name>` | New empty migration |
 | `pnpm db:lint` | Static analysis of the schema |
 | `pnpm db:types` | Regenerate `shared/types/database.types.ts` (the file is only written on success) |
@@ -518,6 +547,7 @@ Locally they are all generated with `make env` (or by `pnpm local` / `pnpm docke
 | `make setup` | Complete first run |
 | `make dev` | Development |
 | `make db-start` / `db-stop` / `db-reset` | Local database |
+| `make db-migrate` | Apply new migrations locally without losing data |
 | `make db-migration name=add_playlists` | New migration |
 | `make db-types` | Regenerate the types |
 | `make db-test` / `make db-lint` | Database tests and analysis |
@@ -533,9 +563,9 @@ Locally they are all generated with `make env` (or by `pnpm local` / `pnpm docke
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
 | Unit | Vitest (Node) | `test/unit/` | LRC parser and serializer, active-line lookup, peaks, paths, formats, Zod schemas, mappers, **backend services** (with mocked repositories), **player store** (with a fake audio engine: queue, previous/next, race conditions, errors), **WAV → FLAC**: real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked with a second, independent FLAC decoder, MD5 against Node's crypto, and detection of a corrupted stream |
-| Components | Vitest + `@nuxt/test-utils` | `test/nuxt/` | `LyricsView` (active line, seek, sections), `TrackCover` |
-| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS policies across two users and an anonymous visitor, constraints, generated columns, sharing, storage policies |
-| End-to-end | Playwright | `test/e2e/` | Sign-in, sign-up, sign-out, protected pages, real upload of a 24-bit WAV (the file **downloaded back from storage** must be a FLAC decoding to exactly the original samples), floating-point WAV kept unchanged, playback, editing, cover, LRC import, expanded player, deletion |
+| Components | Vitest + `@nuxt/test-utils` | `test/nuxt/` | `LyricsView` (active line, seek, sections), `TrackCover`, `TrackList` |
+| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS policies across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing (fields never exposed), storage policies |
+| End-to-end | Playwright | `test/e2e/` | Sign-in, sign-up, sign-out, protected pages, real upload of a 24-bit WAV (the file **downloaded back from storage** must be a FLAC decoding to exactly the original samples), floating-point WAV kept unchanged, playback, editing, cover, LRC import, expanded player, deletion, **sharing** (the page opens without an account, never shows the Suno prompt or the mastering status, and answers `404` once the track is private again) |
 
 ```bash
 make test        # unit + components (seconds)
@@ -611,8 +641,8 @@ For later migrations: `make db-migration name=…` → write the SQL → `make d
 - **Language**: everything in the repository is in English (code, comments, docs, UI text, commit messages).
 - **Style**: ESLint with stylistic rules (no Prettier). `make lint-fix` fixes things automatically.
 - **Components**: Nuxt prefixes the component name with its folder (without repeating it). `components/track/CoverPicker.vue` would be used as `<TrackCoverPicker>`, not `<CoverPicker>`. For clarity, files already carry the full name (`track/TrackCoverPicker.vue`), and the typecheck flags unknown components.
-- **New table or column**: migration → RLS policies in the same migration → pgTAP tests → `make db-types` → mapper → repository → service → route → client in `app/services/api.ts`.
-- **New endpoint**: a route in `server/api/` should only call `requireAuth`, validate with `readValidated` / `requireUuidParam` and call a service. Logic belongs in the service, which is tested without Nuxt.
+- **New table or column**: migration (with RLS policies and explicit `grant`s, see `…_grants.sql`) → `make db-migrate` → pgTAP tests → `make db-types` → mapper → repository → service → route → client in `app/services/api.ts`.
+- **New endpoint**: a route in `server/api/` should only call `requireAuth` (or `visitorClient` for public routes), validate with `readValidated` / `requireUuidParam` and call a service. Logic belongs in the service, which is tested without Nuxt.
 - **Shared code**: anything needed by both client and server goes in `shared/` (pure code only, no browser or Node APIs).
 - **Never** use the Supabase service key in the app: the server-side client must act with the user's token.
 
@@ -620,7 +650,6 @@ For later migrations: `make db-migration name=…` → write the SQL → `make d
 
 ## Known limitations and next steps
 
-- **Public sharing page** (`/t/[id]`) with a social preview: DB and storage are ready (`get_shared_track`, policies). The server-rendered page is still missing.
 - **Playlists and an editable queue** (reordering, "play next").
 - **Manual cover cropping**: cropping is currently automatic (centered).
 - **Orphaned uploads**: if the browser is closed after the audio reached R2 but before the track is registered, the file stays in the bucket. It is rare and harmless, but a periodic clean-up job could remove files without a track.
