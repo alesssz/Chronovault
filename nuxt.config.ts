@@ -36,6 +36,19 @@ export default defineNuxtConfig({
     fallback: 'dark',
   },
 
+  runtimeConfig: {
+    // Server-only. Audio files live on an S3-compatible storage: Cloudflare R2 in
+    // production, the local Supabase S3 endpoint in development.
+    // Set through NUXT_AUDIO_STORAGE_ENDPOINT, _REGION, _BUCKET, _ACCESS_KEY_ID, _SECRET_ACCESS_KEY.
+    audioStorage: {
+      endpoint: '',
+      region: 'auto',
+      bucket: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+    },
+  },
+
   routeRules: {
     // App pages are personal and use browser APIs (Web Audio, File):
     // they are rendered on the client only. SSR stays available for future

@@ -59,3 +59,11 @@ export interface PlaybackSource {
   url: string
   expiresAt: string
 }
+
+/** Where the client uploads an audio file: a presigned PUT URL on the audio storage. */
+export interface AudioUploadTarget {
+  uploadUrl: string
+  /** Storage key to send back to POST /api/tracks. */
+  audioPath: string
+  expiresAt: string
+}

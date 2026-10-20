@@ -1,11 +1,11 @@
 import type { Genre } from '~~/shared/types/track'
 import { MAX_AUDIO_BYTES, resolveAudioMimeType, storageExtension } from '~~/shared/utils/audio-files'
-import { AUDIO_BUCKET, COVERS_BUCKET, buildAudioPath, buildCoverPath } from '~~/shared/utils/storage-paths'
+import { COVERS_BUCKET, buildCoverPath } from '~~/shared/utils/storage-paths'
 import { analyzeAudioFile } from '~/lib/audio-analysis'
 import { convertWavToFlac } from '~/lib/flac/convert'
 import { isWavFile } from '~/lib/flac/wav'
 import { toSquareWebp } from '~/lib/image'
-import { resumableUpload } from '~/lib/resumable-upload'
+import { directUpload } from '~/lib/direct-upload'
 import { genresApi, tracksApi } from '~/services/api'
 
 export type UploadStatus = 'queued' | 'analyzing' | 'converting' | 'uploading' | 'saving' | 'done' | 'error'
@@ -34,15 +34,15 @@ export interface UploadItem {
  *   1. in-browser analysis (tags, cover, duration, peaks)
  *   2. WAV only: lossless conversion to FLAC, verified bit for bit
  *      (when it cannot be verified, the original WAV is uploaded instead)
- *   3. resumable upload of the audio straight into Storage
- *   4. upload of the cover (resized to WebP), when the tags contain one
+ *   3. upload of the audio straight to the audio storage (Cloudflare R2)
+ *      through a presigned URL from POST /api/tracks/upload-url
+ *   4. upload of the cover (resized to WebP) to Supabase Storage, when the tags contain one
  *   5. track registration through POST /api/tracks
- * If step 5 fails, the files already uploaded are removed.
+ * If step 5 fails, the server removes the uploaded audio and the client the cover.
  */
 export function useTrackUploader() {
   const supabase = useSupabaseClient()
   const user = useSupabaseUser()
-  const config = useRuntimeConfig()
 
   const items = ref<UploadItem[]>([])
   const running = ref(false)
@@ -95,12 +95,6 @@ export function useTrackUploader() {
     }
   }
 
-  async function getAccessToken(): Promise<string> {
-    const { data } = await supabase.auth.getSession()
-    if (!data.session) throw new Error('Session expired: please sign in again')
-    return data.session.access_token
-  }
-
   async function findGenreId(name: string | null): Promise<string | null> {
     if (!name) return null
     genres ??= await genresApi.list().catch(() => [])
@@ -110,7 +104,6 @@ export function useTrackUploader() {
 
   async function process(item: UploadItem): Promise<void> {
     const userId = user.value?.sub
-    let audioPath: string | null = null
     let coverPath: string | null = null
 
     try {
@@ -139,15 +132,16 @@ export function useTrackUploader() {
       }
 
       const trackId = crypto.randomUUID()
-      audioPath = buildAudioPath(userId, trackId, storageExtension(audioFile))
 
       item.status = 'uploading'
-      await resumableUpload({
-        supabaseUrl: config.public.supabase.url,
-        apiKey: config.public.supabase.key,
-        getAccessToken,
-        bucket: AUDIO_BUCKET,
-        path: audioPath,
+      const target = await tracksApi.uploadUrl({
+        trackId,
+        extension: storageExtension(audioFile),
+        mimeType,
+        sizeBytes: audioFile.size,
+      })
+      await directUpload({
+        url: target.uploadUrl,
         file: audioFile,
         contentType: mimeType,
         onProgress: (fraction) => {
@@ -168,7 +162,7 @@ export function useTrackUploader() {
         year: analysis.year,
         genreId: await findGenreId(analysis.genre),
         lyrics: analysis.lyrics,
-        audioPath,
+        audioPath: target.audioPath,
         coverPath,
         mimeType,
         sizeBytes: audioFile.size,
@@ -183,8 +177,8 @@ export function useTrackUploader() {
     catch (error) {
       item.status = 'error'
       item.error = getErrorMessage(error, 'Upload failed')
-      // No orphaned files in storage when the track was not registered.
-      if (audioPath) await supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
+      // No orphaned cover when the track was not registered
+      // (the server takes care of the audio file).
       if (coverPath) await supabase.storage.from(COVERS_BUCKET).remove([coverPath])
     }
   }

@@ -1,5 +1,5 @@
-import type { Genre, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
-import type { GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
+import type { AudioUploadTarget, Genre, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 
 /**
  * Typed client for the server API. The only place where the frontend
@@ -9,6 +9,7 @@ import type { GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/
 export const tracksApi = {
   list: () => $fetch<TrackSummary[]>('/api/tracks'),
   get: (id: string) => $fetch<TrackDetail>(`/api/tracks/${id}`),
+  uploadUrl: (body: AudioUploadRequest) => $fetch<AudioUploadTarget>('/api/tracks/upload-url', { method: 'POST', body }),
   create: (body: TrackCreateInput) => $fetch<TrackDetail>('/api/tracks', { method: 'POST', body }),
   update: (id: string, body: TrackUpdateInput) => $fetch<TrackDetail>(`/api/tracks/${id}`, { method: 'PATCH', body }),
   remove: (id: string) => $fetch<null>(`/api/tracks/${id}`, { method: 'DELETE' }),

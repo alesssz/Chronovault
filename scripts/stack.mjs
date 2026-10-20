@@ -13,6 +13,7 @@ import {
   dockerIsRunning,
   ensureDocker,
   ensureSupabase,
+  localAudioStorageEnv,
   publishableKey,
   runInherited,
   waitForUrl,
@@ -35,7 +36,11 @@ function dockerSupabaseUrl(apiUrl) {
 async function local() {
   await ensureDocker()
   const status = await ensureSupabase()
-  writeEnvFile(resolve('.env'), { SUPABASE_URL: status.API_URL, SUPABASE_KEY: publishableKey(status) })
+  writeEnvFile(resolve('.env'), {
+    SUPABASE_URL: status.API_URL,
+    SUPABASE_KEY: publishableKey(status),
+    ...localAudioStorageEnv(status),
+  })
   console.log('✔ .env updated')
   console.log('▸ Starting Nuxt on http://localhost:3000  (Ctrl+C stops the app; `pnpm stop` stops Supabase too)\n')
   return runInherited('pnpm dev')
@@ -48,6 +53,8 @@ async function docker() {
   writeEnvFile(resolve('.env.docker'), {
     NUXT_PUBLIC_SUPABASE_URL: dockerSupabaseUrl(status.API_URL),
     NUXT_PUBLIC_SUPABASE_KEY: publishableKey(status),
+    // Presigned audio URLs embed this host: it must work from the container and the browser.
+    ...localAudioStorageEnv(status, 'host.docker.internal'),
   })
   console.log('✔ .env.docker updated')
 

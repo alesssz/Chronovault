@@ -20,7 +20,7 @@ It works on desktop and smartphones and can be installed as a PWA.
 - [Environment variables](#environment-variables)
 - [Scripts and Makefile](#scripts-and-makefile)
 - [Testing](#testing)
-- [Deployment (Supabase + Vercel)](#deployment-supabase--vercel)
+- [Deployment (Supabase + Cloudflare R2 + Vercel)](#deployment-supabase--cloudflare-r2--vercel)
 - [Development conventions](#development-conventions)
 - [Known limitations and next steps](#known-limitations-and-next-steps)
 - [Troubleshooting](#troubleshooting)
@@ -33,7 +33,7 @@ It works on desktop and smartphones and can be installed as a PWA.
 |---|---|
 | **Accounts** | Sign-up, sign-in and sign-out with email and password. Each user only sees their own tracks. |
 | **Library** | Track list with cover, composers, duration, genre, mastering status and visibility/lyrics indicators. Search, genre and mastering filters, sorting. Click a track's name to play it; click the name of the track already in the player to open the full-screen view. |
-| **Upload** | Drop multiple files (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, max 500 MB). Title, composers, album, year, genre, lyrics and cover are read from the tags. **WAV files are converted to FLAC losslessly**, with a bit-for-bit verification (see [Lossless WAV → FLAC conversion](#lossless-wav--flac-conversion)). Resumable upload with a progress bar. |
+| **Upload** | Drop multiple files (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, max 500 MB). Title, composers, album, year, genre, lyrics and cover are read from the tags. **WAV files are converted to FLAC losslessly**, with a bit-for-bit verification (see [Lossless WAV → FLAC conversion](#lossless-wav--flac-conversion)). Direct upload with a progress bar, retried on network errors. |
 | **Player** | Always-visible bottom bar that survives page changes. Clickable and draggable waveform (scrubbing), elapsed and remaining time, play/pause, stop, previous/next, volume and mute. Controls also from the lock screen and media keys (Media Session). |
 | **Expanded player** | Full-screen view with a large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls automatically, and clicking a line seeks there. |
 | **Editor** | Title, composers, album, year, genre (built-in + custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with sections (`[Verse]`, `[Chorus]`). |
@@ -53,11 +53,11 @@ It works on desktop and smartphones and can be installed as a PWA.
 | UI | **Nuxt UI 4** + Tailwind CSS 4 | Accessible components (Reka UI), Lucide icons via Iconify |
 | State | **Pinia** | Player store |
 | Utilities | **VueUse** | Events, storage, etc. |
-| Database, Auth, Storage | **Supabase** (Postgres 17) | With Row Level Security |
+| Database, Auth, cover storage | **Supabase** (Postgres 17) | With Row Level Security |
+| Audio storage | **Cloudflare R2** (S3-compatible) | Free egress for streaming; presigned URLs signed with **aws4fetch**. Locally, Supabase's S3 endpoint stands in for it |
 | Supabase integration | `@nuxtjs/supabase` | Cookie-based session, also usable on the server |
 | Waveform | **wavesurfer.js 8** | Pre-computed peaks, no decoding during playback |
 | Audio tags | **music-metadata 12** | Tag parsing in the browser |
-| Upload | **tus-js-client** | Resumable upload (TUS protocol) straight to storage |
 | WAV → FLAC | **libflacjs** (libFLAC 1.3.4, WebAssembly) + **hash-wasm** (MD5) | Reference FLAC encoder, run in a Web Worker |
 | Validation | **Zod 4** | Same schemas for forms (client) and API (server) |
 | PWA | `@vite-pwa/nuxt` | |
@@ -90,20 +90,25 @@ flowchart LR
   subgraph Supabase
     Auth[Auth]
     DB[(Postgres + RLS)]
-    Storage[(Storage<br/>audio · covers)]
+    Storage[(Storage<br/>covers)]
+  end
+
+  subgraph Cloudflare
+    R2[(R2<br/>audio files)]
   end
 
   UI -- "$fetch /api/*" --> API
   Repos -- "client with the user's JWT" --> DB
   Repos -- "signed URLs" --> Storage
-  Analysis -- "direct TUS upload" --> Storage
+  Repos -- "presigned URLs (S3 API)" --> R2
+  Analysis -- "direct upload (presigned PUT)" --> R2
   UI -- "sign-in / sign-out" --> Auth
-  Engine -- "streaming via signed URL<br/>(range requests)" --> Storage
+  Engine -- "streaming via presigned URL<br/>(range requests)" --> R2
 ```
 
 Key principles:
 
-1. **Files never go through Vercel.** Serverless functions accept requests of about 4.5 MB, while a FLAC weighs 30-50. The browser uploads files straight to Storage and plays them from signed URLs. The backend only handles lightweight data.
+1. **Files never go through Vercel.** Serverless functions accept requests of about 4.5 MB, while a FLAC weighs 30-50. The browser uploads audio straight to Cloudflare R2 (covers to Supabase Storage) and plays it from presigned URLs. The backend only handles lightweight data and signs URLs; R2 credentials never leave the server.
 2. **The backend uses the user's token, never the service key.** Every query goes through Postgres RLS policies, so even a bug in server code cannot expose another user's data.
 3. **Audio processing in the browser.** Tags, cover, duration and waveform peaks are computed before uploading, so the server never processes files.
 4. **A single audio engine.** The `<audio>` element lives outside components, while the UI (bar, expanded view, lyrics editor) is a "view" over the same store. That is why music keeps playing across page changes.
@@ -127,7 +132,7 @@ ChronoPlayer/
 │   ├── composables/              # useTrackUploader (upload queue), useGenres
 │   ├── layouts/                  # default (header + player), auth (sign-in)
 │   ├── lib/                      # Browser code without Vue: audio-engine, audio-analysis,
-│   │   │                         #   resumable-upload, image, media-session
+│   │   │                         #   direct-upload, image, media-session
 │   │   └── flac/                 # WAV parser, verified FLAC encoder, Web Worker
 │   ├── pages/
 │   │   ├── index.vue             # Library
@@ -195,6 +200,7 @@ sequenceDiagram
   participant S as Supabase Storage
   participant N as Nuxt API
   participant D as Postgres
+  participant R as Cloudflare R2
 
   U->>B: drops the files
   B->>B: analyzeAudioFile()<br/>tags (music-metadata) · cover · duration<br/>peaks (decoded at 8 kHz)
@@ -202,20 +208,22 @@ sequenceDiagram
     B->>B: Web Worker: WAV → FLAC (libFLAC)<br/>verified bit for bit, else keep the WAV
   end
   B->>B: trackId = crypto.randomUUID()
-  B->>S: TUS upload → audio/<userId>/<trackId>.<ext><br/>(6 MB chunks, resumable)
+  B->>N: POST /api/tracks/upload-url {trackId, extension, size}
+  N-->>B: presigned PUT URL for <userId>/<trackId>.<ext>
+  B->>R: PUT file (progress bar, retried on network errors)
   opt cover in the tags
     B->>B: square crop + WebP 800×800
     B->>S: upload → covers/<userId>/<trackId>.webp
   end
   B->>N: POST /api/tracks {id, metadata, audioPath, peaks…}
   N->>N: validate (Zod) · path inside the user's folder?
-  N->>S: does the file really exist?
+  N->>R: HEAD: does the file exist, with the declared size?
   N->>D: INSERT tracks (RLS: user_id = auth.uid())
   N-->>B: 201 track created
-  Note over B: if POST fails, the browser<br/>deletes the files already uploaded
+  Note over N,B: if registration fails, the server deletes the audio<br/>from R2 and the browser the cover
 ```
 
-- The client generates the track id, so the file path is known before uploading. The server still checks that the path is `<user id>/<track id>.*` and that the file exists.
+- The client generates the track id; the server builds the storage key `<user id>/<track id>.<ext>` itself when it signs the upload URL, so a user can only upload into their own folder. On registration it checks that the file exists on R2 and has exactly the declared size (a file that does not match is deleted and refused).
 - The **peaks** (1000 values between 0 and 1) are stored in the DB: the waveform shows up immediately without downloading and decoding the file again.
 - The genre read from the tags is matched to an existing genre with the same name. Genres are never created automatically.
 
@@ -359,14 +367,14 @@ erDiagram
 |---|---|
 | `…_schema.sql` | Tables, constraints (lengths, year, paths inside the owner's folder), indexes, `updated_at` trigger, owner-change guard, built-in genres |
 | `…_rls.sql` | RLS policies for `tracks` and `genres`, `get_shared_track` function |
-| `…_storage.sql` | Private buckets `audio` (500 MB, `audio/*`) and `covers` (10 MB, images), storage policies |
+| `…_storage.sql` | Private buckets `covers` (10 MB, images) and `audio` (only used locally, where Supabase's S3 endpoint stands in for R2), storage policies |
 
 **Security guarantees**, verified by the pgTAP tests:
 
 - A user reads, updates and deletes only their own tracks and genres. Of other users' tracks, they only see public ones.
 - Nobody can create tracks on behalf of someone else, or change the owner of a track.
 - Files can only be uploaded into one's own folder (`<user_id>/…`) and only read when they are one's own or belong to non-private tracks.
-- Buckets are private: files are only reachable through expiring signed URLs.
+- Buckets are private (Supabase covers and the R2 audio bucket): files are only reachable through expiring signed URLs, issued by the server after checking ownership. The R2 keys only live on the server.
 - The public key (`SUPABASE_KEY`) can live on the client: protection comes from the policies, not from keeping the key secret. The service key is not used by the app.
 
 ---
@@ -379,7 +387,8 @@ Every route requires a valid session (cookie), otherwise it responds `401`. Vali
 |---|---|---|
 | `GET` | `/api/health` | Service status (public) |
 | `GET` | `/api/tracks` | The user's library (summaries + signed cover URLs) |
-| `POST` | `/api/tracks` | Registers a track already uploaded to storage → `201` |
+| `POST` | `/api/tracks/upload-url` | Presigned URL to upload an audio file to R2, inside the user's folder |
+| `POST` | `/api/tracks` | Registers a track already uploaded to the audio storage → `201` |
 | `GET` | `/api/tracks/:id` | Full detail (metadata, lyrics, peaks) |
 | `PATCH` | `/api/tracks/:id` | Updates one or more metadata fields / the cover |
 | `DELETE` | `/api/tracks/:id` | Deletes the track and its files → `204` |
@@ -458,8 +467,13 @@ Useful local services:
 |---|---|---|
 | `SUPABASE_URL` | yes | Supabase project URL (local: `http://127.0.0.1:54321`) |
 | `SUPABASE_KEY` | yes | **Public** key (publishable / anon) |
+| `NUXT_AUDIO_STORAGE_ENDPOINT` | yes | S3 endpoint of the audio storage: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` in production, Supabase's local S3 endpoint in development |
+| `NUXT_AUDIO_STORAGE_REGION` | yes | `auto` for R2 (`local` locally) |
+| `NUXT_AUDIO_STORAGE_BUCKET` | yes | Bucket name (`chronoplayer-audio` on R2, `audio` locally) |
+| `NUXT_AUDIO_STORAGE_ACCESS_KEY_ID` | yes | R2 API token key (server only) |
+| `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | yes | R2 API token secret (server only, **never** commit it) |
 
-Locally they are generated with `make env`. On Vercel they are set in the project's *Environment Variables*. See `.env.example`.
+Locally they are all generated with `make env` (or by `pnpm local` / `pnpm docker`). On Vercel they are set in the project's *Environment Variables*. See `.env.example` and, for R2, `.env.r2.example`.
 
 ---
 
@@ -490,6 +504,7 @@ Locally they are generated with `make env`. On Vercel they are set in the projec
 | `pnpm db:types` | Regenerate `shared/types/database.types.ts` (the file is only written on success) |
 | `pnpm db:push` | Apply migrations to the linked remote project |
 | `pnpm env:local` | Generate `.env` from the local stack |
+| `pnpm r2:check [origin…]` | Check the Cloudflare R2 configuration in `.env.r2`: upload, streaming, CORS, delete |
 | `pnpm generate:pwa-assets` | Regenerate the PWA icons from `public/favicon.svg` |
 
 ### Makefile
@@ -535,7 +550,7 @@ The **CI** (`.github/workflows/ci.yml`) runs lint, typecheck and the Vitest test
 
 ---
 
-## Deployment (Supabase + Vercel)
+## Deployment (Supabase + Cloudflare R2 + Vercel)
 
 ### 1. Supabase Cloud
 
@@ -550,13 +565,39 @@ The **CI** (`.github/workflows/ci.yml`) runs lint, typecheck and the Vitest test
 3. **Authentication → URL Configuration**:
    - *Site URL*: `https://<your-domain>`
    - *Redirect URLs*: `https://<your-domain>/confirm`
-4. **Storage → Settings**: check the *Global file size limit*. On the free plan the maximum is 50 MB per file. The 500 MB limit of the `audio` bucket only applies when the plan allows it.
+4. Storage: only covers (small WebP images) are stored here; audio files go to Cloudflare R2, so the 50 MB per-file limit of the free plan does not matter.
 5. Copy the *Project URL* and the *publishable key* (Settings → API).
 
-### 2. Vercel
+### 2. Cloudflare R2 (audio files)
+
+Labels in the Cloudflare dashboard may change slightly over time.
+
+1. **R2 Object Storage → Overview**: enable R2 on the free plan (Cloudflare may ask for a payment method even within the free tier).
+2. **Create bucket**: name `chronoplayer-audio`, location *Automatic*, default storage class *Standard*. Leave public access disabled: files are only reachable through presigned URLs.
+3. **Bucket → Settings → CORS policy**: the browser uploads (PUT) and reads (GET with `Range`) files directly.
+   ```json
+   [
+     {
+       "AllowedOrigins": ["http://localhost:3000", "https://<your-domain>"],
+       "AllowedMethods": ["GET", "HEAD", "PUT"],
+       "AllowedHeaders": ["content-type", "range"],
+       "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+4. **R2 → Manage API tokens → Create API token**: permission *Object Read & Write*, restricted to the `chronoplayer-audio` bucket. Copy the *Access Key ID*, the *Secret Access Key* (shown only once) and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+5. Copy `.env.r2.example` to `.env.r2` (git-ignored), fill it in and run:
+   ```bash
+   pnpm r2:check                          # checks with origin http://localhost:3000
+   pnpm r2:check https://<your-domain>    # after the first deploy
+   ```
+   Every check must be ✔.
+
+### 3. Vercel
 
 1. Import the repository: the Nuxt preset is detected automatically.
-2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY`.
+2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY` and the five `NUXT_AUDIO_STORAGE_*` values from `.env.r2`.
 3. *Settings → General → Node.js Version*: 24.x.
 4. pnpm: the version is pinned in `packageManager`. If Vercel does not pick it up, add the `ENABLE_EXPERIMENTAL_COREPACK=1` variable.
 5. Deploy. Check `https://<your-domain>/api/health`.
@@ -582,6 +623,7 @@ For later migrations: `make db-migration name=…` → write the SQL → `make d
 - **Public sharing page** (`/t/[id]`) with a social preview: DB and storage are ready (`get_shared_track`, policies). The server-rendered page is still missing.
 - **Playlists and an editable queue** (reordering, "play next").
 - **Manual cover cropping**: cropping is currently automatic (centered).
+- **Orphaned uploads**: if the browser is closed after the audio reached R2 but before the track is registered, the file stays in the bucket. It is rare and harmless, but a periodic clean-up job could remove files without a track.
 - **Cover signed URLs**: they change every time the library loads, so the browser cannot cache them. Options: a public bucket for covers of public tracks, or longer-lived, memoized URLs.
 - **Library pagination**: everything is loaded at once today, which is fine up to a few hundred tracks.
 - **PWA offline mode** (downloading tracks to listen without a connection).
@@ -599,7 +641,8 @@ For later migrations: `make db-migration name=…` → write the SQL → `make d
 | `pnpm docker`: the app cannot reach Supabase | Docker Desktop must map `host.docker.internal` on the host (Settings → General → "Add the *.docker.internal names to the host's /etc/hosts file", on by default) |
 | Always sent back to `/login` | `.env` missing or stale: `make env`, then restart `make dev` |
 | `Audio format not supported` during playback | The browser does not support that codec (e.g. some OGG files on older Safari). The file stays saved. |
-| Large uploads fail in production | Check the storage *Global file size limit* (50 MB on the free plan) |
+| Upload fails in production with a CORS error | Add the app domain to the R2 CORS policy, then `pnpm r2:check https://<your-domain>` |
+| `Audio storage is not configured` (HTTP 500) | One of the `NUXT_AUDIO_STORAGE_*` variables is missing (Vercel settings, or `make env` locally) |
 | Outdated database TypeScript types | `make db-types` after every migration |
 | First page load in `make dev` is very slow | Expected: Vite compiles dependencies on the first request. Later loads are fast. |
 | `make` not found on Windows | Use Git Bash, or the equivalent `pnpm …` commands above |

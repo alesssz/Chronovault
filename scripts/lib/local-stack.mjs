@@ -76,6 +76,23 @@ export function publishableKey(status) {
   return status.PUBLISHABLE_KEY ?? status.ANON_KEY
 }
 
+/**
+ * Audio storage settings for local development: the S3 endpoint of the local
+ * Supabase stack (same protocol as Cloudflare R2, used in production).
+ * `hostname` replaces 127.0.0.1 when the app runs inside a container.
+ */
+export function localAudioStorageEnv(status, hostname) {
+  const endpoint = new URL(status.STORAGE_S3_URL)
+  if (hostname) endpoint.hostname = hostname
+  return {
+    NUXT_AUDIO_STORAGE_ENDPOINT: endpoint.href.replace(/\/$/, ''),
+    NUXT_AUDIO_STORAGE_REGION: status.S3_PROTOCOL_REGION ?? 'local',
+    NUXT_AUDIO_STORAGE_BUCKET: 'audio',
+    NUXT_AUDIO_STORAGE_ACCESS_KEY_ID: status.S3_PROTOCOL_ACCESS_KEY_ID,
+    NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY: status.S3_PROTOCOL_ACCESS_KEY_SECRET,
+  }
+}
+
 /** Sets the given variables in an env file, keeping any other line already there. */
 export function writeEnvFile(path, values) {
   const lines = existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/) : []

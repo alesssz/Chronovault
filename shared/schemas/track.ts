@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRACK_VISIBILITIES } from '../types/track'
-import { MAX_AUDIO_BYTES } from '../utils/audio-files'
+import { AUDIO_EXTENSIONS, MAX_AUDIO_BYTES } from '../utils/audio-files'
 import { PEAKS_RESOLUTION } from '../utils/peaks'
 
 /**
@@ -37,13 +37,25 @@ export const trackMetadataSchema = z.object({
 export type TrackMetadataInput = z.input<typeof trackMetadataSchema>
 export type TrackMetadata = z.output<typeof trackMetadataSchema>
 
+const audioMimeType = z.string().regex(/^audio\/[\w.+-]+$/, 'Invalid audio format')
+
+/** Body of POST /api/tracks/upload-url: the file the client is about to upload. */
+export const audioUploadRequestSchema = z.object({
+  trackId: z.uuid(),
+  extension: z.enum(Object.keys(AUDIO_EXTENSIONS) as [string, ...string[]]),
+  mimeType: audioMimeType,
+  sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES, 'File too large'),
+})
+
+export type AudioUploadRequest = z.output<typeof audioUploadRequestSchema>
+
 /** Body of POST /api/tracks: technical file data + initial metadata. */
 export const trackCreateSchema = trackMetadataSchema.partial().extend({
   id: z.uuid(),
   title: trackMetadataSchema.shape.title,
   audioPath: storagePath,
   coverPath: storagePath.nullable().optional(),
-  mimeType: z.string().regex(/^audio\/[\w.+-]+$/, 'Invalid audio format'),
+  mimeType: audioMimeType,
   sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES),
   durationSeconds: z.number().min(0).nullable().optional(),
   peaks: z.array(z.number().min(0).max(1)).max(PEAKS_RESOLUTION).nullable().optional(),

@@ -1,15 +1,8 @@
 import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 
-/** Lifetime of signed URLs for audio and covers (seconds). */
+/** Lifetime of signed URLs for audio streaming and covers (seconds). */
 export const SIGNED_URL_TTL = 6 * 60 * 60
-
-export async function objectExists(db: DbClient, bucket: string, path: string): Promise<boolean> {
-  const { data, error } = await db.storage.from(bucket).exists(path)
-  // `exists` returns a 400/404 error when the file is missing: that means "does not exist".
-  if (error) return false
-  return data
-}
 
 export async function createSignedUrl(db: DbClient, bucket: string, path: string): Promise<string> {
   const { data, error } = await db.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL)

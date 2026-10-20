@@ -29,7 +29,8 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node .output/server/index.mjs',
+    // The production server reads its runtime config (audio storage keys…) from the environment.
+    command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node --env-file=.env .output/server/index.mjs',
     env: { PORT: String(PORT) },
     url: `${baseURL}/api/health`,
     reuseExistingServer: !process.env.CI,

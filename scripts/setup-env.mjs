@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Creates (or updates) the .env file with the URL and public key
- * of the local Supabase stack (`supabase status`).
+ * Creates (or updates) the .env file from the local Supabase stack
+ * (`supabase status`): Supabase URL and public key, plus the audio storage,
+ * which locally is Supabase's S3 endpoint (Cloudflare R2 in production).
  *
  * Usage:  pnpm env:local   or   make env
  */
 import { resolve } from 'node:path'
-import { publishableKey, supabaseStatus, writeEnvFile } from './lib/local-stack.mjs'
+import { localAudioStorageEnv, publishableKey, supabaseStatus, writeEnvFile } from './lib/local-stack.mjs'
 
 const status = supabaseStatus()
 if (!status) {
@@ -17,5 +18,6 @@ if (!status) {
 writeEnvFile(resolve(process.cwd(), '.env'), {
   SUPABASE_URL: status.API_URL,
   SUPABASE_KEY: publishableKey(status),
+  ...localAudioStorageEnv(status),
 })
 console.log(`✔ .env updated (${status.API_URL})`)
