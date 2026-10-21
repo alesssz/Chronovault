@@ -21,6 +21,15 @@ export const TRACK_VISIBILITIES = ['private', 'unlisted', 'public'] as const
  */
 export type TrackVisibility = (typeof TRACK_VISIBILITIES)[number]
 
+/** Possible statuses (also the Postgres enum `track_status`). */
+export const TRACK_STATUSES = ['draft', 'final'] as const
+/**
+ * - `draft`: a work in progress, e.g. one of several versions sent to friends
+ *   to pick the best; new uploads start here. Share pages say "Work in progress".
+ * - `final`: the chosen, finished version.
+ */
+export type TrackStatus = (typeof TRACK_STATUSES)[number]
+
 /**
  * A synced lyric line: `time` in seconds from the start of the track.
  * Section headers (`[Verse 1]`, `[Chorus]`…) have `section: true` and the
@@ -50,6 +59,8 @@ export interface TrackSummary {
   genreId: string | null
   mastered: boolean
   visibility: TrackVisibility
+  /** Draft (work in progress) or final version. */
+  status: TrackStatus
   /** Measured in the browser at upload time; null when the file could not be decoded. */
   durationSeconds: number | null
   /** Generated columns: the library shows lyrics badges without loading the lyrics. */
@@ -105,6 +116,8 @@ export interface SharedTrackContent {
   lyricsSynced: SyncedLyricLine[] | null
   peaks: number[] | null
   durationSeconds: number | null
+  /** Drafts are shown to visitors as "Work in progress". */
+  status: TrackStatus
   /** Signed Storage URL (6 h) of the cover: visitors have no session for /api/covers. */
   coverUrl: string | null
   updatedAt: string

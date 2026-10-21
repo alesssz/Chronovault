@@ -101,6 +101,16 @@ function onLyricSeek(seconds: number) {
         />
 
         <div class="min-w-0">
+          <!-- A draft is one version among others: friends know it is not the final cut -->
+          <UBadge
+            v-if="track.status === 'draft'"
+            label="Work in progress"
+            icon="i-lucide-flask-conical"
+            color="warning"
+            variant="subtle"
+            class="mb-2"
+            data-testid="shared-wip"
+          />
           <h1
             class="text-3xl font-bold tracking-tight text-balance"
             data-testid="shared-title"

@@ -38,13 +38,14 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | Area | What it does |
 |---|---|
 | **Accounts** | Sign-up, sign-in and sign-out with email and password. Each user only sees their own tracks and playlists. |
-| **Library** | Track list with cover, composers, duration, genre, mastering status, synced-lyrics and visibility badges. Search (title, composers, album), genre and mastering filters, sorting. Clicking a track's name plays it; clicking the name of the track already in the player opens the full-screen view. |
+| **Library** | Track list with cover, composers, duration, genre, mastering status, synced-lyrics and visibility badges, and a **Draft** badge on work-in-progress versions. Search (title, composers, album), genre, mastering and version (final / drafts) filters, sorting. **Select** mode: tick several tracks to mark them final, add them to a playlist, share them for feedback or delete them in one go. Clicking a track's name plays it; clicking the name of the track already in the player opens the full-screen view. |
 | **Upload** | Drop several files at once (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, WebM; max 500 MB each). Title, composers, album, year, genre, lyrics (synced ones too) and cover are read from the tags. **WAV files are converted to FLAC losslessly**, verified bit for bit ([7.4](#74-lossless-wav--flac-conversion)). Direct upload to storage with a progress bar, retried on network errors. |
 | **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, volume and mute (the volume is remembered). Lock-screen and media-key controls (Media Session). |
 | **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. The queue is **saved on the device**: after a reload you find the same queue and track, paused where you left it. |
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. |
-| **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
+| **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, draft/final version, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import (paste or open an `.lrc` file) and export (copy or download `.lrc`). All manual: no automatic alignment. |
+| **Draft versions** | New uploads are **drafts** (e.g. one of several Suno versions of a song); the chosen one is marked **final** (track menu, edit page, or several at once). Select 2-3 drafts → **Share for feedback** creates an unlisted playlist ("Night drive – versions") and copies its link: friends hear every version in a row, marked **Work in progress**. Then delete the others in one go ([7.17](#717-draft-versions-and-feedback)). |
 | **Playlists** | Ordered lists of your tracks. Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
 | **Download** | "Download" in the track menus and on the edit page saves the audio file **with its metadata written in**: title, composers (as artist and composer), album, year, genre, description (as comment), lyrics, **synced lyrics** and cover. FLAC and MP3 get every field; WAV the text fields; other formats are saved as stored. The audio itself is untouched, and the Suno prompt and mastering status are never written. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages. The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
@@ -278,6 +279,7 @@ ChronoPlayer/
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
+│   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
 │   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
@@ -315,7 +317,7 @@ ChronoPlayer/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
@@ -365,7 +367,7 @@ sequenceDiagram
 
 1. `pages/index.vue` calls `GET /api/tracks` once (`tracksApi.list`).
 2. `tracks.service.listTracks` reads the summary columns only (no lyrics, peaks or long texts). Each cover gets a **stable, versioned address**, `/api/covers/tracks/<id>?v=<version>` (`mappers/cover-urls.ts`): nothing is signed.
-3. The page filters (search, genre, mastering) and sorts **in the browser**: no request per keystroke.
+3. The page filters (search, genre, mastering, version) and sorts **in the browser**: no request per keystroke.
 4. Genres come from `GET /api/genres` (built-in + the user's custom ones), loaded once and shared by every page (`useGenres`).
 5. Playing a track passes the **currently filtered list** as the queue: "next" follows what is on screen.
 
@@ -749,6 +751,25 @@ sequenceDiagram
 
 - The page lists every shared item (even without visits) and every item visited in the period; "Private now" marks a page no longer shared.
 
+### 7.17 Draft versions and feedback
+
+A track is a **draft** (a work in progress) or **final** (`tracks.status`, enum `track_status`). New uploads start as drafts (the column default); tracks that existed before the feature became final.
+
+```mermaid
+flowchart LR
+  Upload["Upload 2-3 Suno versions<br/>(drafts)"] --> Select["Library → Select<br/>tick the versions"]
+  Select --> Share["Share for feedback<br/>unlisted playlist + link copied"]
+  Share --> Friends["Friends open /p/…<br/>versions marked WIP"]
+  Friends --> Final["Mark the chosen one final<br/>(menu, editor or selection)"]
+  Final --> Delete["Filter Drafts → Select all → Delete"]
+```
+
+- **Marking:** "Mark as final / Mark as draft" in the track menu, the *Version* switch on the edit page, or *Mark final* on a selection. Each is a `PATCH /api/tracks/:id { status }`; a selection sends one request per track, in parallel, and reports partial failures.
+- **Selection mode** (`pages/index.vue`, `TrackList.vue` with `selectable`): checkboxes on every row; a click on a title ticks it instead of playing, while the cover still plays, so versions can be compared while choosing. Only visible tracks stay selected (changing a filter unticks the hidden ones), so an action never touches what is not on screen. The bar stays under the header while scrolling; on phones its actions are icons.
+- **Share for feedback:** one `POST /api/playlists` with `visibility: 'unlisted'` and the ticked tracks, titled after their common name (`lib/feedback-playlist.ts`: "Night drive v1" + "Night drive v2" → "Night drive – versions"), then its link is copied. Like any shared playlist, it shares its private tracks inside the playlist only ([7.14](#714-sharing)).
+- **Share pages:** `get_shared_track` and `get_shared_playlist_tracks` return the status; drafts show **Work in progress** on `/t/…`, and **WIP** in the list and "Work in progress" in the now-playing header on `/p/…`.
+- **Bulk delete:** one `DELETE` per ticked track, in parallel, after one confirmation listing them; tracks that fail stay selected for a retry.
+
 ---
 
 ## 8. Data model and security
@@ -776,6 +797,7 @@ erDiagram
     text suno_prompt "never shared"
     boolean mastered "never shared"
     enum visibility "private | unlisted | public"
+    enum status "draft | final (new: draft)"
     text lyrics
     jsonb lyrics_synced "[{time, text, section?}]"
     boolean has_lyrics "generated"
@@ -825,6 +847,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261020000000_grants.sql` | Explicit table privileges for `anon` and `authenticated` (independent of the project's default grants) |
 | `20261021000000_public_sharing.sql` | `tracks` becomes owner-only; `get_shared_track` returns shareable fields only |
 | `20261022000000_playlists.sql` | `playlists`, `playlist_tracks`, their RLS; `set_playlist_tracks`; `get_shared_playlist(_tracks)`; storage sharing extended to playlists |
+| `20261023000000_track_status.sql` | `tracks.status` (`draft` / `final`: existing tracks final, new ones draft); the sharing functions return it |
 
 ### 8.3 Database functions
 
@@ -1028,10 +1051,10 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
 | Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data) with mocked repositories; the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
-| Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
+| Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList` (incl. draft badge and selection mode), `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
-| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **synced lyrics transfer** (LRC opened from a file, copied and downloaded; a downloaded FLAC uploaded into another account brings its sync back); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API) |
+| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed, draft/final status returned), new tracks start as drafts, playlists, storage policies — 55 tests |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **synced lyrics transfer** (LRC opened from a file, copied and downloaded; a downloaded FLAC uploaded into another account brings its sync back); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API); **draft versions** (uploads are drafts, two versions shared for feedback and seen as WIP by a visitor, one marked final, the version filter, the other drafts deleted in one go) |
 
 ```bash
 make test                 # unit + components (seconds)

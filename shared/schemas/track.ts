@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { TRACK_VISIBILITIES } from '../types/track'
+import { TRACK_STATUSES, TRACK_VISIBILITIES } from '../types/track'
 import { AUDIO_EXTENSIONS, MAX_AUDIO_BYTES } from '../utils/audio-files'
 import { PEAKS_RESOLUTION } from '../utils/peaks'
 
@@ -41,6 +41,8 @@ export const trackMetadataSchema = z.object({
   sunoPrompt: optionalText(5000),
   mastered: z.boolean(),
   visibility: z.enum(TRACK_VISIBILITIES),
+  /** Draft or final; omitted at creation, so the database default (draft) applies. */
+  status: z.enum(TRACK_STATUSES),
   lyrics: optionalText(20_000),
   lyricsSynced: z.array(syncedLyricLineSchema).max(2000).nullable(),
 })

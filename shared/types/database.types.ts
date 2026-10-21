@@ -79,14 +79,14 @@ isOneToOne: false
                   ]
                 },"tracks": {
                   Row: {
-                    "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
+                    "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"status": Database["public"]['Enums']["track_status"],"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "album"?: string | null,"audio_path": string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type": string,"peaks"?: Json | null,"size_bytes": number,"suno_prompt"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
+                    "album"?: string | null,"audio_path": string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type": string,"peaks"?: Json | null,"size_bytes": number,"status"?: Database["public"]['Enums']["track_status"],"suno_prompt"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
                   }
                   Update: {
-                    "album"?: string | null,"audio_path"?: string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type"?: string,"peaks"?: Json | null,"size_bytes"?: number,"suno_prompt"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
+                    "album"?: string | null,"audio_path"?: string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type"?: string,"peaks"?: Json | null,"size_bytes"?: number,"status"?: Database["public"]['Enums']["track_status"],"suno_prompt"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
                   }
                   Relationships: [
                     {
@@ -110,12 +110,12 @@ isOneToOne: false
                            },
 "get_shared_playlist_tracks":
 { Args: { "p_playlist_id": string }; Returns: {
-              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"position": number,"title": string,"updated_at": string,"year": number
+              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"position": number,"status": Database["public"]['Enums']["track_status"],"title": string,"updated_at": string,"year": number
             }[]
                            },
 "get_shared_track":
 { Args: { "p_track_id": string }; Returns: {
-              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
+              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"status": Database["public"]['Enums']["track_status"],"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
             }[]
                            },
 "is_shared_track_file":
@@ -129,7 +129,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "track_visibility": "private"|"unlisted"|"public"
+            "track_status": "draft"|"final","track_visibility": "private"|"unlisted"|"public"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -249,7 +249,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "track_visibility": ["private", "unlisted", "public"]
+            "track_status": ["draft", "final"],"track_visibility": ["private", "unlisted", "public"]
           }
         }
 } as const

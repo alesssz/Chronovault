@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Track editor (client-rendered), in three tabs:
- *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering
+ *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering, draft/final
  *   Lyrics  → plain lyrics with [Section] headers
  *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
  * Cover and deletion live in the side column and save immediately; the
@@ -57,6 +57,7 @@ function toFormState(t: TrackDetail): FormState {
     sunoPrompt: t.sunoPrompt ?? '',
     mastered: t.mastered,
     visibility: t.visibility,
+    status: t.status,
     lyrics: t.lyrics ?? '',
     lyricsSynced: t.lyricsSynced,
   }
@@ -464,6 +465,22 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                   <USwitch
                     v-model="state.mastered"
                     :label="state.mastered ? 'Mastered' : 'Not mastered'"
+                  />
+                </div>
+              </UFormField>
+
+              <!-- Draft (work in progress, e.g. one of several versions) or the final one -->
+              <UFormField
+                label="Version"
+                name="status"
+                help="Drafts are marked “Work in progress” on share pages."
+              >
+                <div class="flex h-8 items-center">
+                  <USwitch
+                    :model-value="state.status === 'final'"
+                    :label="state.status === 'final' ? 'Final' : 'Draft'"
+                    data-testid="field-status"
+                    @update:model-value="state.status = $event ? 'final' : 'draft'"
                   />
                 </div>
               </UFormField>

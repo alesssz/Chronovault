@@ -21,6 +21,7 @@ const row: TrackRow = {
   suno_prompt: null,
   mastered: true,
   visibility: 'unlisted',
+  status: 'draft',
   lyrics: 'lyrics',
   lyrics_synced: [{ time: 1, text: 'lyrics' }],
   has_lyrics: true,
@@ -62,12 +63,12 @@ describe('toSharedTrack', () => {
       id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
       description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
       duration_seconds: 180.5, peaks: [0.1, 1], cover_path: `${USER}/${TRACK}.webp`,
-      audio_path: `${USER}/${TRACK}.mp3`, visibility: 'public', updated_at: '2026-10-18T11:00:00Z',
+      audio_path: `${USER}/${TRACK}.mp3`, visibility: 'public', status: 'draft', updated_at: '2026-10-18T11:00:00Z',
     }, 'https://signed/cover')
 
     expect(Object.keys(shared).sort()).toEqual([
       'album', 'composers', 'coverUrl', 'description', 'durationSeconds', 'genre', 'id', 'lyrics',
-      'lyricsSynced', 'peaks', 'title', 'updatedAt', 'visibility', 'year',
+      'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'visibility', 'year',
     ])
     expect(shared).toMatchObject({ genre: 'Ambient', visibility: 'public', coverUrl: 'https://signed/cover' })
   })
@@ -92,6 +93,15 @@ describe('toTrackInsert', () => {
       cover_path: null,
       peaks: null,
     })
+    // No status: the database default makes a new upload a draft.
+    expect(insert).not.toHaveProperty('status')
+  })
+
+  it('keeps an explicit status', () => {
+    const insert = toTrackInsert(USER, {
+      id: TRACK, title: 'New', audioPath: `${USER}/${TRACK}.wav`, mimeType: 'audio/wav', sizeBytes: 42, status: 'final',
+    })
+    expect(insert.status).toBe('final')
   })
 })
 
@@ -102,6 +112,10 @@ describe('toTrackUpdate', () => {
       genre_id: null,
       cover_path: null,
     })
+  })
+
+  it('maps the draft/final status', () => {
+    expect(toTrackUpdate({ status: 'final' })).toEqual({ status: 'final' })
   })
 
   it('adds no keys for undefined fields', () => {

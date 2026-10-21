@@ -1,26 +1,51 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { TrackSummary, TrackVisibility } from '~~/shared/types/track'
+import type { TrackStatus, TrackSummary, TrackVisibility } from '~~/shared/types/track'
 
 /**
  * The library list: cover (play/pause on click), title (play, or open the
- * full-screen view for the current track), composers, genre, badges
- * (mastered, synced lyrics, visibility), duration and the "⋮" menu:
- * Edit, Add to playlist, Copy share link / Open share page, Delete.
- * Playing and deleting are delegated to the page through events.
+ * full-screen view for the current track), composers, a "Draft" badge,
+ * genre, badges (mastered, synced lyrics, visibility), duration and the "⋮"
+ * menu: Edit, Download, Add to playlist, Mark as final/draft, Copy share
+ * link / Open share page, Delete.
+ * Playing, deleting and status changes are delegated to the page through events.
+ *
+ * Selection mode (`selectable`): each row gets a checkbox, and clicking the
+ * title toggles it instead of playing; the cover still plays, so versions
+ * can be listened to while choosing. The page owns the selected ids
+ * (`v-model:selected`) and the actions on them.
  */
 const props = defineProps<{
   /** Already filtered and sorted by the page. */
   tracks: TrackSummary[]
   genreName: (id: string | null) => string | null
+  /** Show checkboxes (selection mode). */
+  selectable?: boolean
 }>()
+
+/** Ids of the selected tracks (selection mode). */
+const selected = defineModel<string[]>('selected', { default: () => [] })
 
 const emit = defineEmits<{
   /** Play this track with the visible list as the queue (or toggle it). */
   play: [track: TrackSummary]
   /** Ask for confirmation, then delete (the page owns the dialog). */
   delete: [track: TrackSummary]
+  /** Mark the track as draft or final (the page saves it). */
+  status: [track: TrackSummary, status: TrackStatus]
 }>()
+
+/** The track's checkbox is ticked. */
+function isSelected(track: TrackSummary): boolean {
+  return selected.value.includes(track.id)
+}
+
+/** Ticks or unticks a track (a new array, so the page's v-model updates). */
+function toggleSelected(track: TrackSummary): void {
+  selected.value = isSelected(track)
+    ? selected.value.filter(id => id !== track.id)
+    : [...selected.value, track.id]
+}
 
 // Highlights the current track and opens the full-screen view.
 const player = usePlayerStore()
@@ -49,7 +74,9 @@ function isCurrent(track: TrackSummary) {
  * A track that failed to play is simply started again.
  */
 function onTitleClick(track: TrackSummary) {
-  if (isCurrent(track) && player.status !== 'error') player.setExpanded(true)
+  // Selecting: the title is the big, easy target for the checkbox.
+  if (props.selectable) toggleSelected(track)
+  else if (isCurrent(track) && player.status !== 'error') player.setExpanded(true)
   else emit('play', track)
 }
 
@@ -75,6 +102,10 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
           })),
         ].filter(group => group.length > 0),
       },
+      // Draft ⇄ final in one click (also a switch on the edit page).
+      track.status === 'draft'
+        ? { label: 'Mark as final', icon: 'i-lucide-circle-check', onSelect: () => emit('status', track, 'final') }
+        : { label: 'Mark as draft', icon: 'i-lucide-flask-conical', onSelect: () => emit('status', track, 'draft') },
     ],
     // Private tracks have no public page.
     ...(track.visibility === 'private'
@@ -92,15 +123,23 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
 </script>
 
 <template>
-  <!-- One row per track: cover (play), title, details, badges, duration, menu -->
+  <!-- One row per track: checkbox (selection mode), cover (play), title, details, badges, duration, menu -->
   <ul class="divide-y divide-default">
     <li
       v-for="{ track, genre } in rows"
       :key="track.id"
       class="group flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-elevated/50 sm:px-3"
-      :class="{ 'bg-primary/5': isCurrent(track) }"
+      :class="{ 'bg-primary/5': isCurrent(track) || (selectable && isSelected(track)) }"
       data-testid="track-row"
     >
+      <UCheckbox
+        v-if="selectable"
+        :model-value="isSelected(track)"
+        :aria-label="`Select ${track.title}`"
+        data-testid="track-select"
+        @update:model-value="toggleSelected(track)"
+      />
+
       <button
         type="button"
         class="relative size-12 shrink-0 cursor-pointer"
@@ -131,7 +170,7 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
       <button
         type="button"
         class="min-w-0 flex-1 cursor-pointer rounded-sm text-left"
-        :title="isCurrent(track) && player.status !== 'error' ? 'Open the player' : 'Play'"
+        :title="selectable ? 'Select' : isCurrent(track) && player.status !== 'error' ? 'Open the player' : 'Play'"
         data-testid="track-title"
         @click="onTitleClick(track)"
       >
@@ -141,8 +180,18 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
         >
           {{ track.title }}
         </p>
-        <p class="truncate text-sm text-muted">
-          {{ [track.composers, track.album, track.year].filter(Boolean).join(' · ') || '—' }}
+        <!-- Details line, led by a "Draft" badge on work-in-progress versions (here it never squeezes the title, on phones too) -->
+        <p class="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+          <UBadge
+            v-if="track.status === 'draft'"
+            label="Draft"
+            color="warning"
+            variant="subtle"
+            size="sm"
+            class="shrink-0"
+            data-testid="draft-badge"
+          />
+          <span class="truncate">{{ [track.composers, track.album, track.year].filter(Boolean).join(' · ') || '—' }}</span>
         </p>
       </button>
 

@@ -17,6 +17,7 @@ const validMetadata = {
   sunoPrompt: 'lo-fi, piano',
   mastered: false,
   visibility: 'private' as const,
+  status: 'final' as const,
   lyrics: '',
   lyricsSynced: null,
 }

@@ -111,7 +111,7 @@ test.describe('library and player', () => {
     // A distinctive new title, checked later in the player bar.
     const newTitle = `${title} (master)`
     await page.getByLabel('Title').fill(newTitle)
-    await page.getByRole('switch').click()
+    await page.getByRole('switch', { name: 'Mastering' }).click()
 
     // --- Synced lyrics imported from LRC ---
     await page.getByRole('tab', { name: 'Sync' }).click()
