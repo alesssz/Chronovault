@@ -71,6 +71,7 @@ Open **http://localhost:3000** and sign in with **`demo@chronoplayer.local` / `c
 | Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
 | Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
 | Run all checks before a commit | `make check` (lint, types, unit tests) |
+| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`), see [14.1](#141-git-workflow) |
 
 ---
 
@@ -112,6 +113,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm env:local` | Write `.env` from the running local stack |
 | `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload, range streaming, size check, CORS, delete |
 | `pnpm generate:pwa-assets` | Regenerate the PWA icons from `public/favicon.svg` |
+| `pnpm merge:main [--yes]` | Merge the current (pushed) branch into `main`, push, delete the branch locally and on GitHub, end on an up-to-date `main` ([14.1](#141-git-workflow)) |
 
 ### 3.3 Makefile
 
@@ -133,6 +135,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make test` · `test-unit` · `test-nuxt` · `test-e2e` · `test-coverage` | Tests |
 | `make check` | lint + typecheck + test: quick checks before a commit |
 | `make ci` | Everything the CI runs (adds `db-lint`, `db-test`, `test-e2e`) |
+| `make merge` | `pnpm merge:main`: merge the current branch into `main` and clean up |
 | `make clean` · `make clean-all` | Remove builds and reports · also `node_modules` |
 
 ---
@@ -295,7 +298,7 @@ ChronoPlayer/
 │   ├── seed.sql                      # Local demo user
 │   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql
 ├── test/
-│   ├── unit/                         # Vitest in Node: app/, server/, shared/
+│   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
 │   └── e2e/                          # Playwright: auth, library, sharing, playlists
 ├── scripts/
@@ -303,7 +306,9 @@ ChronoPlayer/
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
-│   └── check-r2.mjs                  # pnpm r2:check
+│   ├── check-r2.mjs                  # pnpm r2:check
+│   ├── merge-main.mjs                # pnpm merge:main
+│   └── lib/merge-message.mjs         # cumulative merge commit message
 ├── public/                           # Favicon and PWA icons
 ├── Dockerfile · compose.yaml · .dockerignore
 ├── Makefile · package.json · pnpm-workspace.yaml
@@ -822,6 +827,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 |---|---|---|---|
 | Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing) with mocked repositories; the **R2 client** with a fake fetch; the **player store** with a fake engine (queue, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
+| Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
 | End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist) |
 
@@ -902,6 +908,39 @@ Dashboard labels may change slightly over time.
 ---
 
 ## 14. Development conventions
+
+### 14.1 Git workflow
+
+Every task gets its own branch from `main`, with a short English name and a type prefix: `feat/editable-queue`, `fix/cover-upload`, `docs/readme`, `chore/merge-command`.
+
+```bash
+git switch main && git pull
+git switch -c feat/<name>
+# … work, commit, push …
+git push -u origin feat/<name>     # Vercel builds a preview deployment of the branch
+pnpm merge:main                    # or: make merge
+```
+
+`pnpm merge:main` (`scripts/merge-main.mjs`):
+
+| Situation | What happens |
+|---|---|
+| You are on `main` | "Already on main", nothing else |
+| Uncommitted changes | Stops: commit (and push) or stash them first |
+| The branch was never pushed, or has local commits not pushed | Stops: push first |
+| GitHub has commits on the branch you don't have | Stops: pull first |
+| Your local `main` has unpushed commits | Stops |
+| Nothing new compared to `main` | Stops |
+| Ready | Shows the commits and the merge message, asks `[y/N]` (`--yes` skips the question) |
+| Confirmed | Updates `main`, merges with a merge commit (`--no-ff`), pushes `main` (production deploy on Vercel), deletes the branch on GitHub and locally, leaves you on `main` in sync |
+| Merge conflicts | The merge is aborted and you are back on your branch, unchanged: merge `main` into it, fix, push, run again |
+| Pushing `main` fails | The merge stays local and the branch is kept; run `git push` on `main` |
+
+The merge commit message sums up the branch: the commit subject when there is a single commit (`Merge feat/x: Add an editable play queue`), otherwise `Merge feat/x (N commits)` followed by one line per commit, oldest first, with repeated subjects grouped.
+
+R2 accepts uploads only from the origins in its CORS policy: uploads from a Vercel **preview** URL fail unless that origin is added too. Playback and everything else work on previews.
+
+### 14.2 Code conventions
 
 - **Language:** everything in the repository is in English (code, comments, docs, UI text, commit messages).
 - **Comments:** every file starts with what it is for; functions document their contract and the reasons behind non-obvious choices.
