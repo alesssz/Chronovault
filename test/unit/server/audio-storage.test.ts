@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AudioStorage } from '~~/server/repositories/audio-storage'
 
+/** A fake R2 configuration (nothing is ever sent to it: fetch is mocked). */
 const config = {
   endpoint: 'https://account123.r2.cloudflarestorage.com/',
   region: 'auto',
@@ -21,6 +22,7 @@ describe('AudioStorage', () => {
 
   it('presigns URLs with query-string SigV4 and the requested lifetime', async () => {
     const storage = new AudioStorage(config)
+    // Parse the presigned URL to check each SigV4 query parameter.
     const url = new URL(await storage.presign('PUT', 'user-1/track-1.flac', 3600))
 
     expect(url.origin + url.pathname).toBe('https://account123.r2.cloudflarestorage.com/chronoplayer-audio/user-1/track-1.flac')
@@ -58,6 +60,7 @@ describe('AudioStorage', () => {
   })
 
   it('lists a folder page by page and decodes the XML', async () => {
+    /** One ListObjectsV2 response page; `next` makes it truncated with a continuation token. */
     const page = (keys: string[], next?: string) => new Response(
       `<?xml version="1.0"?><ListBucketResult>${keys.map(k =>
         `<Contents><Key>${k}</Key><LastModified>2026-10-01T10:00:00.000Z</LastModified><Size>7</Size></Contents>`).join('')}`
@@ -74,6 +77,7 @@ describe('AudioStorage', () => {
 
     expect(objects.map(o => o.key)).toEqual(['user-1/a.flac', 'user-1/b&c.flac', 'user-1/d.flac'])
     expect(objects[0]).toEqual({ key: 'user-1/a.flac', size: 7, lastModified: '2026-10-01T10:00:00.000Z' })
+    // The two LIST requests: prefix on the first, continuation token on the second.
     const first = new URL((fetchImpl.mock.calls[0]![0] as Request).url)
     expect(first.pathname).toBe('/chronoplayer-audio')
     expect(first.searchParams.get('list-type')).toBe('2')

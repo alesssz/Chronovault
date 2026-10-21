@@ -18,6 +18,7 @@ interface DbError {
  * 500 and is logged with `context` (e.g. `tracks.insert`) to find its origin.
  */
 export function toHttpError(error: DbError, context: string) {
+  // Error codes we expect, with the status and generic message they map to.
   const byCode: Record<string, { statusCode: number, message: string }> = {
     // unique_violation, e.g. a genre name that already exists
     '23505': { statusCode: 409, message: 'Item already exists' },

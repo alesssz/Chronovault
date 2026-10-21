@@ -11,6 +11,7 @@ export function useGenres() {
     default: () => [] as Genre[],
   })
 
+  /** Genres by id, for fast name lookups. */
   const byId = computed(() => new Map(data.value.map(g => [g.id, g])))
 
   /** Display name of a genre id (null for none or an unknown id). */

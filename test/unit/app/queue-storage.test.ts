@@ -6,10 +6,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
 
+/** The localStorage key the module uses. */
 const KEY = 'chronoplayer:queue'
 
 /** In-memory localStorage (the unit tests run in Node). */
 function memoryStorage(): Storage {
+  // The stored values.
   const data = new Map<string, string>()
   return {
     get length() {
@@ -72,6 +74,7 @@ describe('saving and reading', () => {
 })
 
 describe('resolveSavedQueue', () => {
+  /** Minimal library items: only ids matter here. */
   const tracks = (...ids: string[]) => ids.map(id => ({ id }))
 
   it('resumes the same track at the same position', () => {

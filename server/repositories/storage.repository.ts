@@ -27,6 +27,7 @@ export async function createSignedUrl(db: DbClient, bucket: string, path: string
  * are simply left out, so a missing cover never breaks the list.
  */
 export async function createSignedUrls(db: DbClient, bucket: string, paths: string[]): Promise<Map<string, string>> {
+  // path → signed URL; a cover that fails is simply missing from the map.
   const result = new Map<string, string>()
   if (paths.length === 0) return result
   const { data, error } = await db.storage.from(bucket).createSignedUrls(paths, SIGNED_URL_TTL)
@@ -54,7 +55,9 @@ export interface FolderFile {
  * Storage RLS applies: a user can only list their own folder.
  */
 export async function listFolderFiles(db: DbClient, bucket: string, folder: string): Promise<FolderFile[]> {
+  // Storage list pages: keep asking until a short page comes back.
   const PAGE = 1000
+  // Files of every page, collected in order.
   const files: FolderFile[] = []
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await db.storage.from(bucket).list(folder, { limit: PAGE, offset, sortBy: { column: 'name', order: 'asc' } })

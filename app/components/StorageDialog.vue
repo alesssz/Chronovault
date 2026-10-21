@@ -10,10 +10,12 @@ import { getErrorMessage } from '~/utils/errors'
  * recent ones are listed but kept (an upload may still be in progress).
  */
 const open = defineModel<boolean>('open', { default: false })
+// Confirms how much was deleted.
 const toast = useToast()
 
 /** Last scan; kept while rescanning so the dialog does not flicker. */
 const report = ref<StorageReport | null>(null)
+/** A scan is running. */
 const loading = ref(false)
 /** Scan failure message (e.g. R2 unreachable), with a "Try again" action. */
 const loadError = ref<string | null>(null)
@@ -35,12 +37,14 @@ async function load() {
   }
 }
 
+// Every opening rescans: the storage may have changed since.
 watch(open, (value) => {
   if (value) void load()
 })
 
 /** Orphans the server will delete (old enough); the others are only listed. */
 const deletable = computed(() => report.value?.orphans.filter(o => o.deletable) ?? [])
+/** Space the deletion will free (shown on the button). */
 const deletableBytes = computed(() => deletable.value.reduce((sum, o) => sum + o.sizeBytes, 0))
 
 /** Deletes the deletable orphans (the server rescans first), then shows the new state. */

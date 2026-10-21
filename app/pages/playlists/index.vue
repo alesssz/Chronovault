@@ -12,12 +12,14 @@ const { playlists, status, refresh, openCreateDialog } = usePlaylists()
 // Track edits and deletions elsewhere change counts and mosaics.
 onMounted(() => void refresh())
 
+/** Icon + accessible label of each visibility, shown on the cards. */
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
   private: { icon: 'i-lucide-lock', label: 'Private' },
   unlisted: { icon: 'i-lucide-link', label: 'Unlisted' },
   public: { icon: 'i-lucide-globe', label: 'Public' },
 }
 
+/** "1 track" / "N tracks". */
 function trackCount(count: number) {
   return `${count} track${count === 1 ? '' : 's'}`
 }
@@ -25,6 +27,7 @@ function trackCount(count: number) {
 
 <template>
   <UContainer class="py-6 sm:py-8">
+    <!-- Title and "New playlist" -->
     <div class="mb-6 flex items-center justify-between gap-3">
       <h1 class="text-2xl font-semibold tracking-tight">
         Playlists
@@ -37,6 +40,7 @@ function trackCount(count: number) {
       />
     </div>
 
+    <!-- No playlists yet -->
     <UEmpty
       v-if="!playlists.length && status !== 'pending'"
       icon="i-lucide-list-music"
@@ -45,6 +49,7 @@ function trackCount(count: number) {
       class="py-16"
     />
 
+    <!-- Playlist cards -->
     <ul
       v-else
       class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"

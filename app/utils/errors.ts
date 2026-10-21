@@ -5,8 +5,10 @@
  */
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (error && typeof error === 'object') {
+    // $fetch errors carry the server response in `data` (our API: { message }).
     const data = (error as { data?: { message?: unknown } }).data
     if (data && typeof data.message === 'string' && data.message) return data.message
+    // Any Error (network, browser API…).
     const message = (error as { message?: unknown }).message
     if (typeof message === 'string' && message) return message
   }

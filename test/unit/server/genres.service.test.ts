@@ -8,6 +8,7 @@ import { createGenre, listGenres } from '~~/server/services/genres.service'
 
 vi.mock('~~/server/repositories/genres.repository')
 
+// The repository is mocked: the client is never used.
 const db = {} as DbClient
 const USER = '11111111-1111-4111-8111-111111111111'
 

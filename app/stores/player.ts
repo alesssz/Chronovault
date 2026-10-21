@@ -67,6 +67,7 @@ const VOLUME_KEY = 'chronoplayer:volume'
 const SOURCE_EXPIRY_MARGIN_MS = 60_000
 /** Playback speed bounds (the sync editor uses 0.5 and 0.75). */
 const MIN_PLAYBACK_RATE = 0.25
+/** Upper speed bound (no UI uses more than 1× today; kept generous for the API). */
 const MAX_PLAYBACK_RATE = 2
 
 /**
@@ -89,6 +90,7 @@ export const usePlayerStore = defineStore('player', () => {
    * is in the engine. shallowRef: it is replaced, never mutated in place.
    */
   const current = shallowRef<PlayerTrack | null>(null)
+  /** Lifecycle of the player (see PlayerStatus). */
   const status = ref<PlayerStatus>('idle')
   /** The element is waiting for data (spinner on the play button). */
   const buffering = ref(false)
@@ -96,7 +98,9 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTime = ref(0)
   /** From the track data at first, then from the audio element once known. */
   const duration = ref(0)
+  /** 0..1, restored from the previous visit. */
   const volume = ref(readStoredVolume())
+  /** Mute is separate from the volume, so unmuting brings the old level back. */
   const muted = ref(false)
   /** Playback speed (1 = normal); slowed down while syncing lyrics. */
   const playbackRate = ref(1)
@@ -104,20 +108,29 @@ export const usePlayerStore = defineStore('player', () => {
   const expanded = ref(false)
   /** The "Up next" panel (PlayerQueue) is open. */
   const queueOpen = ref(false)
+  /** Message of the last failure (status 'error'), shown in the player bar. */
   const error = ref<string | null>(null)
   /** Key of the current source (see TrackSource): lets public pages know the player is theirs. */
   const sourceKey = ref(librarySource.key)
 
+  // --- Derived state ------------------------------------------------------------------
+  /** Something is loaded (or loading): the player bar is shown. */
   const isActive = computed(() => status.value !== 'idle')
+  /** Audio is playing right now (Play/Pause icons). */
   const isPlaying = computed(() => status.value === 'playing')
+  /** There is a track after the current one ("next" enabled). */
   const hasNext = computed(() => index.value < queue.value.length - 1)
+  /** There is a track before the current one. */
   const hasPrevious = computed(() => index.value > 0)
   /** Tracks after the current one, in play order. */
   const upcoming = computed(() => (index.value >= 0 ? queue.value.slice(index.value + 1) : []))
   /** Queue editing ("Play next", "Add to queue", the Up next panel) applies to library playback only. */
   const queueEditable = computed(() => isActive.value && sourceKey.value === librarySource.key)
+  /** 0..1 position in the track, for the thin progress line of the mobile bar. */
   const progress = computed(() => (duration.value > 0 ? Math.min(1, currentTime.value / duration.value) : 0))
 
+  // --- Non-reactive internals ----------------------------------------------------------
+  /** The audio engine, wired to this store on first use (see engine()). */
   let engineRef: PlaybackEngine | null = null
   /** Where the queued tracks come from: the library, or a shared link. */
   let source: TrackSource = librarySource
@@ -130,6 +143,11 @@ export const usePlayerStore = defineStore('player', () => {
   /** A source reload is in progress: engine errors are handled by it. */
   let recovering = false
 
+  /**
+   * The shared audio engine, created lazily (it needs the browser) and wired
+   * to the store once: its events become reactive state, `ended` moves on to
+   * the next track, and errors trigger the expired-URL recovery.
+   */
   function engine(): PlaybackEngine {
     if (engineRef) return engineRef
     const e = getAudioEngine()
@@ -144,6 +162,7 @@ export const usePlayerStore = defineStore('player', () => {
       status.value = 'playing'
     })
     e.on('pause', () => {
+      // A pause fired while loading/erroring must not hide those states.
       if (status.value === 'playing') status.value = 'paused'
     })
     e.on('buffering', (waiting) => {
@@ -167,11 +186,13 @@ export const usePlayerStore = defineStore('player', () => {
     return e
   }
 
+  /** Puts the player in the error state with a message for the bar. */
   function fail(message: string): void {
     status.value = 'error'
     error.value = message
   }
 
+  /** The loaded signed URL is expired, or about to (less than a minute left). */
   function sourceExpired(): boolean {
     return Date.now() > sourceExpiresAt - SOURCE_EXPIRY_MARGIN_MS
   }
@@ -275,6 +296,7 @@ export const usePlayerStore = defineStore('player', () => {
     await loadIndex(Math.max(0, i), true)
   }
 
+  /** Switches the source of the queue (library, shared track, shared playlist). */
   function setSource(next: TrackSource): void {
     source = next
     sourceKey.value = next.key
@@ -305,6 +327,11 @@ export const usePlayerStore = defineStore('player', () => {
     await loadIndex(index, autoplay)
   }
 
+  /**
+   * Resumes playback. After an error it reloads the track; with an expired
+   * URL it first loads a fresh one at the same position; if the browser
+   * refuses to play, it tries one reload before giving up.
+   */
   async function play(): Promise<void> {
     if (status.value === 'idle' || status.value === 'loading') return
     if (status.value === 'error') return loadIndex(index.value, true)
@@ -323,15 +350,18 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  /** Pauses (no-op unless playing). */
   function pause(): void {
     if (status.value === 'playing') engine().pause()
   }
 
+  /** Play/pause button. */
   async function togglePlay(): Promise<void> {
     if (status.value === 'playing') pause()
     else await play()
   }
 
+  /** Stop button: pause and back to the start, keeping the track loaded. */
   function stop(): void {
     if (!isActive.value) return
     engine().stop()
@@ -339,15 +369,22 @@ export const usePlayerStore = defineStore('player', () => {
     if (status.value === 'playing') status.value = 'paused'
   }
 
+  /** Next track of the queue, if any. */
   async function next(): Promise<void> {
     if (hasNext.value) await loadIndex(index.value + 1, true)
   }
 
+  /** Like every player: restarts the track after 3 s, otherwise goes to the previous one. */
   async function previous(): Promise<void> {
     if (currentTime.value > RESTART_THRESHOLD || !hasPrevious.value) seek(0)
     else await loadIndex(index.value - 1, true)
   }
 
+  /**
+   * Moves the position. The UI updates at once; with an expired URL the
+   * source is reloaded at that position (seeking makes the browser request
+   * the file again, which would fail).
+   */
   function seek(seconds: number): void {
     if (!isActive.value) return
     const position = Math.max(0, seconds)
@@ -363,6 +400,7 @@ export const usePlayerStore = defineStore('player', () => {
     engine().seek(position)
   }
 
+  /** Sets the volume (0..1, remembered); raising it above 0 also unmutes. */
   function setVolume(value: number): void {
     volume.value = Math.min(1, Math.max(0, value))
     engine().setVolume(volume.value)
@@ -370,11 +408,13 @@ export const usePlayerStore = defineStore('player', () => {
     storeVolume(volume.value)
   }
 
+  /** Mutes or unmutes without touching the volume level. */
   function setMuted(value: boolean): void {
     muted.value = value
     engine().setMuted(value)
   }
 
+  /** Mute button. */
   function toggleMute(): void {
     setMuted(!muted.value)
   }
@@ -387,10 +427,12 @@ export const usePlayerStore = defineStore('player', () => {
     engine().setPlaybackRate(value)
   }
 
+  /** Opens/closes the full-screen view (only while something is loaded). */
   function setExpanded(value: boolean): void {
     expanded.value = value && isActive.value
   }
 
+  /** Opens/closes the Up next panel (only for library playback). */
   function setQueueOpen(value: boolean): void {
     queueOpen.value = value && queueEditable.value
   }
@@ -443,6 +485,7 @@ export const usePlayerStore = defineStore('player', () => {
     }
     if (queue.value[index.value]?.id === track.id) return 'current'
     detach(track.id)
+    // A new array (never mutate in place): watchers and the saved queue see the change.
     const updated = [...queue.value]
     updated.splice(index.value + 1, 0, track)
     queue.value = updated
@@ -470,6 +513,7 @@ export const usePlayerStore = defineStore('player', () => {
   function moveInQueue(from: number, to: number): void {
     const last = queue.value.length - 1
     if (from === to || from <= index.value || to <= index.value || from > last || to > last) return
+    // Remove, then insert at the target: the classic array move, on a copy.
     const updated = [...queue.value]
     const [item] = updated.splice(from, 1)
     updated.splice(to, 0, item!)
@@ -519,6 +563,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (current.value?.id === detail.id) current.value = detail
     const i = queue.value.findIndex(t => t.id === detail.id)
     if (i !== -1) {
+      // Merge the new summary fields into the queued item (title, cover…), on a copy.
       const updated = [...queue.value]
       updated[i] = { ...updated[i]!, ...pickSummary(detail) }
       queue.value = updated
@@ -549,6 +594,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 })
 
+/** The TrackSummary part of a TrackDetail (to refresh a queue item after an edit). */
 function pickSummary(detail: TrackDetail): TrackSummary {
   const {
     description: _d, sunoPrompt: _s, lyrics: _l, lyricsSynced: _ls, peaks: _p,
@@ -557,6 +603,7 @@ function pickSummary(detail: TrackDetail): TrackSummary {
   return summary
 }
 
+/** Volume saved by the previous visit (1 when absent, invalid or storage is blocked). */
 function readStoredVolume(): number {
   try {
     const raw = globalThis.localStorage?.getItem(VOLUME_KEY)
@@ -568,6 +615,7 @@ function readStoredVolume(): number {
   }
 }
 
+/** Remembers the volume for the next visit (best effort). */
 function storeVolume(value: number): void {
   try {
     globalThis.localStorage?.setItem(VOLUME_KEY, String(value))

@@ -7,6 +7,7 @@
 const player = usePlayerStore()
 const { genreName } = useGenres()
 
+/** The modal is bound to the store, so any component can open or close the view. */
 const open = computed({
   get: () => player.expanded,
   set: value => player.setExpanded(value),
@@ -38,6 +39,7 @@ const meta = computed(() => {
         class="flex h-full flex-col"
         data-testid="player-expanded"
       >
+        <!-- Top bar: collapse, title, Up next and edit buttons -->
         <header class="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2">
           <UButton
             icon="i-lucide-chevron-down"

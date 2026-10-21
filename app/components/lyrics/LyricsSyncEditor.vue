@@ -30,7 +30,9 @@ const props = defineProps<{
 /** The synced lines being edited (the form's `lyricsSynced`); null when nothing is synced. */
 const model = defineModel<SyncedLyricLine[] | null>({ required: true })
 
+// Times come from the player position; the editor also seeks and changes speed.
 const player = usePlayerStore()
+// LRC import errors.
 const toast = useToast()
 
 /** Speeds offered while syncing (pitch is preserved). */
@@ -76,7 +78,9 @@ watch(rows, (value) => {
 
 /** Syncing needs this track in the player: times come from its position. */
 const isLoaded = computed(() => player.current?.id === props.track.id)
+/** Rows that need a time (section headers never do). */
 const lyricRows = computed(() => rows.value.filter(r => !r.section))
+/** "N / M lines synced" counter. */
 const syncedCount = computed(() => lyricRows.value.filter(r => r.time != null).length)
 /** Next lyric line to sync (section headers are skipped). */
 const cursor = computed(() => {
@@ -86,6 +90,7 @@ const cursor = computed(() => {
 /** Lyric line currently playing (last one with time ≤ current position). */
 const playingIndex = computed(() => {
   if (!isLoaded.value) return -1
+  // Last stamped lyric line whose time has passed.
   let found = -1
   rows.value.forEach((r, i) => {
     if (!r.section && r.time != null && r.time <= player.currentTime) found = i
@@ -136,6 +141,7 @@ function undo() {
   if (last < 0) return
   rows.value[last]!.time = null
   if (selected.value === last) selected.value = null
+  // The synced line before the undone one: playback goes back to just before it.
   let previous = last - 1
   while (previous >= 0 && (rows.value[previous]!.section || rows.value[previous]!.time == null)) previous--
   if (isLoaded.value) player.seek(Math.max(0, (rows.value[previous]?.time ?? 0) - 1))
@@ -203,12 +209,14 @@ useEventListener('keydown', (event: KeyboardEvent) => {
 
 // Keep the line to sync always in view.
 const rowRefs = ref<HTMLElement[]>([])
+// The next line to stamp scrolls into view by itself.
 watch(cursor, (i) => {
   rowRefs.value[Math.min(i, rowRefs.value.length - 1)]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 })
 
 // --- LRC import / export ---------------------------------------------------------
 const lrcOpen = ref(false)
+/** Text of the LRC dialog (export prefill, or what the user pastes). */
 const lrcText = ref('')
 
 /** Opens the LRC dialog, prefilled with the current sync (export). */
@@ -234,6 +242,7 @@ function applyLrc() {
 
 <template>
   <div class="space-y-4">
+    <!-- The track must be in the player to sync it -->
     <UAlert
       v-if="!isLoaded"
       icon="i-lucide-headphones"
@@ -248,6 +257,7 @@ function applyLrc() {
       v-else
       class="space-y-3 rounded-lg border border-default p-2"
     >
+      <!-- Sync controls: play/pause, back 5 s, stamp line, undo, replay line, playback speed -->
       <div class="flex flex-wrap items-center gap-2">
         <UButton
           :icon="player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
@@ -308,6 +318,7 @@ function applyLrc() {
         </div>
       </div>
 
+      <!-- Detailed waveform with one draggable marker per synced line -->
       <LyricsSyncTimeline
         :key="track.id"
         :rows="rows"
@@ -325,6 +336,7 @@ function applyLrc() {
       </div>
     </div>
 
+    <!-- Progress counter, then Reload from lyrics, LRC import/export and Reset -->
     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span class="text-muted">{{ syncedCount }} / {{ lyricRows.length }} lines synced</span>
       <div class="flex gap-1">
@@ -357,6 +369,7 @@ function applyLrc() {
       </div>
     </div>
 
+    <!-- No lyrics yet: write them in the Lyrics tab first -->
     <UEmpty
       v-if="!rows.length"
       icon="i-lucide-text"
@@ -364,6 +377,7 @@ function applyLrc() {
       description="Write the lyrics in the «Lyrics» tab first, then press «Reload from lyrics», or import an LRC file."
     />
 
+    <!-- The rows: time (click to seek), text (click to select), ±0.1 s and clear buttons; the next line to stamp is highlighted -->
     <ol
       v-else
       class="max-h-[32rem] divide-y divide-default overflow-y-auto rounded-lg border border-default"
@@ -439,6 +453,7 @@ function applyLrc() {
       </li>
     </ol>
 
+    <!-- LRC import / export dialog -->
     <UModal
       v-model:open="lrcOpen"
       title="LRC lyrics"

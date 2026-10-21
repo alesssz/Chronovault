@@ -11,22 +11,30 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 definePageMeta({ layout: 'auth' })
 useSeoMeta({ title: 'Sign in · ChronoPlayer' })
 
+// Supabase Auth runs in the browser: sign-in and sign-up set the session cookies.
 const supabase = useSupabaseClient()
+// Becomes set as soon as a session exists (watched below).
 const user = useSupabaseUser()
+// The page the user wanted before being sent here (saved by the auth middleware).
 const redirect = useSupabaseCookieRedirect()
+// Sign-in/sign-up failures.
 const toast = useToast()
 
 /** Which form is shown: sign in or create an account. */
 const mode = ref<'login' | 'register'>('login')
+/** The request is running (spinner, form locked). */
 const loading = ref(false)
+/** Sign-up done with email confirmation on: show "check your inbox" instead of the form. */
 const confirmationSent = ref(false)
 
 const schema = z.object({
   email: z.email('Invalid email'),
   password: z.string().min(8, 'At least 8 characters'),
 })
+/** Validated form values. */
 type Schema = z.output<typeof schema>
 
+/** Fields of Nuxt UI's auth form. */
 const fields: AuthFormField[] = [
   { name: 'email', type: 'email', label: 'Email', placeholder: 'name@example.com', required: true },
   { name: 'password', type: 'password', label: 'Password', placeholder: '••••••••', required: true },
@@ -68,6 +76,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 }
 
+/** Switches between sign-in and sign-up. */
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'
   confirmationSent.value = false

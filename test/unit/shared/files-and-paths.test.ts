@@ -6,6 +6,7 @@ import { resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/sh
 import { buildAudioPath, buildCoverPath, isTrackPath } from '~~/shared/utils/storage-paths'
 import { computePeaks } from '~~/shared/utils/peaks'
 
+// Fixed ids and the storage paths they lead to (the format checks only care about the shape).
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
 
@@ -61,6 +62,7 @@ describe('storage paths', () => {
 
 describe('computePeaks', () => {
   it('reduces to N normalized 0..1 values using the absolute peak', () => {
+    // 8 samples whose loudest absolute value is 1 (the -1).
     const channel = [0, 0.5, -1, 0.25, 0, -0.5, 0.1, 0]
     expect(computePeaks([channel], 4)).toEqual([0.5, 1, 0.5, 0.1])
   })

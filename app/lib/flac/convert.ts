@@ -21,6 +21,7 @@ export async function convertWavToFlac(file: File, onProgress?: (fraction: numbe
   const buffer = await file.arrayBuffer()
   // A module worker keeps the heavy work (and libFLAC's memory) off the UI thread.
   const worker = new Worker(new URL('./flac.worker.ts', import.meta.url), { type: 'module' })
+  // Timer that gives up when the worker stays silent too long.
   let watchdog: ReturnType<typeof setTimeout> | undefined
 
   try {

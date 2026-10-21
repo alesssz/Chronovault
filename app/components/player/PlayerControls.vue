@@ -12,6 +12,7 @@ withDefaults(defineProps<{
   showStop: true,
 })
 
+// Every button calls the store; states come from it too.
 const player = usePlayerStore()
 </script>
 

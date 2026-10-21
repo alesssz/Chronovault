@@ -26,8 +26,10 @@ const emit = defineEmits<{
 
 /** Zoom range of the slider, in pixels per second. */
 const MIN_ZOOM = 20
+// (400 px per second: one second spans most of a phone screen.)
 const MAX_ZOOM = 400
 
+/** Where wavesurfer draws. */
 const container = ref<HTMLElement | null>(null)
 /** Pixels per second of audio. */
 const zoom = ref(80)
@@ -38,7 +40,9 @@ const ready = ref(false)
 /** Decoding failed (e.g. expired URL or unsupported codec): a notice replaces the waveform. */
 const failed = ref(false)
 
+/** Waveform and its Regions plugin (the markers); recreated on mount. */
 let wavesurfer: WaveSurfer | null = null
+/** The Regions plugin instance: one region per marker. */
 let regions: ReturnType<typeof RegionsPlugin.create> | null = null
 
 /** A synced lyric line drawn on the waveform. */
@@ -53,6 +57,7 @@ interface Marker {
 
 /** One marker per synced lyric line, numbered like the lines in the list. */
 const markers = computed<Marker[]>(() => {
+  // Lyric lines are numbered 1, 2, 3… skipping section headers.
   let number = 0
   return props.rows.flatMap((row, index) => {
     if (row.section) return []
@@ -165,7 +170,9 @@ onBeforeUnmount(destroy)
 
 // Markers follow the rows (stamping, undo, nudges, drags) and the selection.
 watch(markers, renderMarkers, { deep: true })
+// The selected marker is drawn in a different color.
 watch(() => props.selected, renderMarkers)
+// The zoom slider: wavesurfer redraws at the new pixels-per-second.
 watch(zoom, (value) => {
   if (ready.value) wavesurfer?.zoom(value)
 })

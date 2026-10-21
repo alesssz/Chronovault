@@ -28,6 +28,7 @@ async function downloadStoredAudio(page: Page): Promise<Buffer> {
 /** Integer samples of a WAV produced by `makeWav` (44-byte header). */
 function wavSamples(wav: Buffer, bitsPerSample: number): Int32Array {
   const bytes = bitsPerSample / 8
+  // `makeWav` writes a plain 44-byte header, then the samples.
   const samples = new Int32Array((wav.length - 44) / bytes)
   for (let i = 0; i < samples.length; i++) samples[i] = wav.readIntLE(44 + i * bytes, bytes)
   return samples
@@ -41,6 +42,7 @@ test.describe('library and player', () => {
     // --- Upload of a 24-bit stereo WAV (studio master): converted to a verified FLAC ---
     // The title comes from the file name (the WAV has no tags).
     const title = `e2e-${uniqueId()}`
+    // A studio-like master: 24-bit stereo at 44.1 kHz.
     const master: WavOptions = { bitsPerSample: 24, channels: 2, sampleRate: 44_100 }
     await uploadTrack(page, title, master)
     await expect(page.getByTestId('upload-conversion')).toContainText('FLAC · lossless, verified bit for bit')
@@ -49,6 +51,7 @@ test.describe('library and player', () => {
     // (checked with an independent decoder, not the one used by the app).
     const stored = await downloadStoredAudio(page)
     expect(stored.subarray(0, 4).toString('latin1')).toBe('fLaC')
+    // An independent decoder, not the one the app uses for its own check.
     const decoder = new FLACDecoder()
     await decoder.ready
     const decoded = await decoder.decodeFile(new Uint8Array(stored))
@@ -56,6 +59,7 @@ test.describe('library and player', () => {
     expect(decoded.errors).toEqual([])
     expect(decoded.bitDepth).toBe(24)
     const original = wavSamples(makeWav(master), 24)
+    // The decoder returns floats in ±1: scale back to 24-bit integers to compare.
     const scale = 2 ** 23 - 1
     const restored = new Int32Array(original.length)
     for (let i = 0; i < decoded.samplesDecoded; i++) {
@@ -104,6 +108,7 @@ test.describe('library and player', () => {
     await expect(page.getByRole('img', { name: `Cover of ${title}` }).first())
       .toHaveAttribute('src', /\/storage\/v1\/object\/sign\/covers\//)
 
+    // A distinctive new title, checked later in the player bar.
     const newTitle = `${title} (master)`
     await page.getByLabel('Title').fill(newTitle)
     await page.getByRole('switch').click()

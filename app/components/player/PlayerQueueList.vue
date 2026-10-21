@@ -22,10 +22,12 @@ const offset = computed(() => player.index + 1)
  * itself; kept in sync with the store in both directions.
  */
 const items = ref<QueueItem[]>([...player.upcoming])
+// Store → list: any queue change (from a menu, "next", a deletion) redraws it.
 watch(() => player.upcoming, (value) => {
   items.value = [...value]
 })
 
+/** The <ol> that SortableJS makes draggable. */
 const listEl = ref<HTMLElement | null>(null)
 useSortable(listEl, items, {
   handle: '[data-drag-handle]',

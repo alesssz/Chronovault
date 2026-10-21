@@ -11,6 +11,7 @@ import { encodeWavToFlac, FlacVerificationError, type FlacLib } from '~/lib/flac
 import { WavParseError, flacIncompatibility, isWavFile, parseWav } from '~/lib/flac/wav'
 import { buildWav, testSignal } from './wav-fixtures'
 
+/** libFLAC, loaded once (asm.js build: it runs in Node without WebAssembly files). */
 let Flac: FlacLib
 
 beforeAll(async () => {
@@ -25,6 +26,7 @@ beforeAll(async () => {
  * and returns the samples as integers, interleaved like in the WAV.
  */
 async function decodeIndependently(flac: Uint8Array, bitsPerSample: number) {
+  // An independent decoder (@wasm-audio-decoders/flac), not the one the app uses.
   const decoder = new FLACDecoder()
   await decoder.ready
   try {
@@ -32,6 +34,7 @@ async function decodeIndependently(flac: Uint8Array, bitsPerSample: number) {
     // This decoder outputs floats as `sample / (2^(bits-1) - 1)`. Multiplying back
     // and rounding recovers the integer: the float32 error stays below half a step.
     const scale = 2 ** (bitsPerSample - 1) - 1
+    // Back to the WAV layout (L R L R…) as integers, to compare with the source samples.
     const interleaved = new Int32Array(samplesDecoded * channelData.length)
     for (let i = 0; i < samplesDecoded; i++) {
       for (let ch = 0; ch < channelData.length; ch++) {
@@ -106,6 +109,7 @@ describe('encodeWavToFlac', () => {
     { bitsPerSample: 24, channels: 1, label: '24-bit mono' },
     { bitsPerSample: 8, channels: 1, label: '8-bit mono' },
   ])('$label: the FLAC decodes to exactly the original samples', async ({ bitsPerSample, channels }) => {
+    // About a second of audio: several FLAC frames, still fast to test.
     const frames = 50_000
     const samples = testSignal(frames, channels, bitsPerSample)
     const wav = buildWav({ samples, channels, bitsPerSample })
@@ -130,6 +134,7 @@ describe('encodeWavToFlac', () => {
   })
 
   it('makes music-like audio smaller', async () => {
+    // Two seconds of stereo: enough chunks to observe the progress reports.
     const frames = 44_100 * 2
     const samples = new Int32Array(frames * 2)
     for (let i = 0; i < frames; i++) {
@@ -144,6 +149,7 @@ describe('encodeWavToFlac', () => {
 
   it('reports progress up to completion', async () => {
     const wav = buildWav({ samples: testSignal(100_000, 2, 16), channels: 2, bitsPerSample: 16 })
+    // Every progress value reported, in order.
     const progress: number[] = []
     await encodeWavToFlac(Flac, wav, parseWav(wav), p => progress.push(p))
     expect(progress.at(-1)).toBe(1)
@@ -158,6 +164,7 @@ describe('encodeWavToFlac', () => {
   it('detects a corrupted FLAC stream and never returns it', async () => {
     // Flip one byte inside an audio frame written by the encoder.
     let writes = 0
+    // libFLAC with a write callback that flips a byte: the verification must catch it.
     const corrupting: FlacLib = {
       ...Flac,
       init_encoder_stream: (encoder, write, metadata) =>

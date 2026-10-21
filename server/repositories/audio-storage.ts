@@ -36,6 +36,7 @@ export interface StoredObject {
   contentType: string | null
 }
 
+/** S3-compatible client for the audio bucket: presigned URLs, HEAD, DELETE, LIST. */
 export class AudioStorage {
   private readonly client: AwsClient
 
@@ -73,6 +74,7 @@ export class AudioStorage {
    * URL directly in `<audio src>` or an XHR PUT without extra headers.
    */
   async presign(method: 'GET' | 'PUT', key: string, expiresSeconds: number): Promise<string> {
+    // The lifetime goes in the query string, signed together with the rest.
     const url = new URL(this.objectUrl(key))
     url.searchParams.set('X-Amz-Expires', String(expiresSeconds))
     const signed = await this.client.sign(new Request(url, { method }), { aws: { signQuery: true } })
@@ -120,9 +122,12 @@ export class AudioStorage {
    * clean-up, always with a user's folder as the prefix.
    */
   async list(prefix: string): Promise<ListedObject[]> {
+    // Objects of every page, in key order (as S3 returns them).
     const objects: ListedObject[] = []
+    // Continuation token of the next page (S3 returns at most 1000 keys per page).
     let token: string | null = null
     do {
+      // ListObjectsV2 is a GET on the bucket itself, with parameters in the query.
       const url = new URL(this.bucketUrl())
       url.searchParams.set('list-type', '2')
       url.searchParams.set('prefix', prefix)
@@ -165,12 +170,14 @@ function decodeXml(text: string): string {
 
 /** Text of the first `<tag>…</tag>` in `xml`, decoded, or null. */
 function xmlValue(xml: string, tag: string): string | null {
+  // Non-greedy, multi-line: the first <tag>…</tag> pair.
   const match = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(xml)
   return match ? decodeXml(match[1]!) : null
 }
 
 /** The `<Contents>` entries of a ListObjectsV2 response. */
 export function parseListedObjects(xml: string): ListedObject[] {
+  // One entry per <Contents> element; entries without a key are skipped.
   const objects: ListedObject[] = []
   for (const [, body] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
     const key = xmlValue(body!, 'Key')

@@ -16,6 +16,7 @@ import type { Database } from '~~/shared/types/database.types'
 /** Supabase client typed with the generated database schema. */
 export type DbClient = SupabaseClient<Database>
 
+/** What requireAuth() gives a route. */
 export interface AuthContext {
   /** The signed-in user's id (`auth.users.id`, the JWT `sub` claim). */
   userId: string

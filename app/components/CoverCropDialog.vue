@@ -26,6 +26,7 @@ const props = defineProps<{
   file: File | null
 }>()
 
+/** `v-model:open`: the parent opens the editor when an image is picked. */
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ confirm: [crop: CropRect] }>()
 
@@ -37,6 +38,7 @@ const natural = reactive({ width: 0, height: 0 })
 /** The browser cannot decode the file (e.g. a format it does not support). */
 const unreadable = ref(false)
 
+// A new file: new object URL (the old one is released) and a fresh start.
 watch(() => props.file, (file) => {
   if (src.value) URL.revokeObjectURL(src.value)
   src.value = file ? URL.createObjectURL(file) : null
@@ -49,8 +51,10 @@ onBeforeUnmount(() => {
   if (src.value) URL.revokeObjectURL(src.value)
 })
 
+/** The image is decoded: geometry can be computed and "Use cover" enabled. */
 const ready = computed(() => natural.width > 0 && natural.height > 0)
 
+/** Image decoded: read its natural size and start on the centered square. */
 function onImageLoad(event: Event) {
   const img = event.target as HTMLImageElement
   natural.width = img.naturalWidth
@@ -92,19 +96,26 @@ function moveBy(dx: number, dy: number) {
   setView({ ...view.value, cx: view.value.cx - dx / scale.value, cy: view.value.cy - dy / scale.value })
 }
 
+/** Multiplies the zoom (>1 zooms in), keeping the same center. */
 function zoomBy(factor: number) {
   setView({ ...view.value, zoom: view.value.zoom * factor })
 }
 
 // --- Pointer: drag with one pointer, pinch with two -------------------------------------------
 const pointers = new Map<number, { x: number, y: number }>()
+/** A pointer is down: the cursor shows "grabbing". */
 const dragging = ref(false)
 
+/** Distance between the two active pointers (pinch), 0 with fewer. */
 function distance(): number {
   const [a, b] = [...pointers.values()]
   return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
 }
 
+/**
+ * A finger or the mouse goes down: track it. Capturing the pointer keeps
+ * the moves coming even when it leaves the frame while dragging.
+ */
 function onPointerDown(event: PointerEvent) {
   if (!ready.value) return
   frame.value?.setPointerCapture(event.pointerId)
@@ -112,6 +123,7 @@ function onPointerDown(event: PointerEvent) {
   dragging.value = true
 }
 
+/** One pointer drags the image; two pointers pinch to zoom. */
 function onPointerMove(event: PointerEvent) {
   const previous = pointers.get(event.pointerId)
   if (!previous) return
@@ -127,6 +139,7 @@ function onPointerMove(event: PointerEvent) {
   if (before > 0 && after > 0) zoomBy(after / before)
 }
 
+/** Pointer released or cancelled (e.g. the browser took over the gesture). */
 function onPointerUp(event: PointerEvent) {
   pointers.delete(event.pointerId)
   dragging.value = pointers.size > 0
@@ -141,6 +154,7 @@ function onWheel(event: WheelEvent) {
 function onKeydown(event: KeyboardEvent) {
   // A step is 5% of the frame (20% with Shift).
   const step = frameWidth.value * (event.shiftKey ? 0.2 : 0.05)
+  // Arrow key → how far the picture moves (dx, dy in screen pixels).
   const moves: Record<string, [number, number]> = {
     ArrowLeft: [-step, 0],
     ArrowRight: [step, 0],
@@ -160,6 +174,7 @@ function reset() {
   if (ready.value) view.value = initialCropView(natural.width, natural.height)
 }
 
+/** "Use cover": hand the chosen square to the parent and close. */
 function confirm() {
   if (!ready.value) return
   emit('confirm', cropRectOf(view.value, natural.width, natural.height))

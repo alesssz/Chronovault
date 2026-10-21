@@ -108,6 +108,7 @@ export async function addPlaylistTracks(db: DbClient, userId: string, id: string
 
 /** Signs a set of cover paths in one request and returns a lookup function. */
 async function signCovers(db: DbClient, paths: (string | null)[]): Promise<SignedUrls> {
+  // Each path once, nulls dropped (tracks without covers).
   const unique = [...new Set(paths.filter((p): p is string => !!p))]
   const urls = await storageRepo.createSignedUrls(db, COVERS_BUCKET, unique)
   return path => (path ? urls.get(path) ?? null : null)

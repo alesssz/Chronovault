@@ -14,17 +14,24 @@ import { COVERS_BUCKET, buildCoverPath } from '~~/shared/utils/storage-paths'
 import { toSquareWebp, type CropRect } from '~/lib/image'
 import { tracksApi } from '~/services/api'
 
+// The track id comes from the route.
 const route = useRoute()
+/** Track id from the URL (/tracks/:id/edit). */
 const id = route.params.id as string
 
+// Supabase: the browser uploads the cover straight to Storage (own folder).
 const supabase = useSupabaseClient()
+// The signed-in user's id builds the cover path `<userId>/<trackId>.webp`.
 const user = useSupabaseUser()
+// Edits are pushed to the player, and the Play button toggles this track.
 const player = usePlayerStore()
+// Success and failure messages.
 const toast = useToast()
 const { genres, createGenre } = useGenres()
 
 const { data: track, error } = await useAsyncData(`track-${id}`, () => tracksApi.get(id))
 
+// Missing or someone else's track: the error page (404).
 if (error.value || !track.value) {
   throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Track not found', fatal: true })
 }
@@ -33,7 +40,9 @@ useSeoMeta({ title: () => `${track.value?.title ?? 'Track'} · Edit` })
 
 // --- Form state ------------------------------------------------------------------
 // Optional texts are strings in the form ('' = empty): the schema turns them into null.
+/** Optional text fields of the form. */
 type TextField = 'composers' | 'album' | 'description' | 'sunoPrompt' | 'lyrics'
+/** The form's own shape: the schema input, with optional texts as plain strings. */
 type FormState = Omit<TrackMetadataInput, TextField> & Record<TextField, string>
 
 /** Server data → form state (null texts become ''). */
@@ -53,10 +62,13 @@ function toFormState(t: TrackDetail): FormState {
   }
 }
 
+/** The form, bound to the inputs. */
 const state = reactive<FormState>(toFormState(track.value))
 /** Snapshot of the last saved state: `dirty` compares against it. */
 const baseline = ref(JSON.stringify(state))
+/** Unsaved changes: enables "Save" and the leave-page warning. */
 const dirty = computed(() => JSON.stringify(state) !== baseline.value)
+/** The save request is running (spinner on "Save"). */
 const saving = ref(false)
 
 // Components emit undefined when cleared: the schema expects null.
@@ -66,6 +78,7 @@ const year = computed({
     state.year = value == null || Number.isNaN(value) ? null : value
   },
 })
+/** Same as `year`, for the genre select. */
 const genreId = computed({
   get: () => state.genreId ?? undefined,
   set: (value: string | null | undefined) => {
@@ -73,6 +86,7 @@ const genreId = computed({
   },
 })
 
+/** Genre options for the select menu (built-in and custom, sorted by name). */
 const genreItems = computed(() => genres.value.map(g => ({ label: g.name, value: g.id })))
 
 /** "Create" in the genre menu: creates the custom genre and selects it. */
@@ -86,13 +100,16 @@ async function onCreateGenre(name: string) {
   }
 }
 
+/** Options of the visibility radio cards. */
 const visibilityItems: { value: TrackVisibility, label: string, description: string }[] = [
   { value: 'private', label: 'Private', description: 'Only you can listen to it.' },
   { value: 'unlisted', label: 'Unlisted', description: 'Anyone with the link can listen.' },
   { value: 'public', label: 'Public', description: 'Anyone with the link can listen; search engines may list it.' },
 ]
 
+/** Open tab: details, lyrics or sync. */
 const tab = ref('details')
+/** The three tabs; `slot` names the template block that renders each one. */
 const tabs: TabsItem[] = [
   { label: 'Details', value: 'details', slot: 'details', icon: 'i-lucide-list' },
   { label: 'Lyrics', value: 'lyrics', slot: 'lyrics', icon: 'i-lucide-text' },
@@ -111,6 +128,7 @@ async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
   try {
     const updated = await tracksApi.update(id, event.data)
     applyServerTrack(updated)
+    // The form takes the normalized values back (trimmed texts…) and is clean again.
     Object.assign(state, toFormState(updated))
     baseline.value = JSON.stringify(state)
     toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
@@ -123,12 +141,14 @@ async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
   }
 }
 
+/** Validation failed (UForm): show where. */
 function onFormError() {
   // Errors may sit in a hidden tab: go back to the details.
   tab.value = 'details'
   toast.add({ title: 'Check the highlighted fields', color: 'error' })
 }
 
+// Leaving with unsaved changes asks first (returning false cancels the navigation).
 onBeforeRouteLeave(() => {
   if (dirty.value && !window.confirm('You have unsaved changes. Leave anyway?')) return false
 })
@@ -142,6 +162,7 @@ const coverBusy = ref(false)
  * → PATCH coverPath.
  */
 async function onCoverSelected(file: File, crop: CropRect) {
+  // Needed for the storage path; no session = nothing to do.
   const userId = user.value?.sub
   if (!userId) return
   coverBusy.value = true
@@ -179,7 +200,9 @@ async function onCoverRemoved() {
 }
 
 // --- Deletion --------------------------------------------------------------------
+/** The delete confirmation dialog. */
 const deleteOpen = ref(false)
+/** The delete request is running. */
 const deleting = ref(false)
 
 /** Deletes the track (and its files), stops it if playing, back to the library. */
@@ -201,11 +224,13 @@ async function onDelete() {
   }
 }
 
+/** This track is in the player (Play/Pause button state). */
 const isCurrent = computed(() => player.current?.id === id)
 
 // --- Sharing -----------------------------------------------------------------------
 // Based on the saved visibility: a change only applies once saved.
 const { shareUrl, copyShareLink } = useShareLink()
+/** Saved visibility is unlisted/public: show the share link. */
 const isShared = computed(() => !!track.value && track.value.visibility !== 'private')
 </script>
 
@@ -214,6 +239,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
     v-if="track"
     class="max-w-5xl py-6 sm:py-8"
   >
+    <!-- Header: back, title, Play/Pause, Save -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <UButton
         to="/"
@@ -244,6 +270,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
     </div>
 
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
+      <!-- Side column: cover (saved at once), file info, sharing, deletion -->
       <aside class="space-y-6">
         <TrackCoverPicker
           :url="track.coverUrl"
@@ -253,6 +280,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
           @remove="onCoverRemoved"
         />
 
+        <!-- Technical data of the stored file -->
         <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <dt class="text-muted">
             Duration
@@ -344,6 +372,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
           variant="link"
           class="w-full"
         >
+          <!-- Details tab: metadata, Suno prompt, mastering, visibility -->
           <template #details>
             <div class="grid gap-4 pt-4 sm:grid-cols-2">
               <UFormField
@@ -472,6 +501,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
             </div>
           </template>
 
+          <!-- Lyrics tab: plain text, [Section] lines become headers -->
           <template #lyrics>
             <div class="pt-4">
               <UFormField
@@ -491,6 +521,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
             </div>
           </template>
 
+          <!-- Sync tab: tap-to-sync editor with the detailed waveform -->
           <template #sync>
             <div class="pt-4">
               <LyricsSyncEditor
@@ -505,6 +536,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
       </UForm>
     </div>
 
+    <!-- Delete confirmation -->
     <ConfirmDialog
       v-model:open="deleteOpen"
       title="Delete this track?"

@@ -24,7 +24,9 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 import { buildMergeMessage } from './lib/merge-message.mjs'
 
+/** The branch everything is merged into (production deploys from it). */
 const MAIN = 'main'
+/** The GitHub remote. */
 const REMOTE = 'origin'
 const assumeYes = process.argv.includes('--yes') || process.argv.includes('-y')
 
@@ -88,6 +90,7 @@ async function run() {
   console.log(`▸ Fetching ${REMOTE}…`)
   if (!gitVisible('fetch', '--prune', REMOTE)) throw new Stop(`Could not reach ${REMOTE}: check your connection.`)
 
+  // The branch as GitHub has it (after the fetch above).
   const upstream = `${REMOTE}/${branch}`
   if (!gitSucceeds('rev-parse', '--verify', '--quiet', `refs/remotes/${upstream}`)) {
     throw new Stop(`"${branch}" has never been pushed. Push it first: git push -u ${REMOTE} ${branch}`)

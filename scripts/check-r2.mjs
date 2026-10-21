@@ -16,6 +16,7 @@
 import { existsSync } from 'node:fs'
 import { AwsClient } from 'aws4fetch'
 
+// The R2 settings live in a separate, git-ignored file: never in .env (local stack).
 const envFile = '.env.r2'
 if (!existsSync(envFile)) {
   console.error(`✖ ${envFile} not found. Create it from .env.r2.example and fill in your R2 values.`)
@@ -23,6 +24,7 @@ if (!existsSync(envFile)) {
 }
 process.loadEnvFile(envFile)
 
+// Same variable names as on Vercel, so the file can be copied there as is.
 const config = {
   endpoint: process.env.NUXT_AUDIO_STORAGE_ENDPOINT?.replace(/\/$/, ''),
   region: process.env.NUXT_AUDIO_STORAGE_REGION || 'auto',
@@ -38,12 +40,16 @@ if (missing.length) {
 
 // Origins whose CORS access is checked (the sites the app is served from).
 const origins = process.argv.slice(2).length ? process.argv.slice(2) : ['http://localhost:3000']
+// Signs requests exactly like the app (aws4fetch, SigV4).
 const client = new AwsClient({ ...config, service: 's3' })
 // A throwaway object, deleted at the end whatever happens.
 const key = `_chronoplayer-check/${Date.now()}.bin`
+// Path-style URL of the test object, like AudioStorage.objectUrl().
 const objectUrl = `${config.endpoint}/${config.bucket}/${key}`
+// 4 KB of known bytes: the range check below expects bytes 100-109.
 const body = new Uint8Array(4096).map((_, i) => i % 256)
 
+// Failed checks; the exit code is 1 when any fails.
 let failures = 0
 /** Prints ✔/✖ for a check, with a hint on how to fix it; counts failures. */
 function report(ok, label, hint) {
@@ -57,6 +63,7 @@ function report(ok, label, hint) {
 
 /** Presigned URL for the test object, signed exactly like the app does (query signature). */
 async function presign(method) {
+  // The lifetime goes in the query string, signed with it (like AudioStorage.presign).
   const url = new URL(objectUrl)
   url.searchParams.set('X-Amz-Expires', '600')
   return (await client.sign(new Request(url, { method }), { aws: { signQuery: true } })).url

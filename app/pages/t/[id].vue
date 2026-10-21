@@ -8,14 +8,17 @@ import { sharedApi } from '~/services/api'
  */
 definePageMeta({ layout: 'public' })
 
+// Track id from the URL (/t/:id).
 const route = useRoute()
 const id = String(route.params.id)
 // Before any `await`: they need the component context.
 const player = usePlayerStore()
+// Site origin (works during SSR too): absolute URLs for the link preview tags.
 const origin = useRequestURL().origin
 
 const { data: track, error } = await useAsyncData(`shared-${id}`, () => sharedApi.get(id))
 
+/** The track is private, missing or the id is malformed: "not available". */
 const notFound = computed(() => !track.value && [400, 404].includes(error.value?.statusCode ?? 0))
 if (import.meta.server && !track.value) {
   setResponseStatus(useRequestEvent()!, notFound.value ? 404 : 500)
@@ -26,6 +29,7 @@ const meta = computed(() => {
   const t = track.value
   return t ? [t.album, t.year, t.genre].filter(Boolean).join(' · ') : ''
 })
+/** Preview text: the description, or composers and album/year/genre. */
 const previewText = computed(() => {
   const t = track.value
   if (!t) return 'This track is not available.'
@@ -54,7 +58,9 @@ function truncate(text: string, max: number): string {
 
 // --- Playback ---------------------------------------------------------------------
 const isLoaded = computed(() => player.current?.id === id)
+/** Playing this track right now (big button shows Pause). */
 const isPlaying = computed(() => isLoaded.value && player.isPlaying)
+/** The lyrics column is shown only when there are lyrics. */
 const hasLyrics = computed(() => !!track.value?.lyricsSynced?.length || !!track.value?.lyrics?.trim())
 
 // The audio is ready (waveform included) before the first click.
@@ -85,6 +91,7 @@ function onLyricSeek(seconds: number) {
       :class="hasLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
       data-testid="shared-track"
     >
+      <!-- Left: cover, title and details, player, description -->
       <section class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <TrackCover
           :url="track.coverUrl"
@@ -114,6 +121,7 @@ function onLyricSeek(seconds: number) {
           </p>
         </div>
 
+        <!-- Play button, waveform and times -->
         <div class="flex items-center gap-4">
           <UButton
             :icon="isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
@@ -167,6 +175,7 @@ function onLyricSeek(seconds: number) {
         </div>
       </section>
 
+      <!-- Right: the lyrics (synced ones follow playback) -->
       <section
         v-if="hasLyrics"
         class="h-[70dvh] rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 lg:h-[calc(100dvh-10rem)]"
@@ -182,6 +191,7 @@ function onLyricSeek(seconds: number) {
       </section>
     </div>
 
+    <!-- Private, missing or malformed link -->
     <UEmpty
       v-else
       :icon="notFound ? 'i-lucide-link-2-off' : 'i-lucide-circle-alert'"

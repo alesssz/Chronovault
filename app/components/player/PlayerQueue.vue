@@ -8,6 +8,7 @@
  */
 const player = usePlayerStore()
 
+/** The panel is bound to the store (opened from the bar or the full-screen view). */
 const open = computed({
   get: () => player.queueOpen,
   set: value => player.setQueueOpen(value),

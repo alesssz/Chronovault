@@ -5,11 +5,13 @@
  */
 const player = usePlayerStore()
 
+/** Speaker icon: muted, low or high. */
 const icon = computed(() => {
   if (player.muted || player.volume === 0) return 'i-lucide-volume-x'
   return player.volume < 0.5 ? 'i-lucide-volume-1' : 'i-lucide-volume-2'
 })
 
+/** Slider value 0..100 (0 while muted); writing it sets the volume. */
 const level = computed({
   get: () => (player.muted ? 0 : Math.round(player.volume * 100)),
   set: (value: number) => player.setVolume(value / 100),

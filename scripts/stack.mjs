@@ -20,6 +20,7 @@ import {
   writeEnvFile,
 } from './lib/local-stack.mjs'
 
+/** Where the app container answers (compose.yaml maps 8080 → 3000). */
 const DOCKER_APP_URL = 'http://localhost:8080'
 
 /**
@@ -28,6 +29,7 @@ const DOCKER_APP_URL = 'http://localhost:8080'
  * the host, so the browser and the server use the very same URL.
  */
 function dockerSupabaseUrl(apiUrl) {
+  // Same port and scheme, only the host changes.
   const url = new URL(apiUrl)
   url.hostname = 'host.docker.internal'
   return url.origin

@@ -20,16 +20,22 @@ import { getErrorMessage } from '~/utils/errors'
 const route = useRoute()
 const id = route.params.id as string
 
+// Supabase: the browser uploads the custom cover straight to Storage (own folder).
 const supabase = useSupabaseClient()
+// The signed-in user's id builds the cover path `<userId>/playlists/<id>.webp`.
 const user = useSupabaseUser()
 const player = usePlayerStore()
+// Success and failure messages.
 const toast = useToast()
+// Keeps the cached list of the Playlists page in sync with changes made here.
 const { remember, forget } = usePlaylists()
 const { shareUrl, copyShareLink } = useShareLink()
+// "Play next" / "Add to queue" in each track's menu.
 const queue = useQueueActions()
 
 const { data: playlist, error } = await useAsyncData(`playlist-${id}`, () => playlistsApi.get(id))
 
+// Missing or someone else's playlist: the error page (404).
 if (error.value || !playlist.value) {
   throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Playlist not found', fatal: true })
 }
@@ -39,6 +45,7 @@ useSeoMeta({ title: () => `${playlist.value?.title ?? 'Playlist'} · ChronoPlaye
 /** Tracks in their current order (reordered locally, then saved). */
 const tracks = ref<TrackSummary[]>([...playlist.value.tracks])
 
+/** Adopts the playlist returned by the server after any change (the server's copy wins). */
 function applyServerPlaylist(updated: PlaylistDetail) {
   playlist.value = updated
   tracks.value = [...updated.tracks]
@@ -46,23 +53,31 @@ function applyServerPlaylist(updated: PlaylistDetail) {
 }
 
 // --- Details form -------------------------------------------------------------------
+/** Form fields: the description is a string while editing ('' = none), null once validated. */
 type FormState = Omit<PlaylistMetadataInput, 'description'> & { description: string }
 
+/** Server data → form state. */
 function toFormState(p: PlaylistDetail): FormState {
   return { title: p.title, description: p.description ?? '', visibility: p.visibility }
 }
 
+/** The details form, bound to the inputs. */
 const state = reactive<FormState>(toFormState(playlist.value))
+/** Snapshot of the last saved form: `dirty` compares against it. */
 const baseline = ref(JSON.stringify(state))
+/** Unsaved changes: enables "Save" and the leave-page warning. */
 const dirty = computed(() => JSON.stringify(state) !== baseline.value)
+/** The save request is running (spinner on "Save"). */
 const saving = ref(false)
 
+/** Options of the visibility radio cards (same wording as tracks). */
 const visibilityItems: { value: TrackVisibility, label: string, description: string }[] = [
   { value: 'private', label: 'Private', description: 'Only you can listen to it.' },
   { value: 'unlisted', label: 'Unlisted', description: 'Anyone with the link can listen.' },
   { value: 'public', label: 'Public', description: 'Anyone with the link can listen; search engines may list it.' },
 ]
 
+/** Saves title, description and visibility (validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
   saving.value = true
   try {
@@ -86,17 +101,24 @@ onBeforeRouteLeave(() => {
 // --- Tracks: play, reorder, remove ------------------------------------------------------
 const isPlayingHere = computed(() => player.sourceKey === 'library' && tracks.value.some(t => t.id === player.current?.id))
 
+/** The track is the one loaded in the player (highlighted row). */
 function isCurrent(track: TrackSummary) {
   return player.current?.id === track.id
 }
 
+/** "Play all": pause/resume when this playlist is playing, otherwise start from the first track. */
 function playAll() {
   if (isPlayingHere.value) void player.togglePlay()
   else if (tracks.value[0]) void player.playTrack(tracks.value[0], tracks.value)
 }
 
+/** A reorder/removal is being saved (spinner next to "Tracks"). */
 const savingOrder = ref(false)
 
+/**
+ * Saves a new track list (order or removal) right away. The list updates
+ * first (optimistic); if the request fails it goes back to the saved one.
+ */
 async function saveTracks(next: TrackSummary[], failureTitle: string) {
   const previous = playlist.value!.tracks
   tracks.value = next
@@ -113,19 +135,23 @@ async function saveTracks(next: TrackSummary[], failureTitle: string) {
   }
 }
 
+/** "Move up/down": swaps the track with its neighbour and saves. */
 function move(index: number, offset: number) {
   const target = index + offset
   if (target < 0 || target >= tracks.value.length) return
+  // Array move on a copy: remove at `index`, insert at `target`.
   const next = [...tracks.value]
   const [item] = next.splice(index, 1)
   next.splice(target, 0, item!)
   void saveTracks(next, 'Order not saved')
 }
 
+/** "Remove from playlist" (the track stays in the library). */
 function removeTrack(track: TrackSummary) {
   void saveTracks(tracks.value.filter(t => t.id !== track.id), 'Track not removed')
 }
 
+/** The "⋮" menu of a track row: queue actions, move, edit, remove. */
 function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
   return [
     [
@@ -154,10 +180,12 @@ useSortable(listEl, tracks, {
 })
 
 // --- Cover -----------------------------------------------------------------------------
+/** A cover upload/removal is running (spinner over the cover). */
 const coverBusy = ref(false)
 
 /** New custom cover (cropped in the crop editor): WebP → Supabase Storage → PATCH coverPath. */
 async function onCoverSelected(file: File, crop: CropRect) {
+  // Needed for the storage path; no session = nothing to do.
   const userId = user.value?.sub
   if (!userId) return
   coverBusy.value = true
@@ -180,6 +208,7 @@ async function onCoverSelected(file: File, crop: CropRect) {
   }
 }
 
+/** Removes the custom cover (the server deletes the file); the mosaic shows again. */
 async function onCoverRemoved() {
   coverBusy.value = true
   try {
@@ -194,17 +223,22 @@ async function onCoverRemoved() {
 }
 
 // --- Sharing (based on the saved visibility) -------------------------------------------
+/** Saved visibility is unlisted/public: show the share link (a change applies once saved). */
 const isShared = computed(() => playlist.value?.visibility !== 'private')
 
 // --- Deletion ----------------------------------------------------------------------------
+/** The delete confirmation dialog. */
 const deleteOpen = ref(false)
+/** The delete request is running. */
 const deleting = ref(false)
 
+/** Deletes the playlist (tracks stay in the library) and goes back to the Playlists page. */
 async function onDelete() {
   deleting.value = true
   try {
     await playlistsApi.remove(id)
     forget(id)
+    // No "unsaved changes" warning when leaving a deleted playlist.
     baseline.value = JSON.stringify(state)
     deleteOpen.value = false
     toast.add({ title: 'Playlist deleted', icon: 'i-lucide-trash-2' })
@@ -224,6 +258,7 @@ async function onDelete() {
     v-if="playlist"
     class="max-w-5xl py-6 sm:py-8"
   >
+    <!-- Header: back, title, Play all, Save -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <UButton
         to="/playlists"
@@ -259,6 +294,7 @@ async function onDelete() {
     </div>
 
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
+      <!-- Side column: cover, stats, sharing, deletion -->
       <aside class="space-y-6">
         <TrackCoverPicker
           :url="playlist.coverUrl"
@@ -284,6 +320,7 @@ async function onDelete() {
           Without a cover of its own, the playlist shows the covers of its first tracks.
         </p>
 
+        <!-- Track count and total duration -->
         <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <dt class="text-muted">
             Tracks
@@ -299,6 +336,7 @@ async function onDelete() {
           </dd>
         </dl>
 
+        <!-- Sharing: link and warning about private tracks, or how to share -->
         <div
           class="space-y-2"
           data-testid="share-box"
@@ -357,6 +395,7 @@ async function onDelete() {
         />
       </aside>
 
+      <!-- Main column: details form, then the track list -->
       <div class="min-w-0 space-y-8">
         <UForm
           id="playlist-form"
@@ -407,6 +446,7 @@ async function onDelete() {
         </UForm>
 
         <section>
+          <!-- Track list: drag handle, cover, title (click to play), duration, menu -->
           <div class="mb-2 flex items-center justify-between gap-2">
             <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
               Tracks

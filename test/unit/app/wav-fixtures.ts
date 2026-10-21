@@ -15,7 +15,9 @@ export interface WavFixtureOptions {
   extraChunk?: { id: string, body: Uint8Array }
 }
 
+/** One RIFF chunk: 4-char id, little-endian size, body, padding byte when the size is odd. */
 function chunk(id: string, body: Uint8Array): Uint8Array {
+  // 8-byte chunk header + body + 1 padding byte when the body length is odd.
   const out = new Uint8Array(8 + body.length + (body.length % 2))
   const view = new DataView(out.buffer)
   for (let i = 0; i < 4; i++) out[i] = id.charCodeAt(i)
@@ -24,13 +26,16 @@ function chunk(id: string, body: Uint8Array): Uint8Array {
   return out
 }
 
+/** A complete WAV file: RIFF header, `fmt `, optional extra chunk, `data`. */
 export function buildWav(options: WavFixtureOptions): Uint8Array {
   const { samples, channels, bitsPerSample, sampleRate = 44_100, formatTag = 1, extraChunk } = options
   const bytesPerSample = bitsPerSample / 8
   const blockAlign = channels * bytesPerSample
 
   const extensible = formatTag === 0xFFFE
+  // `fmt ` body: 16 bytes, or 40 for WAVE_FORMAT_EXTENSIBLE (with the SubFormat GUID).
   const fmt = new Uint8Array(extensible ? 40 : 16)
+  // Fields in the order of the WAVEFORMATEX structure, little-endian.
   const f = new DataView(fmt.buffer)
   f.setUint16(0, formatTag, true)
   f.setUint16(2, channels, true)
@@ -45,7 +50,9 @@ export function buildWav(options: WavFixtureOptions): Uint8Array {
     f.setUint16(24, 1, true) // SubFormat: PCM (first 2 bytes of the GUID)
   }
 
+  // `data` body: samples encoded the way each bit depth is stored in a WAV.
   const data = new Uint8Array(samples.length * bytesPerSample)
+  // 8-bit WAV is unsigned (offset 128); 16/24/32-bit are signed; float is scaled to ±1.
   const d = new DataView(data.buffer)
   samples.forEach((value, i) => {
     const offset = i * bytesPerSample
@@ -60,13 +67,16 @@ export function buildWav(options: WavFixtureOptions): Uint8Array {
     else d.setInt32(offset, value, true)
   })
 
+  // Assemble: "RIFF" <size> "WAVE" followed by the chunks.
   const parts = [chunk('fmt ', fmt), ...(extraChunk ? [chunk(extraChunk.id, extraChunk.body)] : []), chunk('data', data)]
+  // RIFF size = "WAVE" (4 bytes) + every chunk.
   const bodyLength = 4 + parts.reduce((sum, p) => sum + p.length, 0)
   const out = new Uint8Array(8 + bodyLength)
   const view = new DataView(out.buffer)
   out.set([0x52, 0x49, 0x46, 0x46], 0) // RIFF
   view.setUint32(4, bodyLength, true)
   out.set([0x57, 0x41, 0x56, 0x45], 8) // WAVE
+  // Chunks follow the 12-byte RIFF header.
   let offset = 12
   for (const part of parts) {
     out.set(part, offset)
@@ -80,14 +90,17 @@ export function buildWav(options: WavFixtureOptions): Uint8Array {
  * deterministic noise (seeded), so every bit of the sample range is exercised.
  */
 export function testSignal(frames: number, channels: number, bitsPerSample: number): Int32Array {
+  // Signed range of the bit depth, e.g. -32768..32767 for 16-bit.
   const max = 2 ** (bitsPerSample - 1) - 1
   const min = -(2 ** (bitsPerSample - 1))
   const samples = new Int32Array(frames * channels)
+  // Deterministic pseudo-random noise (linear congruential generator): same signal every run.
   let seed = 12345
   const random = () => {
     seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF
     return seed / 0x7FFFFFFF
   }
+  // The values most likely to break an encoder: limits, zero and their neighbours.
   const extremes = [min, max, 0, -1, 1, min + 1, max - 1]
   for (let i = 0; i < samples.length; i++) {
     if (i < extremes.length) {

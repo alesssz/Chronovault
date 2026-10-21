@@ -45,7 +45,9 @@ export const trackMetadataSchema = z.object({
   lyricsSynced: z.array(syncedLyricLineSchema).max(2000).nullable(),
 })
 
+/** What the edit form holds before validation (texts may be empty strings). */
 export type TrackMetadataInput = z.input<typeof trackMetadataSchema>
+/** Validated metadata (trimmed, empty texts as null). */
 export type TrackMetadata = z.output<typeof trackMetadataSchema>
 
 /** `audio/<subtype>`: only audio types are ever accepted. */
@@ -60,6 +62,7 @@ export const audioUploadRequestSchema = z.object({
   sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES, 'File too large'),
 })
 
+/** Validated body of POST /api/tracks/upload-url. */
 export type AudioUploadRequest = z.output<typeof audioUploadRequestSchema>
 
 /**
@@ -77,7 +80,9 @@ export const trackCreateSchema = trackMetadataSchema.partial().extend({
   peaks: z.array(z.number().min(0).max(1)).max(PEAKS_RESOLUTION).nullable().optional(),
 })
 
+/** Body the upload queue sends to POST /api/tracks. */
 export type TrackCreateInput = z.input<typeof trackCreateSchema>
+/** Validated body of POST /api/tracks, as the service receives it. */
 export type TrackCreate = z.output<typeof trackCreateSchema>
 
 /**
@@ -89,7 +94,9 @@ export const trackUpdateSchema = trackMetadataSchema
   .extend({ coverPath: storagePath.nullable().optional() })
   .refine(data => Object.keys(data).length > 0, 'Nothing to update')
 
+/** Body a client sends to PATCH /api/tracks/:id. */
 export type TrackUpdateInput = z.input<typeof trackUpdateSchema>
+/** Validated PATCH body (only the fields present are updated). */
 export type TrackUpdate = z.output<typeof trackUpdateSchema>
 
 /** Body of POST /api/genres: a custom genre name (unique per user, case-insensitive). */
@@ -97,4 +104,5 @@ export const genreCreateSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(60, 'At most 60 characters'),
 })
 
+/** Validated body of POST /api/genres. */
 export type GenreCreate = z.output<typeof genreCreateSchema>

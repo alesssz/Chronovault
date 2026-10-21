@@ -4,12 +4,17 @@ import { getErrorMessage } from '~/utils/errors'
 
 /** "New playlist" dialog, opened through usePlaylists().openCreateDialog(). */
 const { createDialog, createPlaylist } = usePlaylists()
+// "Playlist created" / failure messages.
 const toast = useToast()
 
+/** The title being typed. */
 const title = ref('')
+/** The create request is running (dialog locked). */
 const saving = ref(false)
+/** Validation message under the field. */
 const titleError = ref<string | null>(null)
 
+/** Open state lives in shared state (usePlaylists); closing is refused while saving. */
 const open = computed({
   get: () => createDialog.value.open,
   set: (value) => {
@@ -17,6 +22,7 @@ const open = computed({
   },
 })
 
+// Each opening starts from an empty field.
 watch(open, (value) => {
   if (value) {
     title.value = ''
@@ -24,6 +30,7 @@ watch(open, (value) => {
   }
 })
 
+/** Validates the title, creates the playlist (with the selected track, if any) and opens it. */
 async function onSubmit() {
   const parsed = playlistMetadataSchema.shape.title.safeParse(title.value)
   if (!parsed.success) {

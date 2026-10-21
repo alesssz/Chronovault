@@ -36,6 +36,7 @@ describe('getErrorMessage', () => {
 
 describe('crop editor geometry', () => {
   // A landscape image, 2000×1000: the largest square is 1000×1000.
+  // Image size used by most cases below.
   const W = 2000
   const H = 1000
 

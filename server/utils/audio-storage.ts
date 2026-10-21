@@ -16,6 +16,7 @@ let cached: { key: string, storage: AudioStorage } | null = null
  * request fails with a generic 500, so secrets never reach the response.
  */
 export function useAudioStorage(): AudioStorage {
+  // runtimeConfig.audioStorage, filled from NUXT_AUDIO_STORAGE_* at startup.
   const config = useRuntimeConfig().audioStorage as AudioStorageConfig
   // `region` is not checked: it defaults to `auto` (R2).
   const missing = (['endpoint', 'bucket', 'accessKeyId', 'secretAccessKey'] as const).filter(k => !config[k])

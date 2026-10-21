@@ -27,7 +27,9 @@ export const playlistMetadataSchema = z.object({
   visibility: z.enum(TRACK_VISIBILITIES),
 })
 
+/** What the playlist form holds before validation. */
 export type PlaylistMetadataInput = z.input<typeof playlistMetadataSchema>
+/** Validated playlist metadata. */
 export type PlaylistMetadata = z.output<typeof playlistMetadataSchema>
 
 /** Body of POST /api/playlists: a title, and optionally the first tracks. */
@@ -36,7 +38,9 @@ export const playlistCreateSchema = playlistMetadataSchema.partial().extend({
   trackIds: trackIds.optional(),
 })
 
+/** Body a client sends to POST /api/playlists. */
 export type PlaylistCreateInput = z.input<typeof playlistCreateSchema>
+/** Validated create body, as the service receives it. */
 export type PlaylistCreate = z.output<typeof playlistCreateSchema>
 
 /** Body of PATCH /api/playlists/:id: any subset of the metadata, or the cover (`null` removes it). */
@@ -45,7 +49,9 @@ export const playlistUpdateSchema = playlistMetadataSchema
   .extend({ coverPath: storagePath.nullable().optional() })
   .refine(data => Object.keys(data).length > 0, 'Nothing to update')
 
+/** Body a client sends to PATCH /api/playlists/:id. */
 export type PlaylistUpdateInput = z.input<typeof playlistUpdateSchema>
+/** Validated PATCH body. */
 export type PlaylistUpdate = z.output<typeof playlistUpdateSchema>
 
 /**
@@ -54,4 +60,5 @@ export type PlaylistUpdate = z.output<typeof playlistUpdateSchema>
  */
 export const playlistTracksSchema = z.object({ trackIds })
 
+/** Validated `{ trackIds }` body of PUT/POST /api/playlists/:id/tracks. */
 export type PlaylistTracks = z.output<typeof playlistTracksSchema>

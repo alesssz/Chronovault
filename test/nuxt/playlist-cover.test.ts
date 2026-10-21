@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import PlaylistCover from '~/components/playlist/PlaylistCover.vue'
 
+/** More covers than a mosaic uses (4). */
 const covers = ['/a.webp', '/b.webp', '/c.webp', '/d.webp', '/e.webp']
 
 describe('PlaylistCover', () => {

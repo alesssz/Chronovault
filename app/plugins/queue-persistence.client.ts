@@ -14,8 +14,11 @@ import { tracksApi } from '~/services/api'
  * and never touch the saved queue (not even from another tab).
  */
 export default defineNuxtPlugin(() => {
+  // The queue to save and restore.
   const player = usePlayerStore()
+  // The saved queue belongs to this user.
   const user = useSupabaseUser()
+  // Navigation triggers a restore when the app opened on a page without one.
   const router = useRouter()
 
   /** Pages where nothing is restored: public share pages and the sign-in flow. */
@@ -33,6 +36,7 @@ export default defineNuxtPlugin(() => {
    */
   function persist() {
     const userId = user.value?.sub
+    // Signed out, or a restore is writing its own state: nothing to save now.
     if (!userId || restoring) return
     if (player.status === 'idle') {
       if (ownsSavedQueue) clearSavedQueue()
@@ -54,6 +58,7 @@ export default defineNuxtPlugin(() => {
    * /login (expired session) restores right after signing in instead.
    */
   function maybeRestore(path: string) {
+    // Nothing to restore for a signed-out visitor.
     const userId = user.value?.sub
     if (!userId || restoredFor === userId || NO_RESTORE.test(path)) return
     restoredFor = userId
@@ -86,9 +91,11 @@ export default defineNuxtPlugin(() => {
     persist()
   }
 
+  // Restore as soon as the user is known (app start, sign-in), and after navigations.
   watch(() => user.value?.sub, () => maybeRestore(window.location.pathname), { immediate: true })
   router.afterEach(to => maybeRestore(to.path))
 
+  // Save on every change of the queue, the current track or the status.
   watch([() => player.queue, () => player.index, () => player.status], persist)
   // Position: every 5 seconds is enough to resume close to where the user was.
   watch(() => Math.floor(player.currentTime / 5), persist)

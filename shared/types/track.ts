@@ -32,6 +32,7 @@ export interface SyncedLyricLine {
   section?: boolean
 }
 
+/** A genre as the API returns it. */
 export interface Genre {
   id: string
   name: string

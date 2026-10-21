@@ -52,14 +52,19 @@ export function isSectionHeader(text: string): boolean {
  * - Lines without timestamps that are not headers or `[offset]` are ignored.
  */
 export function parseLrc(input: string): SyncedLyricLine[] {
+  // [offset:] in seconds; applied to every time at the end.
   let offsetSeconds = 0
+  // Every parsed line, in file order (sorted at the end).
   const lines: SyncedLyricLine[] = []
   /** Untimed headers waiting for the next timed line. */
   let pendingSections: string[] = []
 
   for (const raw of input.split(/\r?\n/)) {
+    // What is left of the line after each leading timestamp is consumed.
     let rest = raw.trim()
+    // Every timestamp of this line (a repeated chorus has several).
     const times: number[] = []
+    // The timestamp found at the start of `rest`, if any.
     let match: RegExpExecArray | null
 
     // Consume every leading timestamp: `[00:45.10][01:30.00] text`.
@@ -134,10 +139,12 @@ export function serializeLrc(lines: SyncedLyricLine[]): string {
  * Called on every animation frame while playing, hence the O(log n) search.
  */
 export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: number): number {
+  // Classic binary search over the sorted times.
   let lo = 0
   let hi = lines.length - 1
   let found = -1
   while (lo <= hi) {
+    // Unsigned shift: integer midpoint without overflow.
     const mid = (lo + hi) >>> 1
     if (lines[mid]!.time <= time) {
       found = mid
@@ -180,6 +187,7 @@ export function syncRowsFromLyrics(lyrics: string | null | undefined): SyncRow[]
  * right after it, and is left out until that line is synced.
  */
 export function buildSyncedLines(rows: readonly SyncRow[]): SyncedLyricLine[] {
+  // Synced lines in row order; headers are pushed right before their line.
   const lines: SyncedLyricLine[] = []
   rows.forEach((row, i) => {
     if (row.section) {

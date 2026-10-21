@@ -9,14 +9,17 @@ import { sharedApi } from '~/services/api'
  */
 definePageMeta({ layout: 'public' })
 
+// Playlist id from the URL (/p/:id).
 const route = useRoute()
 const id = String(route.params.id)
 // Before any `await`: they need the component context.
 const player = usePlayerStore()
+// Site origin (works during SSR too): absolute URLs for the link preview tags.
 const origin = useRequestURL().origin
 
 const { data: playlist, error } = await useAsyncData(`shared-playlist-${id}`, () => sharedApi.playlist(id))
 
+/** The playlist is private, missing or the id is malformed: "not available". */
 const notFound = computed(() => !playlist.value && [400, 404].includes(error.value?.statusCode ?? 0))
 if (import.meta.server && !playlist.value) {
   setResponseStatus(useRequestEvent()!, notFound.value ? 404 : 500)
@@ -26,14 +29,17 @@ if (import.meta.server && !playlist.value) {
 const summary = computed(() => {
   const p = playlist.value
   if (!p) return ''
+  // "1 track" / "N tracks"
   const count = `${p.tracks.length} track${p.tracks.length === 1 ? '' : 's'}`
   return `Playlist · ${count} · ${formatTime(p.durationSeconds)}`
 })
+/** Preview text: the description, or a summary (count and duration). */
 const previewText = computed(() => {
   const p = playlist.value
   if (!p) return 'This playlist is not available.'
   return truncate(p.description?.trim() || summary.value, 200)
 })
+/** There is an image for the preview (custom cover or a track cover). */
 const hasCover = computed(() => !!playlist.value && (!!playlist.value.coverUrl || playlist.value.mosaic.length > 0))
 
 useSeoMeta({
@@ -59,6 +65,7 @@ function truncate(text: string, max: number): string {
 // --- Playback ---------------------------------------------------------------------
 /** The player is playing this playlist (and not something else). */
 const isHere = computed(() => player.sourceKey === `playlist:${id}`)
+/** Playing this playlist right now (big button shows Pause). */
 const isPlaying = computed(() => isHere.value && player.isPlaying)
 
 /** The track shown in the "now playing" panel: the current one, or the first before playing. */
@@ -66,10 +73,12 @@ const activeTrack = computed(() => {
   const tracks = playlist.value?.tracks ?? []
   return (isHere.value && tracks.find(t => t.id === player.current?.id)) || tracks[0] || null
 })
+/** "Album · Year · Genre" of the active track. */
 const activeMeta = computed(() => {
   const t = activeTrack.value
   return t ? [t.album, t.year, t.genre].filter(Boolean).join(' · ') : ''
 })
+/** The active track has lyrics to show (otherwise "No lyrics for this track"). */
 const activeHasLyrics = computed(() => !!activeTrack.value?.lyricsSynced?.length || !!activeTrack.value?.lyrics?.trim())
 
 // The first track is ready (waveform included) before the first click.
@@ -108,6 +117,7 @@ function onLyricSeek(seconds: number) {
       class="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12"
       data-testid="shared-playlist"
     >
+      <!-- Left: cover or mosaic, title, description, player, track list -->
       <section class="flex min-w-0 flex-col gap-6">
         <PlaylistCover
           :url="playlist.coverUrl"
@@ -176,6 +186,7 @@ function onLyricSeek(seconds: number) {
           {{ player.error }}
         </p>
 
+        <!-- The tracks: click to play (or toggle the active one) -->
         <ol
           v-if="playlist.tracks.length"
           class="divide-y divide-default rounded-xl border border-default"
@@ -287,6 +298,7 @@ function onLyricSeek(seconds: number) {
       </section>
     </div>
 
+    <!-- Private, missing or malformed link -->
     <UEmpty
       v-else
       :icon="notFound ? 'i-lucide-link-2-off' : 'i-lucide-circle-alert'"
