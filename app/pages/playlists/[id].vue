@@ -517,6 +517,14 @@ async function onDelete() {
                     class="size-3.5 shrink-0 text-dimmed"
                     aria-label="Private track"
                   />
+                  <UBadge
+                    v-if="track.status === 'draft'"
+                    label="Draft"
+                    color="warning"
+                    variant="subtle"
+                    size="sm"
+                    class="shrink-0"
+                  />
                 </span>
                 <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
               </button>

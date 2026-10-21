@@ -128,6 +128,8 @@ export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: Signe
     lyricsSynced: (row.lyrics_synced as SyncedLyricLine[] | null) ?? null,
     peaks: (row.peaks as number[] | null) ?? null,
     durationSeconds: row.duration_seconds ?? null,
+    // Shown as "Work in progress" on the public playlist page.
+    status: row.status ?? 'final',
     coverUrl: signed(row.cover_path ?? null),
     updatedAt: row.updated_at,
   }

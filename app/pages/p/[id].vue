@@ -218,10 +218,23 @@ function onLyricSeek(seconds: number) {
                 class="size-10"
               />
               <span class="min-w-0 flex-1">
-                <span
-                  class="block truncate font-medium"
-                  :class="{ 'text-primary': isActive(track.id) }"
-                >{{ track.title }}</span>
+                <!-- Title, "WIP" on drafts (versions to choose from) -->
+                <span class="flex min-w-0 items-center gap-2">
+                  <span
+                    class="truncate font-medium"
+                    :class="{ 'text-primary': isActive(track.id) }"
+                  >{{ track.title }}</span>
+                  <UBadge
+                    v-if="track.status === 'draft'"
+                    label="WIP"
+                    color="warning"
+                    variant="subtle"
+                    size="sm"
+                    class="shrink-0"
+                    title="Work in progress"
+                    data-testid="shared-track-wip"
+                  />
+                </span>
                 <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
               </span>
               <span class="text-sm tabular-nums text-muted">{{ formatTime(track.durationSeconds) }}</span>
@@ -245,7 +258,10 @@ function onLyricSeek(seconds: number) {
       >
         <div class="min-w-0">
           <p class="text-xs font-semibold uppercase tracking-widest text-muted">
-            {{ isPlaying ? 'Now playing' : 'Track' }}
+            {{ isPlaying ? 'Now playing' : 'Track' }}<span
+              v-if="activeTrack.status === 'draft'"
+              class="text-warning"
+            > · Work in progress</span>
           </p>
           <h2
             class="truncate text-xl font-bold tracking-tight"

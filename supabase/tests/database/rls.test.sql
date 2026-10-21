@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(31);
+select plan(33);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -29,6 +29,21 @@ insert into storage.objects (bucket_id, name) values
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.mp3'),
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2222222-2222-4222-8222-222222222222.mp3'),
   ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a3333333-3333-4333-8333-333333333333.mp3');
+
+-- -----------------------------------------------------------------------------
+-- Draft / final status
+-- -----------------------------------------------------------------------------
+select is(
+  (select status::text from public.tracks where id = 'a1111111-1111-4111-8111-111111111111'),
+  'draft',
+  'a new track starts as a draft (work in progress)'
+);
+
+select is(
+  (select status::text from public.get_shared_track('a2222222-2222-4222-8222-222222222222')),
+  'draft',
+  'get_shared_track returns the status, so share pages can say "Work in progress"'
+);
 
 -- -----------------------------------------------------------------------------
 -- Table privileges (explicit, independent of the project's default grants)

@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(22);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -156,6 +156,14 @@ select is_empty(
      where p.oid = 'public.get_shared_playlist_tracks(uuid)'::regprocedure
        and arg.name in ('suno_prompt', 'mastered', 'user_id') $$,
   'shared playlists never expose the Suno prompt, the mastering status or the owner'
+);
+
+select isnt_empty(
+  $$ select 1
+     from pg_proc p, unnest(p.proargnames) as arg(name)
+     where p.oid = 'public.get_shared_playlist_tracks(uuid)'::regprocedure
+       and arg.name = 'status' $$,
+  'shared playlists return each track''s draft/final status ("Work in progress" marks)'
 );
 
 select is_empty(

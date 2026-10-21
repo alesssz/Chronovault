@@ -19,13 +19,13 @@ export type TrackRow = Tables<'tracks'>
 
 /** Columns read for the library (no lyrics, peaks or descriptions). */
 export const TRACK_SUMMARY_COLUMNS = [
-  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'mastered', 'visibility',
+  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'mastered', 'visibility', 'status',
   'duration_seconds', 'has_lyrics', 'has_synced_lyrics', 'cover_path', 'created_at', 'updated_at',
 ].join(',')
 
 /** The columns listed in TRACK_SUMMARY_COLUMNS (keep the two in sync). */
 export type TrackSummaryRow = Pick<TrackRow,
-  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'mastered' | 'visibility'
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'mastered' | 'visibility' | 'status'
   | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'cover_path' | 'created_at' | 'updated_at'
 >
 
@@ -40,6 +40,7 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
     genreId: row.genre_id,
     mastered: row.mastered,
     visibility: row.visibility,
+    status: row.status,
     durationSeconds: row.duration_seconds,
     // Generated columns are typed as nullable by the generator; they never are.
     hasLyrics: row.has_lyrics ?? false,
@@ -90,6 +91,8 @@ export function toSharedTrack(row: SharedTrackRow, coverUrl: string | null): Sha
     lyricsSynced: (row.lyrics_synced as SyncedLyricLine[] | null) ?? null,
     peaks: (row.peaks as number[] | null) ?? null,
     durationSeconds: row.duration_seconds ?? null,
+    // Shown as "Work in progress" on the public page.
+    status: row.status ?? 'final',
     coverUrl,
     // The database function never returns private tracks.
     visibility: row.visibility === 'public' ? 'public' : 'unlisted',
@@ -111,6 +114,8 @@ export function toTrackInsert(userId: string, input: TrackCreate): TablesInsert<
     suno_prompt: input.sunoPrompt ?? null,
     mastered: input.mastered ?? false,
     visibility: input.visibility ?? 'private',
+    // Not sent by the upload: the database default ('draft') applies.
+    ...(input.status ? { status: input.status } : {}),
     lyrics: input.lyrics ?? null,
     lyrics_synced: input.lyricsSynced ?? null,
     audio_path: input.audioPath,
@@ -140,6 +145,7 @@ export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
     sunoPrompt: 'suno_prompt',
     mastered: 'mastered',
     visibility: 'visibility',
+    status: 'status',
     lyrics: 'lyrics',
     lyricsSynced: 'lyrics_synced',
     coverPath: 'cover_path',

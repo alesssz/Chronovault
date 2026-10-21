@@ -1,12 +1,19 @@
 <script setup lang="ts">
 /**
  * Library (home page, client-rendered): every track of the user, with
- * search, genre and mastering filters and sorting, all applied in the
- * browser (the whole library is loaded at once). Playing a track uses the
- * filtered list as the queue.
+ * search, genre, mastering and version (draft/final) filters and sorting,
+ * all applied in the browser (the whole library is loaded at once).
+ * Playing a track uses the filtered list as the queue.
+ *
+ * "Select" turns on selection mode: tick tracks (e.g. the versions of a
+ * song), then act on all of them at once: mark as final, add to a
+ * playlist, "Share for feedback" (a new unlisted playlist whose link is
+ * copied), delete.
  */
-import type { TrackSummary } from '~~/shared/types/track'
-import { tracksApi } from '~/services/api'
+import type { DropdownMenuItem } from '@nuxt/ui'
+import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
+import { playlistsApi, tracksApi } from '~/services/api'
+import { feedbackPlaylistTitle } from '~/lib/feedback-playlist'
 
 useSeoMeta({ title: 'Library · ChronoPlayer' })
 
@@ -26,6 +33,8 @@ const search = ref('')
 const genreFilter = ref<string>('all')
 /** Mastered tracks only, not mastered only, or both. */
 const masteredFilter = ref<'all' | 'yes' | 'no'>('all')
+/** Final versions only, drafts only, or both. */
+const statusFilter = ref<'all' | TrackStatus>('all')
 /** Newest first (as the API returns them) or by title. */
 const sort = ref<'recent' | 'title'>('recent')
 
@@ -37,11 +46,18 @@ const genreOptions = computed(() => [
     .map(g => ({ label: g.name, value: g.id })),
 ])
 
-/** Options of the mastering filter. */
+/** Options of the mastering filter ("Mastering" = no filter: short enough for phones). */
 const masteredOptions = [
-  { label: 'All', value: 'all' },
+  { label: 'Mastering', value: 'all' },
   { label: 'Mastered', value: 'yes' },
   { label: 'Not mastered', value: 'no' },
+]
+
+/** Options of the version filter. */
+const statusOptions = [
+  { label: 'All versions', value: 'all' },
+  { label: 'Final', value: 'final' },
+  { label: 'Drafts', value: 'draft' },
 ]
 
 /** Options of the sort menu. */
@@ -56,6 +72,7 @@ const filtered = computed(() => {
   const list = tracks.value.filter((t) => {
     if (genreFilter.value !== 'all' && t.genreId !== genreFilter.value) return false
     if (masteredFilter.value !== 'all' && t.mastered !== (masteredFilter.value === 'yes')) return false
+    if (statusFilter.value !== 'all' && t.status !== statusFilter.value) return false
     if (!q) return true
     return [t.title, t.composers, t.album].some(v => v?.toLocaleLowerCase('en').includes(q))
   })
@@ -65,19 +82,141 @@ const filtered = computed(() => {
 })
 
 /** A filter is active: the empty state offers to clear them. */
-const hasFilters = computed(() => !!search.value || genreFilter.value !== 'all' || masteredFilter.value !== 'all')
+const hasFilters = computed(() => !!search.value || genreFilter.value !== 'all' || masteredFilter.value !== 'all' || statusFilter.value !== 'all')
 
 /** "Clear filters" (the sort order is kept). */
 function resetFilters() {
   search.value = ''
   genreFilter.value = 'all'
   masteredFilter.value = 'all'
+  statusFilter.value = 'all'
 }
 
 // --- Actions ---------------------------------------------------------------------
 /** Plays (or toggles) a track; "next"/"previous" follow what is on screen. */
 function onPlay(track: TrackSummary) {
   void player.playTrack(track, filtered.value)
+}
+
+/** Puts updated tracks in place in the list (same order). */
+function replaceTracks(updated: TrackSummary[]) {
+  const byId = new Map(updated.map(t => [t.id, t]))
+  tracks.value = tracks.value.map(t => byId.get(t.id) ?? t)
+}
+
+/**
+ * Marks tracks as draft or final (one PATCH each, in parallel). Tracks
+ * that fail keep their old status; the toast says how it went.
+ */
+async function setStatus(ids: string[], status: TrackStatus) {
+  const results = await Promise.allSettled(ids.map(id => tracksApi.update(id, { status })))
+  replaceTracks(results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : [])))
+  const failed = results.filter(r => r.status === 'rejected').length
+  const done = ids.length - failed
+  const what = status === 'final' ? 'final' : 'draft'
+  if (done) toast.add({ title: done === 1 ? `Marked as ${what}` : `${done} tracks marked as ${what}`, icon: 'i-lucide-check', color: 'success' })
+  if (failed) toast.add({ title: `${failed} not updated`, description: 'Try again', color: 'error' })
+}
+
+// --- Selection mode ----------------------------------------------------------------
+/** Checkboxes are shown. */
+const selecting = ref(false)
+/** Ids of the ticked tracks. */
+const selectedIds = ref<string[]>([])
+
+// Only visible tracks stay selected: actions never touch tracks hidden by a filter.
+watch(filtered, (list) => {
+  const visible = new Set(list.map(t => t.id))
+  selectedIds.value = selectedIds.value.filter(id => visible.has(id))
+})
+
+/** The ticked tracks, in library order. */
+const selectedTracks = computed(() => filtered.value.filter(t => selectedIds.value.includes(t.id)))
+
+/** Every visible track is ticked (drives the "select all" checkbox). */
+const allSelected = computed(() => filtered.value.length > 0 && selectedIds.value.length === filtered.value.length)
+
+/** "Select all" checkbox: ticks every visible track, or none. */
+function toggleAll() {
+  selectedIds.value = allSelected.value ? [] : filtered.value.map(t => t.id)
+}
+
+/** Leaves selection mode, unticking everything. */
+function stopSelecting() {
+  selecting.value = false
+  selectedIds.value = []
+}
+
+// "Add to playlist" and "Share for feedback" of the selection.
+const { playlists, openCreateDialog, addToPlaylist, remember } = usePlaylists()
+// Copies the feedback playlist's link.
+const { copyShareLink } = useShareLink()
+
+/** "Add to playlist" menu of the selection: a new playlist, or an existing one. */
+const addToPlaylistMenu = computed<DropdownMenuItem[][]>(() => [
+  [{ label: 'New playlist…', icon: 'i-lucide-plus', onSelect: () => openCreateDialog(selectedIds.value) }],
+  playlists.value.map(playlist => ({
+    label: playlist.title,
+    icon: 'i-lucide-list-music',
+    onSelect: () => void addToPlaylist(playlist, selectedIds.value),
+  })),
+].filter(group => group.length > 0))
+
+/** The feedback playlist is being created (spinner on the button). */
+const sharing = ref(false)
+
+/**
+ * "Share for feedback": a new unlisted playlist with the selected versions,
+ * named after them ("Night drive – versions"), and its link copied. Friends
+ * open one link and hear every version in a row, drafts marked
+ * "Work in progress".
+ */
+async function shareForFeedback() {
+  const chosen = selectedTracks.value
+  if (!chosen.length) return
+  sharing.value = true
+  try {
+    const playlist = await playlistsApi.create({
+      title: feedbackPlaylistTitle(chosen.map(t => t.title)),
+      visibility: 'unlisted',
+      trackIds: chosen.map(t => t.id),
+    })
+    // The Playlists page and "Add to playlist" menus see it at once.
+    remember(playlist)
+    await copyShareLink(playlist.id, 'playlist')
+    stopSelecting()
+  }
+  catch (err) {
+    toast.add({ title: 'Could not create the playlist', description: getErrorMessage(err), color: 'error' })
+  }
+  finally {
+    sharing.value = false
+  }
+}
+
+/** The bulk delete confirmation is open. */
+const bulkDeleteOpen = ref(false)
+/** The bulk delete is running (spinner in the dialog). */
+const bulkDeleting = ref(false)
+
+/**
+ * Deletes every selected track (one request each, in parallel). Deleted
+ * tracks leave the list and the player queue; failures stay selected so
+ * they can be retried.
+ */
+async function confirmBulkDelete() {
+  const chosen = selectedTracks.value
+  bulkDeleting.value = true
+  const results = await Promise.allSettled(chosen.map(t => tracksApi.remove(t.id)))
+  const deleted = chosen.filter((_, i) => results[i]!.status === 'fulfilled').map(t => t.id)
+  for (const id of deleted) player.removeTrack(id)
+  tracks.value = tracks.value.filter(t => !deleted.includes(t.id))
+  bulkDeleting.value = false
+  bulkDeleteOpen.value = false
+  const failed = chosen.length - deleted.length
+  if (deleted.length) toast.add({ title: deleted.length === 1 ? 'Track deleted' : `${deleted.length} tracks deleted`, icon: 'i-lucide-trash-2' })
+  if (failed) toast.add({ title: `${failed} not deleted`, description: 'They are still selected: try again', color: 'error' })
+  else stopSelecting()
 }
 
 /** Track waiting for the delete confirmation (the dialog is open while set). */
@@ -115,7 +254,7 @@ async function confirmDelete() {
 
 <template>
   <UContainer class="py-6 sm:py-8">
-    <!-- Title and track count -->
+    <!-- Title, track count and the selection mode switch -->
     <div class="mb-6 flex items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">
@@ -125,6 +264,15 @@ async function confirmDelete() {
           {{ tracks.length === 1 ? '1 track' : `${tracks.length} tracks` }}
         </p>
       </div>
+      <UButton
+        v-if="tracks.length"
+        :label="selecting ? 'Done' : 'Select'"
+        :icon="selecting ? 'i-lucide-x' : 'i-lucide-list-checks'"
+        color="neutral"
+        variant="subtle"
+        data-testid="select-mode"
+        @click="selecting ? stopSelecting() : (selecting = true)"
+      />
     </div>
 
     <!-- The library could not be loaded -->
@@ -190,11 +338,90 @@ async function confirmDelete() {
             aria-label="Filter by mastering"
           />
           <USelect
+            v-model="statusFilter"
+            :items="statusOptions"
+            class="w-full sm:w-36"
+            aria-label="Filter by version"
+            data-testid="status-filter"
+          />
+          <USelect
             v-model="sort"
             :items="sortOptions"
-            class="col-span-2 w-full sm:w-36"
+            class="w-full sm:w-36"
             aria-label="Sort"
           />
+        </div>
+      </div>
+
+      <!-- Selection bar: count, select all, and the actions on the ticked tracks (stays under the header while scrolling) -->
+      <div
+        v-if="selecting"
+        class="sticky top-14 z-20 mb-2 flex items-center justify-between gap-2 rounded-lg border border-default bg-default/95 px-3 py-2 backdrop-blur"
+        data-testid="selection-bar"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <UCheckbox
+            :model-value="allSelected"
+            :indeterminate="selectedIds.length > 0 && !allSelected"
+            aria-label="Select all"
+            @update:model-value="toggleAll"
+          />
+          <span
+            class="truncate text-sm"
+            data-testid="selection-count"
+          >{{ selectedIds.length }} selected</span>
+        </div>
+        <!-- Icons only on phones; labels from sm up -->
+        <div class="flex items-center gap-1">
+          <UButton
+            icon="i-lucide-circle-check"
+            color="neutral"
+            variant="ghost"
+            :disabled="!selectedIds.length"
+            aria-label="Mark as final"
+            data-testid="bulk-final"
+            @click="setStatus(selectedIds, 'final')"
+          >
+            <span class="hidden sm:inline">Mark final</span>
+          </UButton>
+          <UDropdownMenu
+            :items="addToPlaylistMenu"
+            :content="{ align: 'end' }"
+            :disabled="!selectedIds.length"
+          >
+            <UButton
+              icon="i-lucide-list-plus"
+              color="neutral"
+              variant="ghost"
+              :disabled="!selectedIds.length"
+              aria-label="Add to playlist"
+            >
+              <span class="hidden sm:inline">Add to playlist</span>
+            </UButton>
+          </UDropdownMenu>
+          <UButton
+            icon="i-lucide-messages-square"
+            color="neutral"
+            variant="ghost"
+            :loading="sharing"
+            :disabled="!selectedIds.length"
+            aria-label="Share for feedback"
+            data-testid="bulk-feedback"
+            @click="shareForFeedback"
+          >
+            <span class="hidden sm:inline">Share for feedback</span>
+          </UButton>
+          <UButton
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="ghost"
+            :disabled="!selectedIds.length"
+            aria-label="Delete selected"
+            data-testid="bulk-delete"
+            @click="bulkDeleteOpen = true"
+          >
+            <span class="hidden sm:inline">Delete</span>
+          </UButton>
         </div>
       </div>
 
@@ -202,13 +429,16 @@ async function confirmDelete() {
         :ui="{ body: 'p-0 sm:p-0' }"
         variant="outline"
       >
-        <!-- The tracks; playing and deleting are handled here -->
+        <!-- The tracks; playing, deleting, status changes and selection are handled here -->
         <TrackList
           v-if="filtered.length"
+          v-model:selected="selectedIds"
           :tracks="filtered"
           :genre-name="genreName"
+          :selectable="selecting"
           @play="onPlay"
           @delete="toDelete = $event"
+          @status="(track, status) => setStatus([track.id], status)"
         />
         <!-- Filters match nothing -->
         <UEmpty
@@ -229,6 +459,16 @@ async function confirmDelete() {
       confirm-label="Delete"
       :loading="deleting"
       @confirm="confirmDelete"
+    />
+
+    <!-- Bulk delete confirmation (selection mode) -->
+    <ConfirmDialog
+      v-model:open="bulkDeleteOpen"
+      :title="selectedIds.length === 1 ? 'Delete this track?' : `Delete ${selectedIds.length} tracks?`"
+      :description="selectedTracks.map(t => `“${t.title}”`).join(', ') + ' and their files will be permanently deleted.'"
+      confirm-label="Delete"
+      :loading="bulkDeleting"
+      @confirm="confirmBulkDelete"
     />
   </UContainer>
 </template>
