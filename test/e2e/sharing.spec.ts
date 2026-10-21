@@ -3,7 +3,10 @@
  * prompt or mastering status, and answers 404 once private again.
  */
 import { expect, test } from '@playwright/test'
-import { signUp, uniqueId, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
+
+// The edit page saves with PATCH /api/tracks/:id.
+const SAVE_TRACK = { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ }
 
 test.describe('public sharing', () => {
   test('an unlisted track opens without an account; a private one does not', async ({ page, browser, context, baseURL }) => {
@@ -28,7 +31,7 @@ test.describe('public sharing', () => {
     await page.getByTestId('field-suno-prompt').fill(secretPrompt)
     await page.getByRole('switch').click()
     await page.getByText('Unlisted', { exact: true }).click()
-    await page.getByTestId('save-track').click()
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
     await expect(page.getByText('Changes saved').first()).toBeVisible()
 
     // --- The share link ---
@@ -72,8 +75,9 @@ test.describe('public sharing', () => {
 
     // --- Back to private: the link stops working immediately ---
     await page.getByText('Private', { exact: true }).click()
-    await page.getByTestId('save-track').click()
-    await expect(page.getByText('Changes saved').first()).toBeVisible()
+    // Wait for the server, not the toast: the first save's toast may still be
+    // on screen, and the visitor must only try once the track is private.
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
 
     const closed = await visitor.goto(shareUrl)
     expect(closed?.status()).toBe(404)

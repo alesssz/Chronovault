@@ -310,7 +310,7 @@ ChronoPlayer/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, storage
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
@@ -975,7 +975,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -986,6 +986,7 @@ make ci                   # everything the CI runs
 ```
 
 - E2E tests generate WAV files on the fly and register throwaway users (`e2e-…@chronoplayer.test`) in the local database; they do not touch your own data.
+- **Wait for the server, not for a toast, before relying on a save.** A success toast stays on screen for a few seconds, so after a second save with the same message ("Changes saved", "Cover updated") the toast assertion passes before the request has finished. `clickAndWaitForApi(page, control, { method, path })` (`test/e2e/helpers.ts`) clicks and waits for that request's successful response.
 - pgTAP tests run inside a transaction that is rolled back: they never change the database.
 - Locally Playwright reuses a server already running on :3100 — stop it first, or it may test an old build.
 - **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest; job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure.
