@@ -1,0 +1,100 @@
+/**
+ * Saved play queue (app/lib/queue-storage.ts): saving and reading back,
+ * discarding malformed data or another user's queue, and rebuilding the
+ * queue when tracks were deleted in the meantime.
+ */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
+
+const KEY = 'chronoplayer:queue'
+
+/** In-memory localStorage (the unit tests run in Node). */
+function memoryStorage(): Storage {
+  const data = new Map<string, string>()
+  return {
+    get length() {
+      return data.size
+    },
+    clear: () => data.clear(),
+    getItem: key => data.get(key) ?? null,
+    key: i => [...data.keys()][i] ?? null,
+    removeItem: (key) => {
+      data.delete(key)
+    },
+    setItem: (key, value) => {
+      data.set(key, String(value))
+    },
+  }
+}
+
+beforeEach(() => {
+  globalThis.localStorage = memoryStorage()
+})
+
+afterEach(() => {
+  delete (globalThis as { localStorage?: Storage }).localStorage
+})
+
+describe('saving and reading', () => {
+  it('reads back what was saved, for the same user', () => {
+    saveQueue({ userId: 'u1', trackIds: ['a', 'b', 'c'], index: 1, position: 42.345 })
+    expect(readSavedQueue('u1')).toMatchObject({ version: 1, userId: 'u1', trackIds: ['a', 'b', 'c'], index: 1, position: 42.3 })
+  })
+
+  it('never hands one user\'s queue to another, and forgets it', () => {
+    saveQueue({ userId: 'u1', trackIds: ['a'], index: 0, position: 0 })
+    expect(readSavedQueue('u2')).toBeNull()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it.each([
+    ['not JSON', '{oops'],
+    ['an old format', JSON.stringify({ version: 0, userId: 'u1', trackIds: ['a'], index: 0, position: 0 })],
+    ['an index out of range', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 3, position: 0 })],
+    ['a bad position', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 0, position: 'x' })],
+  ])('discards %s', (_label, raw) => {
+    localStorage.setItem(KEY, raw)
+    expect(readSavedQueue('u1')).toBeNull()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('clears the saved queue', () => {
+    saveQueue({ userId: 'u1', trackIds: ['a'], index: 0, position: 0 })
+    clearSavedQueue()
+    expect(readSavedQueue('u1')).toBeNull()
+  })
+
+  it('works without any storage (e.g. blocked by the browser)', () => {
+    delete (globalThis as { localStorage?: Storage }).localStorage
+    expect(() => saveQueue({ userId: 'u1', trackIds: ['a'], index: 0, position: 0 })).not.toThrow()
+    expect(readSavedQueue('u1')).toBeNull()
+  })
+})
+
+describe('resolveSavedQueue', () => {
+  const tracks = (...ids: string[]) => ids.map(id => ({ id }))
+
+  it('resumes the same track at the same position', () => {
+    expect(resolveSavedQueue({ trackIds: ['a', 'b', 'c'], index: 1, position: 30 }, tracks('a', 'b', 'c')))
+      .toEqual({ items: tracks('a', 'b', 'c'), index: 1, position: 30 })
+  })
+
+  it('drops deleted tracks and keeps pointing at the current one', () => {
+    expect(resolveSavedQueue({ trackIds: ['a', 'b', 'c'], index: 2, position: 30 }, tracks('c', 'b')))
+      .toEqual({ items: tracks('b', 'c'), index: 1, position: 30 })
+  })
+
+  it('moves to the next surviving track, from the start, when the current one was deleted', () => {
+    expect(resolveSavedQueue({ trackIds: ['a', 'b', 'c'], index: 1, position: 30 }, tracks('a', 'c')))
+      .toEqual({ items: tracks('a', 'c'), index: 1, position: 0 })
+  })
+
+  it('falls back to the previous track when nothing comes after', () => {
+    expect(resolveSavedQueue({ trackIds: ['a', 'b'], index: 1, position: 30 }, tracks('a')))
+      .toEqual({ items: tracks('a'), index: 0, position: 0 })
+  })
+
+  it('gives up when no track survives', () => {
+    expect(resolveSavedQueue({ trackIds: ['a'], index: 0, position: 3 }, tracks('z'))).toBeNull()
+  })
+})

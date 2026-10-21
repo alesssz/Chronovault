@@ -67,7 +67,10 @@ const track = computed(() => player.current ?? player.queue[player.index] ?? nul
       <PlayerControls class="hidden md:flex" />
 
       <div class="hidden min-w-0 flex-1 items-center gap-3 md:flex">
-        <span class="w-12 text-right text-xs tabular-nums text-muted">
+        <span
+          class="w-12 text-right text-xs tabular-nums text-muted"
+          data-testid="player-elapsed"
+        >
           {{ formatTime(player.currentTime) }}
         </span>
         <div class="min-w-0 flex-1">
