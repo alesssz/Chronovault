@@ -8,6 +8,8 @@ import {
   syncRowsFromLyrics,
   type SyncRow,
 } from '~~/shared/utils/lyrics'
+import { lrcFileName } from '~/lib/tags/track-tags'
+import { saveFile } from '~/lib/save-file'
 
 /**
  * Manual "tap to sync": while the track plays, press Space (or ↓) at the
@@ -32,7 +34,7 @@ const model = defineModel<SyncedLyricLine[] | null>({ required: true })
 
 // Times come from the player position; the editor also seeks and changes speed.
 const player = usePlayerStore()
-// LRC import errors.
+// LRC import errors, copy confirmations.
 const toast = useToast()
 
 /** Speeds offered while syncing (pitch is preserved). */
@@ -223,6 +225,39 @@ const lrcText = ref('')
 function openLrc() {
   lrcText.value = model.value?.length ? serializeLrc(model.value) : ''
   lrcOpen.value = true
+}
+
+/** Copies the dialog's LRC text to the clipboard (export, e.g. to paste it into another ChronoPlayer). */
+async function copyLrc() {
+  try {
+    await navigator.clipboard.writeText(lrcText.value)
+    toast.add({ title: 'LRC copied', icon: 'i-lucide-copy', color: 'success' })
+  }
+  catch {
+    // Clipboard refused (permissions): the text is still there to select by hand.
+    toast.add({ title: 'Could not copy', description: 'Select the text and copy it by hand', color: 'warning' })
+  }
+}
+
+/** Saves the dialog's LRC text as "Composers - Title.lrc" (export). */
+function downloadLrc() {
+  saveFile(new Blob([lrcText.value], { type: 'text/plain;charset=utf-8' }), lrcFileName(props.track))
+}
+
+/** Hidden file input behind "Open file". */
+const lrcFileInput = ref<HTMLInputElement | null>(null)
+
+/**
+ * Loads a chosen .lrc file into the dialog (import). It is not applied yet:
+ * the user sees it and confirms with Apply, like pasted text.
+ */
+async function openLrcFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  // Cleared so choosing the same file again fires `change` again.
+  input.value = ''
+  if (!file) return
+  lrcText.value = await file.text()
 }
 
 /** Replaces the rows with the pasted LRC (import); invalid text leaves everything unchanged. */
@@ -457,7 +492,7 @@ function applyLrc() {
     <UModal
       v-model:open="lrcOpen"
       title="LRC lyrics"
-      description="Paste an LRC file to import it, or copy the generated one. Section headers such as [Verse 1] are kept."
+      description="Import: paste LRC text or open an .lrc file, then Apply. Export: copy or download the text below. Section headers such as [Verse 1] are kept."
     >
       <template #body>
         <UTextarea
@@ -470,17 +505,60 @@ function applyLrc() {
         />
       </template>
       <template #footer>
-        <div class="flex w-full justify-end gap-2">
-          <UButton
-            label="Cancel"
-            color="neutral"
-            variant="ghost"
-            @click="lrcOpen = false"
-          />
-          <UButton
-            label="Apply"
-            @click="applyLrc"
-          />
+        <div class="flex w-full flex-wrap items-center justify-between gap-2">
+          <!-- Import from a file · export by copy or download -->
+          <div class="flex flex-wrap gap-1">
+            <UButton
+              label="Open file"
+              icon="i-lucide-folder-open"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              data-testid="lrc-open"
+              @click="lrcFileInput?.click()"
+            />
+            <input
+              ref="lrcFileInput"
+              type="file"
+              accept=".lrc,.txt,text/plain"
+              class="hidden"
+              data-testid="lrc-file-input"
+              @change="openLrcFile"
+            >
+            <UButton
+              label="Copy"
+              icon="i-lucide-copy"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :disabled="!lrcText.trim()"
+              data-testid="lrc-copy"
+              @click="copyLrc"
+            />
+            <UButton
+              label="Download .lrc"
+              icon="i-lucide-download"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :disabled="!lrcText.trim()"
+              data-testid="lrc-download"
+              @click="downloadLrc"
+            />
+          </div>
+          <!-- Close, or replace the sync with the text above (kept on the right when the footer wraps) -->
+          <div class="ml-auto flex gap-2">
+            <UButton
+              label="Cancel"
+              color="neutral"
+              variant="ghost"
+              @click="lrcOpen = false"
+            />
+            <UButton
+              label="Apply"
+              @click="applyLrc"
+            />
+          </div>
         </div>
       </template>
     </UModal>

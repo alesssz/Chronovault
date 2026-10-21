@@ -38,6 +38,18 @@ export function writeMp3Tags(file: Uint8Array, tags: TrackTags): Uint8Array {
   // Comment and unsynchronised lyrics carry a language code; ours is English text by default.
   if (tags.comment) writer.setFrame('COMM', { description: '', text: tags.comment, language: 'eng' })
   if (tags.lyrics) writer.setFrame('USLT', { description: '', lyrics: tags.lyrics, language: 'eng' })
+  // Synced lyrics: the standard SYLT frame, one [text, start in ms] pair per
+  // line (section headers included, at the time of the line they introduce).
+  // Content type 1 = lyrics; timestamp format 2 = milliseconds.
+  if (tags.lyricsSynced?.length) {
+    writer.setFrame('SYLT', {
+      type: 1,
+      text: tags.lyricsSynced.map(line => [line.text, Math.round(line.time * 1000)]),
+      timestampFormat: 2,
+      language: 'eng',
+      description: '',
+    })
+  }
   // Picture type 3 = front cover.
   if (tags.cover) writer.setFrame('APIC', { type: 3, data: tags.cover.data.slice().buffer, description: 'Cover' })
 

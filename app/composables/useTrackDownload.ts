@@ -93,11 +93,11 @@ export function useTrackDownload() {
       ['title', tags.title], ['artist', tags.artist], ['album', tags.album], ['year', tags.year],
       ['genre', tags.genre], ['comment', tags.comment],
     ]
-    // WAV has no standard place for these two.
-    if (format !== 'wav') fields.push(['lyrics', tags.lyrics], ['cover', tags.cover])
+    // WAV has no standard place for these.
+    if (format !== 'wav') fields.push(['lyrics', tags.lyrics], ['synced lyrics', tags.lyricsSynced?.length ? 'yes' : null], ['cover', tags.cover])
     const written = fields.filter(([, value]) => value != null && String(value).trim() !== '').map(([name]) => name)
     // The cover is never fetched for WAV, hence `hasCover` from the track itself.
-    const lost = format === 'wav' && (tags.lyrics || hasCover) ? ' WAV files cannot hold a cover or lyrics.' : ''
+    const lost = format === 'wav' && (tags.lyrics || tags.lyricsSynced?.length || hasCover) ? ' WAV files cannot hold a cover or lyrics.' : ''
     return `Written in: ${written.join(', ')}.${lost}`
   }
 

@@ -16,6 +16,7 @@
  *
  * Spec: https://xiph.org/flac/format.html
  */
+import { serializeLrc } from '~~/shared/utils/lyrics'
 import type { TrackTags } from './track-tags'
 
 /** Metadata block types used here (see the header above). */
@@ -107,8 +108,14 @@ function concat(parts: Uint8Array[]): Uint8Array {
  * VORBIS_COMMENT body: vendor string, then `FIELD=value` entries (UTF-8,
  * each preceded by its length). Field names follow the common conventions
  * that players and music-metadata understand.
+ *
+ * Lyrics: with synced lyrics, LYRICS holds them as LRC text (the de facto
+ * convention: players that support it show them in sync, and music-metadata
+ * reads the timestamps back) and UNSYNCEDLYRICS keeps the plain text with
+ * its blank lines. Without synced lyrics, LYRICS is the plain text.
  */
 function vorbisCommentBlock(tags: TrackTags): Uint8Array {
+  const synced = tags.lyricsSynced?.length ? serializeLrc(tags.lyricsSynced) : null
   // Vorbis field name → value; empty values are dropped below.
   const fields: [string, string | number | null][] = [
     ['TITLE', tags.title],
@@ -118,7 +125,8 @@ function vorbisCommentBlock(tags: TrackTags): Uint8Array {
     ['DATE', tags.year],
     ['GENRE', tags.genre],
     ['COMMENT', tags.comment],
-    ['LYRICS', tags.lyrics],
+    ['LYRICS', synced ?? tags.lyrics],
+    ['UNSYNCEDLYRICS', synced ? tags.lyrics : null],
   ]
   const entries = fields
     .filter(([, value]) => value != null && String(value).trim() !== '')
