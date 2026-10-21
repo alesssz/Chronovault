@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Sign in / sign up with email and password (Supabase Auth, in the browser).
+ * Client-rendered only (see nuxt.config.ts → routeRules): a form submitted
+ * before hydration would send the password in the URL.
+ * After sign-in, the user goes back to the page they were trying to open.
+ */
 import { z } from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
@@ -10,6 +16,7 @@ const user = useSupabaseUser()
 const redirect = useSupabaseCookieRedirect()
 const toast = useToast()
 
+/** Which form is shown: sign in or create an account. */
 const mode = ref<'login' | 'register'>('login')
 const loading = ref(false)
 const confirmationSent = ref(false)
@@ -30,6 +37,7 @@ watch(user, (value) => {
   if (value) void navigateTo(redirect.pluck() || '/', { replace: true })
 }, { immediate: true })
 
+/** Signs in (the `user` watcher then redirects) or signs up. */
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {

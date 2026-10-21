@@ -2,13 +2,23 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { TrackSummary, TrackVisibility } from '~~/shared/types/track'
 
+/**
+ * The library list: cover (play/pause on click), title (play, or open the
+ * full-screen view for the current track), composers, genre, badges
+ * (mastered, synced lyrics, visibility), duration and the "⋮" menu:
+ * Edit, Add to playlist, Copy share link / Open share page, Delete.
+ * Playing and deleting are delegated to the page through events.
+ */
 const props = defineProps<{
+  /** Already filtered and sorted by the page. */
   tracks: TrackSummary[]
   genreName: (id: string | null) => string | null
 }>()
 
 const emit = defineEmits<{
+  /** Play this track with the visible list as the queue (or toggle it). */
   play: [track: TrackSummary]
+  /** Ask for confirmation, then delete (the page owns the dialog). */
   delete: [track: TrackSummary]
 }>()
 
@@ -16,12 +26,14 @@ const player = usePlayerStore()
 const { copyShareLink } = useShareLink()
 const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
 
+/** Icon + accessible label of each visibility. */
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
   private: { icon: 'i-lucide-lock', label: 'Private' },
   unlisted: { icon: 'i-lucide-link', label: 'Unlisted' },
   public: { icon: 'i-lucide-globe', label: 'Public' },
 }
 
+/** The track is in the player, or being loaded into it. */
 function isCurrent(track: TrackSummary) {
   return player.current?.id === track.id || (player.status === 'loading' && player.queue[player.index]?.id === track.id)
 }
@@ -36,6 +48,7 @@ function onTitleClick(track: TrackSummary) {
   else emit('play', track)
 }
 
+/** The "⋮" menu of a row; groups are separated by dividers. */
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
     [
@@ -64,6 +77,7 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   ]
 }
 
+/** Genre names resolved once per render instead of in the template. */
 const rows = computed(() => props.tracks.map(track => ({ track, genre: props.genreName(track.genreId) })))
 </script>
 

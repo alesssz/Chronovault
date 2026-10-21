@@ -1,3 +1,6 @@
+/**
+ * Genres service with a mocked repository: listing, and creating a genre that may already exist.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DbClient } from '~~/server/utils/auth'
 import * as genresRepo from '~~/server/repositories/genres.repository'

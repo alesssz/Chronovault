@@ -1,3 +1,6 @@
+/**
+ * TrackList: clicking a title plays it, or opens the full-screen view for the current track.
+ */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'

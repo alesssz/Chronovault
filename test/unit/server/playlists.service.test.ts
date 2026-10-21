@@ -1,3 +1,7 @@
+/**
+ * Playlists service with mocked repositories: ordering, covers and mosaic, private-track count,
+ * cover path checks and clean-up, appending and replacing tracks, 404s.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaylistRow } from '~~/server/mappers/playlist'
 import type { TrackSummaryRow } from '~~/server/mappers/track'

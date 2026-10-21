@@ -1,6 +1,10 @@
 /**
  * Media Session API: controls and metadata on the lock screen, in phone
  * notifications and on keyboard media keys.
+ *
+ * Thin, defensive wrappers: every call is a no-op where the API (or a
+ * specific action) is not supported. Wired to the player store by
+ * app/plugins/media-session.client.ts.
  */
 
 export interface MediaSessionTrack {
@@ -19,10 +23,12 @@ export interface MediaSessionHandlers {
   seekTo: (seconds: number) => void
 }
 
+/** False on the server and in browsers without the API. */
 function supported(): boolean {
   return typeof navigator !== 'undefined' && 'mediaSession' in navigator
 }
 
+/** Shows the track (or nothing) on the lock screen / notification. Covers are 800×800 WebP. */
 export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
   if (!supported()) return
   navigator.mediaSession.metadata = track
@@ -35,6 +41,7 @@ export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
     : null
 }
 
+/** Routes hardware/OS media controls to the player. */
 export function setMediaSessionHandlers(handlers: MediaSessionHandlers): void {
   if (!supported()) return
   const set = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
@@ -55,10 +62,15 @@ export function setMediaSessionHandlers(handlers: MediaSessionHandlers): void {
   })
 }
 
+/** Tells the OS whether audio is playing (play/pause icon). */
 export function setMediaSessionPlaybackState(state: MediaSessionPlaybackState): void {
   if (supported()) navigator.mediaSession.playbackState = state
 }
 
+/**
+ * Updates the lock-screen progress bar. The OS extrapolates the position
+ * from `playbackRate`, so this only needs calling on changes and now and then.
+ */
 export function setMediaSessionPosition(duration: number, position: number, playbackRate = 1): void {
   if (!supported() || !navigator.mediaSession.setPositionState) return
   if (!Number.isFinite(duration) || duration <= 0) return

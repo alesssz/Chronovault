@@ -6,7 +6,11 @@ import type { TrackSummaryRow } from './track'
 
 /**
  * Conversion between playlist rows (snake_case) and domain types (camelCase).
- * Pure functions: signed URLs are passed in by the services.
+ * Pure functions: signed URLs are passed in by the services, as a lookup
+ * function (`SignedUrls`) built from one bulk signing request.
+ *
+ * Playlist covers: the custom cover when uploaded, plus a "mosaic" of the
+ * first track covers that the UI shows when there is no custom cover.
  */
 
 export type PlaylistRow = Tables<'playlists'>
@@ -14,10 +18,13 @@ export type PlaylistRow = Tables<'playlists'>
 /** Track fields the playlist list needs (count, duration, mosaic). */
 export type PlaylistTrackStatsRow = Pick<TrackSummaryRow, 'cover_path' | 'duration_seconds' | 'visibility'>
 
-/** Looks up the signed URL of a storage path. */
+/** Looks up the signed URL of a storage path (null for no path, or a path that could not be signed). */
 export type SignedUrls = (path: string | null) => string | null
 
-/** Cover paths of the first tracks that have one, for the mosaic. */
+/**
+ * Cover paths of the first tracks that have one, for the mosaic: at most
+ * MOSAIC_SIZE, in playlist order, without repeats (two tracks may share a cover file).
+ */
 export function mosaicPaths(tracks: { cover_path: string | null }[]): string[] {
   const paths: string[] = []
   for (const { cover_path } of tracks) {
@@ -27,15 +34,17 @@ export function mosaicPaths(tracks: { cover_path: string | null }[]): string[] {
   return paths
 }
 
+/** Sum of the durations; tracks without a measured duration count as 0. */
 function totalDuration(tracks: { duration_seconds: number | null }[]): number {
   return tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0)
 }
 
+/** Mosaic paths → signed URLs, dropping covers that could not be signed. */
 function signedMosaic(tracks: { cover_path: string | null }[], signed: SignedUrls): string[] {
   return mosaicPaths(tracks).flatMap(path => signed(path) ?? [])
 }
 
-/** `tracks` must be in playlist order. */
+/** Playlist card data. `tracks` must be in playlist order. */
 export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRow[], signed: SignedUrls): PlaylistSummary {
   return {
     id: row.id,
@@ -51,7 +60,10 @@ export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRo
   }
 }
 
-/** `tracks` must be in playlist order, already converted. */
+/**
+ * Playlist page data. `trackRows` (raw, for the stats) and `tracks`
+ * (converted, with signed covers) must be in the same playlist order.
+ */
 export function toPlaylistDetail(
   row: PlaylistRow,
   trackRows: TrackSummaryRow[],
@@ -66,6 +78,7 @@ export function toPlaylistDetail(
   }
 }
 
+/** Validated create body → insert row (the tracks are added separately, see set_playlist_tracks). */
 export function toPlaylistInsert(userId: string, input: PlaylistCreate): TablesInsert<'playlists'> {
   return {
     user_id: userId,
@@ -75,7 +88,7 @@ export function toPlaylistInsert(userId: string, input: PlaylistCreate): TablesI
   }
 }
 
-/** Only the fields present in the input end up in the UPDATE. */
+/** Only the fields present in the input end up in the UPDATE (`null` clears a field). */
 export function toPlaylistUpdate(input: PlaylistUpdate): TablesUpdate<'playlists'> {
   const patch: TablesUpdate<'playlists'> = {}
   if (input.title !== undefined) patch.title = input.title
@@ -92,6 +105,11 @@ export type SharedPlaylistRow = Database['public']['Functions']['get_shared_play
 /** Row returned by the get_shared_playlist_tracks() database function. */
 export type SharedPlaylistTrackRow = Database['public']['Functions']['get_shared_playlist_tracks']['Returns'][number]
 
+/**
+ * One track of a shared playlist: shareable fields only. The row's
+ * `audio_path` is used by the service to sign playback URLs and is never
+ * copied into the response.
+ */
 export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: SignedUrls): SharedTrackContent {
   return {
     id: row.id,
@@ -110,7 +128,7 @@ export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: Signe
   }
 }
 
-/** `tracks` must be in playlist order. */
+/** Public playlist page data. `tracks` must be in playlist order. */
 export function toSharedPlaylist(row: SharedPlaylistRow, tracks: SharedPlaylistTrackRow[], signed: SignedUrls): SharedPlaylist {
   return {
     id: row.id,

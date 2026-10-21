@@ -10,7 +10,9 @@ FROM node:${NODE_VERSION}-alpine AS build
 WORKDIR /app
 RUN npm install --global pnpm@12.14.0
 
+# The whole project (minus .dockerignore) is the build context.
 COPY . .
+# The pnpm store is a BuildKit cache: rebuilds do not download packages again.
 RUN --mount=type=cache,id=chronoplayer-pnpm-store,target=/app/.pnpm-store \
     pnpm install --frozen-lockfile
 RUN pnpm build
@@ -24,6 +26,7 @@ ENV NODE_ENV=production \
     PORT=3000
 
 COPY --from=build --chown=node:node /app/.output ./.output
+# Run as the unprivileged `node` user, not root.
 USER node
 
 EXPOSE 3000

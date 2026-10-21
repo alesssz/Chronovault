@@ -1,6 +1,12 @@
 -- =============================================================================
 -- Seed for LOCAL development only (run by `supabase db reset`).
 -- Creates a demo user:  demo@chronoplayer.local / chronoplayer
+--
+-- A reset wipes the local database (every account and track): it only runs
+-- with an explicit `pnpm db:reset` / `make db-reset`. New migrations are
+-- applied with `pnpm db:migrate`, which keeps the data.
+-- The user is inserted straight into Supabase's auth schema (password hashed
+-- with bcrypt, email already confirmed) plus its email identity.
 -- =============================================================================
 
 insert into auth.users (

@@ -2,6 +2,10 @@
 -- ChronoPlayer — base schema
 -- Tables: genres, tracks. Files (audio, covers) live in Storage:
 -- the database only stores their paths.
+--
+-- Later migrations: …_rls.sql (row level security), …_storage.sql (buckets and
+-- storage policies), …_grants.sql (table privileges), …_public_sharing.sql
+-- (link sharing), …_playlists.sql (playlists).
 -- =============================================================================
 
 create type public.track_visibility as enum ('private', 'unlisted', 'public');

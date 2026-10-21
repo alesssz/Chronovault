@@ -13,6 +13,7 @@ const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: 'test/e2e',
+  // One worker: tests share one local database and one server.
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
@@ -21,6 +22,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
+    // Debugging aids, kept only for failed tests (see test-results/ and playwright-report/).
     locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -33,6 +35,7 @@ export default defineConfig({
     command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node --env-file=.env .output/server/index.mjs',
     env: { PORT: String(PORT) },
     url: `${baseURL}/api/health`,
+    // Locally, a server already running on the port is reused (note: it may be an old build).
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
   },

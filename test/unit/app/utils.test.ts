@@ -1,3 +1,6 @@
+/**
+ * Small browser-side helpers: cover crop geometry and error messages.
+ */
 import { describe, expect, it } from 'vitest'
 import { centerSquareCrop } from '~/lib/image'
 import { getErrorMessage } from '~/utils/errors'

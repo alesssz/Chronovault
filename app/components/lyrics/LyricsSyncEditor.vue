@@ -27,6 +27,7 @@ const props = defineProps<{
   active: boolean
 }>()
 
+/** The synced lines being edited (the form's `lyricsSynced`); null when nothing is synced. */
 const model = defineModel<SyncedLyricLine[] | null>({ required: true })
 
 const player = usePlayerStore()
@@ -39,8 +40,13 @@ const REPLAY_PREROLL = 1
 /** Step of the ←/→ fine adjustment, in seconds. */
 const NUDGE_STEP = 0.05
 
+/**
+ * Editor rows: lyric lines (with a time once stamped) and section headers.
+ * The source of truth while editing; `model` is derived from it.
+ */
 const rows = ref<SyncRow[]>(initialRows())
 
+/** Existing synced lines when there are some, otherwise the plain lyrics (nothing synced yet). */
 function initialRows(): SyncRow[] {
   if (model.value?.length) {
     return model.value.map(line => line.section
@@ -62,11 +68,13 @@ function reloadFromLyrics() {
   })
 }
 
+// Every change to the rows updates the form model (saved with the track).
 watch(rows, (value) => {
   const lines = buildSyncedLines(value)
   model.value = lines.length ? lines : null
 }, { deep: true })
 
+/** Syncing needs this track in the player: times come from its position. */
 const isLoaded = computed(() => player.current?.id === props.track.id)
 const lyricRows = computed(() => rows.value.filter(r => !r.section))
 const syncedCount = computed(() => lyricRows.value.filter(r => r.time != null).length)
@@ -88,6 +96,7 @@ const playingIndex = computed(() => {
 /** Row selected for replay and fine adjustment (the last stamped one by default). */
 const selected = ref<number | null>(null)
 
+/** Gives the next unsynced line the current playback time (Space / ↓). */
 function stamp() {
   if (!isLoaded.value || cursor.value >= rows.value.length) return
   const index = cursor.value
@@ -119,6 +128,7 @@ function moveLine(i: number, time: number) {
   selected.value = i
 }
 
+/** Clears the last synced line and jumps back to just before the previous one (↑). */
 function undo() {
   // Last synced lyric line before the cursor.
   let last = cursor.value - 1
@@ -131,17 +141,20 @@ function undo() {
   if (isLoaded.value) player.seek(Math.max(0, (rows.value[previous]?.time ?? 0) - 1))
 }
 
+/** Shifts a line's start by `delta` seconds (←/→), never below 0. */
 function nudge(i: number, delta: number) {
   const row = rows.value[i]
   if (row?.time == null) return
   row.time = Math.max(0, Math.round((row.time + delta) * 100) / 100)
 }
 
+/** Moves playback to a synced line's start. */
 function seekTo(i: number) {
   const time = rows.value[i]?.time
   if (isLoaded.value && time != null) player.seek(time)
 }
 
+/** Clears every time and goes back to the start of the track. */
 function resetAll() {
   rows.value = rows.value.map(r => ({ ...r, time: null }))
   selected.value = null
@@ -154,6 +167,7 @@ watch(() => props.active, (active) => {
 })
 onBeforeUnmount(() => player.setPlaybackRate(1))
 
+/** Loads (and starts) this track in the player, from the "Start the track to sync" notice. */
 function loadInPlayer() {
   void player.playTrack(props.track)
 }
@@ -162,6 +176,7 @@ function loadInPlayer() {
 useEventListener('keydown', (event: KeyboardEvent) => {
   if (!props.active || !isLoaded.value) return
   const target = event.target as HTMLElement | null
+  // Never steal keys from text fields, sliders (the waveform) or open dialogs (LRC import).
   if (target?.closest('input, textarea, select, [contenteditable="true"], [role="slider"], [role="dialog"]')) return
 
   if (event.key === 'ArrowDown' || (event.key === ' ' && !target?.closest('button, a'))) {
@@ -196,11 +211,13 @@ watch(cursor, (i) => {
 const lrcOpen = ref(false)
 const lrcText = ref('')
 
+/** Opens the LRC dialog, prefilled with the current sync (export). */
 function openLrc() {
   lrcText.value = model.value?.length ? serializeLrc(model.value) : ''
   lrcOpen.value = true
 }
 
+/** Replaces the rows with the pasted LRC (import); invalid text leaves everything unchanged. */
 function applyLrc() {
   const parsed = parseLrc(lrcText.value)
   if (!parsed.length && lrcText.value.trim()) {

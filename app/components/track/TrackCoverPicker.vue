@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Cover preview with "Add/Change cover" and "Remove" buttons. It only picks
+ * the file (`select`) or asks for removal (`remove`): the page converts,
+ * uploads and saves. `busy` shows a spinner over the preview.
+ * The `preview` slot replaces the image (playlists show their mosaic).
+ */
 defineProps<{
   url: string | null
   title: string
@@ -15,6 +21,7 @@ const input = ref<HTMLInputElement | null>(null)
 function onChange(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
+  // Reset the input, so picking the same file again still fires `change`.
   target.value = ''
   if (file) emit('select', file)
 }

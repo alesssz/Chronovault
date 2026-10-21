@@ -1,3 +1,7 @@
+/*
+ * Global styles: Tailwind CSS 4 + Nuxt UI, plus the few app-wide rules that
+ * cannot live in a component (base scale, room for the player bar).
+ */
 @import "tailwindcss";
 @import "@nuxt/ui";
 

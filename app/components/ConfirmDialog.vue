@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * Confirmation dialog for destructive actions (delete a track or playlist).
+ * `v-model:open` controls it; `confirm` fires on the red button. While
+ * `loading`, it cannot be dismissed and the buttons are disabled.
+ */
 withDefaults(defineProps<{
   title: string
   description?: string

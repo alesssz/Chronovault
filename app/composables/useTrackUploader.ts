@@ -8,6 +8,7 @@ import { toSquareWebp } from '~/lib/image'
 import { directUpload } from '~/lib/direct-upload'
 import { genresApi, tracksApi } from '~/services/api'
 
+/** Lifecycle of one file, in order; `error` can happen at any step. */
 export type UploadStatus = 'queued' | 'analyzing' | 'converting' | 'uploading' | 'saving' | 'done' | 'error'
 
 /** Outcome of the WAV → FLAC step (null for non-WAV files). */
@@ -15,9 +16,12 @@ export type UploadConversion
   = | { kind: 'flac', originalBytes: number, flacBytes: number }
     | { kind: 'kept', reason: string }
 
+/** One file in the upload list (reactive: the page renders these directly). */
 export interface UploadItem {
+  /** Unique list key (the same file may be dropped twice). */
   key: string
   file: File
+  /** File name at first, then the title read from the tags. */
   title: string
   status: UploadStatus
   /** 0..1, progress of the WAV → FLAC conversion (encoding + verification). */
@@ -26,6 +30,7 @@ export interface UploadItem {
   /** 0..1, upload progress of the audio file. */
   progress: number
   error: string | null
+  /** Set once registered: the page links to the new track's edit page. */
   trackId: string | null
 }
 
@@ -45,12 +50,18 @@ export function useTrackUploader() {
   const user = useSupabaseUser()
 
   const items = ref<UploadItem[]>([])
+  /** True while the queue is being processed (one file at a time). */
   const running = ref(false)
+  /** Genre list, loaded once per page to match the genre tag to a genre id. */
   let genres: Genre[] | null = null
 
   const pending = computed(() => items.value.filter(i => i.status !== 'done' && i.status !== 'error').length)
   const completed = computed(() => items.value.filter(i => i.status === 'done').length)
 
+  /**
+   * Queues files and starts processing. Unsupported or too large files are
+   * added directly as failed, so the user sees why they were skipped.
+   */
   function add(files: File[]): void {
     for (const file of files) {
       const invalid = !resolveAudioMimeType(file)
@@ -77,10 +88,16 @@ export function useTrackUploader() {
     items.value = items.value.filter(i => i.key !== key || !removable.includes(i.status))
   }
 
+  /** Removes done and failed items from the list. */
   function clearFinished(): void {
     items.value = items.value.filter(i => i.status !== 'done' && i.status !== 'error')
   }
 
+  /**
+   * Processes queued items one by one (sequential: parallel uploads would
+   * compete for bandwidth and memory, FLAC conversion is CPU-heavy).
+   * Files added while running are picked up by the same loop.
+   */
   async function run(): Promise<void> {
     if (running.value) return
     running.value = true
@@ -95,6 +112,7 @@ export function useTrackUploader() {
     }
   }
 
+  /** Built-in or custom genre whose name matches the tag (case-insensitive), or null. */
   async function findGenreId(name: string | null): Promise<string | null> {
     if (!name) return null
     genres ??= await genresApi.list().catch(() => [])
@@ -102,6 +120,7 @@ export function useTrackUploader() {
     return genres.find(g => g.name.toLocaleLowerCase('en') === wanted)?.id ?? null
   }
 
+  /** Runs steps 1-5 for one file; any failure marks the item as failed and cleans up. */
   async function process(item: UploadItem): Promise<void> {
     const userId = user.value?.sub
     let coverPath: string | null = null
@@ -131,6 +150,8 @@ export function useTrackUploader() {
         }
       }
 
+      // The client picks the track id: the storage path depends on it, and the
+      // file must be uploaded before the track row exists.
       const trackId = crypto.randomUUID()
 
       item.status = 'uploading'

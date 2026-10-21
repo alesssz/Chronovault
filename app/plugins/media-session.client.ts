@@ -5,7 +5,10 @@ import {
   setMediaSessionTrack,
 } from '~/lib/media-session'
 
-/** Connects the player store to the operating system's Media Session. */
+/**
+ * Connects the player store to the operating system's Media Session
+ * (lock screen, notifications, keyboard media keys). `.client`: browser only.
+ */
 export default defineNuxtPlugin(() => {
   const player = usePlayerStore()
 
@@ -18,12 +21,14 @@ export default defineNuxtPlugin(() => {
     seekTo: seconds => player.seek(seconds),
   })
 
+  // Track metadata and artwork follow the loaded track.
   watch(() => player.current, (track) => {
     setMediaSessionTrack(track
       ? { title: track.title, artist: track.composers, album: track.album, artworkUrl: track.coverUrl }
       : null)
   })
 
+  // Play/pause state (and a fresh position) on every status change.
   watch(() => player.status, (status) => {
     setMediaSessionPlaybackState(status === 'playing' ? 'playing' : status === 'idle' ? 'none' : 'paused')
     setMediaSessionPosition(player.duration, player.currentTime, player.playbackRate)

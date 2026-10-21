@@ -1,5 +1,6 @@
 import type { FlacWorkerResponse } from './flac.worker'
 
+/** Outcome of a conversion: the verified FLAC (with the audio MD5), or why the WAV is kept. */
 export type FlacConversion
   = | { status: 'converted', file: File, md5: string }
     | { status: 'kept', reason: string }
@@ -18,11 +19,13 @@ const INACTIVITY_TIMEOUT_MS = 30_000
  */
 export async function convertWavToFlac(file: File, onProgress?: (fraction: number) => void): Promise<FlacConversion> {
   const buffer = await file.arrayBuffer()
+  // A module worker keeps the heavy work (and libFLAC's memory) off the UI thread.
   const worker = new Worker(new URL('./flac.worker.ts', import.meta.url), { type: 'module' })
   let watchdog: ReturnType<typeof setTimeout> | undefined
 
   try {
     return await new Promise<FlacConversion>((resolve) => {
+      // Watchdog: restarted by every message, it fires only after 30 s of silence.
       const keepAlive = () => {
         clearTimeout(watchdog)
         watchdog = setTimeout(
@@ -51,15 +54,18 @@ export async function convertWavToFlac(file: File, onProgress?: (fraction: numbe
       }
       worker.onerror = () => resolve({ status: 'kept', reason: 'The FLAC converter could not run in this browser' })
       worker.onmessageerror = () => resolve({ status: 'kept', reason: 'The FLAC converter returned unreadable data' })
+      // Transfer (not copy) the buffer: no second copy of a 70 MB file in memory.
       worker.postMessage({ buffer }, [buffer])
     })
   }
   finally {
+    // Always free the worker, whatever the outcome (also after a watchdog timeout).
     clearTimeout(watchdog)
     worker.terminate()
   }
 }
 
+/** `Song.wav` / `Song.WAVE` → `Song.flac`. */
 function toFlacName(name: string): string {
   return `${name.replace(/\.wave?$/i, '')}.flac`
 }

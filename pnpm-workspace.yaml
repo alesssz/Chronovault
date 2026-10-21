@@ -4,6 +4,8 @@
 # D:\.pnpm-store). This keeps it inside the project instead (git-ignored).
 storeDir: .pnpm-store
 
+# pnpm only runs install scripts of the packages listed here (supply-chain
+# protection): these need them to download or build native binaries.
 allowBuilds:
   esbuild: true
   unrs-resolver: true

@@ -33,6 +33,10 @@ function dockerSupabaseUrl(apiUrl) {
   return url.origin
 }
 
+/**
+ * `pnpm local`: Docker check → Supabase up → .env written → `pnpm dev` in
+ * the foreground (Ctrl+C stops Nuxt only; Supabase keeps running).
+ */
 async function local() {
   await ensureDocker()
   const status = await ensureSupabase()
@@ -46,6 +50,10 @@ async function local() {
   return runInherited('pnpm dev')
 }
 
+/**
+ * `pnpm docker`: Docker check → Supabase up → .env.docker written → image
+ * built and container started in the background → wait for /api/health.
+ */
 async function docker() {
   await ensureDocker()
   const status = await ensureSupabase()
@@ -72,6 +80,7 @@ async function docker() {
   return 0
 }
 
+/** `pnpm stop`: removes the app container and stops Supabase (its Docker volumes, i.e. the data, are kept). */
 async function stop() {
   if (!dockerIsRunning()) {
     console.log('Docker is not running: nothing to stop.')
@@ -83,6 +92,7 @@ async function stop() {
   return runInherited('pnpm exec supabase stop')
 }
 
+// Dispatch on the first argument (`node scripts/stack.mjs local`).
 const commands = { local, docker, stop }
 const command = commands[process.argv[2]]
 

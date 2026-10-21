@@ -1,6 +1,7 @@
 /**
  * Human-readable message from any error: API errors (`data.message`),
- * standard JS errors or unknown values.
+ * standard JS errors or unknown values. Used for toasts and inline errors.
+ * Auto-imported (Nuxt scans app/utils).
  */
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (error && typeof error === 'object') {

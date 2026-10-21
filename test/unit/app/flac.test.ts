@@ -1,3 +1,9 @@
+/**
+ * Lossless WAV → FLAC: WAV parsing and compatibility rules, then real libFLAC round trips
+ * (8/16/24-bit, mono/stereo, full-scale extremes) decoded with a second, independent decoder,
+ * the audio MD5 against Node's crypto, and detection of a corrupted stream.
+ * libFLAC runs as asm.js here (the browser uses the WebAssembly build).
+ */
 import { createHash } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { FLACDecoder } from '@wasm-audio-decoders/flac'

@@ -1,7 +1,10 @@
 import type { SyncedLyricLine } from '../types/track'
 
 /**
- * Synced lyrics in LRC format.
+ * Synced lyrics: LRC parsing and serialization, active-line lookup and the
+ * conversion between the sync editor's rows and the stored lines.
+ *
+ * LRC format reminder:
  *
  *   [ar:Artist]           ← metadata tags (ignored, except [offset:])
  *   [offset:+250]         ← shifts every line (ms; positive = earlier)
@@ -12,23 +15,42 @@ import type { SyncedLyricLine } from '../types/track'
  * Section headers such as `[Intro]` or `[Verse 1]` structure the lyrics.
  * They are not synced on their own: a header takes the time of the first
  * lyric line that follows it, and is stored with `section: true`.
+ *
+ * Stored format (`tracks.lyrics_synced`): a JSON array of
+ * `{ time, text, section? }` sorted by time, times rounded to centiseconds.
  */
 
+/**
+ * A timestamp at the start of a line: `[mm:ss]`, `[mm:ss.xx]`, `[mm:ss:xx]`
+ * or with milliseconds `[mm:ss.xxx]`. Minutes may have up to 3 digits
+ * (tracks longer than 99 minutes).
+ */
 const LEADING_TIME_TAG = /^\[(\d{1,3}):([0-5]?\d)(?:[.:](\d{1,3}))?\]/
 /** Standard LRC metadata tags; anything else in brackets is a section header. */
 const META_TAG = /^\[(ar|ti|al|au|by|re|ve|length|tool|offset|#)\s*:([^\]]*)\]$/i
+/** A whole line made of one bracketed text, e.g. `[Chorus x2]`. */
 const SECTION_TAG = /^\[[^\]]+\]$/
 
+/** Rounds to centiseconds: the precision of LRC timestamps. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-/** True for section headers such as `[Intro]`, `[Verse 1]`, `[Chorus x2]`. */
+/** True for section headers such as `[Intro]`, `[Verse 1]`, `[Chorus x2]` (but not metadata tags like `[ar:…]`). */
 export function isSectionHeader(text: string): boolean {
   const trimmed = text.trim()
   return SECTION_TAG.test(trimmed) && !META_TAG.test(trimmed)
 }
 
+/**
+ * Parses LRC text into synced lines, sorted by time.
+ *
+ * - Lines with several timestamps produce one entry per timestamp.
+ * - Untimed section headers wait for the next timed lyric line and take its time.
+ * - Timed section headers (`[00:10.00] [Verse 1]`) keep their own time.
+ * - `[offset:±ms]` is applied to every line; negative results are clamped to 0.
+ * - Lines without timestamps that are not headers or `[offset]` are ignored.
+ */
 export function parseLrc(input: string): SyncedLyricLine[] {
   let offsetSeconds = 0
   const lines: SyncedLyricLine[] = []
@@ -40,8 +62,10 @@ export function parseLrc(input: string): SyncedLyricLine[] {
     const times: number[] = []
     let match: RegExpExecArray | null
 
+    // Consume every leading timestamp: `[00:45.10][01:30.00] text`.
     while ((match = LEADING_TIME_TAG.exec(rest))) {
       const [, min, sec, frac] = match
+      // `frac` is a decimal fraction whatever its length: "5" = 0.5 s, "05" = 0.05 s, "050" = 0.05 s.
       times.push(Number(min) * 60 + Number(sec) + (frac ? Number(`0.${frac}`) : 0))
       rest = rest.slice(match[0].length)
     }
@@ -65,6 +89,7 @@ export function parseLrc(input: string): SyncedLyricLine[] {
     }
 
     for (const [i, time] of times.entries()) {
+      // Pending headers belong to the first occurrence of the line only.
       if (i === 0) {
         for (const section of pendingSections) lines.push({ time, text: section, section: true })
         pendingSections = []
@@ -79,8 +104,9 @@ export function parseLrc(input: string): SyncedLyricLine[] {
     .sort((a, b) => a.time - b.time)
 }
 
-/** `83.456` → `01:23.46` */
+/** Formats seconds as an LRC timestamp: `83.456` → `01:23.46`. */
 export function formatLrcTimestamp(seconds: number): string {
+  // Work in whole centiseconds so rounding never produces "60" seconds.
   const centis = Math.round(Math.max(0, seconds) * 100)
   const m = Math.floor(centis / 6000)
   const s = Math.floor((centis % 6000) / 100)
@@ -88,6 +114,11 @@ export function formatLrcTimestamp(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`
 }
 
+/**
+ * Serializes synced lines as LRC, one `[mm:ss.xx] text` per line, sorted by time.
+ * Section headers are written as timed headers, so `parseLrc` reads them back
+ * unchanged (round trip).
+ */
 export function serializeLrc(lines: SyncedLyricLine[]): string {
   return [...lines]
     .sort((a, b) => a.time - b.time)
@@ -99,6 +130,8 @@ export function serializeLrc(lines: SyncedLyricLine[]): string {
  * Index of the last lyric line (not a section header) that has already
  * started at `time` (binary search), or -1 when none has started yet.
  * `lines` must be sorted by time.
+ *
+ * Called on every animation frame while playing, hence the O(log n) search.
  */
 export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: number): number {
   let lo = 0
@@ -114,6 +147,8 @@ export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: num
       hi = mid - 1
     }
   }
+  // A header shares its time with the line it introduces and sorts before it:
+  // step back over headers so only real lyric lines are highlighted.
   while (found >= 0 && lines[found]!.section) found--
   return found
 }
@@ -121,6 +156,7 @@ export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: num
 /** A row of the sync editor: a lyric line (to stamp) or a section header. */
 export interface SyncRow {
   text: string
+  /** Start time in seconds; `null` while the line has not been synced yet. */
   time: number | null
   section?: boolean
 }
@@ -154,5 +190,6 @@ export function buildSyncedLines(rows: readonly SyncRow[]): SyncedLyricLine[] {
       lines.push({ time: round2(row.time), text: row.text })
     }
   })
+  // Stable sort: headers pushed before their line keep that order at equal times.
   return lines.sort((a, b) => a.time - b.time)
 }

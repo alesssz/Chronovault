@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Landing page for the email confirmation link: Supabase creates the
-// session, we wait for the user and redirect.
+// Landing page for the email confirmation link (and the auth callback of
+// @nuxtjs/supabase): Supabase creates the session from the URL, we wait
+// for the user and redirect to the saved page (or the library).
 definePageMeta({ layout: 'auth' })
 useSeoMeta({ title: 'Confirm · ChronoPlayer' })
 

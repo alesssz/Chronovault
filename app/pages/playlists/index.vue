@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Playlists page (client-rendered): a grid of cards (cover or mosaic,
+ * title, visibility, track count) and "New playlist".
+ */
 import type { TrackVisibility } from '~~/shared/types/track'
 
 useSeoMeta({ title: 'Playlists · ChronoPlayer' })

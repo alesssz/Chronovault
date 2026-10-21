@@ -15,7 +15,9 @@ const open = computed({
 // Slightly smaller base scale while the full-screen view is open (see main.css).
 useHead({ htmlAttrs: { class: computed(() => (open.value ? 'player-expanded' : '')) } })
 
+/** While loading there is no detail yet: show the summary from the queue. */
 const track = computed(() => player.current ?? player.queue[player.index] ?? null)
+/** "Album · Year · Genre" line (only the parts that are set). */
 const meta = computed(() => {
   const t = player.current
   if (!t) return ''

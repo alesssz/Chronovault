@@ -1,3 +1,6 @@
+/**
+ * End-to-end: redirects without a session, demo sign-in, wrong credentials, sign-up and sign-out.
+ */
 import { expect, test } from '@playwright/test'
 import { signIn, signUp } from './helpers'
 

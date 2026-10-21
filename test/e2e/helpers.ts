@@ -1,3 +1,6 @@
+/**
+ * End-to-end helpers: WAV files generated on the fly, throwaway accounts, uploads.
+ */
 import { expect, type Page } from '@playwright/test'
 
 export interface WavOptions {

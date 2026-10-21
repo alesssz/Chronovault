@@ -7,14 +7,18 @@
  */
 
 export interface DirectUploadOptions {
+  /** Presigned PUT URL from POST /api/tracks/upload-url. */
   url: string
   file: Blob
+  /** Must be the type the file is stored with: R2 serves it back as Content-Type. */
   contentType: string
+  /** Called with 0..1 while sending; reset to 0 before a retry. */
   onProgress?: (fraction: number) => void
   /** Attempts on network errors or 5xx responses (default 3). */
   attempts?: number
 }
 
+/** Upload failure; `status` is the HTTP status, or null for network errors and timeouts. */
 export class UploadError extends Error {
   override name = 'UploadError'
   constructor(message: string, readonly status: number | null) {
@@ -22,6 +26,11 @@ export class UploadError extends Error {
   }
 }
 
+/**
+ * Uploads with retries: network errors and 5xx responses are retried with a
+ * growing delay (1 s, 2 s…); 4xx responses (e.g. an expired URL, 403) fail
+ * immediately since retrying the same URL cannot succeed.
+ */
 export async function directUpload(options: DirectUploadOptions): Promise<void> {
   const attempts = options.attempts ?? 3
   for (let attempt = 1; ; attempt++) {
@@ -38,6 +47,7 @@ export async function directUpload(options: DirectUploadOptions): Promise<void> 
   }
 }
 
+/** One PUT attempt, reporting progress. */
 function putOnce({ url, file, contentType, onProgress }: DirectUploadOptions): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()

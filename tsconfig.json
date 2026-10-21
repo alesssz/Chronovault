@@ -1,5 +1,8 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
+  // Nuxt generates one project per context in .nuxt/ (app, server, shared,
+  // node config files), each with the right globals and auto-imports.
+  // `pnpm typecheck` (vue-tsc) checks all of them.
   "files": [],
   "references": [
     { "path": "./.nuxt/tsconfig.app.json" },

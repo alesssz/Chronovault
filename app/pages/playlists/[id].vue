@@ -10,6 +10,13 @@ import { toSquareWebp } from '~/lib/image'
 import { playlistsApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
+/**
+ * Playlist page (client-rendered, owner only): details form (title,
+ * description, visibility), the track list (drag to reorder, Move up/down,
+ * remove, click to play), Play all, cover (custom or mosaic), sharing box
+ * (with a warning when private tracks are included) and deletion.
+ * Track list changes save immediately; the details form saves with "Save".
+ */
 const route = useRoute()
 const id = route.params.id as string
 

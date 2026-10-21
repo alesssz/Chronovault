@@ -1,3 +1,6 @@
+/**
+ * PlaylistCover: custom cover, 2×2 mosaic, single cover, placeholder.
+ */
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import PlaylistCover from '~/components/playlist/PlaylistCover.vue'

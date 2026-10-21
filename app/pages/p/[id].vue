@@ -51,6 +51,7 @@ useSeoMeta({
   robots: () => (playlist.value?.visibility === 'public' ? 'index, follow' : 'noindex, nofollow'),
 })
 
+/** Cuts a preview text at `max` characters with an ellipsis. */
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
@@ -78,19 +79,23 @@ onMounted(() => {
 // Leaving the page stops the music: this page is the only place it is controlled from.
 onBeforeUnmount(() => player.close())
 
+/** The track is the one loaded from this playlist. */
 function isActive(trackId: string) {
   return isHere.value && player.current?.id === trackId
 }
 
+/** Plays the playlist from a given track. */
 function playAt(index: number) {
   if (playlist.value) void player.playSharedPlaylist(playlist.value, index)
 }
 
+/** Big play button: toggles the current track, or starts from the first. */
 function togglePlay() {
   if (isHere.value && player.status !== 'error') void player.togglePlay()
   else playAt(0)
 }
 
+/** Clicking a synced line seeks there (only while this playlist is playing). */
 function onLyricSeek(seconds: number) {
   if (isHere.value) player.seek(seconds)
 }

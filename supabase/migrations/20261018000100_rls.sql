@@ -3,6 +3,14 @@
 -- General rule: users read and modify only their own data.
 -- Exceptions: built-in genres (readable by everyone) and 'public' tracks.
 -- 'unlisted' tracks are readable by id only, through get_shared_track().
+--
+-- NOTE: the "tracks: read own and public" policy and get_shared_track() below
+-- were replaced by 20261021000000_public_sharing.sql (the table is now
+-- owner-only and the function returns shareable fields only). The statements
+-- of an applied migration are never changed: later migrations alter what it created.
+--
+-- `(select auth.uid())` instead of `auth.uid()`: Postgres evaluates it once
+-- per query instead of once per row (Supabase performance advice).
 -- =============================================================================
 
 alter table public.genres enable row level security;

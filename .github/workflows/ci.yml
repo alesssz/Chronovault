@@ -1,3 +1,6 @@
+# Continuous integration: two jobs, the second only when the first passes.
+#   quality           lint, typecheck, Vitest (no database needed)
+#   database-and-e2e  local Supabase in the runner, schema lint, pgTAP, Playwright
 name: CI
 
 on:
@@ -5,6 +8,7 @@ on:
     branches: [main]
   pull_request:
 
+# A new push cancels the run still going for the same branch.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -38,6 +42,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # Only the services the tests need (no Studio, mail catcher, analytics…): faster startup.
       - name: Start local Supabase
         run: pnpm exec supabase start -x studio,imgproxy,mailpit,postgres-meta,vector,logflare,supavisor
       - run: pnpm env:local
@@ -49,6 +54,7 @@ jobs:
         env:
           CI: true
 
+      # On failure, keep the Playwright report, traces and screenshots for a week.
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

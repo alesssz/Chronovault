@@ -1,3 +1,6 @@
+/**
+ * Row ↔ domain conversions; the shared view must expose only the shareable fields.
+ */
 import { describe, expect, it } from 'vitest'
 import { toSharedTrack, toTrackDetail, toTrackInsert, toTrackUpdate, type TrackRow } from '~~/server/mappers/track'
 

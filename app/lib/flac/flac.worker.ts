@@ -1,20 +1,29 @@
 /**
  * Web Worker running the WAV → FLAC conversion off the main thread
  * (encoding + verification of a 70 MB WAV takes several seconds).
+ *
+ * Protocol (see convert.ts for the other side):
+ *   main → worker   { buffer }                       the whole WAV file (transferred)
+ *   worker → main   { type: 'progress', value }      0..1, many times
+ *                   { type: 'converted', flac, md5 } verified FLAC (transferred)
+ *                   { type: 'kept', reason }         keep the original WAV
  */
 import wasmUrl from 'libflacjs/dist/libflac.wasm.wasm?url'
 import { encodeWavToFlac, type FlacLib } from './encoder'
 import { flacIncompatibility, parseWav } from './wav'
 
+/** Message received from the page. */
 export interface FlacWorkerRequest {
   buffer: ArrayBuffer
 }
 
+/** Messages sent back to the page. */
 export type FlacWorkerResponse
   = | { type: 'progress', value: number }
     | { type: 'converted', flac: ArrayBuffer, md5: string }
     | { type: 'kept', reason: string }
 
+/** The parts of the worker global scope used here (the DOM lib types `self` as Window). */
 interface WorkerScope {
   FLAC_SCRIPT_LOCATION?: Record<string, string>
   onmessage: ((event: MessageEvent<FlacWorkerRequest>) => void) | null
@@ -35,10 +44,13 @@ if (workerProcess?.env) workerProcess.env.FLAC_SCRIPT_LOCATION = wasmLocation
 /** libFLAC must be ready within this time, otherwise the WAV is kept. */
 const LOAD_TIMEOUT_MS = 20_000
 
+/** libFLAC is loaded once per worker, on the first conversion. */
 let flacPromise: Promise<FlacLib> | null = null
 
+/** Loads libFLAC (WebAssembly build) and waits until its runtime is initialized. */
 function loadFlac(): Promise<FlacLib> {
   flacPromise ??= import('libflacjs/dist/libflac.wasm.js').then((mod) => {
+    // The UMD bundle exposes the API either as the default export or as the module itself.
     const Flac = ((mod as { default?: FlacLib }).default ?? mod) as FlacLib
     if (Flac.isReady()) return Flac
     return new Promise<FlacLib>((resolve, reject) => {
@@ -59,6 +71,7 @@ scope.addEventListener('unhandledrejection', (event) => {
   scope.postMessage({ type: 'kept', reason: `FLAC encoder error: ${reason}` })
 })
 
+/** One conversion per message: parse → check compatibility → encode + verify → reply. */
 scope.onmessage = async (event) => {
   try {
     const wav = new Uint8Array(event.data.buffer)
@@ -74,6 +87,7 @@ scope.onmessage = async (event) => {
       scope.postMessage({ type: 'progress', value })
     })
 
+    // Pointless conversion (e.g. white noise does not compress): keep the WAV.
     if (flac.byteLength >= wav.byteLength) {
       scope.postMessage({ type: 'kept', reason: 'FLAC would not be smaller than the WAV' })
       return

@@ -18,8 +18,10 @@ import { flacIncompatibility, readWavSample, type WavInfo } from './wav'
  * original WAV. A FLAC is only ever returned when all checks pass.
  */
 
+/** The libflacjs API (loaded as WebAssembly in the worker, as asm.js in Node tests). */
 export type FlacLib = typeof LibFlac
 
+/** Any encoding or verification failure: the caller must keep the original WAV. */
 export class FlacVerificationError extends Error {
   override name = 'FlacVerificationError'
 }
@@ -32,10 +34,15 @@ export interface FlacEncodeResult {
 
 /** libFLAC compression level: 5 is the reference default (size/speed balance). */
 const COMPRESSION_LEVEL = 5
-/** Sample frames handed to the encoder per call. */
+/** Sample frames handed to the encoder per call (bounds memory: 32k frames × channels × 4 bytes). */
 const CHUNK_FRAMES = 32_768
+/** libFLAC init status code for success (FLAC__STREAM_ENCODER_INIT_STATUS_OK / decoder equivalent). */
 const STATUS_OK = 0
 
+/**
+ * Encodes the WAV's PCM data to FLAC and runs the three verification steps.
+ * Progress: 0..0.5 while encoding, 0.5..1 while decoding back.
+ */
 export async function encodeWavToFlac(
   Flac: FlacLib,
   wav: Uint8Array,
@@ -56,22 +63,26 @@ export async function encodeWavToFlac(
   let outputLength = 0
   let streamMd5: string | null = null
 
+  // Last argument `true` = verify mode (step 1). `frames` lets libFLAC write the exact total in STREAMINFO.
   const encoder = Flac.create_libflac_encoder(sampleRate, channels, bitsPerSample, COMPRESSION_LEVEL, frames, true)
   if (!encoder) throw new FlacVerificationError('Could not create the FLAC encoder')
 
   try {
     const status = Flac.init_encoder_stream(
       encoder,
+      // Write callback: libFLAC reuses its buffer, so copy every chunk.
       (data, numberOfBytes) => {
         output.push(data.slice(0, numberOfBytes))
         outputLength += numberOfBytes
       },
+      // Metadata callback: STREAMINFO arrives at the end, with the MD5 of the encoded audio.
       (metadata) => {
         if (metadata?.md5sum) streamMd5 = metadata.md5sum
       },
     )
     if (status !== STATUS_OK) throw new FlacVerificationError(`FLAC encoder initialization failed (${status})`)
 
+    // Interleaved samples (L R L R…), read straight from the WAV bytes: no decoding, no resampling.
     const chunk = new Int32Array(CHUNK_FRAMES * channels)
     for (let frame = 0; frame < frames; frame += CHUNK_FRAMES) {
       const count = Math.min(CHUNK_FRAMES, frames - frame)
@@ -85,6 +96,7 @@ export async function encodeWavToFlac(
       onProgress?.(0.5 * ((frame + count) / frames))
     }
 
+    // finish() flushes the last frame; in verify mode it fails if any frame did not decode back identically.
     if (!Flac.FLAC__stream_encoder_finish(encoder)) {
       throw new FlacVerificationError(`FLAC encoder verification failed (encoder state ${Flac.FLAC__stream_encoder_get_state(encoder)})`)
     }
@@ -107,6 +119,10 @@ export async function encodeWavToFlac(
   return { flac, md5: sourceMd5 }
 }
 
+/**
+ * Step 3: decodes the whole FLAC (libFLAC's own MD5 check enabled) and
+ * compares every decoded sample with the WAV. Throws on the first mismatch.
+ */
 function verifyByDecoding(
   Flac: FlacLib,
   flac: Uint8Array<ArrayBuffer>,
@@ -130,12 +146,14 @@ function verifyByDecoding(
     Flac.FLAC__stream_decoder_set_md5_checking(decoder, true)
     const status = Flac.init_decoder_stream(
       decoder,
+      // Read callback: feed the in-memory FLAC to the decoder piece by piece.
       (numberOfBytes) => {
         const end = Math.min(readOffset + numberOfBytes, flac.byteLength)
         const buffer = flac.subarray(readOffset, end)
         readOffset = end
         return { buffer, readDataLength: buffer.byteLength, error: false }
       },
+      // Write callback: one decoded block, one array per channel. Returning false aborts decoding.
       (channelData, frameInfo) => {
         if (failure) return false
         const blockSize = frameInfo.blocksize
@@ -158,6 +176,7 @@ function verifyByDecoding(
         decodedFrames += blockSize
         onProgress(decodedFrames / frames)
       },
+      // Error callback: remember the first error, reported after decoding stops.
       (_code, description) => {
         failure ??= `FLAC decoding error: ${description}`
       },
@@ -187,6 +206,7 @@ function verifyByDecoding(
 async function md5OfWavAudio(audio: Uint8Array, bitsPerSample: number): Promise<string> {
   const md5 = await createMD5()
   md5.init()
+  // Hash in 4 MB blocks: no extra copy of the whole file (except the 8-bit sign shift).
   const block = 4 << 20
   for (let i = 0; i < audio.byteLength; i += block) {
     if (bitsPerSample === 8) {
@@ -201,6 +221,7 @@ async function md5OfWavAudio(audio: Uint8Array, bitsPerSample: number): Promise<
   return md5.digest('hex')
 }
 
+/** Joins the encoder's output chunks into one buffer. */
 function concat(parts: Uint8Array[], length: number): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(length)
   let offset = 0

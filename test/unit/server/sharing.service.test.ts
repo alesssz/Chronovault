@@ -1,3 +1,7 @@
+/**
+ * Public sharing service with mocked repositories: shared tracks and playlists, 404 for private
+ * items, audio signed only through the playlist a track belongs to, preview covers.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SharedTrackRow } from '~~/server/mappers/track'
 import type { SharedPlaylistRow, SharedPlaylistTrackRow } from '~~/server/mappers/playlist'

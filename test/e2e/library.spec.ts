@@ -1,3 +1,8 @@
+/**
+ * End-to-end, library and player: real uploads (a 24-bit WAV must come back from storage as a FLAC
+ * with exactly the same samples), playback, editing, cover, synced lyrics tools, full-screen
+ * view, deletion, and rejected files.
+ */
 import { expect, test, type Page } from '@playwright/test'
 import { FLACDecoder } from '@wasm-audio-decoders/flac'
 import { makeWav, signUp, uniqueId, uploadTrack, type WavOptions } from './helpers'

@@ -1,3 +1,6 @@
+/**
+ * Time and size formatting shown in the UI.
+ */
 import { describe, expect, it } from 'vitest'
 import { formatBytes, formatRemaining, formatTime } from '~~/shared/utils/time'
 

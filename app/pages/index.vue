@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Library (home page, client-rendered): every track of the user, with
+ * search, genre and mastering filters and sorting, all applied in the
+ * browser (the whole library is loaded at once). Playing a track uses the
+ * filtered list as the queue.
+ */
 import type { TrackSummary } from '~~/shared/types/track'
 import { tracksApi } from '~/services/api'
 
@@ -18,6 +24,7 @@ const genreFilter = ref<string>('all')
 const masteredFilter = ref<'all' | 'yes' | 'no'>('all')
 const sort = ref<'recent' | 'title'>('recent')
 
+/** Only genres that at least one track uses. */
 const genreOptions = computed(() => [
   { label: 'All genres', value: 'all' },
   ...genres.value
@@ -36,6 +43,7 @@ const sortOptions = [
   { label: 'Title A-Z', value: 'title' },
 ]
 
+/** Tracks matching the search (title, composers, album) and filters, in the chosen order. */
 const filtered = computed(() => {
   const q = search.value.trim().toLocaleLowerCase('en')
   const list = tracks.value.filter((t) => {
@@ -58,10 +66,12 @@ function resetFilters() {
 }
 
 // --- Actions ---------------------------------------------------------------------
+/** Plays (or toggles) a track; "next"/"previous" follow what is on screen. */
 function onPlay(track: TrackSummary) {
   void player.playTrack(track, filtered.value)
 }
 
+/** Track waiting for the delete confirmation (the dialog is open while set). */
 const toDelete = ref<TrackSummary | null>(null)
 const deleting = ref(false)
 const deleteOpen = computed({
@@ -71,6 +81,7 @@ const deleteOpen = computed({
   },
 })
 
+/** Deletes the track, drops it from the player queue and from the list. */
 async function confirmDelete() {
   const track = toDelete.value
   if (!track) return

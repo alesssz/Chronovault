@@ -1,5 +1,12 @@
 import { createError } from 'h3'
 
+/**
+ * Error helpers for the backend (auto-imported by Nitro).
+ * Responses never contain technical details (SQL messages, stack traces):
+ * those are logged on the server only.
+ */
+
+/** Shape shared by Postgres, PostgREST and Storage errors. */
 interface DbError {
   code?: string
   message: string
@@ -7,16 +14,24 @@ interface DbError {
 
 /**
  * Turns a Postgres/PostgREST/Storage error into a consistent HTTP error.
- * Technical details go to the server log, never into the response.
+ * Known codes map to a 4xx with a generic message; anything else becomes a
+ * 500 and is logged with `context` (e.g. `tracks.insert`) to find its origin.
  */
 export function toHttpError(error: DbError, context: string) {
   const byCode: Record<string, { statusCode: number, message: string }> = {
+    // unique_violation, e.g. a genre name that already exists
     '23505': { statusCode: 409, message: 'Item already exists' },
+    // foreign_key_violation, e.g. an unknown genre_id
     '23503': { statusCode: 400, message: 'Invalid reference' },
+    // check_violation: lengths, year range, paths outside the owner's folder
     '23514': { statusCode: 400, message: 'Invalid data' },
+    // invalid_text_representation, e.g. a malformed uuid
     '22P02': { statusCode: 400, message: 'Invalid data' },
+    // insufficient_privilege: an RLS policy refused the row
     '42501': { statusCode: 403, message: 'Operation not allowed' },
+    // no_data_found, raised by our own functions (set_playlist_tracks)
     'P0002': { statusCode: 404, message: 'Item not found' },
+    // PostgREST: `.single()` found no row
     'PGRST116': { statusCode: 404, message: 'Item not found' },
   }
   const mapped = error.code ? byCode[error.code] : undefined
@@ -27,6 +42,10 @@ export function toHttpError(error: DbError, context: string) {
   })
 }
 
+/**
+ * 404 response. Also used for items that exist but belong to someone else
+ * or are private: the API never reveals whether an id exists.
+ */
 export function notFound(message = 'Track not found') {
   return createError({ statusCode: 404, statusMessage: 'Not Found', message })
 }

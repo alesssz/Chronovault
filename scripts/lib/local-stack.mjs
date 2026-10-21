@@ -26,10 +26,12 @@ export function runInherited(command) {
   })
 }
 
+/** Promise-based delay. */
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/** True when the Docker engine answers (Docker Desktop running and ready). */
 export function dockerIsRunning() {
   return tryRun('docker info --format "{{.ServerVersion}}"', 10_000) !== null
 }
@@ -48,6 +50,7 @@ export function ensureDocker() {
 /** Status of the local Supabase stack, or null when it is not running. */
 export function supabaseStatus() {
   const raw = tryRun('pnpm exec supabase status -o json')
+  // The CLI may print notices (e.g. "a new version is available") before the JSON.
   if (!raw || !raw.includes('{')) return null
   try {
     const status = JSON.parse(raw.slice(raw.indexOf('{')))
@@ -72,6 +75,7 @@ export async function ensureSupabase() {
   return status
 }
 
+/** The public client key: `PUBLISHABLE_KEY` on recent CLIs, `ANON_KEY` on older ones. */
 export function publishableKey(status) {
   return status.PUBLISHABLE_KEY ?? status.ANON_KEY
 }
@@ -108,6 +112,7 @@ export function writeEnvFile(path, values) {
   for (const [key, value] of Object.entries(values)) {
     if (!seen.has(key)) updated.push(`${key}=${value}`)
   }
+  // Exactly one trailing newline.
   while (updated.length && updated.at(-1) === '') updated.pop()
   writeFileSync(path, `${updated.join('\n')}\n`)
 }

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * Transport buttons (stop, previous, play/pause, next) bound to the player
+ * store. Used by the player bar and the full-screen view (`size` differs).
+ * The play button turns into a spinner while loading or buffering.
+ */
 withDefaults(defineProps<{
   size?: 'md' | 'lg' | 'xl'
   showStop?: boolean

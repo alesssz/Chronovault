@@ -1,3 +1,7 @@
+/**
+ * Tracks service with mocked repositories and a fake audio storage: upload targets, registration
+ * checks (paths, stored size, clean-up on failure), updates, deletion and playback URLs.
+ */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackRow } from '~~/server/mappers/track'
 import type { DbClient } from '~~/server/utils/auth'

@@ -1,4 +1,7 @@
+# Text files always use LF line endings, also when checked out on Windows
+# (shell scripts, the Makefile and SQL would break with CRLF).
 * text=auto eol=lf
+# Binary files: never touch their bytes.
 *.png binary
 *.ico binary
 *.wav binary

@@ -1,3 +1,6 @@
+/**
+ * AudioStorage (R2 client): object URLs, presigned URLs, HEAD and best-effort DELETE, with a fake fetch.
+ */
 import { describe, expect, it, vi } from 'vitest'
 import { AudioStorage } from '~~/server/repositories/audio-storage'
 

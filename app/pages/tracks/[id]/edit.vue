@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * Track editor (client-rendered), in three tabs:
+ *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering
+ *   Lyrics  → plain lyrics with [Section] headers
+ *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
+ * Cover and deletion live in the side column and save immediately; the
+ * form saves everything else with "Save" and warns about unsaved changes.
+ */
 import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
 import type { TrackDetail, TrackVisibility } from '~~/shared/types/track'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
@@ -28,6 +36,7 @@ useSeoMeta({ title: () => `${track.value?.title ?? 'Track'} · Edit` })
 type TextField = 'composers' | 'album' | 'description' | 'sunoPrompt' | 'lyrics'
 type FormState = Omit<TrackMetadataInput, TextField> & Record<TextField, string>
 
+/** Server data → form state (null texts become ''). */
 function toFormState(t: TrackDetail): FormState {
   return {
     title: t.title,
@@ -45,6 +54,7 @@ function toFormState(t: TrackDetail): FormState {
 }
 
 const state = reactive<FormState>(toFormState(track.value))
+/** Snapshot of the last saved state: `dirty` compares against it. */
 const baseline = ref(JSON.stringify(state))
 const dirty = computed(() => JSON.stringify(state) !== baseline.value)
 const saving = ref(false)
@@ -65,6 +75,7 @@ const genreId = computed({
 
 const genreItems = computed(() => genres.value.map(g => ({ label: g.name, value: g.id })))
 
+/** "Create" in the genre menu: creates the custom genre and selects it. */
 async function onCreateGenre(name: string) {
   try {
     const genre = await createGenre(name)
@@ -88,11 +99,13 @@ const tabs: TabsItem[] = [
   { label: 'Sync', value: 'sync', slot: 'sync', icon: 'i-lucide-timer' },
 ]
 
+/** Keeps the page and the player (title, cover, lyrics) in sync with the saved track. */
 function applyServerTrack(updated: TrackDetail) {
   track.value = updated
   player.syncTrack(updated)
 }
 
+/** Saves the whole form (already validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
   saving.value = true
   try {
@@ -123,6 +136,10 @@ onBeforeRouteLeave(() => {
 // --- Cover -----------------------------------------------------------------------
 const coverBusy = ref(false)
 
+/**
+ * New cover: square WebP in the browser → Supabase Storage (own folder,
+ * overwriting the previous one) → PATCH coverPath.
+ */
 async function onCoverSelected(file: File) {
   const userId = user.value?.sub
   if (!userId) return
@@ -146,6 +163,7 @@ async function onCoverSelected(file: File) {
   }
 }
 
+/** Removes the cover; the server deletes the file. */
 async function onCoverRemoved() {
   coverBusy.value = true
   try {
@@ -163,6 +181,7 @@ async function onCoverRemoved() {
 const deleteOpen = ref(false)
 const deleting = ref(false)
 
+/** Deletes the track (and its files), stops it if playing, back to the library. */
 async function onDelete() {
   deleting.value = true
   try {

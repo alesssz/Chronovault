@@ -1,3 +1,6 @@
+/**
+ * Shared Zod schemas (client forms and API bodies): trimming, nulls, limits, duplicates.
+ */
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
 import { playlistCreateSchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'

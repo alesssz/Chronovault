@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * Bottom player bar, always visible while something is loaded (rendered by
+ * the default layout, so it survives page changes).
+ *
+ * Responsive: on phones only cover, title and play/next (plus a thin
+ * progress line); from `md` the waveform, times, stop and expand/close;
+ * from `lg` the volume. Tapping the title area opens the full-screen view.
+ */
 const player = usePlayerStore()
 
 /** While loading there is no detail yet: show the summary from the queue. */
@@ -63,6 +71,7 @@ const track = computed(() => player.current ?? player.queue[player.index] ?? nul
           {{ formatTime(player.currentTime) }}
         </span>
         <div class="min-w-0 flex-1">
+          <!-- Keyed by track: a new waveform is built for every track. -->
           <PlayerWaveform
             v-if="player.current"
             :key="player.current.id"
@@ -78,6 +87,7 @@ const track = computed(() => player.current ?? player.queue[player.index] ?? nul
         <span class="w-12 text-xs tabular-nums text-muted">
           {{ formatRemaining(player.currentTime, player.duration) }}
         </span>
+        <!-- Speed badge: reminds that playback is slowed (e.g. by the sync editor). -->
         <UBadge
           v-if="player.playbackRate !== 1"
           :label="`${player.playbackRate}×`"

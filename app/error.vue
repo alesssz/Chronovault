@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Error page for fatal errors, e.g. a missing track or playlist
+ * (`createError({ fatal: true })`) or an unknown route.
+ */
 import type { NuxtError } from '#app'
 
 defineProps<{ error: NuxtError }>()

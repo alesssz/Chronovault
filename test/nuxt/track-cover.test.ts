@@ -1,3 +1,6 @@
+/**
+ * TrackCover: image with alternative text, placeholder without a cover.
+ */
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import TrackCover from '~/components/track/TrackCover.vue'

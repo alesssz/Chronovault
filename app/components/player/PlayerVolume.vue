@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Mute button + volume slider. The slider shows 0 while muted; moving it
+ * above 0 unmutes (handled by the store's setVolume).
+ */
 const player = usePlayerStore()
 
 const icon = computed(() => {

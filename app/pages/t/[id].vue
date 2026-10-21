@@ -47,6 +47,7 @@ useSeoMeta({
   robots: () => (track.value?.visibility === 'public' ? 'index, follow' : 'noindex, nofollow'),
 })
 
+/** Cuts a preview text at `max` characters with an ellipsis. */
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
@@ -63,12 +64,14 @@ onMounted(() => {
 // Leaving the page stops the music: this page is the only place it is controlled from.
 onBeforeUnmount(() => player.close())
 
+/** Play/pause; loads the track first if the player holds something else. */
 async function togglePlay() {
   if (!track.value) return
   if (!isLoaded.value) await player.cueShared(track.value)
   await player.togglePlay()
 }
 
+/** Clicking a synced line seeks there (only once this track is loaded). */
 function onLyricSeek(seconds: number) {
   if (isLoaded.value) player.seek(seconds)
 }

@@ -1,3 +1,6 @@
+/**
+ * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate.
+ */
 import { describe, expect, it } from 'vitest'
 import { AudioEngine } from '~/lib/audio-engine'
 

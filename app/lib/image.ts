@@ -1,6 +1,12 @@
+/**
+ * Cover image processing, in the browser: every cover (from tags or picked
+ * by the user) is stored as a square WebP of at most 800×800.
+ */
+
 /** Side length of the stored cover (px). */
 export const COVER_SIZE = 800
 
+/** Square source area to draw: top-left corner and side length, in source pixels. */
 export interface CropRect {
   x: number
   y: number
@@ -25,6 +31,7 @@ export async function toSquareWebp(source: Blob, size = COVER_SIZE, quality = 0.
   const bitmap = await createImageBitmap(source)
   try {
     const crop = centerSquareCrop(bitmap.width, bitmap.height)
+    // Never upscale: a small image keeps its own size.
     const target = Math.min(size, crop.size)
     const canvas = document.createElement('canvas')
     canvas.width = target
@@ -39,6 +46,7 @@ export async function toSquareWebp(source: Blob, size = COVER_SIZE, quality = 0.
     })
   }
   finally {
+    // Release the decoded image memory right away (it can be tens of MB).
     bitmap.close()
   }
 }

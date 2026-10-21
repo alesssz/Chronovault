@@ -6,8 +6,12 @@ import { resolveAudioMimeType, titleFromFileName } from '~~/shared/utils/audio-f
  * In-browser analysis of an audio file, before uploading it:
  *  - reads tags (title, artist, album, year, genre, lyrics, cover)
  *  - computes the waveform peaks (so the server never has to process audio)
+ *
+ * Both run in parallel. Neither can fail the upload: missing tags fall back
+ * to defaults, an undecodable file simply gets no waveform (flat placeholder).
  */
 
+/** Everything the upload needs to know about a file; becomes the initial track metadata. */
 export interface AudioAnalysis {
   mimeType: string
   title: string
@@ -21,6 +25,11 @@ export interface AudioAnalysis {
   cover: Blob | null
 }
 
+/**
+ * Analyzes a file the user dropped. Throws only for unsupported formats.
+ * The decoded duration wins over the tag duration (tags are often wrong for
+ * VBR MP3s); the title falls back to the file name.
+ */
 export async function analyzeAudioFile(file: File): Promise<AudioAnalysis> {
   const mimeType = resolveAudioMimeType(file)
   if (!mimeType) throw new Error('Unsupported audio format')
@@ -41,6 +50,7 @@ export async function analyzeAudioFile(file: File): Promise<AudioAnalysis> {
   }
 }
 
+/** Normalized tag values (null when absent). */
 interface Tags {
   title: string | null
   composers: string | null
@@ -52,6 +62,12 @@ interface Tags {
   cover: Blob | null
 }
 
+/**
+ * Reads tags with music-metadata (ID3, Vorbis comments, MP4 atoms, RIFF INFO…).
+ * Composers: the composer tag(s), otherwise the artist. Lyrics: unsynced
+ * text, or the text of synced (SYLT) lyrics without timestamps. Years
+ * outside 1000–9999 are dropped (the database would reject them).
+ */
 async function readTags(file: File): Promise<Tags> {
   try {
     const { common, format } = await parseBlob(file)
@@ -83,6 +99,8 @@ async function readTags(file: File): Promise<Tags> {
 async function decodePeaks(file: File): Promise<{ peaks: number[], duration: number } | null> {
   const buffer = await file.arrayBuffer()
   // Some browsers reject very low sample rates: step up until one works.
+  // `buffer.slice(0)`: decodeAudioData detaches (empties) the buffer it gets,
+  // so each attempt needs its own copy.
   for (const sampleRate of [8000, 22050, 44100]) {
     try {
       const context = new OfflineAudioContext(1, 1, sampleRate)

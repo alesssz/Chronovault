@@ -6,8 +6,13 @@ import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas
 /**
  * Typed client for the server API. The only place where the frontend
  * knows the backend URLs.
+ *
+ * `$fetch` (ofetch) sends the session cookies, parses JSON and throws on
+ * non-2xx responses; the error's `data.message` is the server's message
+ * (see app/utils/errors.ts). Response types are the shared domain types.
  */
 
+/** The user's library (sign-in required). */
 export const tracksApi = {
   list: () => $fetch<TrackSummary[]>('/api/tracks'),
   get: (id: string) => $fetch<TrackDetail>(`/api/tracks/${id}`),
@@ -18,6 +23,7 @@ export const tracksApi = {
   playback: (id: string) => $fetch<PlaybackSource>(`/api/tracks/${id}/playback`),
 }
 
+/** The user's playlists (sign-in required). */
 export const playlistsApi = {
   list: () => $fetch<PlaylistSummary[]>('/api/playlists'),
   get: (id: string) => $fetch<PlaylistDetail>(`/api/playlists/${id}`),
@@ -41,6 +47,7 @@ export const sharedApi = {
     $fetch<PlaybackSource>(`/api/shared/playlists/${playlistId}/tracks/${trackId}/playback`),
 }
 
+/** Built-in and custom genres (sign-in required). */
 export const genresApi = {
   list: () => $fetch<Genre[]>('/api/genres'),
   create: (body: GenreCreate) => $fetch<Genre>('/api/genres', { method: 'POST', body }),

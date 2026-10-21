@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Square track cover, or a gradient placeholder with a music icon.
+ * The size comes from the parent (class), `rounded` from the prop.
+ */
 withDefaults(defineProps<{
   url: string | null | undefined
   title?: string

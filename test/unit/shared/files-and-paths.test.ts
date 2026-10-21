@@ -1,3 +1,6 @@
+/**
+ * Audio file type detection, storage extensions, fallback titles and storage path rules.
+ */
 import { describe, expect, it } from 'vitest'
 import { resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/shared/utils/audio-files'
 import { buildAudioPath, buildCoverPath, isTrackPath } from '~~/shared/utils/storage-paths'

@@ -2,10 +2,17 @@ import type { Genre } from '~~/shared/types/track'
 import type { DbClient } from '../utils/auth'
 import * as genresRepo from '../repositories/genres.repository'
 
+/**
+ * Genres: a built-in list (seeded by the schema migration) plus the custom
+ * genres each user creates on the fly from the edit page.
+ */
+
+/** Row → domain type; `custom` tells the UI which genres the user created. */
 function toGenre(row: genresRepo.GenreRow): Genre {
   return { id: row.id, name: row.name, custom: row.user_id !== null }
 }
 
+/** Built-in + the user's custom genres, sorted by name. */
 export async function listGenres(db: DbClient, userId: string): Promise<Genre[]> {
   const rows = await genresRepo.listGenreRows(db, userId)
   return rows.map(toGenre)

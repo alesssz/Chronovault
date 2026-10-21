@@ -4,6 +4,14 @@
 -- Path convention: <user_id>/<track_id>.<ext>
 --   audio  → audio/<user_id>/<track_id>.flac
 --   covers → covers/<user_id>/<track_id>.webp
+--            covers/<user_id>/playlists/<playlist_id>.webp (since …_playlists.sql)
+--
+-- In production the `audio` bucket here stays empty: audio files live on
+-- Cloudflare R2. Locally, Supabase's S3 endpoint serves this bucket and
+-- stands in for R2 (same protocol).
+--
+-- NOTE: is_shared_track_file() is redefined by 20261022000000_playlists.sql
+-- (files of tracks inside shared playlists and playlist covers are shared too).
 -- =============================================================================
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -46,6 +54,7 @@ create policy "storage: read own or shared files"
     )
   );
 
+-- Writes: only inside the user's own folder (first path segment = user id).
 create policy "storage: upload into own folder"
   on storage.objects for insert
   to authenticated

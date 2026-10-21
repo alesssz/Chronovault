@@ -18,12 +18,14 @@ import * as storageRepo from '../repositories/storage.repository'
  * through the playlist: their audio is signed via the playlist's id.
  */
 
+/** Public data of an unlisted/public track, with a signed cover. */
 export async function getSharedTrack(db: DbClient, id: string): Promise<SharedTrack> {
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
   return toSharedTrack(row, await signCover(db, row.cover_path))
 }
 
+/** Streaming URL of an unlisted/public track (presigned GET, 6 h). */
 export async function getSharedPlaybackSource(db: DbClient, audio: AudioStorage, id: string): Promise<PlaybackSource> {
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
@@ -42,6 +44,7 @@ export async function getSharedCoverUrl(db: DbClient, id: string): Promise<strin
 
 const playlistNotFound = () => notFound('Playlist not found')
 
+/** Public data of an unlisted/public playlist and all its tracks, covers signed in one request. */
 export async function getSharedPlaylist(db: DbClient, id: string): Promise<SharedPlaylist> {
   const row = await findSharedPlaylistRow(db, id)
   if (!row) throw playlistNotFound()
@@ -50,7 +53,11 @@ export async function getSharedPlaylist(db: DbClient, id: string): Promise<Share
   return toSharedPlaylist(row, tracks, signed)
 }
 
-/** Signed streaming URL of a track, only when it belongs to the shared playlist. */
+/**
+ * Signed streaming URL of a track, only when it belongs to the shared
+ * playlist. This is what makes a private track audible through a shared
+ * playlist and nowhere else: its id alone (`/api/shared/:id/playback`) still 404s.
+ */
 export async function getSharedPlaylistPlaybackSource(
   db: DbClient,
   audio: AudioStorage,
@@ -74,6 +81,7 @@ export async function getSharedPlaylistCoverUrl(db: DbClient, id: string): Promi
 
 // --- Helpers ----------------------------------------------------------------------
 
+/** Presigned GET on the audio storage, with its expiry. */
 async function presignAudio(audio: AudioStorage, path: string): Promise<PlaybackSource> {
   return {
     url: await audio.presign('GET', path, storageRepo.SIGNED_URL_TTL),
@@ -81,12 +89,14 @@ async function presignAudio(audio: AudioStorage, path: string): Promise<Playback
   }
 }
 
+/** Signs a set of cover paths in one request and returns a lookup function. */
 async function signCovers(db: DbClient, paths: (string | null)[]): Promise<SignedUrls> {
   const unique = [...new Set(paths.filter((p): p is string => !!p))]
   const urls = await storageRepo.createSignedUrls(db, COVERS_BUCKET, unique)
   return path => (path ? urls.get(path) ?? null : null)
 }
 
+/** Signed cover URL, or null when there is no cover or it cannot be signed. */
 async function signCover(db: DbClient, path: string | null): Promise<string | null> {
   if (!path) return null
   try {

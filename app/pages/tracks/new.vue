@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Upload page: drop or pick audio files; each one goes through the upload
+ * queue (useTrackUploader): analysis → WAV-to-FLAC conversion → direct
+ * upload to R2 → registration. The list shows every file's status, progress
+ * and conversion outcome.
+ */
 import type { UploadConversion, UploadStatus } from '~/composables/useTrackUploader'
 import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 
@@ -14,6 +20,7 @@ watch(picked, (files) => {
   picked.value = null
 })
 
+/** Badge label, color and icon for each upload status. */
 const statusInfo: Record<UploadStatus, { label: string, color: 'neutral' | 'primary' | 'success' | 'error', icon: string }> = {
   queued: { label: 'Queued', color: 'neutral', icon: 'i-lucide-clock' },
   analyzing: { label: 'Analyzing', color: 'primary', icon: 'i-lucide-scan-search' },
@@ -24,6 +31,7 @@ const statusInfo: Record<UploadStatus, { label: string, color: 'neutral' | 'prim
   error: { label: 'Error', color: 'error', icon: 'i-lucide-circle-alert' },
 }
 
+/** "FLAC · lossless … 70 MB → 35 MB (−50%)", or why the WAV was kept as is. */
 function conversionLabel(conversion: UploadConversion): string {
   if (conversion.kind === 'kept') return `Kept as WAV: ${conversion.reason}`
   const saved = Math.round((1 - conversion.flacBytes / conversion.originalBytes) * 100)

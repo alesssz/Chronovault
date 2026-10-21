@@ -1,9 +1,24 @@
 /**
- * Domain types shared by client and server (camelCase).
- * The database uses snake_case: conversion happens in the server mappers.
+ * Track domain types shared by client and server (camelCase).
+ *
+ * The database uses snake_case: conversion happens in the server mappers
+ * (server/mappers/track.ts). The API returns exactly these shapes, and the
+ * typed client (app/services/api.ts) declares them as response types.
+ *
+ * Which type is used where:
+ *   TrackSummary  → library list, playlists, player queue
+ *   TrackDetail   → edit page and the track being played (owner only)
+ *   SharedTrack   → public track page /t/:id (anyone with the link)
+ *   SharedTrackContent → tracks of a shared playlist /p/:id
  */
 
+/** Possible visibilities, in the order shown by the UI (also the Postgres enum `track_visibility`). */
 export const TRACK_VISIBILITIES = ['private', 'unlisted', 'public'] as const
+/**
+ * - `private`: only the owner;
+ * - `unlisted`: anyone with the link, kept out of search engines;
+ * - `public`: anyone with the link, may be indexed. There is no public catalog.
+ */
 export type TrackVisibility = (typeof TRACK_VISIBILITIES)[number]
 
 /**
@@ -24,7 +39,7 @@ export interface Genre {
   custom: boolean
 }
 
-/** Lightweight data for lists and the library. */
+/** Lightweight data for lists and the library (no lyrics, peaks or long texts). */
 export interface TrackSummary {
   id: string
   title: string
@@ -34,23 +49,31 @@ export interface TrackSummary {
   genreId: string | null
   mastered: boolean
   visibility: TrackVisibility
+  /** Measured in the browser at upload time; null when the file could not be decoded. */
   durationSeconds: number | null
+  /** Generated columns: the library shows lyrics badges without loading the lyrics. */
   hasLyrics: boolean
   hasSyncedLyrics: boolean
+  /** Signed URL (6 h) of the cover, or null when the track has none. */
   coverUrl: string | null
+  /** ISO 8601 timestamps. */
   createdAt: string
   updatedAt: string
 }
 
-/** Full track data (editor and player). */
+/** Full track data (editor and player). Only ever returned to the owner. */
 export interface TrackDetail extends TrackSummary {
   description: string | null
+  /** The prompt used to generate the track on Suno: private, never shared. */
   sunoPrompt: string | null
+  /** Plain lyrics, section headers included (`[Verse 1]` on their own line). */
   lyrics: string | null
   lyricsSynced: SyncedLyricLine[] | null
+  /** Waveform amplitudes 0..1 (see shared/utils/peaks.ts). */
   peaks: number[] | null
   mimeType: string
   sizeBytes: number
+  /** Storage keys: owner-only, used by the editor (cover upload) and the server. */
   audioPath: string
   coverPath: string | null
 }
@@ -82,8 +105,13 @@ export interface SharedTrackContent {
   updatedAt: string
 }
 
+/**
+ * A time-limited URL to stream a track (presigned GET on Cloudflare R2).
+ * The player refreshes it before `expiresAt` when needed (app/stores/player.ts).
+ */
 export interface PlaybackSource {
   url: string
+  /** ISO 8601 expiry (6 hours after signing). */
   expiresAt: string
 }
 
@@ -92,5 +120,6 @@ export interface AudioUploadTarget {
   uploadUrl: string
   /** Storage key to send back to POST /api/tracks. */
   audioPath: string
+  /** The upload must start before this time (1 hour). */
   expiresAt: string
 }

@@ -6,6 +6,12 @@ import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
+/**
+ * - `idle`: nothing loaded, the player bar is hidden;
+ * - `loading`: fetching track data and a streaming URL;
+ * - `playing` / `paused`: a track is loaded in the engine;
+ * - `error`: the last load or resume failed (`error` holds the message).
+ */
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
 
 /** A queued track: what the player bar shows while the full data loads. */
@@ -44,11 +50,13 @@ function sharedPlaylistSource(playlist: SharedPlaylist): TrackSource {
   }
 }
 
-/** Past this point "previous" restarts the track instead of going back. */
+/** Past this point (seconds) "previous" restarts the track instead of going back. */
 const RESTART_THRESHOLD = 3
+/** localStorage key of the volume: the only player setting remembered across visits. */
 const VOLUME_KEY = 'chronoplayer:volume'
 /** A signed URL this close to its expiry is replaced before being used again. */
 const SOURCE_EXPIRY_MARGIN_MS = 60_000
+/** Playback speed bounds (the sync editor uses 0.5 and 0.75). */
 const MIN_PLAYBACK_RATE = 0.25
 const MAX_PLAYBACK_RATE = 2
 
@@ -63,17 +71,27 @@ const MAX_PLAYBACK_RATE = 2
  * reloaded once before an error is shown.
  */
 export const usePlayerStore = defineStore('player', () => {
+  /** Tracks that "next"/"previous" move through (the library view, a playlist…). */
   const queue = ref<QueueItem[]>([])
+  /** Position of the current track in `queue`; -1 when idle. */
   const index = ref(-1)
+  /**
+   * Full data of the loaded track (lyrics, peaks). Set only once its audio
+   * is in the engine. shallowRef: it is replaced, never mutated in place.
+   */
   const current = shallowRef<PlayerTrack | null>(null)
   const status = ref<PlayerStatus>('idle')
+  /** The element is waiting for data (spinner on the play button). */
   const buffering = ref(false)
+  /** Position in seconds, updated every animation frame while playing. */
   const currentTime = ref(0)
+  /** From the track data at first, then from the audio element once known. */
   const duration = ref(0)
   const volume = ref(readStoredVolume())
   const muted = ref(false)
   /** Playback speed (1 = normal); slowed down while syncing lyrics. */
   const playbackRate = ref(1)
+  /** The full-screen view (PlayerExpanded) is open. */
   const expanded = ref(false)
   const error = ref<string | null>(null)
   /** Key of the current source (see TrackSource): lets public pages know the player is theirs. */

@@ -20,6 +20,7 @@ export interface WavInfo {
   frames: number
 }
 
+/** The file is not a WAV the parser can read (the upload then keeps the original file). */
 export class WavParseError extends Error {
   override name = 'WavParseError'
 }
@@ -34,12 +35,18 @@ const FLAC_MAX_SAMPLE_RATE = 655_350
 const FLAC_BIT_DEPTHS = new Set([8, 16, 24])
 const FLAC_MAX_CHANNELS = 8
 
+/** Reads a 4-character chunk id (e.g. `RIFF`, `fmt `, `data`). */
 function fourCC(view: DataView, offset: number): string {
   return String.fromCharCode(
     view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3),
   )
 }
 
+/**
+ * Walks the RIFF chunks until both `fmt ` and `data` are found; every other
+ * chunk (LIST, bext, cue…) is skipped. Throws WavParseError on anything that
+ * is not a well-formed WAV.
+ */
 export function parseWav(bytes: Uint8Array): WavInfo {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   if (bytes.byteLength < 12) throw new WavParseError('File too short to be a WAV')
@@ -110,12 +117,14 @@ export function readWavSample(view: DataView, offset: number, bitsPerSample: num
     case 16: return view.getInt16(offset, true)
     case 24: {
       const value = view.getUint8(offset) | (view.getUint8(offset + 1) << 8) | (view.getUint8(offset + 2) << 16)
+      // Sign-extend the 24-bit value: shift it to the top of 32 bits and back.
       return (value << 8) >> 8
     }
     default: throw new RangeError(`Unsupported bit depth: ${bitsPerSample}`)
   }
 }
 
+/** By extension or MIME type (browsers report WAV under several names). */
 export function isWavFile(file: { name: string, type: string }): boolean {
   return /\.wave?$/i.test(file.name) || ['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave'].includes(file.type)
 }

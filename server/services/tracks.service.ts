@@ -13,15 +13,22 @@ import * as storageRepo from '../repositories/storage.repository'
 /**
  * Track business logic. Knows nothing about HTTP or Nuxt: it receives an
  * already-authenticated database client, the audio storage and the user id,
- * and returns domain types.
+ * and returns domain types. That keeps it unit-testable with mocked
+ * repositories (test/unit/server/tracks.service.test.ts).
  *
  * Audio files live on the S3-compatible audio storage (Cloudflare R2);
  * covers live in Supabase Storage.
+ *
+ * Upload sequence (see README → Data flows → Uploading a track):
+ *   1. createUploadTarget → presigned PUT URL
+ *   2. the browser uploads the file straight to R2
+ *   3. createTrack → checks the stored file, then inserts the row
  */
 
 /** Lifetime of a presigned upload URL (the upload must start within it). */
 export const UPLOAD_URL_TTL = 60 * 60
 
+/** The user's library, with every cover signed in one bulk request. */
 export async function listTracks(db: DbClient, userId: string): Promise<TrackSummary[]> {
   const rows = await tracksRepo.listTrackRows(db, userId)
   const coverPaths = rows.flatMap(row => (row.cover_path ? [row.cover_path] : []))
@@ -29,13 +36,18 @@ export async function listTracks(db: DbClient, userId: string): Promise<TrackSum
   return rows.map(row => toTrackSummary(row, row.cover_path ? coverUrls.get(row.cover_path) ?? null : null))
 }
 
+/** Full detail of one of the user's tracks (404 otherwise). */
 export async function getTrack(db: DbClient, userId: string, id: string): Promise<TrackDetail> {
   const row = await tracksRepo.findTrackRow(db, userId, id)
   if (!row) throw notFound()
   return toTrackDetail(row, await signCover(db, row.cover_path))
 }
 
-/** Presigned URL the browser uploads the audio file to, inside the user's folder. */
+/**
+ * Presigned URL the browser uploads the audio file to, inside the user's folder.
+ * The path is built here from the user id, never taken from the client, so a
+ * client cannot upload into someone else's folder.
+ */
 export async function createUploadTarget(
   audio: AudioStorage,
   userId: string,
@@ -49,6 +61,11 @@ export async function createUploadTarget(
   }
 }
 
+/**
+ * Registers an uploaded track. Paths must point into the user's folder and
+ * to this track id; the file must exist with the declared size. A mismatched
+ * file is deleted; so is the file when the insert fails (no orphans).
+ */
 export async function createTrack(
   db: DbClient,
   audio: AudioStorage,
@@ -80,6 +97,10 @@ export async function createTrack(
   }
 }
 
+/**
+ * Updates metadata and/or the cover. `coverPath: null` removes the cover
+ * and deletes its file once the row is updated.
+ */
 export async function updateTrack(db: DbClient, userId: string, id: string, input: TrackUpdate): Promise<TrackDetail> {
   if (input.coverPath) assertTrackPath(input.coverPath, userId, id, 'cover')
 
@@ -95,6 +116,10 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
   return toTrackDetail(row, await signCover(db, row.cover_path))
 }
 
+/**
+ * Deletes the row first (so the track disappears even if storage is slow),
+ * then its audio and cover files, best effort.
+ */
 export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: string, id: string): Promise<void> {
   const paths = await tracksRepo.deleteTrackRow(db, userId, id)
   if (!paths) throw notFound()
@@ -105,6 +130,7 @@ export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: str
   ])
 }
 
+/** Time-limited streaming URL (presigned GET, 6 h) of one of the user's tracks. */
 export async function getPlaybackSource(
   db: DbClient,
   audio: AudioStorage,
@@ -119,16 +145,19 @@ export async function getPlaybackSource(
   }
 }
 
+/** ISO timestamp `seconds` from now. */
 function expiresIn(seconds: number): string {
   return new Date(Date.now() + seconds * 1000).toISOString()
 }
 
+/** 400 unless `path` is `<userId>/<trackId>.<ext>`: rejects paths a client could forge. */
 function assertTrackPath(path: string, userId: string, trackId: string, label: string): void {
   if (!isTrackPath(path, userId, trackId)) {
     throw createError({ statusCode: 400, message: `Invalid ${label} path` })
   }
 }
 
+/** Signed cover URL, or null when there is no cover or it cannot be signed (never fails the request). */
 async function signCover(db: DbClient, path: string | null): Promise<string | null> {
   if (!path) return null
   try {

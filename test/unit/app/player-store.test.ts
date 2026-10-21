@@ -1,3 +1,8 @@
+/**
+ * Player store with a fake audio engine and a mocked API: queue, previous/next, toggling,
+ * race conditions between loads, expired signed URLs (refresh before resume/seek, one retry
+ * after a refusal), playback rate, and the shared sources (public track and playlist pages).
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'

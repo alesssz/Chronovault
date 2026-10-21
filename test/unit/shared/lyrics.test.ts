@@ -1,3 +1,6 @@
+/**
+ * LRC parsing/serialization, section headers, active-line lookup and sync editor rows.
+ */
 import { describe, expect, it } from 'vitest'
 import {
   buildSyncedLines,

@@ -36,13 +36,16 @@ if (missing.length) {
   process.exit(1)
 }
 
+// Origins whose CORS access is checked (the sites the app is served from).
 const origins = process.argv.slice(2).length ? process.argv.slice(2) : ['http://localhost:3000']
 const client = new AwsClient({ ...config, service: 's3' })
+// A throwaway object, deleted at the end whatever happens.
 const key = `_chronoplayer-check/${Date.now()}.bin`
 const objectUrl = `${config.endpoint}/${config.bucket}/${key}`
 const body = new Uint8Array(4096).map((_, i) => i % 256)
 
 let failures = 0
+/** Prints ✔/✖ for a check, with a hint on how to fix it; counts failures. */
 function report(ok, label, hint) {
   console.log(`${ok ? '✔' : '✖'} ${label}`)
   if (!ok) {
@@ -52,6 +55,7 @@ function report(ok, label, hint) {
   return ok
 }
 
+/** Presigned URL for the test object, signed exactly like the app does (query signature). */
 async function presign(method) {
   const url = new URL(objectUrl)
   url.searchParams.set('X-Amz-Expires', '600')

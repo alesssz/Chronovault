@@ -7,21 +7,30 @@ import type { PlaylistRow, PlaylistTrackStatsRow } from '../mappers/playlist'
 /**
  * Access to the `playlists` and `playlist_tracks` tables. RLS limits every
  * user to their own playlists; queries also filter on `user_id`.
+ *
+ * Tracks are read through PostgREST resource embedding
+ * (`playlists → playlist_tracks → tracks`): one HTTP request returns a
+ * playlist with all its tracks.
  */
 
+/** One embedded `playlist_tracks` row with its embedded track. */
 interface PlaylistEntry<T> {
   position: number
+  /** null only if RLS hid the track (it cannot happen for the owner, but the type allows it). */
   tracks: T | null
 }
 
+/** A playlist row with just enough track data for the list (count, duration, mosaic). */
 export type PlaylistListRow = PlaylistRow & { playlist_tracks: PlaylistEntry<PlaylistTrackStatsRow>[] }
+/** A playlist row with the summary of every track. */
 export type PlaylistDetailRow = PlaylistRow & { playlist_tracks: PlaylistEntry<TrackSummaryRow>[] }
 
-/** The tracks of a playlist row, in playlist order. */
+/** The tracks of a playlist row, in playlist order (embedded rows come back unordered). */
 export function orderedTracks<T>(entries: PlaylistEntry<T>[]): T[] {
   return [...entries].sort((a, b) => a.position - b.position).flatMap(e => (e.tracks ? [e.tracks] : []))
 }
 
+/** The user's playlists, newest first. */
 export async function listPlaylistRows(db: DbClient, userId: string): Promise<PlaylistListRow[]> {
   const { data, error } = await db
     .from('playlists')
@@ -33,6 +42,7 @@ export async function listPlaylistRows(db: DbClient, userId: string): Promise<Pl
   return data
 }
 
+/** One playlist with its tracks, or null when it does not exist or is not the user's. */
 export async function findPlaylistRow(db: DbClient, userId: string, id: string): Promise<PlaylistDetailRow | null> {
   const { data, error } = await db
     .from('playlists')
@@ -58,12 +68,14 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
   return [...data.playlist_tracks].sort((a, b) => a.position - b.position).map(e => e.track_id)
 }
 
+/** Inserts a playlist (no tracks yet) and returns the stored row. */
 export async function insertPlaylistRow(db: DbClient, row: TablesInsert<'playlists'>): Promise<PlaylistRow> {
   const { data, error } = await db.from('playlists').insert(row).select('*').single()
   if (error) throw toHttpError(error, 'playlists.insert')
   return data
 }
 
+/** Applies a partial update; null when the playlist does not exist (or is not the user's). */
 export async function updatePlaylistRow(
   db: DbClient,
   userId: string,
@@ -92,7 +104,11 @@ export async function deletePlaylistRow(
   return data
 }
 
-/** Replaces the tracks of a playlist, in order, in one transaction. */
+/**
+ * Replaces the tracks of a playlist, in order, in one transaction
+ * (the `set_playlist_tracks` database function). It runs with the caller's
+ * rights: RLS refuses other users' playlists (404) and tracks (403).
+ */
 export async function setPlaylistTrackIds(db: DbClient, id: string, trackIds: string[]): Promise<void> {
   const { error } = await db.rpc('set_playlist_tracks', { p_playlist_id: id, p_track_ids: trackIds })
   if (error) throw toHttpError(error, 'playlists.setTracks')

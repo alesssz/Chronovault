@@ -24,21 +24,28 @@ const emit = defineEmits<{
   select: [index: number]
 }>()
 
+/** Zoom range of the slider, in pixels per second. */
 const MIN_ZOOM = 20
 const MAX_ZOOM = 400
 
 const container = ref<HTMLElement | null>(null)
 /** Pixels per second of audio. */
 const zoom = ref(80)
+/** Download/decoding progress of the detailed waveform (0..100). */
 const loadingPercent = ref(0)
+/** Waveform decoded: markers can be drawn. */
 const ready = ref(false)
+/** Decoding failed (e.g. expired URL or unsupported codec): a notice replaces the waveform. */
 const failed = ref(false)
 
 let wavesurfer: WaveSurfer | null = null
 let regions: ReturnType<typeof RegionsPlugin.create> | null = null
 
+/** A synced lyric line drawn on the waveform. */
 interface Marker {
+  /** Index in `rows` (section headers included). */
   index: number
+  /** 1-based number among lyric lines, as shown in the list. */
   number: number
   time: number
   text: string
@@ -54,6 +61,7 @@ const markers = computed<Marker[]>(() => {
   })
 })
 
+/** Small label shown on a marker: number and the first characters of the line. */
 function markerLabel(marker: Marker): HTMLElement {
   // Rendered inside wavesurfer's shadow DOM: inline styles, no Tailwind classes.
   const label = document.createElement('div')
@@ -73,6 +81,7 @@ function markerLabel(marker: Marker): HTMLElement {
   return label
 }
 
+/** Redraws every marker (cheap: a few dozen regions). The selected one is highlighted. */
 function renderMarkers() {
   if (!regions || !ready.value) return
   regions.clearRegions()
@@ -90,10 +99,12 @@ function renderMarkers() {
   }
 }
 
+/** Region id (`line-<index>`) → row index. */
 function indexOf(regionId: string): number {
   return Number(regionId.replace('line-', ''))
 }
 
+/** Builds the waveform on the shared audio element (rebuilt from scratch every time). */
 function create() {
   const media = getAudioEngine().element
   if (!container.value || !media) return
@@ -131,15 +142,18 @@ function create() {
   wavesurfer.on('error', () => {
     failed.value = true
   })
+  // A marker was dragged: report the new start, rounded to centiseconds like LRC.
   regions.on('region-updated', (region) => {
     emit('move', indexOf(region.id), Math.round(region.start * 100) / 100)
   })
   regions.on('region-clicked', (region, event) => {
+    // Don't let the click also seek the waveform.
     event.stopPropagation()
     emit('select', indexOf(region.id))
   })
 }
 
+/** Removes the waveform; the shared audio element itself is left untouched. */
 function destroy() {
   wavesurfer?.destroy()
   wavesurfer = null
@@ -149,6 +163,7 @@ function destroy() {
 onMounted(create)
 onBeforeUnmount(destroy)
 
+// Markers follow the rows (stamping, undo, nudges, drags) and the selection.
 watch(markers, renderMarkers, { deep: true })
 watch(() => props.selected, renderMarkers)
 watch(zoom, (value) => {

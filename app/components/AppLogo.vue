@@ -1,5 +1,9 @@
 <script setup lang="ts">
-/** `compact`: on narrow screens only the icon is shown (e.g. in the app header). */
+/**
+ * ChronoPlayer wordmark: waveform icon + name. Inherits the font size of
+ * its parent (the icon is sized in `em`).
+ * `compact`: on narrow screens only the icon is shown (e.g. in the app header).
+ */
 defineProps<{ compact?: boolean }>()
 </script>
 

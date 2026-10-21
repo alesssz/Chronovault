@@ -1,3 +1,7 @@
+/**
+ * End-to-end, track sharing: an unlisted track opens without an account, never exposes the Suno
+ * prompt or mastering status, and answers 404 once private again.
+ */
 import { expect, test } from '@playwright/test'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
