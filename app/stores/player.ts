@@ -215,7 +215,8 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  async function loadIndex(i: number, autoplay: boolean): Promise<void> {
+  /** Loads queue item `i` (fresh data and URL); `position` resumes inside the track. */
+  async function loadIndex(i: number, autoplay: boolean, position = 0): Promise<void> {
     const summary = queue.value[i]
     if (!summary) return
     const token = ++loadToken
@@ -236,6 +237,11 @@ export const usePlayerStore = defineStore('player', () => {
       // `current` changes already finds the audio element on the right file.
       e.load(playback.url)
       sourceExpiresAt = Date.parse(playback.expiresAt) || 0
+      if (position > 0) {
+        // Applied by the element as soon as the metadata is in.
+        e.seek(position)
+        currentTime.value = position
+      }
       current.value = detail
       if (detail.durationSeconds) duration.value = detail.durationSeconds
       if (!autoplay) {
@@ -491,6 +497,23 @@ export const usePlayerStore = defineStore('player', () => {
     if (queue.value[position]) await loadIndex(position, true)
   }
 
+  /**
+   * Puts back a saved library queue (app/lib/queue-storage.ts), loaded and
+   * paused at `position`. Does nothing if something is already playing;
+   * a track that cannot be loaded makes it give up and close the player.
+   */
+  async function restoreQueue(items: QueueItem[], at: number, position: number): Promise<boolean> {
+    if (isActive.value || !items[at]) return false
+    setSource(librarySource)
+    queue.value = [...items]
+    await loadIndex(at, false, position)
+    if (status.value === 'error') {
+      close()
+      return false
+    }
+    return true
+  }
+
   /** Refreshes track data after an edit in the editor. */
   function syncTrack(detail: TrackDetail): void {
     if (current.value?.id === detail.id) current.value = detail
@@ -521,7 +544,7 @@ export const usePlayerStore = defineStore('player', () => {
     isActive, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
     playTrack, cueShared, playSharedPlaylist, play, pause,
-    playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, togglePlay, stop, next, previous, seek,
+    playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, restoreQueue, togglePlay, stop, next, previous, seek,
     setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }
 })

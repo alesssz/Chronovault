@@ -41,7 +41,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Library** | Track list with cover, composers, duration, genre, mastering status, synced-lyrics and visibility badges. Search (title, composers, album), genre and mastering filters, sorting. Clicking a track's name plays it; clicking the name of the track already in the player opens the full-screen view. |
 | **Upload** | Drop several files at once (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, WebM; max 500 MB each). Title, composers, album, year, genre, lyrics and cover are read from the tags. **WAV files are converted to FLAC losslessly**, verified bit for bit ([7.4](#74-lossless-wav--flac-conversion)). Direct upload to storage with a progress bar, retried on network errors. |
 | **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, volume and mute (the volume is remembered). Lock-screen and media-key controls (Media Session). |
-| **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. |
+| **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. The queue is **saved on the device**: after a reload you find the same queue and track, paused where you left it. |
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. |
 | **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import and export. All manual: no automatic alignment. |
@@ -271,6 +271,7 @@ ChronoPlayer/
 │   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
 │   │   ├── image.ts                  #   square WebP covers
+│   │   ├── queue-storage.ts          #   saved play queue (localStorage)
 │   │   ├── media-session.ts · theme.ts
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
 │   ├── pages/
@@ -282,7 +283,7 @@ ChronoPlayer/
 │   │   ├── playlists/[id].vue        # Playlist editor
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
-│   ├── plugins/media-session.client.ts
+│   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: editable queue, sources, expired-URL recovery
 │   └── utils/errors.ts               # Human-readable error messages
@@ -483,7 +484,11 @@ The queue lives in the player store (`app/stores/player.ts`): the tracks already
 - "Next", the end of a track and the lock-screen controls all follow the edited order.
 - The panel (`PlayerQueue.vue` + `PlayerQueueList.vue`) mirrors the store: a drag moves the DOM through SortableJS, then the store receives the move, so the panel and the player never disagree.
 - Queue editing applies to library playback only; the public pages have their own fixed order.
-- The queue lives in memory: reloading the page or closing the player clears it.
+- **The queue survives reloads** on the same device (`lib/queue-storage.ts`, `plugins/queue-persistence.client.ts`): it is saved in the browser whenever it changes, every 5 seconds of playback and when the page is hidden. Opening the app again brings back the same queue and track, **paused at the same position**.
+  - Only track ids are saved: on restore they are matched against the current library, so deleted tracks drop out (if the current one is gone, the next one is loaded from the start) and covers get fresh URLs.
+  - The saved queue belongs to one user: another account on the same browser never sees it.
+  - Closing the player (×) or signing out forgets it. Public pages neither restore nor touch it.
+  - It is per device: the queue on your phone and on your computer are separate.
 
 ### 7.7 Expired streaming URLs
 
@@ -625,7 +630,7 @@ sequenceDiagram
 | Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`) | Anyone holding a presigned URL, issued by the server |
 | Covers | Supabase Storage `covers` (private) | Anyone holding a signed URL, issued under the storage policies |
 | Volume | Browser `localStorage` (`chronoplayer:volume`) | That browser only |
-| Play queue | Memory of the open page (player store) | That page only; lost on reload |
+| Play queue (track ids, current track, position) | Browser `localStorage` (`chronoplayer:queue`) | That browser, for the signed-in user only |
 | R2 credentials | Server environment only | The server |
 
 ---
@@ -890,7 +895,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -1016,7 +1021,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 ## 15. Known limitations and next steps
 
-- **The queue is not saved:** it lives in memory, so a reload starts from an empty player.
+- **The queue is per device:** it is saved in the browser, not in the account.
 - **Manual cover cropping:** cropping is automatic (centered).
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
 - **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.

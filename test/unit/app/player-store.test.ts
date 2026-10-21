@@ -585,4 +585,35 @@ describe('expired or refused audio sources', () => {
       expect(player.queueOpen).toBe(false)
     })
   })
+
+  describe('restoring a saved queue', () => {
+    it('loads the saved track paused, at the saved position', async () => {
+      const player = usePlayerStore()
+      expect(await player.restoreQueue(library, 1, 42)).toBe(true)
+
+      expect(player.status).toBe('paused')
+      expect(engine.play).not.toHaveBeenCalled()
+      expect(engine.load).toHaveBeenCalledWith('https://audio/b')
+      expect(engine.seek).toHaveBeenCalledWith(42)
+      expect(player.currentTime).toBe(42)
+      expect(player.queue.map(t => t.id)).toEqual(['a', 'b', 'c'])
+      expect(player.index).toBe(1)
+      expect(player.queueEditable).toBe(true)
+    })
+
+    it('does nothing when something is already playing', async () => {
+      const player = usePlayerStore()
+      await player.playTrack(library[2]!, library)
+      expect(await player.restoreQueue(library, 0, 10)).toBe(false)
+      expect(player.current?.id).toBe('c')
+    })
+
+    it('gives up and closes the player when the track cannot be loaded', async () => {
+      const player = usePlayerStore()
+      vi.mocked(tracksApi.get).mockRejectedValueOnce(new Error('Track not found'))
+      expect(await player.restoreQueue(library, 0, 10)).toBe(false)
+      expect(player.status).toBe('idle')
+      expect(player.queue).toEqual([])
+    })
+  })
 })
