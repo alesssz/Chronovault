@@ -6,7 +6,7 @@ import type { PlaylistDetail } from '~~/shared/types/playlist'
 import type { TrackSummary, TrackVisibility } from '~~/shared/types/track'
 import { playlistMetadataSchema, type PlaylistMetadata, type PlaylistMetadataInput } from '~~/shared/schemas/playlist'
 import { COVERS_BUCKET, buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
-import { toSquareWebp } from '~/lib/image'
+import { toSquareWebp, type CropRect } from '~/lib/image'
 import { playlistsApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
@@ -156,12 +156,13 @@ useSortable(listEl, tracks, {
 // --- Cover -----------------------------------------------------------------------------
 const coverBusy = ref(false)
 
-async function onCoverSelected(file: File) {
+/** New custom cover (cropped in the crop editor): WebP → Supabase Storage → PATCH coverPath. */
+async function onCoverSelected(file: File, crop: CropRect) {
   const userId = user.value?.sub
   if (!userId) return
   coverBusy.value = true
   try {
-    const webp = await toSquareWebp(file)
+    const webp = await toSquareWebp(file, { crop })
     const path = buildPlaylistCoverPath(userId, id)
     const { error: uploadError } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
       contentType: 'image/webp',

@@ -1,10 +1,17 @@
 /**
  * Cover image processing, in the browser: every cover (from tags or picked
  * by the user) is stored as a square WebP of at most 800×800.
+ *
+ * Covers picked by hand go through the crop editor (CoverCropDialog.vue),
+ * which works with a `CropView` and turns it into a `CropRect`; covers read
+ * from file tags during an upload are center-cropped automatically.
  */
 
 /** Side length of the stored cover (px). */
 export const COVER_SIZE = 800
+
+/** Highest zoom of the crop editor: the square is then 1/5 of the image's shorter side. */
+export const MAX_CROP_ZOOM = 5
 
 /** Square source area to draw: top-left corner and side length, in source pixels. */
 export interface CropRect {
@@ -13,7 +20,18 @@ export interface CropRect {
   size: number
 }
 
-/** Centered square crop inside a w×h image. */
+/**
+ * What the crop editor shows, independent of the screen size:
+ * `zoom` 1 = the largest square that fits in the image, 2 = half as wide…;
+ * `cx`/`cy` = center of the square, in source pixels.
+ */
+export interface CropView {
+  zoom: number
+  cx: number
+  cy: number
+}
+
+/** Centered square crop inside a w×h image (automatic cropping). */
 export function centerSquareCrop(width: number, height: number): CropRect {
   const size = Math.min(width, height)
   return {
@@ -23,14 +41,72 @@ export function centerSquareCrop(width: number, height: number): CropRect {
   }
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** The editor's starting view: the centered, largest square (what automatic cropping picks). */
+export function initialCropView(width: number, height: number): CropView {
+  return { zoom: 1, cx: width / 2, cy: height / 2 }
+}
+
+/** Side of the cropped square at `zoom`, in source pixels. */
+export function cropSide(width: number, height: number, zoom: number): number {
+  return Math.min(width, height) / zoom
+}
+
 /**
- * Center-crops, resizes to `size`×`size` and converts to WebP.
- * Everything happens in the browser: storage receives a light file (~50-150 KB).
+ * Keeps a view valid: zoom within 1..MAX_CROP_ZOOM, and the center such that
+ * the square never leaves the image (no empty borders in the cover).
  */
-export async function toSquareWebp(source: Blob, size = COVER_SIZE, quality = 0.85): Promise<Blob> {
+export function clampCropView(view: CropView, width: number, height: number): CropView {
+  const zoom = clamp(Number.isFinite(view.zoom) ? view.zoom : 1, 1, MAX_CROP_ZOOM)
+  const half = cropSide(width, height, zoom) / 2
+  return {
+    zoom,
+    cx: clamp(view.cx, half, width - half),
+    cy: clamp(view.cy, half, height - half),
+  }
+}
+
+/** The view as a crop rectangle in whole source pixels, always inside the image. */
+export function cropRectOf(view: CropView, width: number, height: number): CropRect {
+  const valid = clampCropView(view, width, height)
+  const size = Math.max(1, Math.min(Math.round(cropSide(width, height, valid.zoom)), width, height))
+  return {
+    x: clamp(Math.round(valid.cx - size / 2), 0, width - size),
+    y: clamp(Math.round(valid.cy - size / 2), 0, height - size),
+    size,
+  }
+}
+
+export interface SquareWebpOptions {
+  /** Area to keep, in source pixels; centered square by default. */
+  crop?: CropRect
+  /** Output side in px (never upscaled). */
+  size?: number
+  /** WebP quality, 0..1. */
+  quality?: number
+}
+
+/**
+ * Crops (the given area, or the centered square), resizes to at most
+ * `size`×`size` and converts to WebP. Everything happens in the browser:
+ * storage receives a light file (~50-150 KB).
+ */
+export async function toSquareWebp(source: Blob, options: SquareWebpOptions = {}): Promise<Blob> {
+  const { size = COVER_SIZE, quality = 0.85 } = options
   const bitmap = await createImageBitmap(source)
   try {
-    const crop = centerSquareCrop(bitmap.width, bitmap.height)
+    // A crop computed on the <img> of the editor matches the bitmap: both apply
+    // the EXIF orientation. Clamping guards against any mismatch anyway.
+    const crop = options.crop
+      ? cropRectOf(
+          { zoom: Math.min(bitmap.width, bitmap.height) / options.crop.size, cx: options.crop.x + options.crop.size / 2, cy: options.crop.y + options.crop.size / 2 },
+          bitmap.width,
+          bitmap.height,
+        )
+      : centerSquareCrop(bitmap.width, bitmap.height)
     // Never upscale: a small image keeps its own size.
     const target = Math.min(size, crop.size)
     const canvas = document.createElement('canvas')

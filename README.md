@@ -43,7 +43,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, volume and mute (the volume is remembered). Lock-screen and media-key controls (Media Session). |
 | **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. The queue is **saved on the device**: after a reload you find the same queue and track, paused where you left it. |
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. |
-| **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with section headers. |
+| **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import and export. All manual: no automatic alignment. |
 | **Playlists** | Ordered lists of your tracks. Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages. The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
@@ -257,7 +257,7 @@ ChronoPlayer/
 │   ├── app.config.ts                 # Nuxt UI theme (orange on zinc)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, base scale, room for the player bar
 │   ├── components/
-│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue · StorageDialog.vue
+│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue · StorageDialog.vue · CoverCropDialog.vue
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
@@ -270,7 +270,7 @@ ChronoPlayer/
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
 │   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
-│   │   ├── image.ts                  #   square WebP covers
+│   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
 │   │   ├── media-session.ts · theme.ts
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
@@ -505,8 +505,24 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 1. `tracks/[id]/edit.vue` loads `GET /api/tracks/:id`. The form validates with the same Zod schema as the server (`trackMetadataSchema`).
 2. **Save** sends `PATCH /api/tracks/:id`. The mapper turns only the fields present into columns (`undefined` = unchanged, `null` = cleared); RLS guarantees the track is the user's. Leaving the page with unsaved changes asks for confirmation.
 3. **Genre:** typing a new name and choosing "Create" calls `POST /api/genres`, which returns an existing genre with the same name (built-in or custom, case-insensitive) instead of creating a duplicate.
-4. **Cover:** the browser crops and converts the image, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }`. Removing it (`coverPath: null`) makes the server delete the file.
+4. **Cover:** a picked image opens the **crop editor** (`CoverCropDialog.vue`, see below); the browser then cuts the chosen square and converts it, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }`. Removing it (`coverPath: null`) makes the server delete the file.
 5. The updated track is pushed to the player (`syncTrack`), so the bar, the queue and the full-screen view show the new title, cover and lyrics at once.
+
+**The crop editor** (`CoverCropDialog.vue`, used for track and playlist covers):
+
+```mermaid
+flowchart LR
+  Pick[Image picked] --> Editor["Crop editor<br/>drag · wheel / pinch / slider zoom<br/>arrows · + / −"]
+  Editor -- "Use cover" --> Rect["CropRect<br/>{x, y, size} in source pixels"]
+  Rect --> Webp["toSquareWebp()<br/>cut · resize ≤ 800 · WebP"]
+  Webp --> Upload["Supabase Storage<br/>covers/&lt;userId&gt;/…"]
+  Upload --> Patch["PATCH coverPath"]
+```
+
+- The frame shows exactly what the cover will be, with a rule-of-thirds grid. It starts on the centered square (what automatic cropping picks), so "Use cover" right away keeps the old behaviour.
+- The state is screen-independent (`CropView`: zoom 1-5 and the square's center in source pixels, `app/lib/image.ts`), always clamped so the square never leaves the image: no empty borders.
+- Keyboard: arrows move the picture (Shift for bigger steps), `+` / `−` zoom. "Reset" goes back to the centered square.
+- Covers read from file tags during an upload are still center-cropped automatically (no dialog in the middle of a batch upload); they can be re-cropped from the edit page.
 
 ### 7.9 Lyrics and sync
 
@@ -578,7 +594,7 @@ sequenceDiagram
 - **Adding:** "Add to playlist" → a playlist appends the track; a track already there keeps its place ("Already in …").
 - **Reordering and removing** save immediately (`PUT …/tracks` with the full ordered list). The page updates optimistically and rolls back if the request fails. Drag uses SortableJS through a handle (works with touch); Move up/down is the keyboard-friendly alternative.
 - **Atomic order.** `set_playlist_tracks()` deletes and re-inserts every row in one database transaction, running with the caller's rights: RLS refuses other users' playlists and tracks.
-- **Covers.** A custom cover is uploaded to `covers/<userId>/playlists/<playlistId>.webp`. Without one, the UI shows a **mosaic**: the server signs the covers of the first 4 tracks that have one; 4 covers make a 2×2 grid, fewer show the first alone (`PlaylistCover.vue`).
+- **Covers.** A custom cover goes through the same crop editor as track covers, and is uploaded to `covers/<userId>/playlists/<playlistId>.webp`. Without one, the UI shows a **mosaic**: the server signs the covers of the first 4 tracks that have one; 4 covers make a 2×2 grid, fewer show the first alone (`PlaylistCover.vue`).
 - **Play all** queues the playlist's tracks in order in the normal player.
 - **Deleting** a playlist removes it and its custom cover; its tracks stay in the library.
 
@@ -891,11 +907,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -1022,7 +1038,6 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 ## 15. Known limitations and next steps
 
 - **The queue is per device:** it is saved in the browser, not in the account.
-- **Manual cover cropping:** cropping is automatic (centered).
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
 - **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.

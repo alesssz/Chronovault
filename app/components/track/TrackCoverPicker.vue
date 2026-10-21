@@ -1,10 +1,14 @@
 <script setup lang="ts">
 /**
- * Cover preview with "Add/Change cover" and "Remove" buttons. It only picks
- * the file (`select`) or asks for removal (`remove`): the page converts,
- * uploads and saves. `busy` shows a spinner over the preview.
- * The `preview` slot replaces the image (playlists show their mosaic).
+ * Cover preview with "Add/Change cover" and "Remove" buttons. A picked image
+ * first goes through the crop editor (CoverCropDialog); the component then
+ * emits the file with the chosen crop (`select`) or asks for removal
+ * (`remove`): the page converts, uploads and saves. `busy` shows a spinner
+ * over the preview. The `preview` slot replaces the image (playlists show
+ * their mosaic).
  */
+import type { CropRect } from '~/lib/image'
+
 defineProps<{
   url: string | null
   title: string
@@ -12,9 +16,18 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [file: File]
+  /** An image and the square to keep from it (source pixels). */
+  select: [file: File, crop: CropRect]
   remove: []
 }>()
+
+/** The image waiting in the crop editor. */
+const pending = ref<File | null>(null)
+const cropOpen = ref(false)
+
+function onCropConfirm(crop: CropRect) {
+  if (pending.value) emit('select', pending.value, crop)
+}
 
 const input = ref<HTMLInputElement | null>(null)
 
@@ -23,7 +36,9 @@ function onChange(event: Event) {
   const file = target.files?.[0]
   // Reset the input, so picking the same file again still fires `change`.
   target.value = ''
-  if (file) emit('select', file)
+  if (!file) return
+  pending.value = file
+  cropOpen.value = true
 }
 </script>
 
@@ -78,7 +93,14 @@ function onChange(event: Event) {
       />
     </div>
     <p class="text-xs text-muted">
-      Center-cropped to a square, 800×800.
+      You choose the square to keep; saved at up to 800×800.
     </p>
+
+    <!-- Every picked image is cropped here before the page uploads it. -->
+    <CoverCropDialog
+      v-model:open="cropOpen"
+      :file="pending"
+      @confirm="onCropConfirm"
+    />
   </div>
 </template>

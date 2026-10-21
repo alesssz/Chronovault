@@ -52,6 +52,7 @@ export function saveQueue(state: Pick<SavedQueue, 'userId' | 'trackIds' | 'index
   }
 }
 
+/** Forgets the saved queue (player closed, sign-out, unusable data). */
 export function clearSavedQueue(): void {
   try {
     storage()?.removeItem(KEY)

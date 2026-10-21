@@ -12,9 +12,12 @@ import { getErrorMessage } from '~/utils/errors'
 const open = defineModel<boolean>('open', { default: false })
 const toast = useToast()
 
+/** Last scan; kept while rescanning so the dialog does not flicker. */
 const report = ref<StorageReport | null>(null)
 const loading = ref(false)
+/** Scan failure message (e.g. R2 unreachable), with a "Try again" action. */
 const loadError = ref<string | null>(null)
+/** A deletion is running: the dialog cannot be dismissed meanwhile. */
 const cleaning = ref(false)
 
 /** Scans the storage (on every opening: it must reflect the current state). */
@@ -36,9 +39,11 @@ watch(open, (value) => {
   if (value) void load()
 })
 
+/** Orphans the server will delete (old enough); the others are only listed. */
 const deletable = computed(() => report.value?.orphans.filter(o => o.deletable) ?? [])
 const deletableBytes = computed(() => deletable.value.reduce((sum, o) => sum + o.sizeBytes, 0))
 
+/** Deletes the deletable orphans (the server rescans first), then shows the new state. */
 async function clean() {
   cleaning.value = true
   try {

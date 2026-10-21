@@ -98,6 +98,8 @@ test.describe('library and player', () => {
 
     // --- Cover: resized to WebP in the browser and uploaded to storage ---
     await page.getByTestId('cover-input').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG })
+    // The crop editor opens on the centered square: keep it.
+    await page.getByTestId('crop-confirm').click()
     await expect(page.getByText('Cover updated').first()).toBeVisible()
     await expect(page.getByRole('img', { name: `Cover of ${title}` }).first())
       .toHaveAttribute('src', /\/storage\/v1\/object\/sign\/covers\//)

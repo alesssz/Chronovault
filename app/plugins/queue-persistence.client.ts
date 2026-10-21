@@ -24,8 +24,13 @@ export default defineNuxtPlugin(() => {
   let restoring = false
   /** This tab saved a queue: only then may it clear it (a public page in another tab must not). */
   let ownsSavedQueue = false
+  /** User whose queue was already restored (or tried) in this tab: restore at most once per user. */
   let restoredFor: string | null = null
 
+  /**
+   * Saves the current library queue, or forgets it once the player is
+   * closed. Skipped while a restore is running.
+   */
   function persist() {
     const userId = user.value?.sub
     if (!userId || restoring) return
@@ -55,6 +60,7 @@ export default defineNuxtPlugin(() => {
     void restore(userId)
   }
 
+  /** Reads the saved queue, matches it with the current library and loads it paused. */
   async function restore(userId: string) {
     const saved = readSavedQueue(userId)
     if (!saved) return

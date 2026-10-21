@@ -57,6 +57,7 @@ function countCommits(range) {
   return Number(git('rev-list', '--count', range))
 }
 
+/** Asks a yes/no question in the terminal (`--yes` answers yes; no terminal = stop). */
 async function confirm(question) {
   if (assumeYes) return true
   if (!process.stdin.isTTY) throw new Stop('No terminal to ask for confirmation: run it again with --yes.')
@@ -70,6 +71,7 @@ async function confirm(question) {
   }
 }
 
+/** The whole procedure; resolves with the exit code, throws Stop for expected refusals. */
 async function run() {
   const branch = git('branch', '--show-current')
   if (!branch) throw new Stop('You are not on a branch (detached HEAD): switch to the branch to merge.')

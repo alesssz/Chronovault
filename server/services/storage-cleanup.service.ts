@@ -49,6 +49,7 @@ async function inventory(db: DbClient, audio: AudioStorage, userId: string) {
   return { files, referenced }
 }
 
+/** File count and total size in one bucket. */
 function usageOf(files: StoredFile[], bucket: OrphanFile['bucket']): StorageUsage {
   const inBucket = files.filter(f => f.bucket === bucket)
   return { files: inBucket.length, bytes: inBucket.reduce((sum, f) => sum + f.sizeBytes, 0) }

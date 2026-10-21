@@ -11,7 +11,7 @@ import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
 import type { TrackDetail, TrackVisibility } from '~~/shared/types/track'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
 import { COVERS_BUCKET, buildCoverPath } from '~~/shared/utils/storage-paths'
-import { toSquareWebp } from '~/lib/image'
+import { toSquareWebp, type CropRect } from '~/lib/image'
 import { tracksApi } from '~/services/api'
 
 const route = useRoute()
@@ -137,15 +137,16 @@ onBeforeRouteLeave(() => {
 const coverBusy = ref(false)
 
 /**
- * New cover: square WebP in the browser → Supabase Storage (own folder,
- * overwriting the previous one) → PATCH coverPath.
+ * New cover (already cropped by the user in the crop editor): square WebP in
+ * the browser → Supabase Storage (own folder, overwriting the previous one)
+ * → PATCH coverPath.
  */
-async function onCoverSelected(file: File) {
+async function onCoverSelected(file: File, crop: CropRect) {
   const userId = user.value?.sub
   if (!userId) return
   coverBusy.value = true
   try {
-    const webp = await toSquareWebp(file)
+    const webp = await toSquareWebp(file, { crop })
     const path = buildCoverPath(userId, id)
     const { error: uploadError } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
       contentType: 'image/webp',
