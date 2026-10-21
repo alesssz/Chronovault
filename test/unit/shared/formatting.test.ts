@@ -2,7 +2,7 @@
  * Time and size formatting shown in the UI.
  */
 import { describe, expect, it } from 'vitest'
-import { formatBytes, formatRemaining, formatTime } from '~~/shared/utils/time'
+import { formatAge, formatBytes, formatRemaining, formatTime } from '~~/shared/utils/time'
 
 describe('formatTime', () => {
   it.each([
@@ -37,5 +37,18 @@ describe('formatBytes', () => {
     [34 * 1024 * 1024, '34.0 MB'],
   ])('%s → %s', (bytes, expected) => {
     expect(formatBytes(bytes)).toBe(expected)
+  })
+})
+
+describe('formatAge', () => {
+  const now = Date.parse('2026-10-21T12:00:00Z')
+  it.each([
+    ['2026-10-21T11:59:30Z', 'just now'],
+    ['2026-10-21T11:55:00Z', '5 minutes ago'],
+    ['2026-10-21T09:00:00Z', '3 hours ago'],
+    ['2026-10-20T11:00:00Z', 'yesterday'],
+    ['2026-10-09T12:00:00Z', '12 days ago'],
+  ])('%s → %s', (iso, expected) => {
+    expect(formatAge(iso, now)).toBe(expected)
   })
 })

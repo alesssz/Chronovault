@@ -33,7 +33,8 @@ export default defineConfig({
   webServer: {
     // The production server reads its runtime config (audio storage keys…) from the environment.
     command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node --env-file=.env .output/server/index.mjs',
-    env: { PORT: String(PORT) },
+    // Storage clean-up without the 24-hour safety delay, so the e2e test can delete the orphans it creates.
+    env: { PORT: String(PORT), NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS: '0' },
     url: `${baseURL}/api/health`,
     // Locally, a server already running on the port is reused (note: it may be an old build).
     reuseExistingServer: !process.env.CI,

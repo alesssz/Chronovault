@@ -40,6 +40,38 @@ export async function createSignedUrls(db: DbClient, bucket: string, paths: stri
   return result
 }
 
+/** A file of a Supabase Storage folder. */
+export interface FolderFile {
+  /** Full path inside the bucket (`<folder>/<name>`). */
+  path: string
+  size: number
+  /** ISO timestamp of the last upload (an upsert updates it). */
+  lastModified: string
+}
+
+/**
+ * Files directly inside `folder` (sub-folders are skipped), page by page.
+ * Storage RLS applies: a user can only list their own folder.
+ */
+export async function listFolderFiles(db: DbClient, bucket: string, folder: string): Promise<FolderFile[]> {
+  const PAGE = 1000
+  const files: FolderFile[] = []
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await db.storage.from(bucket).list(folder, { limit: PAGE, offset, sortBy: { column: 'name', order: 'asc' } })
+    if (error) throw toHttpError({ message: error.message }, `storage.list:${bucket}`)
+    for (const item of data) {
+      // Folders come back as entries without an id.
+      if (!item.id) continue
+      files.push({
+        path: `${folder}/${item.name}`,
+        size: Number((item.metadata as { size?: number } | null)?.size ?? 0),
+        lastModified: item.updated_at ?? item.created_at ?? new Date(0).toISOString(),
+      })
+    }
+    if (data.length < PAGE) return files
+  }
+}
+
 /** Best-effort removal: a failure here must not block the main operation. */
 export async function removeObjects(db: DbClient, bucket: string, paths: string[]): Promise<void> {
   if (paths.length === 0) return

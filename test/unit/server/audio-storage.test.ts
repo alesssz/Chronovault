@@ -56,4 +56,34 @@ describe('AudioStorage', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2)
     log.mockRestore()
   })
+
+  it('lists a folder page by page and decodes the XML', async () => {
+    const page = (keys: string[], next?: string) => new Response(
+      `<?xml version="1.0"?><ListBucketResult>${keys.map(k =>
+        `<Contents><Key>${k}</Key><LastModified>2026-10-01T10:00:00.000Z</LastModified><Size>7</Size></Contents>`).join('')}`
+        + (next ? `<IsTruncated>true</IsTruncated><NextContinuationToken>${next}</NextContinuationToken>` : '<IsTruncated>false</IsTruncated>')
+        + '</ListBucketResult>',
+      { status: 200 },
+    )
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(page(['user-1/a.flac', 'user-1/b&amp;c.flac'], 'token&amp;2'))
+      .mockResolvedValueOnce(page(['user-1/d.flac']))
+    const storage = new AudioStorage(config, fetchImpl)
+
+    const objects = await storage.list('user-1/')
+
+    expect(objects.map(o => o.key)).toEqual(['user-1/a.flac', 'user-1/b&c.flac', 'user-1/d.flac'])
+    expect(objects[0]).toEqual({ key: 'user-1/a.flac', size: 7, lastModified: '2026-10-01T10:00:00.000Z' })
+    const first = new URL((fetchImpl.mock.calls[0]![0] as Request).url)
+    expect(first.pathname).toBe('/chronoplayer-audio')
+    expect(first.searchParams.get('list-type')).toBe('2')
+    expect(first.searchParams.get('prefix')).toBe('user-1/')
+    const second = new URL((fetchImpl.mock.calls[1]![0] as Request).url)
+    expect(second.searchParams.get('continuation-token')).toBe('token&2')
+  })
+
+  it('fails loudly when listing is refused (the clean-up must not guess)', async () => {
+    const storage = new AudioStorage(config, vi.fn().mockResolvedValue(new Response(null, { status: 403 })))
+    await expect(storage.list('user-1/')).rejects.toThrow('LIST failed (403)')
+  })
 })

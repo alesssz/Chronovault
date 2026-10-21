@@ -23,6 +23,19 @@ export function formatRemaining(currentTime: number, duration: number): string {
   return `-${formatTime(Math.max(0, duration - currentTime))}`
 }
 
+/**
+ * How long ago an ISO timestamp was, in the largest whole unit:
+ * `just now`, `5 minutes ago`, `3 hours ago`, `yesterday`, `12 days ago`.
+ */
+export function formatAge(iso: string, now = Date.now()): string {
+  const seconds = Math.max(0, (now - Date.parse(iso)) / 1000)
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), 'minute')
+  if (seconds < 86_400) return rtf.format(-Math.floor(seconds / 3600), 'hour')
+  return rtf.format(-Math.floor(seconds / 86_400), 'day')
+}
+
 /** Human-readable file size in binary units, e.g. `34.2 MB`; bytes are shown without decimals. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'

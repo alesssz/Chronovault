@@ -47,6 +47,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import and export. All manual: no automatic alignment. |
 | **Playlists** | Ordered lists of your tracks. Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages. The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
+| **Storage** | Account menu → Storage: how much audio and how many covers you store, and the **orphaned files** left by interrupted uploads, which can be deleted in one click (files younger than 24 hours are kept: an upload may still be in progress). |
 | **PWA** | Installable on phones and desktop (manifest, icons, service worker for static assets). |
 
 **No AI.** The app uses no artificial-intelligence service, SDK or model. The "Suno prompt" field is just a text field to note down the prompt used elsewhere.
@@ -256,7 +257,7 @@ ChronoPlayer/
 │   ├── app.config.ts                 # Nuxt UI theme (orange on zinc)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, base scale, room for the player bar
 │   ├── components/
-│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue
+│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue · StorageDialog.vue
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
@@ -287,13 +288,13 @@ ChronoPlayer/
 │   └── utils/errors.ts               # Human-readable error messages
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
-│   ├── services/                     # tracks · genres · playlists · sharing
+│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup
 │   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2)
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types)
 │   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage
 ├── shared/                           # Pure code used by client and server
 │   ├── schemas/                      # track.ts · playlist.ts (Zod)
-│   ├── types/                        # track.ts · playlist.ts · database.types.ts (generated)
+│   ├── types/                        # track.ts · playlist.ts · storage.ts · database.types.ts (generated)
 │   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time
 ├── supabase/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
@@ -407,7 +408,7 @@ sequenceDiagram
 | Cover conversion/upload fails | The track is saved without a cover |
 | Stored file missing or of a different size | The server deletes it and refuses the track (400) |
 | Database insert fails | The server deletes the audio, the browser deletes the cover |
-| Browser closed between the upload and the registration | The file stays in R2 unused (see [15](#15-known-limitations-and-next-steps)) |
+| Browser closed between the upload and the registration | The file stays in R2 unused: an orphan, removed from the Storage dialog ([7.11](#711-storage-clean-up)) |
 
 ### 7.4 Lossless WAV → FLAC conversion
 
@@ -518,7 +519,40 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 
 `DELETE /api/tracks/:id`: the row is deleted first (so the track disappears even if storage is slow), the track leaves every playlist (database cascade), then the server removes the audio from R2 and the cover from Supabase Storage, best effort. The page drops it from the list and from the player queue, closing the player if it was playing.
 
-### 7.11 Playlists
+### 7.11 Storage clean-up
+
+An **orphan** is a file in the user's storage folders that no track or playlist uses: an upload interrupted between the transfer and the registration, or a best-effort deletion that failed. The **Storage** dialog (account menu, `StorageDialog.vue`) finds and removes them.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant N as Nuxt API
+  participant R as Cloudflare R2
+  participant S as Supabase Storage
+  participant D as Postgres
+  B->>N: GET /api/storage
+  par
+    N->>R: ListObjectsV2 prefix <userId>/
+  and
+    N->>S: list covers/<userId>/ and covers/<userId>/playlists/ (RLS)
+  and
+    N->>D: audio and cover paths of the user's tracks and playlists (RLS)
+  end
+  N-->>B: usage + orphans (deletable, or kept when younger than 24 h)
+  B->>N: DELETE /api/storage/orphans (after "Delete N files")
+  N->>N: scan again — the client's list is never trusted
+  N->>R: DELETE each old orphan audio file
+  N->>S: remove each old orphan cover
+  N-->>B: deleted files, freed bytes, files kept
+```
+
+- **Only the user's own folders**, read with the user's own rights: the R2 listing is limited to the `<userId>/` prefix, and Supabase Storage and the database apply RLS. No admin key is involved, so it works the same in production.
+- **Never a file in use:** the server compares against the paths of the user's tracks and playlist covers right before deleting.
+- **Never an upload in progress:** orphans younger than 24 hours are listed as "Kept for now" (configurable, see [10.1](#101-environment-variables)).
+- The dialog also shows the space used: audio (R2) and covers, with file counts.
+- The clean-up runs when you ask for it; nothing runs on a schedule.
+
+### 7.12 Playlists
 
 ```mermaid
 sequenceDiagram
@@ -543,7 +577,7 @@ sequenceDiagram
 - **Play all** queues the playlist's tracks in order in the normal player.
 - **Deleting** a playlist removes it and its custom cover; its tracks stay in the library.
 
-### 7.12 Sharing
+### 7.13 Sharing
 
 | Visibility | Who can listen | Share page |
 |---|---|---|
@@ -580,7 +614,7 @@ sequenceDiagram
 - **Revoking.** Making an item private closes its page immediately (the next request answers `404`); an audio URL already handed out keeps working until it expires, at most 6 hours.
 - **Leaving a public page** stops its music: it is the only place that controls it.
 
-### 7.13 Where each piece of data lives
+### 7.14 Where each piece of data lives
 
 | Data | Stored in | Who reads it |
 |---|---|---|
@@ -726,6 +760,8 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `GET` | `/api/tracks/:id/playback` | | `PlaybackSource { url, expiresAt }` (6 hours) |
 | `GET` | `/api/genres` | | `Genre[]` |
 | `POST` | `/api/genres` | `{ name }` | `Genre` (existing one if the name is taken) |
+| `GET` | `/api/storage` | | `StorageReport`: usage (audio, covers) and orphaned files |
+| `DELETE` | `/api/storage/orphans` | | `StorageCleanupResult`: deletes the orphans older than the minimum age |
 
 **Playlists**
 
@@ -765,6 +801,7 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `NUXT_AUDIO_STORAGE_BUCKET` | server only | `chronoplayer-audio` on R2, `audio` locally |
 | `NUXT_AUDIO_STORAGE_ACCESS_KEY_ID` | server only | R2 API token key id |
 | `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | server only | R2 API token secret — **never commit it** |
+| `NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS` | server only, optional | Orphaned files younger than this are never deleted (default `24`; the e2e server uses `0`) |
 
 In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` / `NUXT_PUBLIC_SUPABASE_KEY` (runtime overrides of the build-time values). A missing audio storage variable makes audio routes answer `500 Audio storage is not configured` and logs which one is missing.
 
@@ -783,6 +820,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 
 - `routeRules`: rendering modes ([5.4](#54-rendering-modes)) and `no-store` on `/api/**`.
 - `runtimeConfig.audioStorage`: server-only audio storage settings, filled from `NUXT_AUDIO_STORAGE_*`.
+- `runtimeConfig.storageCleanup.minAgeHours`: minimum age of a deletable orphan (24 h).
 - `supabase.redirectOptions`: login at `/login`, callback at `/confirm`, public pages excluded; `types` points to the generated database types.
 - `build.transpile: ['pinia']`: one copy of Pinia in the server bundle (without it, server-rendered pages failed with "no active Pinia").
 - `vite.worker.format: 'es'`: the FLAC worker is an ES module worker.
@@ -848,11 +886,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing) with mocked repositories; the **R2 client** with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -980,7 +1018,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 - **The queue is not saved:** it lives in memory, so a reload starts from an empty player.
 - **Manual cover cropping:** cropping is automatic (centered).
-- **Orphaned uploads:** if the browser closes after the audio reached R2 but before the track is registered, the file stays in the bucket. Rare and harmless; a periodic clean-up could remove files without a track.
+- **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
 - **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.
 - **No offline mode** (downloading tracks for listening without a connection).

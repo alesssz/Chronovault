@@ -29,8 +29,12 @@ const sections = [
   { label: 'Playlists', to: '/playlists', icon: 'i-lucide-list-music', active: () => route.path.startsWith('/playlists') },
 ]
 
+/** The Storage dialog (usage and clean-up of orphaned files). */
+const storageOpen = ref(false)
+
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
+  [{ label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) }],
   [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout }],
 ])
 </script>
@@ -94,5 +98,6 @@ const menu = computed<DropdownMenuItem[][]>(() => [
         </UDropdownMenu>
       </div>
     </UContainer>
+    <StorageDialog v-model:open="storageOpen" />
   </header>
 </template>

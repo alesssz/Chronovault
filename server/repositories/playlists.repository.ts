@@ -68,6 +68,13 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
   return [...data.playlist_tracks].sort((a, b) => a.position - b.position).map(e => e.track_id)
 }
 
+/** Custom cover paths of the user's playlists (storage clean-up). */
+export async function listPlaylistCoverPaths(db: DbClient, userId: string): Promise<string[]> {
+  const { data, error } = await db.from('playlists').select('cover_path').eq('user_id', userId).not('cover_path', 'is', null)
+  if (error) throw toHttpError(error, 'playlists.listCoverPaths')
+  return data.flatMap(row => (row.cover_path ? [row.cover_path] : []))
+}
+
 /** Inserts a playlist (no tracks yet) and returns the stored row. */
 export async function insertPlaylistRow(db: DbClient, row: TablesInsert<'playlists'>): Promise<PlaylistRow> {
   const { data, error } = await db.from('playlists').insert(row).select('*').single()
