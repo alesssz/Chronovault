@@ -224,6 +224,9 @@ async function onDelete() {
   }
 }
 
+// "Download": the stored file with the saved metadata written in (unsaved edits are not).
+const { download, isDownloading } = useTrackDownload()
+
 /** This track is in the player (Play/Pause button state). */
 const isCurrent = computed(() => player.current?.id === id)
 
@@ -258,6 +261,18 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         variant="subtle"
         @click="player.playTrack(track)"
       />
+      <!-- Icon only on phones, where the header is narrow. -->
+      <UButton
+        icon="i-lucide-download"
+        color="neutral"
+        variant="subtle"
+        aria-label="Download"
+        :loading="isDownloading(id)"
+        data-testid="download-track"
+        @click="download(id)"
+      >
+        <span class="hidden sm:inline">Download</span>
+      </UButton>
       <UButton
         type="submit"
         form="track-form"

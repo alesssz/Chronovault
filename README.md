@@ -46,6 +46,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import and export. All manual: no automatic alignment. |
 | **Playlists** | Ordered lists of your tracks. Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
+| **Download** | "Download" in the track menus and on the edit page saves the audio file **with its metadata written in**: title, composers (as artist and composer), album, year, genre, description (as comment), lyrics and cover. FLAC and MP3 get every field; WAV the text fields; other formats are saved as stored. The audio itself is untouched, and the Suno prompt and mastering status are never written. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages. The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
 | **Storage** | Account menu → Storage: how much audio and how many covers you store, and the **orphaned files** left by interrupted uploads, which can be deleted in one click (files younger than 24 hours are kept: an upload may still be in progress). |
 | **PWA** | Installable on phones and desktop (manifest, icons, service worker for static assets). |
@@ -156,6 +157,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | Audio storage | **Cloudflare R2** (S3-compatible) | Free egress for streaming; presigned URLs signed with **aws4fetch**. Locally, Supabase's S3 endpoint stands in for it |
 | Waveform | **wavesurfer.js 8** (+ Regions plugin) | Stored peaks for the player; full decoding only in the sync editor |
 | Audio tags | **music-metadata 12** | Read in the browser |
+| Tag writing | **browser-id3-writer 6** (MP3) + own FLAC and WAV writers | Tags written into downloaded files, in the browser |
 | WAV → FLAC | **libflacjs** (libFLAC 1.3.4, WebAssembly) + **hash-wasm** (MD5) | Reference encoder in a Web Worker, verified bit for bit |
 | Validation | **Zod 4** | The same schemas for client forms and API bodies |
 | PWA | **@vite-pwa/nuxt** | Manifest, icons, Workbox service worker (static assets only) |
@@ -264,7 +266,7 @@ ChronoPlayer/
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
-│   │                                 #   useQueueActions (Play next / Add to queue with toasts)
+│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
 │   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages)
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
@@ -272,6 +274,8 @@ ChronoPlayer/
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
+│   │   ├── save-file.ts              #   hands a file built in the browser to the user
+│   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
 │   │   ├── media-session.ts · theme.ts
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
 │   ├── pages/
@@ -409,7 +413,7 @@ sequenceDiagram
 | Cover conversion/upload fails | The track is saved without a cover |
 | Stored file missing or of a different size | The server deletes it and refuses the track (400) |
 | Database insert fails | The server deletes the audio, the browser deletes the cover |
-| Browser closed between the upload and the registration | The file stays in R2 unused: an orphan, removed from the Storage dialog ([7.11](#711-storage-clean-up)) |
+| Browser closed between the upload and the registration | The file stays in R2 unused: an orphan, removed from the Storage dialog ([7.12](#712-storage-clean-up)) |
 
 ### 7.4 Lossless WAV → FLAC conversion
 
@@ -540,7 +544,40 @@ flowchart LR
 
 `DELETE /api/tracks/:id`: the row is deleted first (so the track disappears even if storage is slow), the track leaves every playlist (database cascade), then the server removes the audio from R2 and the cover from Supabase Storage, best effort. The page drops it from the list and from the player queue, closing the player if it was playing.
 
-### 7.11 Storage clean-up
+### 7.11 Downloading a track
+
+"Download" (track menu in the library and in playlists, button on the edit page) runs entirely in the browser (`useTrackDownload`, `app/lib/tags/`): a Vercel function may not return a 50 MB file.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant N as Nuxt API
+  participant R as Cloudflare R2
+  participant S as Supabase Storage
+  B->>N: GET /api/tracks/:id + GET /api/tracks/:id/playback
+  N-->>B: track data + presigned URL
+  B->>R: GET the file (progress in a toast)
+  opt FLAC or MP3 with a cover
+    B->>S: GET the cover (signed URL) → re-encoded as JPEG
+  end
+  B->>B: write the tags (FLAC / MP3 / WAV writer)
+  B->>B: save as "Composers - Title.ext"
+```
+
+| Stored format | Tags written | Fields |
+|---|---|---|
+| FLAC (every converted WAV) | Vorbis comments + PICTURE block (`flac-tags.ts`) | title, artist, composer, album, date, genre, comment, lyrics, front cover |
+| MP3 | ID3v2.3 (`id3-tags.ts`, browser-id3-writer); an old ID3v1 tag is removed | the same |
+| WAV (float masters kept as WAV) | RIFF LIST/INFO (`wav-tags.ts`) | title, artist, album, year, genre, comment — WAV has no standard place for a cover or lyrics; text is Latin-1, other characters become `?` |
+| OGG/Opus, M4A/AAC, WebM | none: saved as stored | — |
+
+- **The audio is never touched:** only the metadata part of the file is rebuilt (FLAC metadata blocks, the ID3 tag, the INFO chunk). Tags already in the file are replaced, not duplicated. The unit tests read every written file back with music-metadata and compare the audio bytes.
+- **What is written** is the saved data (unsaved edits are not): composers become both *artist* and *composer*, the description becomes the *comment*, lyrics keep their `[Section]` headers. The Suno prompt and the mastering status are personal notes and never leave the app.
+- **The cover** is stored as WebP, which many players do not show inside a tag: it is re-encoded as JPEG for the file. A cover that cannot be read only means a file without cover, never a failed download.
+- **File name:** `Composers - Title.ext` (or `Title.ext`), with the characters Windows, macOS or Linux refuse replaced by `_`, at most 150 characters.
+- **Feedback:** when a download takes more than about 0.7 s, a neutral toast with a spinner shows the progress (a fast download would only flash it, which looks like an error); at the end a toast lists exactly which fields were written.
+
+### 7.12 Storage clean-up
 
 An **orphan** is a file in the user's storage folders that no track or playlist uses: an upload interrupted between the transfer and the registration, or a best-effort deletion that failed. The **Storage** dialog (account menu, `StorageDialog.vue`) finds and removes them.
 
@@ -573,7 +610,7 @@ sequenceDiagram
 - The dialog also shows the space used: audio (R2) and covers, with file counts.
 - The clean-up runs when you ask for it; nothing runs on a schedule.
 
-### 7.12 Playlists
+### 7.13 Playlists
 
 ```mermaid
 sequenceDiagram
@@ -598,7 +635,7 @@ sequenceDiagram
 - **Play all** queues the playlist's tracks in order in the normal player.
 - **Deleting** a playlist removes it and its custom cover; its tracks stay in the library.
 
-### 7.13 Sharing
+### 7.14 Sharing
 
 | Visibility | Who can listen | Share page |
 |---|---|---|
@@ -635,7 +672,7 @@ sequenceDiagram
 - **Revoking.** Making an item private closes its page immediately (the next request answers `404`); an audio URL already handed out keeps working until it expires, at most 6 hours.
 - **Leaving a public page** stops its music: it is the only place that controls it.
 
-### 7.14 Where each piece of data lives
+### 7.15 Where each piece of data lives
 
 | Data | Stored in | Who reads it |
 |---|---|---|
@@ -907,11 +944,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -1042,7 +1079,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 - **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.
 - **No offline mode** (downloading tracks for listening without a connection).
-- **Tags are not written into files** on export.
+- **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
 - **Revoked links:** an audio URL already handed out stays valid until it expires (up to 6 hours).
 
 ---

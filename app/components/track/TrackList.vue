@@ -28,6 +28,8 @@ const { copyShareLink } = useShareLink()
 const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
 // "Play next" / "Add to queue" in the menu.
 const queue = useQueueActions()
+// "Download": the file with its metadata written in.
+const { download } = useTrackDownload()
 
 /** Icon + accessible label of each visibility. */
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
@@ -60,6 +62,7 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
     ],
     [
       { label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
+      { label: 'Download', icon: 'i-lucide-download', onSelect: () => void download(track.id) },
       {
         label: 'Add to playlist',
         icon: 'i-lucide-list-plus',

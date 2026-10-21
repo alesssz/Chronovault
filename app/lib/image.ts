@@ -81,6 +81,40 @@ export function cropRectOf(view: CropView, width: number, height: number): CropR
   }
 }
 
+/** An image re-encoded as JPEG, with its size (needed by the FLAC PICTURE block). */
+export interface JpegImage {
+  data: Uint8Array
+  width: number
+  height: number
+}
+
+/**
+ * Re-encodes an image as JPEG at its own size. Used to embed covers in
+ * downloaded files: covers are stored as WebP, which many players do not
+ * show when it is inside a tag, while JPEG works everywhere.
+ */
+export async function toJpeg(source: Blob, quality = 0.9): Promise<JpegImage> {
+  const bitmap = await createImageBitmap(source)
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas not available')
+    // JPEG has no transparency: transparent pixels become white instead of black.
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(bitmap, 0, 0)
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Image conversion failed'))), 'image/jpeg', quality)
+    })
+    return { data: new Uint8Array(await blob.arrayBuffer()), width: bitmap.width, height: bitmap.height }
+  }
+  finally {
+    bitmap.close()
+  }
+}
+
 /** Options of toSquareWebp (all optional). */
 export interface SquareWebpOptions {
   /** Area to keep, in source pixels; centered square by default. */
