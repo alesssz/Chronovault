@@ -485,4 +485,104 @@ describe('expired or refused audio sources', () => {
       expect(player.sourceKey).toBe('library')
     })
   })
+
+  describe('editable queue', () => {
+    const ids = (player: ReturnType<typeof usePlayerStore>) => player.queue.map(t => t.id)
+    const d = summary('d')
+    const e = summary('e')
+
+    /** Playing "b" from the library a, b, c. */
+    async function playingB() {
+      const player = usePlayerStore()
+      await player.playTrack(library[1]!, library)
+      return player
+    }
+
+    it('play next puts the track right after the current one', async () => {
+      const player = await playingB()
+      expect(await player.playNext(d)).toBe('queued')
+      expect(ids(player)).toEqual(['a', 'b', 'd', 'c'])
+      expect(player.index).toBe(1)
+      expect(player.upcoming.map(t => t.id)).toEqual(['d', 'c'])
+    })
+
+    it('play next moves a track that is already queued, also one already played', async () => {
+      const player = await playingB()
+      await player.playNext(library[2]!)
+      expect(ids(player)).toEqual(['a', 'b', 'c'])
+      await player.playNext(library[0]!)
+      expect(ids(player)).toEqual(['b', 'a', 'c'])
+      // The current track did not change.
+      expect(player.index).toBe(0)
+      expect(player.queue[player.index]!.id).toBe('b')
+    })
+
+    it('add to queue appends; tracks coming up or playing stay where they are', async () => {
+      const player = await playingB()
+      expect(await player.addToQueue(d)).toBe('queued')
+      expect(ids(player)).toEqual(['a', 'b', 'c', 'd'])
+      expect(await player.addToQueue(library[2]!)).toBe('already-queued')
+      expect(await player.addToQueue(library[1]!)).toBe('current')
+      expect(await player.addToQueue(library[0]!)).toBe('queued')
+      expect(ids(player)).toEqual(['b', 'c', 'd', 'a'])
+      expect(player.index).toBe(0)
+    })
+
+    it('when nothing is playing, both start the track', async () => {
+      const player = usePlayerStore()
+      expect(await player.addToQueue(d)).toBe('started')
+      expect(player.current?.id).toBe('d')
+      expect(player.status).toBe('playing')
+    })
+
+    it('moves, removes and clears upcoming tracks only', async () => {
+      const player = await playingB()
+      await player.addToQueue(d)
+      await player.addToQueue(e)
+      // a, b, c, d, e — current b at 1
+      player.moveInQueue(4, 2)
+      expect(ids(player)).toEqual(['a', 'b', 'e', 'c', 'd'])
+      // The current and past tracks cannot be moved or removed.
+      player.moveInQueue(1, 3)
+      player.moveInQueue(0, 3)
+      player.removeFromQueue(1)
+      player.removeFromQueue(0)
+      expect(ids(player)).toEqual(['a', 'b', 'e', 'c', 'd'])
+
+      player.removeFromQueue(3)
+      expect(ids(player)).toEqual(['a', 'b', 'e', 'd'])
+      player.clearUpcoming()
+      expect(ids(player)).toEqual(['a', 'b'])
+      expect(player.hasNext).toBe(false)
+    })
+
+    it('"next" and the end of a track follow the edited order', async () => {
+      const player = await playingB()
+      await player.playNext(d)
+      await player.next()
+      expect(player.current?.id).toBe('d')
+      engine.emit('ended')
+      await vi.waitFor(() => expect(player.current?.id).toBe('c'))
+    })
+
+    it('plays a queued track right away', async () => {
+      const player = await playingB()
+      await player.addToQueue(d)
+      await player.playFromQueue(3)
+      expect(player.current?.id).toBe('d')
+      expect(player.index).toBe(3)
+    })
+
+    it('the queue cannot be edited while a public page plays', async () => {
+      const player = usePlayerStore()
+      await player.cueShared({
+        id: 's', title: 'Shared', composers: null, album: null, year: null, genre: null, description: null,
+        lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null,
+        visibility: 'unlisted', updatedAt: '',
+      })
+      expect(player.queueEditable).toBe(false)
+      player.setQueueOpen(true)
+      expect(player.queueOpen).toBe(false)
+    })
+  })
 })

@@ -26,6 +26,7 @@ const player = usePlayerStore()
 const toast = useToast()
 const { remember, forget } = usePlaylists()
 const { shareUrl, copyShareLink } = useShareLink()
+const queue = useQueueActions()
 
 const { data: playlist, error } = await useAsyncData(`playlist-${id}`, () => playlistsApi.get(id))
 
@@ -127,6 +128,10 @@ function removeTrack(track: TrackSummary) {
 
 function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
   return [
+    [
+      { label: 'Play next', icon: 'i-lucide-list-start', onSelect: () => void queue.playNext(track) },
+      { label: 'Add to queue', icon: 'i-lucide-list-end', onSelect: () => void queue.addToQueue(track) },
+    ],
     [
       { label: 'Move up', icon: 'i-lucide-arrow-up', disabled: index === 0, onSelect: () => move(index, -1) },
       { label: 'Move down', icon: 'i-lucide-arrow-down', disabled: index === tracks.value.length - 1, onSelect: () => move(index, 1) },

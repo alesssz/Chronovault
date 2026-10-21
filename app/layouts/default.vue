@@ -21,6 +21,7 @@ const player = usePlayerStore()
     <!-- In the layout, not in pages: this way playback survives navigation. -->
     <PlayerBar v-if="player.isActive" />
     <PlayerExpanded />
+    <PlayerQueue />
     <!-- Global dialog: "New playlist" can be opened from any page (usePlaylists). -->
     <PlaylistCreateDialog />
   </div>

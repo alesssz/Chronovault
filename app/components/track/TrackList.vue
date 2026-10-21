@@ -25,6 +25,7 @@ const emit = defineEmits<{
 const player = usePlayerStore()
 const { copyShareLink } = useShareLink()
 const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
+const queue = useQueueActions()
 
 /** Icon + accessible label of each visibility. */
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
@@ -51,6 +52,10 @@ function onTitleClick(track: TrackSummary) {
 /** The "⋮" menu of a row; groups are separated by dividers. */
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
+    [
+      { label: 'Play next', icon: 'i-lucide-list-start', onSelect: () => void queue.playNext(track) },
+      { label: 'Add to queue', icon: 'i-lucide-list-end', onSelect: () => void queue.addToQueue(track) },
+    ],
     [
       { label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
       {

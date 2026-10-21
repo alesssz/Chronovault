@@ -47,19 +47,26 @@ const meta = computed(() => {
             @click="open = false"
           />
           <span class="text-xs font-medium uppercase tracking-widest text-muted">Now playing</span>
-          <UButton
-            v-if="player.current"
-            :to="`/tracks/${player.current.id}/edit`"
-            icon="i-lucide-pencil"
-            color="neutral"
-            variant="ghost"
-            aria-label="Edit track"
-            @click="open = false"
-          />
-          <span
-            v-else
-            class="size-8"
-          />
+          <div class="flex items-center">
+            <!-- The queue panel opens on top of this view (also the way to reach it on phones). -->
+            <UButton
+              v-if="player.queueEditable"
+              icon="i-lucide-list-music"
+              color="neutral"
+              variant="ghost"
+              aria-label="Up next"
+              @click="player.setQueueOpen(true)"
+            />
+            <UButton
+              v-if="player.current"
+              :to="`/tracks/${player.current.id}/edit`"
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              aria-label="Edit track"
+              @click="open = false"
+            />
+          </div>
         </header>
 
         <div class="grid min-h-0 flex-1 gap-6 overflow-y-auto px-4 pb-6 md:grid-cols-2 md:gap-10 md:overflow-hidden md:px-10">
