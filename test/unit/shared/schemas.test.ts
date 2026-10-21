@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
 import { playlistCreateSchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
+import { analyticsQuerySchema } from '~~/shared/schemas/analytics'
 
 /** A valid edit form, with spaces and empty texts the schema must normalize. */
 const validMetadata = {
@@ -104,5 +105,16 @@ describe('playlist schemas', () => {
     expect(playlistCreateSchema.safeParse({ title: '  ' }).success).toBe(false)
     expect(playlistUpdateSchema.parse({ description: '' })).toEqual({ description: null })
     expect(playlistUpdateSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('analyticsQuerySchema', () => {
+  it('accepts the two periods (query strings) and defaults to 30 days', () => {
+    expect(analyticsQuerySchema.parse({ days: '7' })).toEqual({ days: 7 })
+    expect(analyticsQuerySchema.parse({})).toEqual({ days: 30 })
+  })
+
+  it('rejects any other period', () => {
+    expect(analyticsQuerySchema.safeParse({ days: '90' }).success).toBe(false)
   })
 })

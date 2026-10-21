@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Header of the signed-in app: logo, section links (Library, Playlists),
- * "Add" (upload), light/dark switch and the account menu.
+ * "Add" (upload), light/dark switch and the account menu (Statistics,
+ * Storage, Sign out).
  * On phones the logo shows only its icon and the section links only theirs.
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
@@ -37,10 +38,14 @@ const sections = [
 /** The Storage dialog (usage and clean-up of orphaned files). */
 const storageOpen = ref(false)
 
-/** Account menu: who is signed in, Storage, Sign out. */
+/** Account menu: who is signed in, Statistics, Storage, Sign out. */
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
-  [{ label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) }],
+  [
+    // Visits to the share links (pages/stats.vue).
+    { label: 'Statistics', icon: 'i-lucide-chart-column', to: '/stats' },
+    { label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) },
+  ],
   [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout }],
 ])
 </script>

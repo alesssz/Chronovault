@@ -69,6 +69,16 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
   return [...data.playlist_tracks].sort((a, b) => a.position - b.position).map(e => e.track_id)
 }
 
+/** What the Statistics page shows of a playlist (and needs for its cover address). */
+export type PlaylistLabelRow = Pick<PlaylistRow, 'id' | 'title' | 'visibility' | 'cover_path' | 'updated_at'>
+
+/** Title, visibility and custom cover of every playlist of the user (Statistics page). */
+export async function listPlaylistLabels(db: DbClient, userId: string): Promise<PlaylistLabelRow[]> {
+  const { data, error } = await db.from('playlists').select('id, title, visibility, cover_path, updated_at').eq('user_id', userId)
+  if (error) throw toHttpError(error, 'playlists.listLabels')
+  return data
+}
+
 /** Custom cover path of one of the user's playlists (null: none, or not the user's playlist). */
 export async function findPlaylistCoverPath(db: DbClient, userId: string, id: string): Promise<string | null> {
   const { data, error } = await db.from('playlists').select('cover_path').eq('id', id).eq('user_id', userId).maybeSingle()

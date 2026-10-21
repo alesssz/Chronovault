@@ -25,6 +25,16 @@ export async function listTrackRows(db: DbClient, userId: string): Promise<Track
   return data
 }
 
+/** What the Statistics page shows of a track (and needs for its cover address). */
+export type TrackLabelRow = Pick<TrackRow, 'id' | 'title' | 'visibility' | 'cover_path' | 'updated_at'>
+
+/** Title, visibility and cover of every track of the user (Statistics page). */
+export async function listTrackLabels(db: DbClient, userId: string): Promise<TrackLabelRow[]> {
+  const { data, error } = await db.from('tracks').select('id, title, visibility, cover_path, updated_at').eq('user_id', userId)
+  if (error) throw toHttpError(error, 'tracks.listLabels')
+  return data
+}
+
 /** One full row, or null when it does not exist or belongs to someone else. */
 export async function findTrackRow(db: DbClient, userId: string, id: string): Promise<TrackRow | null> {
   const { data, error } = await db.from('tracks').select('*').eq('id', id).eq('user_id', userId).maybeSingle()
