@@ -129,8 +129,11 @@ ci: check db-lint db-test test-e2e ## Everything the CI runs
 
 # --- Git ----------------------------------------------------------------------
 
-merge: ## Merge the current branch into main (asks first), delete it, back on main
-	$(PNPM) merge:main
+# Make treats anything starting with "--" as one of its own options, so the
+# script's --yes cannot be written after the target: it is a variable instead
+# (make merge yes=1 → pnpm merge:main --yes).
+merge: ## Merge the current branch into main (asks first; make merge yes=1 skips the question), delete it, back on main
+	$(PNPM) merge:main $(if $(yes),--yes)
 
 # --- Cleanup ------------------------------------------------------------------
 
