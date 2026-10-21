@@ -9,6 +9,7 @@ export function useQueueActions() {
   const player = usePlayerStore()
   const toast = useToast()
 
+  /** Toast text and icon for each outcome of the store's queue commands. */
   const messages: Record<QueueResult, (title: string) => { title: string, icon: string }> = {
     'started': title => ({ title: `Playing ${title}`, icon: 'i-lucide-play' }),
     'queued': title => ({ title: `${title} added to the queue`, icon: 'i-lucide-list-end' }),
@@ -16,6 +17,7 @@ export function useQueueActions() {
     'already-queued': title => ({ title: `${title} is already in the queue`, icon: 'i-lucide-list-checks' }),
   }
 
+  /** Shows the toast for an outcome; `nextLabel` = it came from "Play next". */
   function notify(result: QueueResult, track: QueueItem, nextLabel: boolean) {
     const message = messages[result](track.title)
     // "Play next" says where the track went.
@@ -23,10 +25,12 @@ export function useQueueActions() {
     toast.add({ ...message, color: result === 'queued' ? 'success' : 'neutral', duration: 2500 })
   }
 
+  /** "Play next": right after the current track (moved there if already queued). */
   async function playNext(track: QueueItem): Promise<void> {
     notify(await player.playNext(track), track, true)
   }
 
+  /** "Add to queue": at the end of the queue. */
   async function addToQueue(track: QueueItem): Promise<void> {
     notify(await player.addToQueue(track), track, false)
   }

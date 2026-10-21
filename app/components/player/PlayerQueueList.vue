@@ -42,6 +42,11 @@ function move(i: number, delta: number) {
   player.moveInQueue(offset.value + i, offset.value + i + delta)
 }
 
+/**
+ * The "⋮" menu of upcoming track `i` (list position): play it now, move it
+ * to the top ("Play next"), one place up/down, or remove it. Positions are
+ * converted to absolute queue positions with `offset`.
+ */
 function menuFor(i: number): DropdownMenuItem[][] {
   const last = items.value.length - 1
   return [
