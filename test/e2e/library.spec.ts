@@ -106,7 +106,7 @@ test.describe('library and player', () => {
     await page.getByTestId('crop-confirm').click()
     await expect(page.getByText('Cover updated').first()).toBeVisible()
     await expect(page.getByRole('img', { name: `Cover of ${title}` }).first())
-      .toHaveAttribute('src', /\/storage\/v1\/object\/sign\/covers\//)
+      .toHaveAttribute('src', /^\/api\/covers\/tracks\/[0-9a-f-]+\?v=/)
 
     // A distinctive new title, checked later in the player bar.
     const newTitle = `${title} (master)`

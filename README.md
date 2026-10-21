@@ -210,7 +210,7 @@ flowchart LR
   UI -- "sign-in / sign-out" --> Auth
   UI -- "cover upload<br/>(user's own folder)" --> Storage
   Repos -- "user's JWT or anonymous<br/>(never the service key)" --> DB
-  Repos -- "signed URLs" --> Storage
+  Repos -- "cover files (owner)<br/>signed URLs (public pages)" --> Storage
   Repos -- "presigned URLs (S3 API)" --> R2
   Flac -- "direct upload<br/>(presigned PUT)" --> R2
   Engine -- "streaming<br/>(presigned GET, range requests)" --> R2
@@ -218,7 +218,7 @@ flowchart LR
 
 ### 5.2 Key principles
 
-1. **Files never go through the app server.** Vercel functions accept requests of about 4.5 MB, while a FLAC weighs 30-50 MB. The browser uploads audio straight to R2 and covers straight to Supabase Storage, and streams audio from presigned URLs. The server only handles small JSON payloads and signs URLs; storage credentials never leave it.
+1. **Large files never go through the app server.** Vercel functions accept requests of about 4.5 MB, while a FLAC weighs 30-50 MB. The browser uploads audio straight to R2 and covers straight to Supabase Storage, and streams audio from presigned URLs. The server only handles small JSON payloads, signs URLs and serves the owner's covers (small WebP images, so the browser can cache them: [7.2](#72-loading-the-library)); storage credentials never leave it.
 2. **The server acts as the user, never as an admin.** Every query carries the user's own JWT (or none, for visitors of public pages), so Postgres Row Level Security decides what each request can read or write. Even a bug in server code cannot expose another user's data. The Supabase service key is not used anywhere.
 3. **Audio is processed in the browser.** Tags, cover, duration, waveform peaks and the WAV → FLAC conversion all happen before the upload, so the server never decodes audio.
 4. **One audio engine.** A single `<audio>` element lives outside components. The player bar, the full-screen view, the lyrics editor and the public pages are views over the same store, which is why music keeps playing across page changes.
@@ -245,6 +245,7 @@ The local database and the production database are **completely separate**: acco
 | `/login`, `/confirm` | Client only | A form submitted before hydration would send the password in the URL (native GET submit) |
 | `/t/:id`, `/p/:id` | **Server-rendered** | Link previews (chat apps, social networks) read the HTML: title, description and image must be in it |
 | `/api/**` | API, `Cache-Control: no-store` | Responses are personal or contain signed URLs |
+| `/api/covers/**` | API, `Cache-Control: private, max-age=31536000, immutable` | Cover images at versioned addresses: each device downloads a cover once ([7.2](#72-loading-the-library)) |
 
 The `@nuxtjs/supabase` route middleware sends signed-out visitors to `/login`, except on `/t/*` and `/p/*`.
 
@@ -293,10 +294,10 @@ ChronoPlayer/
 │   └── utils/errors.ts               # Human-readable error messages
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
-│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup
+│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers
 │   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2)
-│   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types)
-│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage
+│   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
+│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers)
 ├── shared/                           # Pure code used by client and server
 │   ├── schemas/                      # track.ts · playlist.ts (Zod)
 │   ├── types/                        # track.ts · playlist.ts · storage.ts · database.types.ts (generated)
@@ -358,10 +359,28 @@ sequenceDiagram
 ### 7.2 Loading the library
 
 1. `pages/index.vue` calls `GET /api/tracks` once (`tracksApi.list`).
-2. `tracks.service.listTracks` reads the summary columns only (no lyrics, peaks or long texts) and signs **all covers in one request** to Supabase Storage (`createSignedUrls`, valid 6 hours).
+2. `tracks.service.listTracks` reads the summary columns only (no lyrics, peaks or long texts). Each cover gets a **stable, versioned address**, `/api/covers/tracks/<id>?v=<version>` (`mappers/cover-urls.ts`): nothing is signed.
 3. The page filters (search, genre, mastering) and sorts **in the browser**: no request per keystroke.
 4. Genres come from `GET /api/genres` (built-in + the user's custom ones), loaded once and shared by every page (`useGenres`).
 5. Playing a track passes the **currently filtered list** as the queue: "next" follows what is on screen.
+
+**Covers are cached by the browser.** A signed Storage URL carries a new token every time, so the browser would see a new image and download every cover again on each visit. The library therefore uses app addresses instead:
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant N as Nuxt API
+  participant S as Supabase Storage
+  B->>N: GET /api/covers/tracks/:id?v=… (session cookie)
+  N->>S: download the cover (user's JWT: RLS, own files only)
+  N-->>B: WebP, Cache-Control: private, max-age=1 year, immutable
+  Note over B: next visits, same URL: served from the browser cache, no request
+```
+
+- **Versioned:** `v` is the track's (or playlist's) `updated_at` in base 36. A new cover changes `updated_at`, hence the address, so the browser fetches the new image; the server ignores `v`.
+- **Owner only:** the routes require the session and read the cover with the user's JWT; another user's track answers `404`. `private` keeps the image out of shared caches and CDNs.
+- The same addresses serve playlist custom covers (`/api/covers/playlists/<id>?v=…`), the mosaics, the player, the queue, the Media Session artwork and the tags of downloaded files.
+- **Public pages** (`/t/`, `/p/`) keep signed URLs: their visitors have no session these routes could check ([7.14](#714-sharing)).
 
 ### 7.3 Uploading a track
 
@@ -489,7 +508,7 @@ The queue lives in the player store (`app/stores/player.ts`): the tracks already
 - The panel (`PlayerQueue.vue` + `PlayerQueueList.vue`) mirrors the store: a drag moves the DOM through SortableJS, then the store receives the move, so the panel and the player never disagree.
 - Queue editing applies to library playback only; the public pages have their own fixed order.
 - **The queue survives reloads** on the same device (`lib/queue-storage.ts`, `plugins/queue-persistence.client.ts`): it is saved in the browser whenever it changes, every 5 seconds of playback and when the page is hidden. Opening the app again brings back the same queue and track, **paused at the same position**.
-  - Only track ids are saved: on restore they are matched against the current library, so deleted tracks drop out (if the current one is gone, the next one is loaded from the start) and covers get fresh URLs.
+  - Only track ids are saved: on restore they are matched against the current library, so deleted tracks drop out (if the current one is gone, the next one is loaded from the start) and covers get their current addresses.
   - The saved queue belongs to one user: another account on the same browser never sees it.
   - Closing the player (×) or signing out forgets it. Public pages neither restore nor touch it.
   - It is per device: the queue on your phone and on your computer are separate.
@@ -553,12 +572,11 @@ sequenceDiagram
   participant B as Browser
   participant N as Nuxt API
   participant R as Cloudflare R2
-  participant S as Supabase Storage
   B->>N: GET /api/tracks/:id + GET /api/tracks/:id/playback
   N-->>B: track data + presigned URL
   B->>R: GET the file (progress in a toast)
   opt FLAC or MP3 with a cover
-    B->>S: GET the cover (signed URL) → re-encoded as JPEG
+    B->>N: GET /api/covers/tracks/:id (usually already in the browser cache) → re-encoded as JPEG
   end
   B->>B: write the tags (FLAC / MP3 / WAV writer)
   B->>B: save as "Composers - Title.ext"
@@ -631,7 +649,7 @@ sequenceDiagram
 - **Adding:** "Add to playlist" → a playlist appends the track; a track already there keeps its place ("Already in …").
 - **Reordering and removing** save immediately (`PUT …/tracks` with the full ordered list). The page updates optimistically and rolls back if the request fails. Drag uses SortableJS through a handle (works with touch); Move up/down is the keyboard-friendly alternative.
 - **Atomic order.** `set_playlist_tracks()` deletes and re-inserts every row in one database transaction, running with the caller's rights: RLS refuses other users' playlists and tracks.
-- **Covers.** A custom cover goes through the same crop editor as track covers, and is uploaded to `covers/<userId>/playlists/<playlistId>.webp`. Without one, the UI shows a **mosaic**: the server signs the covers of the first 4 tracks that have one; 4 covers make a 2×2 grid, fewer show the first alone (`PlaylistCover.vue`).
+- **Covers.** A custom cover goes through the same crop editor as track covers, and is uploaded to `covers/<userId>/playlists/<playlistId>.webp`. Without one, the UI shows a **mosaic**: the server lists the cover addresses of the first 4 tracks that have one (the same cached `/api/covers/tracks/…` images as the library); 4 covers make a 2×2 grid, fewer show the first alone (`PlaylistCover.vue`).
 - **Play all** queues the playlist's tracks in order in the normal player.
 - **Deleting** a playlist removes it and its custom cover; its tracks stay in the library.
 
@@ -681,7 +699,7 @@ sequenceDiagram
 | Genres | Postgres `genres` (built-in + custom) | Everyone (built-in), owner (custom) |
 | Playlists and their order | Postgres `playlists`, `playlist_tracks` | Owner (RLS); shared ones via `get_shared_playlist*` |
 | Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`) | Anyone holding a presigned URL, issued by the server |
-| Covers | Supabase Storage `covers` (private) | Anyone holding a signed URL, issued under the storage policies |
+| Covers | Supabase Storage `covers` (private) | The owner, through `/api/covers/…` (and a copy in their browser cache); visitors of shared pages, through signed URLs issued under the storage policies |
 | Volume | Browser `localStorage` (`chronoplayer:volume`) | That browser only |
 | Play queue (track ids, current track, position) | Browser `localStorage` (`chronoplayer:queue`) | That browser, for the signed-in user only |
 | R2 credentials | Server environment only | The server |
@@ -821,6 +839,15 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `GET` | `/api/storage` | | `StorageReport`: usage (audio, covers) and orphaned files |
 | `DELETE` | `/api/storage/orphans` | | `StorageCleanupResult`: deletes the orphans older than the minimum age |
 
+**Covers** (images, cached by the browser for a year: `Cache-Control: private, max-age=31536000, immutable`)
+
+| Method | Path | Response |
+|---|---|---|
+| `GET` | `/api/covers/tracks/:id?v=…` | The track's cover (WebP); `404` without a cover or for someone else's track |
+| `GET` | `/api/covers/playlists/:id?v=…` | The playlist's custom cover (WebP); `404` without one |
+
+The addresses come ready-made in `coverUrl` and `mosaic` of the track and playlist responses; `v` only changes the URL when the item changes.
+
 **Playlists**
 
 | Method | Path | Body | Response |
@@ -876,7 +903,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 
 ### 10.3 Notable `nuxt.config.ts` settings
 
-- `routeRules`: rendering modes ([5.4](#54-rendering-modes)) and `no-store` on `/api/**`.
+- `routeRules`: rendering modes ([5.4](#54-rendering-modes)) and `no-store` on `/api/**` (the cover routes override it with their own cache header).
 - `runtimeConfig.audioStorage`: server-only audio storage settings, filled from `NUXT_AUDIO_STORAGE_*`.
 - `runtimeConfig.storageCleanup.minAgeHours`: minimum age of a deletable orphan (24 h).
 - `supabase.redirectOptions`: login at `/login`, callback at `/confirm`, public pages excluded; `types` points to the generated database types.
@@ -1076,7 +1103,6 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 - **The queue is per device:** it is saved in the browser, not in the account.
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
-- **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.
 - **No offline mode** (downloading tracks for listening without a connection).
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).

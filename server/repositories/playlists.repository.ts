@@ -34,7 +34,8 @@ export function orderedTracks<T>(entries: PlaylistEntry<T>[]): T[] {
 export async function listPlaylistRows(db: DbClient, userId: string): Promise<PlaylistListRow[]> {
   const { data, error } = await db
     .from('playlists')
-    .select('*, playlist_tracks(position, tracks(cover_path, duration_seconds, visibility))')
+    // Track id and updated_at build the mosaic's cover addresses.
+    .select('*, playlist_tracks(position, tracks(id, cover_path, duration_seconds, visibility, updated_at))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .overrideTypes<PlaylistListRow[], { merge: false }>()
@@ -66,6 +67,13 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
   if (error) throw toHttpError(error, 'playlists.findTrackIds')
   if (!data) return null
   return [...data.playlist_tracks].sort((a, b) => a.position - b.position).map(e => e.track_id)
+}
+
+/** Custom cover path of one of the user's playlists (null: none, or not the user's playlist). */
+export async function findPlaylistCoverPath(db: DbClient, userId: string, id: string): Promise<string | null> {
+  const { data, error } = await db.from('playlists').select('cover_path').eq('id', id).eq('user_id', userId).maybeSingle()
+  if (error) throw toHttpError(error, 'playlists.findCoverPath')
+  return data?.cover_path ?? null
 }
 
 /** Custom cover paths of the user's playlists (storage clean-up). */

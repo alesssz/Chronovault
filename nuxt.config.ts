@@ -75,7 +75,9 @@ export default defineNuxtConfig({
     // hydration it would trigger a native GET submit (password in the URL).
     '/login': { ssr: false },
     '/confirm': { ssr: false },
-    // API responses are never cached.
+    // API responses are never cached, with one exception: the cover images
+    // of /api/covers/** replace this header with a one-year private cache
+    // (server/utils/covers.ts; their URLs are versioned).
     '/api/**': { headers: { 'cache-control': 'no-store' } },
   },
 

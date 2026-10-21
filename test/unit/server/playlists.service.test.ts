@@ -32,7 +32,6 @@ vi.mock('~~/server/repositories/playlists.repository', async (importOriginal) =>
   }
 })
 vi.mock('~~/server/repositories/storage.repository', () => ({
-  createSignedUrls: vi.fn(),
   removeObjects: vi.fn(),
 }))
 
@@ -45,12 +44,15 @@ const PLAYLIST = '33333333-3333-4333-8333-333333333333'
 const T1 = 'a1111111-1111-4111-8111-111111111111'
 const T2 = 'a2222222-2222-4222-8222-222222222222'
 const T3 = 'a3333333-3333-4333-8333-333333333333'
+// updated_at of every row below, and the cover-address version it gives (base 36).
+const UPDATED_AT = '2026-10-20T10:00:00Z'
+const V = Date.parse(UPDATED_AT).toString(36)
 
 /** A private playlist row without a custom cover. */
 function playlistRow(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
   return {
     id: PLAYLIST, user_id: USER, title: 'Night drive', description: null, visibility: 'private', cover_path: null,
-    created_at: '2026-10-20T10:00:00Z', updated_at: '2026-10-20T10:00:00Z',
+    created_at: UPDATED_AT, updated_at: UPDATED_AT,
     ...overrides,
   }
 }
@@ -60,7 +62,7 @@ function trackRow(id: string, overrides: Partial<TrackSummaryRow> = {}): TrackSu
   return {
     id, title: `Track ${id.slice(0, 2)}`, composers: null, album: null, year: null, genre_id: null, mastered: false,
     visibility: 'private', duration_seconds: 60, has_lyrics: false, has_synced_lyrics: false,
-    cover_path: `${USER}/${id}.webp`, created_at: '', updated_at: '',
+    cover_path: `${USER}/${id}.webp`, created_at: UPDATED_AT, updated_at: UPDATED_AT,
     ...overrides,
   }
 }
@@ -75,12 +77,10 @@ function detailRow(tracks: TrackSummaryRow[], overrides: Partial<PlaylistRow> = 
 
 beforeEach(() => {
   vi.resetAllMocks()
-  vi.mocked(storageRepo.createSignedUrls).mockImplementation(async (_db, _bucket, paths) =>
-    new Map(paths.map(p => [p, `https://signed/${p}`])))
 })
 
 describe('getPlaylist', () => {
-  it('returns the tracks in order, with signed covers, the mosaic and the private count', async () => {
+  it('returns the tracks in order, with cover addresses, the mosaic and the private count', async () => {
     vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([
       trackRow(T1, { duration_seconds: 100 }),
       trackRow(T2, { visibility: 'unlisted', cover_path: null, duration_seconds: 20.5 }),
@@ -90,8 +90,9 @@ describe('getPlaylist', () => {
     const playlist = await getPlaylist(db, USER, PLAYLIST)
 
     expect(playlist.tracks.map(t => t.id)).toEqual([T1, T2, T3])
-    expect(playlist.tracks[0]!.coverUrl).toBe(`https://signed/${USER}/${T1}.webp`)
-    expect(playlist.mosaic).toEqual([`https://signed/${USER}/${T1}.webp`, `https://signed/${USER}/${T3}.webp`])
+    expect(playlist.tracks[0]!.coverUrl).toBe(`/api/covers/tracks/${T1}?v=${V}`)
+    // T2 has no cover: the mosaic skips it.
+    expect(playlist.mosaic).toEqual([`/api/covers/tracks/${T1}?v=${V}`, `/api/covers/tracks/${T3}?v=${V}`])
     expect(playlist.trackCount).toBe(3)
     expect(playlist.durationSeconds).toBe(180.5)
     expect(playlist.privateTrackCount).toBe(2)
@@ -105,16 +106,15 @@ describe('getPlaylist', () => {
 })
 
 describe('listPlaylists', () => {
-  it('signs all covers in one request', async () => {
+  it('gives the custom cover and the mosaic stable app addresses', async () => {
     vi.mocked(playlistsRepo.listPlaylistRows).mockResolvedValue([
       { ...playlistRow({ cover_path: `${USER}/playlists/${PLAYLIST}.webp` }), playlist_tracks: [{ position: 0, tracks: trackRow(T1) }] },
     ])
 
     const [summary] = await listPlaylists(db, USER)
 
-    expect(storageRepo.createSignedUrls).toHaveBeenCalledTimes(1)
-    expect(summary!.coverUrl).toBe(`https://signed/${USER}/playlists/${PLAYLIST}.webp`)
-    expect(summary!.mosaic).toHaveLength(1)
+    expect(summary!.coverUrl).toBe(`/api/covers/playlists/${PLAYLIST}?v=${V}`)
+    expect(summary!.mosaic).toEqual([`/api/covers/tracks/${T1}?v=${V}`])
   })
 })
 

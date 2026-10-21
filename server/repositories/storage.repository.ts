@@ -75,6 +75,19 @@ export async function listFolderFiles(db: DbClient, bucket: string, folder: stri
   }
 }
 
+/**
+ * Downloads a file (with this client's rights: storage RLS applies), or null
+ * when it is missing or not readable.
+ */
+export async function downloadObject(db: DbClient, bucket: string, path: string): Promise<Blob | null> {
+  const { data, error } = await db.storage.from(bucket).download(path)
+  if (error) {
+    console.error(`[storage.download:${bucket}]`, error)
+    return null
+  }
+  return data
+}
+
 /** Best-effort removal: a failure here must not block the main operation. */
 export async function removeObjects(db: DbClient, bucket: string, paths: string[]): Promise<void> {
   if (paths.length === 0) return

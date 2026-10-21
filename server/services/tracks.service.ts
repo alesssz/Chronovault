@@ -28,19 +28,20 @@ import * as storageRepo from '../repositories/storage.repository'
 /** Lifetime of a presigned upload URL (the upload must start within it). */
 export const UPLOAD_URL_TTL = 60 * 60
 
-/** The user's library, with every cover signed in one bulk request. */
+/**
+ * The user's library. Covers need no signing: their addresses are stable
+ * and served (with browser caching) by /api/covers (see mappers/cover-urls.ts).
+ */
 export async function listTracks(db: DbClient, userId: string): Promise<TrackSummary[]> {
   const rows = await tracksRepo.listTrackRows(db, userId)
-  const coverPaths = rows.flatMap(row => (row.cover_path ? [row.cover_path] : []))
-  const coverUrls = await storageRepo.createSignedUrls(db, COVERS_BUCKET, coverPaths)
-  return rows.map(row => toTrackSummary(row, row.cover_path ? coverUrls.get(row.cover_path) ?? null : null))
+  return rows.map(toTrackSummary)
 }
 
 /** Full detail of one of the user's tracks (404 otherwise). */
 export async function getTrack(db: DbClient, userId: string, id: string): Promise<TrackDetail> {
   const row = await tracksRepo.findTrackRow(db, userId, id)
   if (!row) throw notFound()
-  return toTrackDetail(row, await signCover(db, row.cover_path))
+  return toTrackDetail(row)
 }
 
 /**
@@ -88,7 +89,7 @@ export async function createTrack(
 
   try {
     const row = await tracksRepo.insertTrackRow(db, toTrackInsert(userId, input))
-    return toTrackDetail(row, await signCover(db, row.cover_path))
+    return toTrackDetail(row)
   }
   catch (error) {
     // No orphaned audio when the track could not be registered.
@@ -113,7 +114,8 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
   if (!row) throw notFound()
 
   if (previousCover) await storageRepo.removeObjects(db, COVERS_BUCKET, [previousCover])
-  return toTrackDetail(row, await signCover(db, row.cover_path))
+  // A new cover changes `updated_at`, hence the cover URL: browsers fetch the new image.
+  return toTrackDetail(row)
 }
 
 /**
@@ -154,16 +156,5 @@ function expiresIn(seconds: number): string {
 function assertTrackPath(path: string, userId: string, trackId: string, label: string): void {
   if (!isTrackPath(path, userId, trackId)) {
     throw createError({ statusCode: 400, message: `Invalid ${label} path` })
-  }
-}
-
-/** Signed cover URL, or null when there is no cover or it cannot be signed (never fails the request). */
-async function signCover(db: DbClient, path: string | null): Promise<string | null> {
-  if (!path) return null
-  try {
-    return await storageRepo.createSignedUrl(db, COVERS_BUCKET, path)
-  }
-  catch {
-    return null
   }
 }

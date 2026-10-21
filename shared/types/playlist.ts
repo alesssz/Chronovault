@@ -17,10 +17,10 @@ export interface PlaylistSummary {
   title: string
   description: string | null
   visibility: TrackVisibility
-  /** Custom cover, when the owner uploaded one. */
+  /** Custom cover, when the owner uploaded one (/api/covers/playlists/:id?v=…, cached). */
   coverUrl: string | null
   /**
-   * Signed covers of the first tracks that have one, for the automatic
+   * Cover addresses (/api/covers/tracks/…) of the first tracks that have one, for the automatic
    * mosaic (up to MOSAIC_SIZE). The UI shows a 2×2 grid only with 4 covers,
    * otherwise the first one alone (see PlaylistCover.vue).
    */
@@ -51,6 +51,7 @@ export interface SharedPlaylist {
   title: string
   description: string | null
   visibility: Exclude<TrackVisibility, 'private'>
+  /** Signed Storage URLs (6 h): visitors cannot use the owner-only /api/covers. */
   coverUrl: string | null
   mosaic: string[]
   durationSeconds: number
