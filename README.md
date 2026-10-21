@@ -137,7 +137,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make test` · `test-unit` · `test-nuxt` · `test-e2e` · `test-coverage` | Tests |
 | `make check` | lint + typecheck + test: quick checks before a commit |
 | `make ci` | Everything the CI runs (adds `db-lint`, `db-test`, `test-e2e`) |
-| `make merge` | `pnpm merge:main`: merge the current branch into `main` and clean up |
+| `make merge` · `make merge yes=1` | `pnpm merge:main`: merge the current branch into `main` and clean up · without the confirmation question (make cannot take `--yes`: it would read it as its own option) |
 | `make clean` · `make clean-all` | Remove builds and reports · also `node_modules` |
 
 ---
@@ -1013,7 +1013,7 @@ pnpm merge:main                    # or: make merge
 | GitHub has commits on the branch you don't have | Stops: pull first |
 | Your local `main` has unpushed commits | Stops |
 | Nothing new compared to `main` | Stops |
-| Ready | Shows the commits and the merge message, asks `[y/N]` (`--yes` skips the question) |
+| Ready | Shows the commits and the merge message, asks `[y/N]` (`pnpm merge:main --yes` or `make merge yes=1` skip the question) |
 | Confirmed | Updates `main`, merges with a merge commit (`--no-ff`), pushes `main` (production deploy on Vercel), deletes the branch on GitHub and locally, leaves you on `main` in sync |
 | Merge conflicts | The merge is aborted and you are back on your branch, unchanged: merge `main` into it, fix, push, run again |
 | Pushing `main` fails | The merge stays local and the branch is kept; run `git push` on `main` |
