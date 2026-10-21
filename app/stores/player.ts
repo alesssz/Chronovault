@@ -14,6 +14,15 @@ import { getErrorMessage } from '~/utils/errors'
  */
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
 
+/**
+ * Outcome of "Play next" / "Add to queue", for the toast:
+ * - `started`: nothing from the library was playing, so the track started;
+ * - `queued`: added (or moved) to the requested place;
+ * - `current`: it is the track already playing, nothing changed;
+ * - `already-queued`: "Add to queue" on a track already coming up, nothing changed.
+ */
+export type QueueResult = 'started' | 'queued' | 'current' | 'already-queued'
+
 /** A queued track: what the player bar shows while the full data loads. */
 export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
   & Partial<Pick<TrackSummary, 'genreId'>>
@@ -93,6 +102,8 @@ export const usePlayerStore = defineStore('player', () => {
   const playbackRate = ref(1)
   /** The full-screen view (PlayerExpanded) is open. */
   const expanded = ref(false)
+  /** The "Up next" panel (PlayerQueue) is open. */
+  const queueOpen = ref(false)
   const error = ref<string | null>(null)
   /** Key of the current source (see TrackSource): lets public pages know the player is theirs. */
   const sourceKey = ref(librarySource.key)
@@ -101,6 +112,10 @@ export const usePlayerStore = defineStore('player', () => {
   const isPlaying = computed(() => status.value === 'playing')
   const hasNext = computed(() => index.value < queue.value.length - 1)
   const hasPrevious = computed(() => index.value > 0)
+  /** Tracks after the current one, in play order. */
+  const upcoming = computed(() => (index.value >= 0 ? queue.value.slice(index.value + 1) : []))
+  /** Queue editing ("Play next", "Add to queue", the Up next panel) applies to library playback only. */
+  const queueEditable = computed(() => isActive.value && sourceKey.value === librarySource.key)
   const progress = computed(() => (duration.value > 0 ? Math.min(1, currentTime.value / duration.value) : 0))
 
   let engineRef: PlaybackEngine | null = null
@@ -370,6 +385,10 @@ export const usePlayerStore = defineStore('player', () => {
     expanded.value = value && isActive.value
   }
 
+  function setQueueOpen(value: boolean): void {
+    queueOpen.value = value && queueEditable.value
+  }
+
   /** Closes the player, clears the queue and drops the audio source. */
   function close(): void {
     loadToken++
@@ -381,6 +400,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime.value = 0
     duration.value = 0
     expanded.value = false
+    queueOpen.value = false
     error.value = null
     sourceExpiresAt = 0
     sourceRecovered = false
@@ -389,6 +409,86 @@ export const usePlayerStore = defineStore('player', () => {
       playbackRate.value = 1
       engineRef?.setPlaybackRate(1)
     }
+  }
+
+  // --- Editable queue ---------------------------------------------------------------
+  // The queue holds the tracks already played (before `index`), the current one
+  // and the upcoming ones (after `index`). A track appears at most once. Only
+  // upcoming tracks are edited; `index` is kept pointing at the current track.
+
+  /** True when queue editing applies: a library track is loaded (not a public page's player). */
+  function canEditQueue(): boolean {
+    return queueEditable.value && index.value >= 0
+  }
+
+  /** Removes `id` from the queue (unless current), keeping `index` on the current track. */
+  function detach(id: string): void {
+    const i = queue.value.findIndex(t => t.id === id)
+    if (i === -1 || i === index.value) return
+    queue.value = queue.value.filter((_, j) => j !== i)
+    if (i < index.value) index.value--
+  }
+
+  /** Puts `track` right after the current one (moving it there if it is already queued). */
+  async function playNext(track: QueueItem): Promise<QueueResult> {
+    if (!canEditQueue()) {
+      await playTrack(track)
+      return 'started'
+    }
+    if (queue.value[index.value]?.id === track.id) return 'current'
+    detach(track.id)
+    const updated = [...queue.value]
+    updated.splice(index.value + 1, 0, track)
+    queue.value = updated
+    return 'queued'
+  }
+
+  /**
+   * Appends `track` at the end of the queue. A track already coming up stays
+   * where it is; one already played is moved to the end.
+   */
+  async function addToQueue(track: QueueItem): Promise<QueueResult> {
+    if (!canEditQueue()) {
+      await playTrack(track)
+      return 'started'
+    }
+    const i = queue.value.findIndex(t => t.id === track.id)
+    if (i === index.value) return 'current'
+    if (i > index.value) return 'already-queued'
+    detach(track.id)
+    queue.value = [...queue.value, track]
+    return 'queued'
+  }
+
+  /** Moves an upcoming track from position `from` to `to` (absolute queue positions, both after the current track). */
+  function moveInQueue(from: number, to: number): void {
+    const last = queue.value.length - 1
+    if (from === to || from <= index.value || to <= index.value || from > last || to > last) return
+    const updated = [...queue.value]
+    const [item] = updated.splice(from, 1)
+    updated.splice(to, 0, item!)
+    queue.value = updated
+  }
+
+  /** Removes an upcoming track from the queue (the current one cannot be removed this way). */
+  function removeFromQueue(position: number): void {
+    if (position <= index.value || position >= queue.value.length) return
+    queue.value = queue.value.filter((_, j) => j !== position)
+  }
+
+  /** Drops every upcoming track: playback stops after the current one. */
+  function clearUpcoming(): void {
+    if (index.value < 0) return
+    queue.value = queue.value.slice(0, index.value + 1)
+  }
+
+  /** Jumps to a track of the queue and plays it. */
+  async function playFromQueue(position: number): Promise<void> {
+    if (position === index.value) {
+      await togglePlay()
+      return
+    }
+    if (queue.value[position]) await loadIndex(position, true)
   }
 
   /** Refreshes track data after an edit in the editor. */
@@ -416,12 +516,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     // state
-    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, error, sourceKey,
+    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, queueOpen, error, sourceKey,
     // derived
-    isActive, isPlaying, hasNext, hasPrevious, progress,
+    isActive, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
-    playTrack, cueShared, playSharedPlaylist, play, pause, togglePlay, stop, next, previous, seek,
-    setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, close, syncTrack, removeTrack,
+    playTrack, cueShared, playSharedPlaylist, play, pause,
+    playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, togglePlay, stop, next, previous, seek,
+    setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }
 })
 

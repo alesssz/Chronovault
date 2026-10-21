@@ -102,6 +102,15 @@ const track = computed(() => player.current ?? player.queue[player.index] ?? nul
 
       <div class="hidden items-center md:flex">
         <UButton
+          v-if="player.queueEditable"
+          icon="i-lucide-list-music"
+          color="neutral"
+          variant="ghost"
+          aria-label="Up next"
+          data-testid="player-queue"
+          @click="player.setQueueOpen(true)"
+        />
+        <UButton
           icon="i-lucide-maximize-2"
           color="neutral"
           variant="ghost"

@@ -41,6 +41,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Library** | Track list with cover, composers, duration, genre, mastering status, synced-lyrics and visibility badges. Search (title, composers, album), genre and mastering filters, sorting. Clicking a track's name plays it; clicking the name of the track already in the player opens the full-screen view. |
 | **Upload** | Drop several files at once (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, WebM; max 500 MB each). Title, composers, album, year, genre, lyrics and cover are read from the tags. **WAV files are converted to FLAC losslessly**, verified bit for bit ([7.4](#74-lossless-wav--flac-conversion)). Direct upload to storage with a progress bar, retried on network errors. |
 | **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, volume and mute (the volume is remembered). Lock-screen and media-key controls (Media Session). |
+| **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. |
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. |
 | **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import and export. All manual: no automatic alignment. |
@@ -256,11 +257,13 @@ ChronoPlayer/
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, base scale, room for the player bar
 │   ├── components/
 │   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue
-│   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerWaveform, PlayerControls, PlayerVolume
+│   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
+│   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
-│   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink
+│   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
+│   │                                 #   useQueueActions (Play next / Add to queue with toasts)
 │   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages)
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
@@ -280,7 +283,7 @@ ChronoPlayer/
 │   │   └── p/[id].vue                # Public playlist page (SSR)
 │   ├── plugins/media-session.client.ts
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
-│   ├── stores/player.ts              # Player store: queue, sources, expired-URL recovery
+│   ├── stores/player.ts              # Player store: editable queue, sources, expired-URL recovery
 │   └── utils/errors.ts               # Human-readable error messages
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
@@ -462,7 +465,26 @@ sequenceDiagram
 - **"Previous"** restarts the current track when more than 3 seconds have played, otherwise goes back one track.
 - **Media Session** (`plugins/media-session.client.ts`): title, artist, album and cover on the lock screen, with play/pause/next/previous/seek controls.
 
-### 7.6 Expired streaming URLs
+### 7.6 Editable queue
+
+The queue lives in the player store (`app/stores/player.ts`): the tracks already played, the current one (`index`) and the upcoming ones. Playing a track from a list makes that list the queue; from then on it can be edited.
+
+| Action | Where | Effect |
+|---|---|---|
+| **Play next** | Track menu (library, playlist page); "Play next" in the Up next panel | Puts the track right after the current one. A track already in the queue is moved there instead of duplicated |
+| **Add to queue** | Track menu | Appends the track. One already coming up stays where it is ("already in the queue"); one already played is moved to the end |
+| **Reorder** | Up next panel: drag handle, or Move up/down | Changes the order of the upcoming tracks |
+| **Remove** · **Clear** | Up next panel | Drops one upcoming track · all of them (playback stops after the current track) |
+| **Play now** | Up next panel: click a track | Jumps to it; the tracks skipped become "previous" |
+
+- A track appears **at most once** in the queue, and only upcoming tracks can be edited: the current track and the history stay put, and `index` always points at the current track.
+- When nothing from the library is playing, "Play next" and "Add to queue" simply start the track. A toast says what happened (`plays next`, `added to the queue`, `already playing`…).
+- "Next", the end of a track and the lock-screen controls all follow the edited order.
+- The panel (`PlayerQueue.vue` + `PlayerQueueList.vue`) mirrors the store: a drag moves the DOM through SortableJS, then the store receives the move, so the panel and the player never disagree.
+- Queue editing applies to library playback only; the public pages have their own fixed order.
+- The queue lives in memory: reloading the page or closing the player clears it.
+
+### 7.7 Expired streaming URLs
 
 Presigned URLs last 6 hours, and a paused track can sit for longer. The store recovers transparently:
 
@@ -472,7 +494,7 @@ Presigned URLs last 6 hours, and a paused track can sit for longer. The store re
 
 The playback speed survives reloads (`defaultPlaybackRate`), and the waveform follows since it is bound to the same element.
 
-### 7.7 Editing a track
+### 7.8 Editing a track
 
 1. `tracks/[id]/edit.vue` loads `GET /api/tracks/:id`. The form validates with the same Zod schema as the server (`trackMetadataSchema`).
 2. **Save** sends `PATCH /api/tracks/:id`. The mapper turns only the fields present into columns (`undefined` = unchanged, `null` = cleared); RLS guarantees the track is the user's. Leaving the page with unsaved changes asks for confirmation.
@@ -480,7 +502,7 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 4. **Cover:** the browser crops and converts the image, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }`. Removing it (`coverPath: null`) makes the server delete the file.
 5. The updated track is pushed to the player (`syncTrack`), so the bar, the queue and the full-screen view show the new title, cover and lyrics at once.
 
-### 7.8 Lyrics and sync
+### 7.9 Lyrics and sync
 
 - **Lyrics** (`lyrics`) are free text; a line in square brackets (`[Chorus]`) is a section header.
 - **Synced lyrics** (`lyrics_synced`) are a JSON array `[{ "time": 12.34, "text": "…" }]` sorted by time. Headers are kept as `{ "time": …, "text": "[Verse 1]", "section": true }` with the time of the line they introduce.
@@ -492,11 +514,11 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 - **LRC** import/export (`shared/utils/lyrics.ts`) keeps sections (`[00:10.00] [Verse 1]`, or an untimed `[Verse 1]` attached to the next timed line), supports several timestamps per line and `[offset:]`.
 - **While playing**, the active line is found with a binary search (`findActiveLineIndex`, never a header) and scrolled into view; scrolling by hand pauses auto-scroll for 4 seconds.
 
-### 7.9 Deleting a track
+### 7.10 Deleting a track
 
 `DELETE /api/tracks/:id`: the row is deleted first (so the track disappears even if storage is slow), the track leaves every playlist (database cascade), then the server removes the audio from R2 and the cover from Supabase Storage, best effort. The page drops it from the list and from the player queue, closing the player if it was playing.
 
-### 7.10 Playlists
+### 7.11 Playlists
 
 ```mermaid
 sequenceDiagram
@@ -521,7 +543,7 @@ sequenceDiagram
 - **Play all** queues the playlist's tracks in order in the normal player.
 - **Deleting** a playlist removes it and its custom cover; its tracks stay in the library.
 
-### 7.11 Sharing
+### 7.12 Sharing
 
 | Visibility | Who can listen | Share page |
 |---|---|---|
@@ -558,7 +580,7 @@ sequenceDiagram
 - **Revoking.** Making an item private closes its page immediately (the next request answers `404`); an audio URL already handed out keeps working until it expires, at most 6 hours.
 - **Leaving a public page** stops its music: it is the only place that controls it.
 
-### 7.12 Where each piece of data lives
+### 7.13 Where each piece of data lives
 
 | Data | Stored in | Who reads it |
 |---|---|---|
@@ -569,6 +591,7 @@ sequenceDiagram
 | Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`) | Anyone holding a presigned URL, issued by the server |
 | Covers | Supabase Storage `covers` (private) | Anyone holding a signed URL, issued under the storage policies |
 | Volume | Browser `localStorage` (`chronoplayer:volume`) | That browser only |
+| Play queue | Memory of the open page (player store) | That page only; lost on reload |
 | R2 credentials | Server environment only | The server |
 
 ---
@@ -825,11 +848,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing) with mocked repositories; the **R2 client** with a fake fetch; the **player store** with a fake engine (queue, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing) with mocked repositories; the **R2 client** with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -955,7 +978,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 ## 15. Known limitations and next steps
 
-- **Editable queue** (reorder, "play next").
+- **The queue is not saved:** it lives in memory, so a reload starts from an empty player.
 - **Manual cover cropping:** cropping is automatic (centered).
 - **Orphaned uploads:** if the browser closes after the audio reached R2 but before the track is registered, the file stays in the bucket. Rare and harmless; a periodic clean-up could remove files without a track.
 - **Cover URLs change on every load** (signed URLs), so the browser cannot cache covers across visits.
