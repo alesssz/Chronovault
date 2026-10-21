@@ -1,11 +1,15 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import type { SharedTrack, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
+import { trackCoverUrl } from './cover-urls'
 
 /**
  * Conversion between database rows (snake_case) and domain types (camelCase).
- * Pure functions: no network or database access. Signed cover URLs are
- * computed by the services and passed in.
+ * Pure functions: no network or database access.
+ *
+ * Cover URLs: the owner's library gets stable, versioned app addresses
+ * (/api/covers/..., see cover-urls.ts) that browsers cache; public pages get
+ * signed Storage URLs computed by the sharing service and passed in.
  *
  * Row types come from shared/types/database.types.ts, generated from the
  * schema with `pnpm db:types`.
@@ -25,8 +29,8 @@ export type TrackSummaryRow = Pick<TrackRow,
   | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'cover_path' | 'created_at' | 'updated_at'
 >
 
-/** Summary row → library item (camelCase), with the cover URL signed by the service. */
-export function toTrackSummary(row: TrackSummaryRow, coverUrl: string | null): TrackSummary {
+/** Summary row → library item (camelCase); the cover URL is the cacheable app address. */
+export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
   return {
     id: row.id,
     title: row.title,
@@ -40,16 +44,17 @@ export function toTrackSummary(row: TrackSummaryRow, coverUrl: string | null): T
     // Generated columns are typed as nullable by the generator; they never are.
     hasLyrics: row.has_lyrics ?? false,
     hasSyncedLyrics: row.has_synced_lyrics ?? false,
-    coverUrl,
+    // Stable, cacheable address (see cover-urls.ts); null when the track has no cover.
+    coverUrl: row.cover_path ? trackCoverUrl(row.id, row.updated_at) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
 /** Full row → owner's view (editor and player). */
-export function toTrackDetail(row: TrackRow, coverUrl: string | null): TrackDetail {
+export function toTrackDetail(row: TrackRow): TrackDetail {
   return {
-    ...toTrackSummary(row, coverUrl),
+    ...toTrackSummary(row),
     description: row.description,
     sunoPrompt: row.suno_prompt,
     lyrics: row.lyrics,

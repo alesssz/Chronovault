@@ -36,8 +36,9 @@ const row: TrackRow = {
 }
 
 describe('toTrackDetail', () => {
-  it('converts snake_case to camelCase and includes the signed cover', () => {
-    const detail = toTrackDetail(row, 'https://signed/cover')
+  it('converts snake_case to camelCase and includes the cacheable cover address', () => {
+    // Same row with a cover: the address is versioned by updated_at.
+    const detail = toTrackDetail({ ...row, cover_path: `${USER}/${TRACK}.webp` })
     expect(detail).toMatchObject({
       id: TRACK,
       title: 'Night',
@@ -48,7 +49,7 @@ describe('toTrackDetail', () => {
       hasSyncedLyrics: true,
       lyricsSynced: [{ time: 1, text: 'lyrics' }],
       peaks: [0.1, 1],
-      coverUrl: 'https://signed/cover',
+      coverUrl: `/api/covers/tracks/${TRACK}?v=${Date.parse(row.updated_at).toString(36)}`,
       audioPath: `${USER}/${TRACK}.mp3`,
     })
     expect(detail).not.toHaveProperty('user_id')

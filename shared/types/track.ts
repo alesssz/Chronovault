@@ -55,7 +55,10 @@ export interface TrackSummary {
   /** Generated columns: the library shows lyrics badges without loading the lyrics. */
   hasLyrics: boolean
   hasSyncedLyrics: boolean
-  /** Signed URL (6 h) of the cover, or null when the track has none. */
+  /**
+   * Cover address, or null when the track has none: /api/covers/tracks/:id?v=…
+   * (stable, cached by the browser for a year; `v` changes with the track).
+   */
   coverUrl: string | null
   /** ISO 8601 timestamps. */
   createdAt: string
@@ -102,6 +105,7 @@ export interface SharedTrackContent {
   lyricsSynced: SyncedLyricLine[] | null
   peaks: number[] | null
   durationSeconds: number | null
+  /** Signed Storage URL (6 h) of the cover: visitors have no session for /api/covers. */
   coverUrl: string | null
   updatedAt: string
 }

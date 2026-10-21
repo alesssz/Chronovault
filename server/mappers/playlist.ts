@@ -1,13 +1,15 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import { MOSAIC_SIZE, type PlaylistDetail, type PlaylistSummary, type SharedPlaylist } from '~~/shared/types/playlist'
-import type { SharedTrackContent, SyncedLyricLine, TrackSummary } from '~~/shared/types/track'
+import type { SharedTrackContent, SyncedLyricLine } from '~~/shared/types/track'
 import type { PlaylistCreate, PlaylistUpdate } from '~~/shared/schemas/playlist'
-import type { TrackSummaryRow } from './track'
+import { toTrackSummary, type TrackSummaryRow } from './track'
+import { playlistCoverUrl, trackCoverUrl } from './cover-urls'
 
 /**
  * Conversion between playlist rows (snake_case) and domain types (camelCase).
- * Pure functions: signed URLs are passed in by the services, as a lookup
- * function (`SignedUrls`) built from one bulk signing request.
+ * Pure functions. The owner's views use stable, cacheable cover addresses
+ * (cover-urls.ts); public pages use signed URLs, passed in by the sharing
+ * service as a lookup function (`SignedUrls`) built from one bulk request.
  *
  * Playlist covers: the custom cover when uploaded, plus a "mosaic" of the
  * first track covers that the UI shows when there is no custom cover.
@@ -16,23 +18,28 @@ import type { TrackSummaryRow } from './track'
 export type PlaylistRow = Tables<'playlists'>
 
 /** Track fields the playlist list needs (count, duration, mosaic). */
-export type PlaylistTrackStatsRow = Pick<TrackSummaryRow, 'cover_path' | 'duration_seconds' | 'visibility'>
+export type PlaylistTrackStatsRow = Pick<TrackSummaryRow, 'id' | 'cover_path' | 'duration_seconds' | 'visibility' | 'updated_at'>
 
-/** Looks up the signed URL of a storage path (null for no path, or a path that could not be signed). */
+/** Looks up the signed URL of a storage path (null for no path, or a path that could not be signed). Public pages only. */
 export type SignedUrls = (path: string | null) => string | null
 
 /**
- * Cover paths of the first tracks that have one, for the mosaic: at most
- * MOSAIC_SIZE, in playlist order, without repeats (two tracks may share a cover file).
+ * The first tracks that have a cover, for the mosaic: at most MOSAIC_SIZE,
+ * in playlist order, without repeating a cover file.
  */
-export function mosaicPaths(tracks: { cover_path: string | null }[]): string[] {
+export function mosaicTracks<T extends { cover_path: string | null }>(tracks: T[]): T[] {
   // Collected in playlist order, at most MOSAIC_SIZE.
-  const paths: string[] = []
-  for (const { cover_path } of tracks) {
-    if (cover_path && !paths.includes(cover_path)) paths.push(cover_path)
-    if (paths.length === MOSAIC_SIZE) break
+  const picked: T[] = []
+  for (const track of tracks) {
+    if (track.cover_path && !picked.some(p => p.cover_path === track.cover_path)) picked.push(track)
+    if (picked.length === MOSAIC_SIZE) break
   }
-  return paths
+  return picked
+}
+
+/** Cover paths of the mosaic tracks (public pages sign them; link previews use the first). */
+export function mosaicPaths(tracks: { cover_path: string | null }[]): string[] {
+  return mosaicTracks(tracks).map(t => t.cover_path!)
 }
 
 /** Sum of the durations; tracks without a measured duration count as 0. */
@@ -40,20 +47,24 @@ function totalDuration(tracks: { duration_seconds: number | null }[]): number {
   return tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0)
 }
 
-/** Mosaic paths → signed URLs, dropping covers that could not be signed. */
+/** Mosaic paths → signed URLs, dropping covers that could not be signed (public pages). */
 function signedMosaic(tracks: { cover_path: string | null }[], signed: SignedUrls): string[] {
   return mosaicPaths(tracks).flatMap(path => signed(path) ?? [])
 }
 
-/** Playlist card data. `tracks` must be in playlist order. */
-export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRow[], signed: SignedUrls): PlaylistSummary {
+/**
+ * Playlist card data, with stable cover addresses (custom cover and mosaic,
+ * see cover-urls.ts). `tracks` must be in playlist order.
+ */
+export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRow[]): PlaylistSummary {
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     visibility: row.visibility,
-    coverUrl: signed(row.cover_path),
-    mosaic: signedMosaic(tracks, signed),
+    coverUrl: row.cover_path ? playlistCoverUrl(row.id, row.updated_at) : null,
+    // The mosaic shows the covers of the tracks themselves.
+    mosaic: mosaicTracks(tracks).map(t => trackCoverUrl(t.id, t.updated_at)),
     trackCount: tracks.length,
     durationSeconds: totalDuration(tracks),
     createdAt: row.created_at,
@@ -61,20 +72,12 @@ export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRo
   }
 }
 
-/**
- * Playlist page data. `trackRows` (raw, for the stats) and `tracks`
- * (converted, with signed covers) must be in the same playlist order.
- */
-export function toPlaylistDetail(
-  row: PlaylistRow,
-  trackRows: TrackSummaryRow[],
-  tracks: TrackSummary[],
-  signed: SignedUrls,
-): PlaylistDetail {
+/** Playlist page data. `trackRows` must be in playlist order. */
+export function toPlaylistDetail(row: PlaylistRow, trackRows: TrackSummaryRow[]): PlaylistDetail {
   return {
-    ...toPlaylistSummary(row, trackRows, signed),
+    ...toPlaylistSummary(row, trackRows),
     coverPath: row.cover_path,
-    tracks,
+    tracks: trackRows.map(toTrackSummary),
     privateTrackCount: trackRows.filter(t => t.visibility === 'private').length,
   }
 }

@@ -5,22 +5,20 @@ import { MAX_PLAYLIST_TRACKS } from '~~/shared/schemas/playlist'
 import { COVERS_BUCKET, buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { notFound } from '../utils/errors'
-import { toTrackSummary } from '../mappers/track'
 import {
-  mosaicPaths,
   toPlaylistDetail,
   toPlaylistInsert,
   toPlaylistSummary,
   toPlaylistUpdate,
-  type SignedUrls,
 } from '../mappers/playlist'
 import * as playlistsRepo from '../repositories/playlists.repository'
 import * as storageRepo from '../repositories/storage.repository'
 
 /**
  * Playlist business logic: an ordered list of the user's own tracks.
- * Covers are signed in bulk: the custom cover plus the first track covers
- * (the automatic mosaic).
+ * Covers (the custom one, plus the first track covers for the automatic
+ * mosaic) are stable /api/covers addresses built by the mappers: nothing to
+ * sign, and the browser caches them across visits.
  *
  * Every mutation returns the fresh PlaylistDetail, so the client can replace
  * its copy with the server's (no second request).
@@ -28,22 +26,17 @@ import * as storageRepo from '../repositories/storage.repository'
 
 const playlistNotFound = () => notFound('Playlist not found')
 
-/** The user's playlists, newest first, with all covers signed in one request. */
+/** The user's playlists, newest first (cover addresses are stable: nothing to sign). */
 export async function listPlaylists(db: DbClient, userId: string): Promise<PlaylistSummary[]> {
   const rows = await playlistsRepo.listPlaylistRows(db, userId)
-  const ordered = rows.map(row => ({ row, tracks: playlistsRepo.orderedTracks(row.playlist_tracks) }))
-  const signed = await signCovers(db, ordered.flatMap(({ row, tracks }) => [row.cover_path, ...mosaicPaths(tracks)]))
-  return ordered.map(({ row, tracks }) => toPlaylistSummary(row, tracks, signed))
+  return rows.map(row => toPlaylistSummary(row, playlistsRepo.orderedTracks(row.playlist_tracks)))
 }
 
 /** One playlist with its tracks in order (404 when missing or not the user's). */
 export async function getPlaylist(db: DbClient, userId: string, id: string): Promise<PlaylistDetail> {
   const row = await playlistsRepo.findPlaylistRow(db, userId, id)
   if (!row) throw playlistNotFound()
-  const trackRows = playlistsRepo.orderedTracks(row.playlist_tracks)
-  const signed = await signCovers(db, [row.cover_path, ...trackRows.map(t => t.cover_path)])
-  const tracks = trackRows.map(t => toTrackSummary(t, signed(t.cover_path)))
-  return toPlaylistDetail(row, trackRows, tracks, signed)
+  return toPlaylistDetail(row, playlistsRepo.orderedTracks(row.playlist_tracks))
 }
 
 /**
@@ -104,12 +97,4 @@ export async function addPlaylistTracks(db: DbClient, userId: string, id: string
     await playlistsRepo.setPlaylistTrackIds(db, id, [...current, ...added])
   }
   return getPlaylist(db, userId, id)
-}
-
-/** Signs a set of cover paths in one request and returns a lookup function. */
-async function signCovers(db: DbClient, paths: (string | null)[]): Promise<SignedUrls> {
-  // Each path once, nulls dropped (tracks without covers).
-  const unique = [...new Set(paths.filter((p): p is string => !!p))]
-  const urls = await storageRepo.createSignedUrls(db, COVERS_BUCKET, unique)
-  return path => (path ? urls.get(path) ?? null : null)
 }

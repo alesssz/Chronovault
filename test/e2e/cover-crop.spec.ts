@@ -43,7 +43,7 @@ test.describe('cover cropping', () => {
 
     // The uploaded cover is entirely blue.
     const cover = page.getByRole('img', { name: `Cover of ${title}` }).first()
-    await expect(cover).toHaveAttribute('src', /\/storage\/v1\/object\/sign\/covers\//)
+    await expect(cover).toHaveAttribute('src', /^\/api\/covers\/tracks\/[0-9a-f-]+\?v=/)
     const pixels = await cover.evaluate(async (img: HTMLImageElement) => {
       const bitmap = await createImageBitmap(await (await fetch(img.src)).blob())
       const canvas = document.createElement('canvas')

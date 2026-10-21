@@ -5,7 +5,8 @@
  *
  * Only track ids are stored, never track data: on restore the ids are
  * matched against the user's current library, so deleted tracks drop out
- * and covers come with fresh signed URLs. The saved queue belongs to one
+ * and covers come with their current addresses (a cover changed since the
+ * queue was saved has a new versioned URL). The saved queue belongs to one
  * user: another account signing in on the same browser never sees it.
  */
 

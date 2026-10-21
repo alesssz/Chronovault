@@ -23,8 +23,6 @@ vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
   const original = await importOriginal<typeof storageRepo>()
   return {
     SIGNED_URL_TTL: original.SIGNED_URL_TTL,
-    createSignedUrl: vi.fn(),
-    createSignedUrls: vi.fn(),
     removeObjects: vi.fn(),
   }
 })
@@ -75,22 +73,20 @@ const createInput = {
 beforeEach(() => {
   vi.resetAllMocks()
   audio = fakeAudioStorage()
-  vi.mocked(storageRepo.createSignedUrl).mockResolvedValue('https://signed/cover')
-  vi.mocked(storageRepo.createSignedUrls).mockResolvedValue(new Map())
 })
 
 describe('listTracks', () => {
-  it('signs covers in bulk and attaches them to the tracks', async () => {
+  it('gives covers stable, versioned app addresses without signing anything', async () => {
     vi.mocked(tracksRepo.listTrackRows).mockResolvedValue([
       makeRow({ cover_path: COVER }),
       makeRow({ id: 'other', cover_path: null }),
     ])
-    vi.mocked(storageRepo.createSignedUrls).mockResolvedValue(new Map([[COVER, 'https://signed/cover']]))
 
     const result = await listTracks(db, USER)
 
-    expect(storageRepo.createSignedUrls).toHaveBeenCalledWith(db, 'covers', [COVER])
-    expect(result.map(t => t.coverUrl)).toEqual(['https://signed/cover', null])
+    // The version is updated_at in base 36: a new cover (new updated_at) means a new address.
+    const version = Date.parse('2026-10-18T10:00:00Z').toString(36)
+    expect(result.map(t => t.coverUrl)).toEqual([`/api/covers/tracks/${TRACK}?v=${version}`, null])
   })
 })
 

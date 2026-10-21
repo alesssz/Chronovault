@@ -39,6 +39,13 @@ export async function findTrackAudioPath(db: DbClient, userId: string, id: strin
   return data?.audio_path ?? null
 }
 
+/** Cover path of one of the user's tracks (null: no cover, or not the user's track). */
+export async function findTrackCoverPath(db: DbClient, userId: string, id: string): Promise<string | null> {
+  const { data, error } = await db.from('tracks').select('cover_path').eq('id', id).eq('user_id', userId).maybeSingle()
+  if (error) throw toHttpError(error, 'tracks.findCoverPath')
+  return data?.cover_path ?? null
+}
+
 /** Storage paths of every file the user's tracks use (storage clean-up). */
 export async function listTrackFilePaths(
   db: DbClient,

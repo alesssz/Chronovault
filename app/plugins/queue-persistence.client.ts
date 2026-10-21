@@ -71,7 +71,7 @@ export default defineNuxtPlugin(() => {
     if (!saved) return
     restoring = true
     try {
-      // Current library: drops deleted tracks, brings fresh cover URLs.
+      // Current library: drops deleted tracks, brings current cover addresses.
       const library = await tracksApi.list()
       // The user may have started something while the library loaded.
       if (player.isActive) return
