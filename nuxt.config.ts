@@ -50,7 +50,7 @@ export default defineNuxtConfig({
   },
 
   // A single copy of Pinia in the server bundle: otherwise the Pinia plugin and
-  // the stores get different copies, and server-rendered pages (/t/:id) fail
+  // the stores get different copies, and server-rendered pages (/t, /p) fail
   // with "no active Pinia".
   build: {
     transpile: ['pinia'],
@@ -58,10 +58,13 @@ export default defineNuxtConfig({
 
   routeRules: {
     // App pages are personal and use browser APIs (Web Audio, File):
-    // they are rendered on the client only. The public share page (/t/:id)
-    // is server-rendered, so link previews show the title and the cover.
+    // they are rendered on the client only. The public share pages (/t/:id
+    // for tracks, /p/:id for playlists) are server-rendered, so link previews
+    // show the title and the cover.
     '/': { ssr: false },
     '/tracks/**': { ssr: false },
+    '/playlists': { ssr: false },
+    '/playlists/**': { ssr: false },
     // The sign-in form must never be server-rendered: submitted before
     // hydration it would trigger a native GET submit (password in the URL).
     '/login': { ssr: false },
@@ -127,7 +130,7 @@ export default defineNuxtConfig({
       login: '/login',
       callback: '/confirm',
       // Public share pages: no sign-in needed.
-      exclude: ['/t/*'],
+      exclude: ['/t/*', '/p/*'],
       saveRedirectToCookie: true,
     },
     cookieOptions: {

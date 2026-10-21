@@ -60,7 +60,12 @@ export interface TrackDetail extends TrackSummary {
  * (the public share page). Never includes the Suno prompt, the mastering
  * status or storage paths.
  */
-export interface SharedTrack {
+export interface SharedTrack extends SharedTrackContent {
+  visibility: Exclude<TrackVisibility, 'private'>
+}
+
+/** Shareable fields of a track (also used for the tracks of a shared playlist). */
+export interface SharedTrackContent {
   id: string
   title: string
   composers: string | null
@@ -74,7 +79,6 @@ export interface SharedTrack {
   peaks: number[] | null
   durationSeconds: number | null
   coverUrl: string | null
-  visibility: Exclude<TrackVisibility, 'private'>
   updatedAt: string
 }
 

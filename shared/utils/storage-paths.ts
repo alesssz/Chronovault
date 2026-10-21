@@ -15,6 +15,11 @@ export function buildCoverPath(userId: string, trackId: string): string {
   return `${userId}/${trackId}.webp`
 }
 
+/** Custom playlist covers: `<userId>/playlists/<playlistId>.webp` (never mistaken for a track file). */
+export function buildPlaylistCoverPath(userId: string, playlistId: string): string {
+  return `${userId}/playlists/${playlistId}.webp`
+}
+
 /** True when the path is in the user's folder and refers to the given track. */
 export function isTrackPath(path: string, userId: string, trackId: string): boolean {
   const parts = path.split('/')

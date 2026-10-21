@@ -23,12 +23,15 @@ function onChange(event: Event) {
 <template>
   <div class="space-y-3">
     <div class="relative">
-      <TrackCover
-        :url="url"
-        :title="title"
-        rounded="rounded-lg"
-        class="w-full"
-      />
+      <!-- The preview can be replaced, e.g. by a playlist's mosaic. -->
+      <slot name="preview">
+        <TrackCover
+          :url="url"
+          :title="title"
+          rounded="rounded-lg"
+          class="w-full"
+        />
+      </slot>
       <div
         v-if="busy"
         class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50"

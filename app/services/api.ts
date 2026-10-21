@@ -1,5 +1,7 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
+import type { PlaylistDetail, PlaylistSummary, SharedPlaylist } from '~~/shared/types/playlist'
+import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas/playlist'
 
 /**
  * Typed client for the server API. The only place where the frontend
@@ -16,10 +18,27 @@ export const tracksApi = {
   playback: (id: string) => $fetch<PlaybackSource>(`/api/tracks/${id}/playback`),
 }
 
-/** Public endpoints of shared (unlisted/public) tracks: no sign-in needed. */
+export const playlistsApi = {
+  list: () => $fetch<PlaylistSummary[]>('/api/playlists'),
+  get: (id: string) => $fetch<PlaylistDetail>(`/api/playlists/${id}`),
+  create: (body: PlaylistCreateInput) => $fetch<PlaylistDetail>('/api/playlists', { method: 'POST', body }),
+  update: (id: string, body: PlaylistUpdateInput) => $fetch<PlaylistDetail>(`/api/playlists/${id}`, { method: 'PATCH', body }),
+  remove: (id: string) => $fetch<null>(`/api/playlists/${id}`, { method: 'DELETE' }),
+  /** Replaces the tracks, in order (reorder and remove). */
+  setTracks: (id: string, trackIds: string[]) =>
+    $fetch<PlaylistDetail>(`/api/playlists/${id}/tracks`, { method: 'PUT', body: { trackIds } }),
+  /** Appends tracks; those already in the playlist are skipped. */
+  addTracks: (id: string, trackIds: string[]) =>
+    $fetch<PlaylistDetail>(`/api/playlists/${id}/tracks`, { method: 'POST', body: { trackIds } }),
+}
+
+/** Public endpoints of shared (unlisted/public) tracks and playlists: no sign-in needed. */
 export const sharedApi = {
   get: (id: string) => $fetch<SharedTrack>(`/api/shared/${id}`),
   playback: (id: string) => $fetch<PlaybackSource>(`/api/shared/${id}/playback`),
+  playlist: (id: string) => $fetch<SharedPlaylist>(`/api/shared/playlists/${id}`),
+  playlistTrackPlayback: (playlistId: string, trackId: string) =>
+    $fetch<PlaybackSource>(`/api/shared/playlists/${playlistId}/tracks/${trackId}/playback`),
 }
 
 export const genresApi = {

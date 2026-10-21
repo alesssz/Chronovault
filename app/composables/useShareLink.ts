@@ -1,17 +1,22 @@
+export type ShareKind = 'track' | 'playlist'
+
+const SHARE_PREFIX: Record<ShareKind, string> = { track: '/t/', playlist: '/p/' }
+
 /**
- * Share links of unlisted/public tracks: `<site>/t/<track id>`.
- * Anyone with the link can open the public page, without an account.
+ * Share links of unlisted/public items: `<site>/t/<track id>` and
+ * `<site>/p/<playlist id>`. Anyone with the link can open the public page,
+ * without an account.
  */
 export function useShareLink() {
   const toast = useToast()
   const origin = useRequestURL().origin
 
-  function shareUrl(trackId: string): string {
-    return `${origin}/t/${trackId}`
+  function shareUrl(id: string, kind: ShareKind = 'track'): string {
+    return `${origin}${SHARE_PREFIX[kind]}${id}`
   }
 
-  async function copyShareLink(trackId: string): Promise<void> {
-    const url = shareUrl(trackId)
+  async function copyShareLink(id: string, kind: ShareKind = 'track'): Promise<void> {
+    const url = shareUrl(id, kind)
     try {
       await navigator.clipboard.writeText(url)
       toast.add({ title: 'Share link copied', description: url, icon: 'i-lucide-link', color: 'success' })

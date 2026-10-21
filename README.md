@@ -38,7 +38,8 @@ It works on desktop and smartphones and can be installed as a PWA.
 | **Expanded player** | Full-screen view with a large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls automatically, and clicking a line seeks there. |
 | **Editor** | Title, composers, album, year, genre (built-in + custom ones created on the fly), description, Suno prompt, mastered yes/no, visibility (private / unlisted / public), cover (cropped and converted to WebP), lyrics with sections (`[Verse]`, `[Chorus]`). |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> at the start of each line. Playback at 0.5× / 0.75× (pitch preserved), a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s adjustments (<kbd>←</kbd> <kbd>→</kbd>), undo, section headers kept, **LRC** import and export. |
-| **Sharing** | Unlisted and public tracks get a public page, `/t/<track id>`, that anyone with the link can open without an account: cover, title, composers, album, year, genre, description, lyrics (synced or plain) and a player with waveform. "Copy share link" in the track menu and on the edit page. The Suno prompt and the mastering status are never shared. Link previews (chat apps, social networks) show the title and the cover. |
+| **Playlists** | Ordered lists of your tracks: create them from the Playlists page or from a track's menu ("Add to playlist"), reorder by dragging (or with Move up/down), play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or one you upload. Same visibility as tracks (private / unlisted / public). |
+| **Sharing** | Unlisted and public tracks get a public page, `/t/<track id>`, that anyone with the link can open without an account: cover, title, composers, album, year, genre, description, lyrics (synced or plain) and a player with waveform. "Copy share link" in the track menu and on the edit page. The Suno prompt and the mastering status are never shared. Shared playlists get one too, `/p/<playlist id>`: the track list, a player that plays them in sequence, and the lyrics and description of the track being played. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews (chat apps, social networks) show the title and the cover. |
 | **PWA** | Installable on phones and desktop, with icons and a manifest. |
 
 **No AI.** The app uses no artificial-intelligence services, SDKs or models. The "Suno prompt" field is just a text field to note down the prompt used elsewhere.
@@ -129,8 +130,9 @@ ChronoPlayer/
 │   │   ├── AppHeader.vue, AppLogo.vue, ConfirmDialog.vue
 │   │   ├── player/               # PlayerBar, PlayerExpanded, PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/               # LyricsView (synced/plain), LyricsSyncEditor (tap to sync)
+│   │   ├── playlist/             # PlaylistCover (custom or mosaic), PlaylistCreateDialog
 │   │   └── track/                # TrackList, TrackCover, TrackCoverPicker
-│   ├── composables/              # useTrackUploader (upload queue), useGenres, useShareLink
+│   ├── composables/              # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink
 │   ├── layouts/                  # default (header + player), auth (sign-in), public (share page)
 │   ├── lib/                      # Browser code without Vue: audio-engine, audio-analysis,
 │   │   │                         #   direct-upload, image, media-session
@@ -139,14 +141,16 @@ ChronoPlayer/
 │   │   ├── index.vue             # Library
 │   │   ├── login.vue, confirm.vue
 │   │   ├── tracks/new.vue, tracks/[id]/edit.vue
-│   │   └── t/[id].vue            # Public share page (server-rendered)
+│   │   ├── playlists/index.vue, playlists/[id].vue
+│   │   ├── t/[id].vue            # Public track page (server-rendered)
+│   │   └── p/[id].vue            # Public playlist page (server-rendered)
 │   ├── plugins/media-session.client.ts
 │   ├── services/api.ts           # Typed API client
 │   ├── stores/player.ts          # Pinia player store
 │   └── utils/errors.ts
 ├── server/                       # Backend (Nitro)
 │   ├── api/                      # HTTP routes: authenticate, validate, call a service
-│   ├── services/                 # Business logic (tracks, genres, sharing)
+│   ├── services/                 # Business logic (tracks, genres, playlists, sharing)
 │   ├── repositories/             # Postgres and Storage queries
 │   ├── mappers/                  # DB rows ↔ domain types
 │   └── utils/                    # auth (requireAuth, visitorClient), validation (Zod), errors
@@ -315,6 +319,8 @@ sequenceDiagram
 - **Playback reuses the app's player store**, with the public API as its source: expired URLs are refreshed the same way as in the library.
 - **Making a track private again closes its page immediately**: the next request answers `404`; a URL already issued keeps working until it expires (at most 6 hours).
 
+**Shared playlists** (`/p/<playlist id>`) follow the same rules, with one difference: sharing a playlist shares everything in it. Its tracks can be listened to through the playlist even when they are private: `/api/shared/playlists/:id/tracks/:trackId/playback` only signs the audio of tracks that belong to that shared playlist, and such a track's own link (`/t/<id>`) still answers `404`. The editor warns how many private tracks a shared playlist includes.
+
 ---
 
 ## Lossless WAV → FLAC conversion
@@ -351,6 +357,9 @@ erDiagram
   AUTH_USERS ||--o{ TRACKS : owns
   AUTH_USERS ||--o{ GENRES : "creates (custom)"
   GENRES |o--o{ TRACKS : classifies
+  AUTH_USERS ||--o{ PLAYLISTS : owns
+  PLAYLISTS ||--o{ PLAYLIST_TRACKS : contains
+  TRACKS ||--o{ PLAYLIST_TRACKS : "appears in"
 
   TRACKS {
     uuid id PK
@@ -382,6 +391,21 @@ erDiagram
     uuid user_id FK "NULL = built-in"
     text name
   }
+  PLAYLISTS {
+    uuid id PK
+    uuid user_id FK
+    text title
+    text description
+    enum visibility "private | unlisted | public"
+    text cover_path "userId/playlists/playlistId.webp"
+    timestamptz created_at
+    timestamptz updated_at
+  }
+  PLAYLIST_TRACKS {
+    uuid playlist_id PK, FK
+    uuid track_id PK, FK
+    integer position
+  }
 ```
 
 **Migrations** (`supabase/migrations/`):
@@ -393,10 +417,12 @@ erDiagram
 | `…_storage.sql` | Private buckets `covers` (10 MB, images) and `audio` (only used locally, where Supabase's S3 endpoint stands in for R2), storage policies |
 | `…_grants.sql` | Explicit table privileges for the `anon` and `authenticated` roles |
 | `…_public_sharing.sql` | The `tracks` table becomes owner-only; `get_shared_track` returns the shareable fields only |
+| `…_playlists.sql` | `playlists` and `playlist_tracks` (owner-only), `set_playlist_tracks` (atomic reorder), `get_shared_playlist` / `get_shared_playlist_tracks`, storage policy extended to the files of shared playlists |
 
 **Security guarantees**, verified by the pgTAP tests:
 
 - A user reads, updates and deletes only their own tracks and genres. Other users' tracks (and anonymous visitors) are only reachable by id through `get_shared_track`, which never returns private tracks, the Suno prompt or the mastering status.
+- Playlists are owner-only too, and only the owner's own tracks can be put in them. A shared playlist exposes the shareable fields of all its tracks (private ones included) through `get_shared_playlist_tracks`; a private track inside it still has no page of its own.
 - Nobody can create tracks on behalf of someone else, or change the owner of a track.
 - Files can only be uploaded into one's own folder (`<user_id>/…`) and only read when they are one's own or belong to non-private tracks.
 - Buckets are private (Supabase covers and the R2 audio bucket): files are only reachable through expiring signed URLs, issued by the server after checking ownership. The R2 keys only live on the server.
@@ -423,6 +449,16 @@ Every route requires a valid session (cookie), otherwise it responds `401`, exce
 | `GET` | `/api/shared/:id` | Public: shareable data of an unlisted/public track (`404` for private ones) |
 | `GET` | `/api/shared/:id/playback` | Public: signed streaming URL of an unlisted/public track |
 | `GET` | `/api/shared/:id/cover` | Public: `302` to a fresh signed URL of the cover (used by link previews) |
+| `GET` | `/api/playlists` | The user's playlists (summaries, custom covers and mosaics) |
+| `POST` | `/api/playlists` | Creates a playlist, optionally with its first tracks → `201` |
+| `GET` | `/api/playlists/:id` | The playlist with its tracks, in order |
+| `PATCH` | `/api/playlists/:id` | Updates title, description, visibility or cover |
+| `DELETE` | `/api/playlists/:id` | Deletes the playlist (its tracks stay in the library) → `204` |
+| `PUT` | `/api/playlists/:id/tracks` | Replaces the tracks, in order (reorder and remove) |
+| `POST` | `/api/playlists/:id/tracks` | Appends tracks (those already in it are skipped) |
+| `GET` | `/api/shared/playlists/:id` | Public: an unlisted/public playlist with the shareable fields of all its tracks |
+| `GET` | `/api/shared/playlists/:id/tracks/:trackId/playback` | Public: signed streaming URL of a track, only if it belongs to the shared playlist |
+| `GET` | `/api/shared/playlists/:id/cover` | Public: `302` to the custom cover, or the first track cover |
 
 Response types live in `shared/types/track.ts`, request bodies in `shared/schemas/track.ts`.
 
@@ -563,9 +599,9 @@ Locally they are all generated with `make env` (or by `pnpm local` / `pnpm docke
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
 | Unit | Vitest (Node) | `test/unit/` | LRC parser and serializer, active-line lookup, peaks, paths, formats, Zod schemas, mappers, **backend services** (with mocked repositories), **player store** (with a fake audio engine: queue, previous/next, race conditions, errors), **WAV → FLAC**: real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked with a second, independent FLAC decoder, MD5 against Node's crypto, and detection of a corrupted stream |
-| Components | Vitest + `@nuxt/test-utils` | `test/nuxt/` | `LyricsView` (active line, seek, sections), `TrackCover`, `TrackList` |
+| Components | Vitest + `@nuxt/test-utils` | `test/nuxt/` | `LyricsView` (active line, seek, sections), `TrackCover`, `TrackList`, `PlaylistCover` (custom cover, mosaic) |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS policies across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing (fields never exposed), storage policies |
-| End-to-end | Playwright | `test/e2e/` | Sign-in, sign-up, sign-out, protected pages, real upload of a 24-bit WAV (the file **downloaded back from storage** must be a FLAC decoding to exactly the original samples), floating-point WAV kept unchanged, playback, editing, cover, LRC import, expanded player, deletion, **sharing** (the page opens without an account, never shows the Suno prompt or the mastering status, and answers `404` once the track is private again) |
+| End-to-end | Playwright | `test/e2e/` | Sign-in, sign-up, sign-out, protected pages, real upload of a 24-bit WAV (the file **downloaded back from storage** must be a FLAC decoding to exactly the original samples), floating-point WAV kept unchanged, playback, editing, cover, LRC import, expanded player, deletion, **sharing** (the page opens without an account, never shows the Suno prompt or the mastering status, and answers `404` once the track is private again), **playlists** (create from a track's menu, add, reorder and reload, play all, share: the visitor plays private tracks inside the playlist but cannot open them on their own) |
 
 ```bash
 make test        # unit + components (seconds)
@@ -650,7 +686,7 @@ For later migrations: `make db-migration name=…` → write the SQL → `make d
 
 ## Known limitations and next steps
 
-- **Playlists and an editable queue** (reordering, "play next").
+- **An editable queue** (reordering, "play next").
 - **Manual cover cropping**: cropping is currently automatic (centered).
 - **Orphaned uploads**: if the browser is closed after the audio reached R2 but before the track is registered, the file stays in the bucket. It is rare and harmless, but a periodic clean-up job could remove files without a track.
 - **Cover signed URLs**: they change every time the library loads, so the browser cannot cache them. Options: a public bucket for covers of public tracks, or longer-lived, memoized URLs.

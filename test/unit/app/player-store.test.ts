@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { setAudioEngine, type AudioEngineEvents, type PlaybackEngine } from '~/lib/audio-engine'
 import { sharedApi, tracksApi } from '~/services/api'
 import { usePlayerStore } from '~/stores/player'
 
 vi.mock('~/services/api', () => ({
   tracksApi: { get: vi.fn(), playback: vi.fn() },
-  sharedApi: { get: vi.fn(), playback: vi.fn() },
+  sharedApi: { get: vi.fn(), playback: vi.fn(), playlist: vi.fn(), playlistTrackPlayback: vi.fn() },
   genresApi: {},
 }))
 
@@ -99,6 +100,10 @@ beforeEach(() => {
   }))
   vi.mocked(sharedApi.playback).mockImplementation(async id => ({
     url: `https://shared-audio/${id}`,
+    expiresAt: new Date(Date.now() + SIX_HOURS).toISOString(),
+  }))
+  vi.mocked(sharedApi.playlistTrackPlayback).mockImplementation(async (playlistId, id) => ({
+    url: `https://playlist-audio/${playlistId}/${id}`,
     expiresAt: new Date(Date.now() + SIX_HOURS).toISOString(),
   }))
 })
@@ -423,6 +428,56 @@ describe('expired or refused audio sources', () => {
 
       expect(engine.load).toHaveBeenLastCalledWith('https://audio/a')
       expect(tracksApi.get).toHaveBeenCalledWith('a')
+    })
+  })
+
+  describe('shared playlists (public page)', () => {
+    function sharedTrack(id: string) {
+      return {
+        id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
+        lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
+      }
+    }
+    const playlist: SharedPlaylist = {
+      id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
+      durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedTrack),
+    }
+
+    it('cues the first track through the playlist, without playing', async () => {
+      const player = usePlayerStore()
+      await player.playSharedPlaylist(playlist, 0, false)
+
+      expect(engine.load).toHaveBeenCalledWith('https://playlist-audio/p/x')
+      expect(engine.play).not.toHaveBeenCalled()
+      expect(player.sourceKey).toBe('playlist:p')
+      expect(player.status).toBe('paused')
+      expect(tracksApi.get).not.toHaveBeenCalled()
+    })
+
+    it('plays a chosen track and moves on through the playlist', async () => {
+      const player = usePlayerStore()
+      await player.playSharedPlaylist(playlist, 1)
+      expect(player.current?.id).toBe('y')
+      expect(player.status).toBe('playing')
+
+      engine.emit('ended')
+      await vi.waitFor(() => expect(player.current?.id).toBe('z'))
+      expect(engine.load).toHaveBeenLastCalledWith('https://playlist-audio/p/z')
+    })
+
+    it('choosing the track already loaded toggles play/pause', async () => {
+      const player = usePlayerStore()
+      await player.playSharedPlaylist(playlist, 0)
+      await player.playSharedPlaylist(playlist, 0)
+      expect(player.status).toBe('paused')
+      expect(engine.load).toHaveBeenCalledTimes(1)
+    })
+
+    it('closing the player goes back to the library source', async () => {
+      const player = usePlayerStore()
+      await player.playSharedPlaylist(playlist, 0)
+      player.close()
+      expect(player.sourceKey).toBe('library')
     })
   })
 })

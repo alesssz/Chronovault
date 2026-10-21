@@ -16,5 +16,6 @@ const player = usePlayerStore()
     <!-- In the layout, not in pages: this way playback survives navigation. -->
     <PlayerBar v-if="player.isActive" />
     <PlayerExpanded />
+    <PlaylistCreateDialog />
   </div>
 </template>

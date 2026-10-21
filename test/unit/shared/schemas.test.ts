@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
+import { playlistCreateSchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
 
 const validMetadata = {
   title: '  Night  ',
@@ -77,5 +78,25 @@ describe('trackUpdateSchema', () => {
 
   it('rejects an empty body', () => {
     expect(trackUpdateSchema.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('playlist schemas', () => {
+  const A = 'a1111111-1111-4111-8111-111111111111'
+  const B = 'a2222222-2222-4222-8222-222222222222'
+
+  it('accepts an ordered list of distinct track ids', () => {
+    expect(playlistTracksSchema.parse({ trackIds: [B, A] }).trackIds).toEqual([B, A])
+  })
+
+  it('rejects a track listed twice and ids that are not UUIDs', () => {
+    expect(playlistTracksSchema.safeParse({ trackIds: [A, A] }).success).toBe(false)
+    expect(playlistTracksSchema.safeParse({ trackIds: ['nope'] }).success).toBe(false)
+  })
+
+  it('a new playlist needs a title; empty descriptions become null', () => {
+    expect(playlistCreateSchema.safeParse({ title: '  ' }).success).toBe(false)
+    expect(playlistUpdateSchema.parse({ description: '' })).toEqual({ description: null })
+    expect(playlistUpdateSchema.safeParse({}).success).toBe(false)
   })
 })

@@ -37,6 +37,46 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"playlist_tracks": {
+                  Row: {
+                    "playlist_id": string,"position": number,"track_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "playlist_id": string,"position": number,"track_id": string
+                  }
+                  Update: {
+                    "playlist_id"?: string,"position"?: number,"track_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "playlist_tracks_playlist_id_fkey"
+      columns: ["playlist_id"]
+isOneToOne: false
+      referencedRelation: "playlists"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "playlist_tracks_track_id_fkey"
+      columns: ["track_id"]
+isOneToOne: false
+      referencedRelation: "tracks"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"playlists": {
+                  Row: {
+                    "cover_path": string | null,"created_at": string,"description": string | null,"id": string,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
+                  }
+                  Update: {
+                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"tracks": {
                   Row: {
                     "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
@@ -63,13 +103,29 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "get_shared_track":
+            "get_shared_playlist":
+{ Args: { "p_playlist_id": string }; Returns: {
+              "cover_path": string,"description": string,"id": string,"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"]
+            }[]
+                           },
+"get_shared_playlist_tracks":
+{ Args: { "p_playlist_id": string }; Returns: {
+              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"position": number,"title": string,"updated_at": string,"year": number
+            }[]
+                           },
+"get_shared_track":
 { Args: { "p_track_id": string }; Returns: {
               "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
             }[]
                            },
 "is_shared_track_file":
 { Args: { "p_bucket": string,"p_path": string }; Returns: boolean
+                           },
+"owns_playlist":
+{ Args: { "p_playlist_id": string }; Returns: boolean
+                           },
+"set_playlist_tracks":
+{ Args: { "p_playlist_id": string,"p_track_ids": (string)[] }; Returns: undefined
                            }
           }
           Enums: {

@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const player = usePlayerStore()
 const { copyShareLink } = useShareLink()
+const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
 
 const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
   private: { icon: 'i-lucide-lock', label: 'Private' },
@@ -37,7 +38,21 @@ function onTitleClick(track: TrackSummary) {
 
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
-    [{ label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` }],
+    [
+      { label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
+      {
+        label: 'Add to playlist',
+        icon: 'i-lucide-list-plus',
+        children: [
+          [{ label: 'New playlist…', icon: 'i-lucide-plus', onSelect: () => openCreateDialog([track.id]) }],
+          playlists.value.map(playlist => ({
+            label: playlist.title,
+            icon: 'i-lucide-list-music',
+            onSelect: () => void addToPlaylist(playlist, [track.id]),
+          })),
+        ].filter(group => group.length > 0),
+      },
+    ],
     // Private tracks have no public page.
     ...(track.visibility === 'private'
       ? []

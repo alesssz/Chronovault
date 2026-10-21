@@ -16,6 +16,12 @@ async function logout() {
   await navigateTo('/login')
 }
 
+const route = useRoute()
+const sections = [
+  { label: 'Library', to: '/', icon: 'i-lucide-library', active: () => route.path === '/' || route.path.startsWith('/tracks') },
+  { label: 'Playlists', to: '/playlists', icon: 'i-lucide-list-music', active: () => route.path.startsWith('/playlists') },
+]
+
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
   [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout }],
@@ -25,12 +31,34 @@ const menu = computed<DropdownMenuItem[][]>(() => [
 <template>
   <header class="sticky top-0 z-30 border-b border-default bg-default/80 backdrop-blur">
     <UContainer class="flex h-14 items-center justify-between gap-3">
-      <NuxtLink
-        to="/"
-        aria-label="Library"
-      >
-        <AppLogo />
-      </NuxtLink>
+      <div class="flex min-w-0 items-center gap-1 sm:gap-4">
+        <NuxtLink
+          to="/"
+          aria-label="ChronoPlayer home"
+        >
+          <AppLogo compact />
+        </NuxtLink>
+
+        <nav
+          class="flex items-center gap-1"
+          aria-label="Sections"
+        >
+          <UButton
+            v-for="link in sections"
+            :key="link.to"
+            :to="link.to"
+            :icon="link.icon"
+            :aria-label="link.label"
+            color="neutral"
+            variant="ghost"
+            active-color="primary"
+            active-variant="soft"
+            :active="link.active()"
+          >
+            <span class="hidden sm:inline">{{ link.label }}</span>
+          </UButton>
+        </nav>
+      </div>
 
       <div class="flex items-center gap-1">
         <UButton

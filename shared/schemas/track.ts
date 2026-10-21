@@ -9,10 +9,10 @@ import { PEAKS_RESOLUTION } from '../utils/peaks'
  */
 
 /** Optional text: empty string → null. */
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z.string().trim().max(max, `At most ${max} characters`).transform(v => (v === '' ? null : v)).nullable()
 
-const storagePath = z.string().min(3).max(300)
+export const storagePath = z.string().min(3).max(300)
 
 export const syncedLyricLineSchema = z.object({
   time: z.number().min(0).max(86_400),

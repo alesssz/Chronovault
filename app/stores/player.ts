@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
@@ -16,16 +17,31 @@ export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced
 
 /** Where the player gets track data and streaming URLs from. */
 export interface TrackSource {
+  /** Identifies the source: 'library', 'track:<id>' or 'playlist:<id>'. */
+  key: string
   get: (id: string) => Promise<PlayerTrack>
   playback: (id: string) => Promise<PlaybackSource>
 }
 
 /** The user's own library (sign-in required). */
-const librarySource: TrackSource = { get: tracksApi.get, playback: tracksApi.playback }
+const librarySource: TrackSource = { key: 'library', get: tracksApi.get, playback: tracksApi.playback }
 
 /** A track shared by link: its data is already known, audio URLs come from the public API. */
-function sharedSource(track: SharedTrack): TrackSource {
-  return { get: async () => track, playback: sharedApi.playback }
+function sharedTrackSource(track: SharedTrack): TrackSource {
+  return { key: `track:${track.id}`, get: async () => track, playback: sharedApi.playback }
+}
+
+/** A shared playlist: track data is already known, audio URLs are signed through the playlist. */
+function sharedPlaylistSource(playlist: SharedPlaylist): TrackSource {
+  return {
+    key: `playlist:${playlist.id}`,
+    get: async (id) => {
+      const track = playlist.tracks.find(t => t.id === id)
+      if (!track) throw new Error('Track not found in the playlist')
+      return track
+    },
+    playback: id => sharedApi.playlistTrackPlayback(playlist.id, id),
+  }
 }
 
 /** Past this point "previous" restarts the track instead of going back. */
@@ -60,6 +76,8 @@ export const usePlayerStore = defineStore('player', () => {
   const playbackRate = ref(1)
   const expanded = ref(false)
   const error = ref<string | null>(null)
+  /** Key of the current source (see TrackSource): lets public pages know the player is theirs. */
+  const sourceKey = ref(librarySource.key)
 
   const isActive = computed(() => status.value !== 'idle')
   const isPlaying = computed(() => status.value === 'playing')
@@ -211,18 +229,41 @@ export const usePlayerStore = defineStore('player', () => {
       await togglePlay()
       return
     }
-    source = librarySource
+    setSource(librarySource)
     queue.value = [...context]
     const i = queue.value.findIndex(t => t.id === track.id)
     if (i === -1) queue.value = [track, ...queue.value]
     await loadIndex(Math.max(0, i), true)
   }
 
+  function setSource(next: TrackSource): void {
+    source = next
+    sourceKey.value = next.key
+  }
+
   /** Loads a track shared by link without starting it (public share page). */
   async function cueShared(track: SharedTrack): Promise<void> {
-    source = sharedSource(track)
+    setSource(sharedTrackSource(track))
     queue.value = [track]
     await loadIndex(0, false)
+  }
+
+  /**
+   * Plays a shared playlist from `index` (public playlist page); with
+   * `autoplay: false` the track is only loaded. On the track already loaded
+   * it toggles play/pause instead.
+   */
+  async function playSharedPlaylist(playlist: SharedPlaylist, index = 0, autoplay = true): Promise<void> {
+    const key = sharedPlaylistSource(playlist).key
+    const track = playlist.tracks[index]
+    if (!track) return
+    if (sourceKey.value === key && current.value?.id === track.id && status.value !== 'error') {
+      if (autoplay) await togglePlay()
+      return
+    }
+    setSource(sharedPlaylistSource(playlist))
+    queue.value = [...playlist.tracks]
+    await loadIndex(index, autoplay)
   }
 
   async function play(): Promise<void> {
@@ -325,7 +366,7 @@ export const usePlayerStore = defineStore('player', () => {
     error.value = null
     sourceExpiresAt = 0
     sourceRecovered = false
-    source = librarySource
+    setSource(librarySource)
     if (playbackRate.value !== 1) {
       playbackRate.value = 1
       engineRef?.setPlaybackRate(1)
@@ -357,11 +398,11 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     // state
-    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, error,
+    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, error, sourceKey,
     // derived
     isActive, isPlaying, hasNext, hasPrevious, progress,
     // commands
-    playTrack, cueShared, play, pause, togglePlay, stop, next, previous, seek,
+    playTrack, cueShared, playSharedPlaylist, play, pause, togglePlay, stop, next, previous, seek,
     setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, close, syncTrack, removeTrack,
   }
 })

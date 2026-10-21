@@ -78,11 +78,11 @@ function onLyricSeek(seconds: number) {
   <UContainer class="py-6 sm:py-10">
     <div
       v-if="track"
-      class="mx-auto grid gap-8"
-      :class="hasLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-12' : 'max-w-md'"
+      class="mx-auto grid grid-cols-[minmax(0,1fr)] gap-8"
+      :class="hasLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
       data-testid="shared-track"
     >
-      <section class="flex flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
+      <section class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <TrackCover
           :url="track.coverUrl"
           :title="track.title"

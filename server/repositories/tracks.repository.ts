@@ -6,7 +6,7 @@ import { TRACK_SUMMARY_COLUMNS, type TrackRow, type TrackSummaryRow } from '../m
 /**
  * Access to the `tracks` table. RLS already limits every user to their own
  * rows; every query also filters on `user_id` as a second line of defense.
- * Other people's tracks are only reachable through shared-tracks.repository.
+ * Other people's tracks are only reachable through sharing.repository.
  */
 
 export async function listTrackRows(db: DbClient, userId: string): Promise<TrackSummaryRow[]> {

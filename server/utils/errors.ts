@@ -16,6 +16,7 @@ export function toHttpError(error: DbError, context: string) {
     '23514': { statusCode: 400, message: 'Invalid data' },
     '22P02': { statusCode: 400, message: 'Invalid data' },
     '42501': { statusCode: 403, message: 'Operation not allowed' },
+    'P0002': { statusCode: 404, message: 'Item not found' },
     'PGRST116': { statusCode: 404, message: 'Item not found' },
   }
   const mapped = error.code ? byCode[error.code] : undefined
