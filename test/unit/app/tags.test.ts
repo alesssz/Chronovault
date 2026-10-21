@@ -4,13 +4,14 @@
  * parser, the one players-like tools use) and the audio part is checked to
  * be byte-identical to the original. Also file names and format detection.
  */
-import { parseBuffer } from 'music-metadata'
+import { parseBuffer, TimestampFormat, type ILyricsTag } from 'music-metadata'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { encodeWavToFlac, type FlacLib } from '~/lib/flac/encoder'
 import { parseWav } from '~/lib/flac/wav'
 import { readFlacBlocks, writeFlacTags } from '~/lib/tags/flac-tags'
 import { writeMp3Tags } from '~/lib/tags/id3-tags'
-import { downloadFileName, tagFormatOf, type TrackTags } from '~/lib/tags/track-tags'
+import { downloadFileName, lrcFileName, tagFormatOf, type TrackTags } from '~/lib/tags/track-tags'
+import { lyricsFromTags } from '~/lib/audio-analysis'
 import { readWavChunks, writeWavTags } from '~/lib/tags/wav-tags'
 import { buildWav, testSignal } from './wav-fixtures'
 
@@ -26,8 +27,19 @@ const tags: TrackTags = {
   genre: 'Ambient',
   comment: 'Written on a rainy night.',
   lyrics: '[Verse 1]\nFirst line\nSecond line',
+  lyricsSynced: null,
   cover: { data: FAKE_JPEG, mimeType: 'image/jpeg', width: 800, height: 800 },
 }
+
+/** Synced lyrics as the sync editor stores them: the header takes its line's time. */
+const SYNCED = [
+  { time: 1.5, text: '[Verse 1]', section: true },
+  { time: 1.5, text: 'First line' },
+  { time: 63.25, text: 'Second line' },
+]
+
+/** Plain lyrics with a blank line between stanzas: kept apart from the synced ones. */
+const PLAIN = '[Verse 1]\nFirst line\n\nSecond line'
 
 /** libFLAC (asm.js build, runs in Node), to make real FLAC files. */
 let Flac: FlacLib
@@ -212,5 +224,63 @@ describe('downloadFileName', () => {
   it('keeps names short', () => {
     const name = downloadFileName({ title: 'x'.repeat(400), composers: null, audioPath: path })
     expect(name).toBe(`${'x'.repeat(150)}.flac`)
+  })
+})
+
+describe('synced lyrics in downloaded files', () => {
+  it('FLAC: LRC in LYRICS and the plain text in UNSYNCEDLYRICS, both read back on upload', async () => {
+    const tagged = writeFlacTags(await makeFlac(), { ...tags, lyrics: PLAIN, lyricsSynced: SYNCED })
+    const { common } = await parseBuffer(tagged, { mimeType: 'audio/flac' })
+
+    expect(lyricsFromTags(common.lyrics)).toEqual({ lyrics: PLAIN, lyricsSynced: SYNCED })
+  })
+
+  it('MP3: an SYLT frame next to the plain USLT lyrics, both read back on upload', async () => {
+    const tagged = writeMp3Tags(makeMp3().file, { ...tags, lyrics: PLAIN, lyricsSynced: SYNCED })
+    const { common } = await parseBuffer(tagged, { mimeType: 'audio/mpeg' })
+
+    expect(lyricsFromTags(common.lyrics)).toEqual({ lyrics: PLAIN, lyricsSynced: SYNCED })
+  })
+
+  it('without synced lyrics, LYRICS is the plain text and nothing synced comes back', async () => {
+    const tagged = writeFlacTags(await makeFlac(), tags)
+    const { common } = await parseBuffer(tagged, { mimeType: 'audio/flac' })
+
+    expect(lyricsFromTags(common.lyrics)).toEqual({ lyrics: tags.lyrics, lyricsSynced: null })
+  })
+})
+
+describe('lyricsFromTags', () => {
+  /** A synced lyrics tag as music-metadata returns it (times in ms). */
+  function syncedTag(lines: [string, number][]): ILyricsTag {
+    return {
+      contentType: 1,
+      timeStampFormat: TimestampFormat.milliseconds,
+      syncText: lines.map(([text, timestamp]) => ({ text, timestamp })),
+    } as ILyricsTag
+  }
+
+  it('uses the synced text as plain lyrics when there is no plain tag', () => {
+    expect(lyricsFromTags([syncedTag([['Only line', 2000]])])).toEqual({
+      lyrics: 'Only line',
+      lyricsSynced: [{ time: 2, text: 'Only line' }],
+    })
+  })
+
+  it('drops a sync the API would refuse instead of failing the upload', () => {
+    const result = lyricsFromTags([syncedTag([['x'.repeat(501), 0]])])
+    expect(result.lyricsSynced).toBeNull()
+    expect(result.lyrics).toBe('x'.repeat(501))
+  })
+
+  it('finds nothing in a file without lyrics', () => {
+    expect(lyricsFromTags(undefined)).toEqual({ lyrics: null, lyricsSynced: null })
+  })
+})
+
+describe('lrcFileName', () => {
+  it('names an exported LRC like the audio download', () => {
+    expect(lrcFileName({ title: 'Night', composers: 'Ada' })).toBe('Ada - Night.lrc')
+    expect(lrcFileName({ title: 'A/B?', composers: null })).toBe('A_B_.lrc')
   })
 })

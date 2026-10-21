@@ -10,11 +10,15 @@
  *   MP3  → ID3v2.3                           (id3-tags.ts)
  *   WAV  → RIFF LIST/INFO (text fields only) (wav-tags.ts)
  *
+ * Synced lyrics travel too (FLAC: LRC text in LYRICS; MP3: an SYLT frame),
+ * and the upload reads them back (lib/audio-analysis.ts): downloading a
+ * track from one ChronoPlayer and uploading it to another carries the sync.
+ *
  * Other formats (OGG/Opus, M4A/AAC, WebM) are downloaded as stored. Only the
  * tags change: the audio data is copied byte for byte. The Suno prompt and
  * the mastering status are personal notes and are never written.
  */
-import type { TrackDetail } from '~~/shared/types/track'
+import type { SyncedLyricLine, TrackDetail } from '~~/shared/types/track'
 import { getExtension } from '~~/shared/utils/audio-files'
 import { writeFlacTags } from './flac-tags'
 import { writeMp3Tags } from './id3-tags'
@@ -40,6 +44,8 @@ export interface TrackTags {
   comment: string | null
   /** Plain lyrics, section headers included. */
   lyrics: string | null
+  /** Synced lyrics (headers included), sorted by time; null or empty = none. */
+  lyricsSynced: SyncedLyricLine[] | null
   cover: CoverImage | null
 }
 
@@ -75,6 +81,7 @@ export function tagsFromTrack(track: TrackDetail, genre: string | null, cover: C
     genre,
     comment: track.description,
     lyrics: track.lyrics,
+    lyricsSynced: track.lyricsSynced,
     cover,
   }
 }
@@ -102,7 +109,16 @@ const UNSAFE_FILE_CHARS = /[<>:"/\\|?*\u0000-\u001F]/g
  * before the extension. The extension is the stored file's.
  */
 export function downloadFileName(track: Pick<TrackDetail, 'title' | 'composers' | 'audioPath'>): string {
-  const extension = getExtension(track.audioPath) || 'audio'
+  return `${safeBaseName(track)}.${getExtension(track.audioPath) || 'audio'}`
+}
+
+/** Name of an exported LRC file: "Composers - Title.lrc", like the audio download. */
+export function lrcFileName(track: Pick<TrackDetail, 'title' | 'composers'>): string {
+  return `${safeBaseName(track)}.lrc`
+}
+
+/** "Composers - Title" (or "Title") made safe for every file system; "track" if nothing is left. */
+function safeBaseName(track: Pick<TrackDetail, 'title' | 'composers'>): string {
   // "Composers - Title", or just the title.
   const base = [track.composers, track.title].filter(Boolean).join(' - ')
   const safe = base
@@ -113,5 +129,5 @@ export function downloadFileName(track: Pick<TrackDetail, 'title' | 'composers' 
     .trim()
     // Windows refuses names ending with a dot or a space.
     .replace(/[. ]+$/, '')
-  return `${safe || 'track'}.${extension}`
+  return safe || 'track'
 }
