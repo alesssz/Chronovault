@@ -48,6 +48,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Playlists** | Ordered lists of your tracks. Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
 | **Download** | "Download" in the track menus and on the edit page saves the audio file **with its metadata written in**: title, composers (as artist and composer), album, year, genre, description (as comment), lyrics and cover. FLAC and MP3 get every field; WAV the text fields; other formats are saved as stored. The audio itself is untouched, and the Suno prompt and mastering status are never written. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages. The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
+| **Statistics** | Account menu → Statistics: how many times your **share links** (`/t/…`, `/p/…`) were opened in the last 7 or 30 days, per day and per track or playlist, with where visitors came from (WhatsApp, Instagram…), their country and device. Real data from **Vercel Web Analytics** on the deployed site; locally, clearly flagged **demo data** ([7.16](#716-statistics)). |
 | **Storage** | Account menu → Storage: how much audio and how many covers you store, and the **orphaned files** left by interrupted uploads, which can be deleted in one click (files younger than 24 hours are kept: an upload may still be in progress). |
 | **PWA** | Installable on phones and desktop (manifest, icons, service worker for static assets). |
 
@@ -160,6 +161,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | Tag writing | **browser-id3-writer 6** (MP3) + own FLAC and WAV writers | Tags written into downloaded files, in the browser |
 | WAV → FLAC | **libflacjs** (libFLAC 1.3.4, WebAssembly) + **hash-wasm** (MD5) | Reference encoder in a Web Worker, verified bit for bit |
 | Validation | **Zod 4** | The same schemas for client forms and API bodies |
+| Visit statistics | **Vercel Web Analytics** (`@vercel/analytics`) | Cookieless page-view counting on the share pages, read back through its REST API |
 | PWA | **@vite-pwa/nuxt** | Manifest, icons, Workbox service worker (static assets only) |
 | Tests | **Vitest 5**, **@nuxt/test-utils**, **Playwright**, **pgTAP** | Unit, components, end-to-end, database |
 | Code quality | ESLint 10 (`@nuxt/eslint`, stylistic rules, no Prettier), vue-tsc | |
@@ -241,7 +243,7 @@ The local database and the production database are **completely separate**: acco
 
 | Routes | Rendering | Why |
 |---|---|---|
-| `/`, `/tracks/**`, `/playlists`, `/playlists/**` | Client only (`ssr: false`) | Personal pages that use browser APIs (Web Audio, files, workers); nothing to gain from SSR |
+| `/`, `/tracks/**`, `/playlists`, `/playlists/**`, `/stats` | Client only (`ssr: false`) | Personal pages that use browser APIs (Web Audio, files, workers); nothing to gain from SSR |
 | `/login`, `/confirm` | Client only | A form submitted before hydration would send the password in the URL (native GET submit) |
 | `/t/:id`, `/p/:id` | **Server-rendered** | Link previews (chat apps, social networks) read the HTML: title, description and image must be in it |
 | `/api/**` | API, `Cache-Control: no-store` | Responses are personal or contain signed URLs |
@@ -265,6 +267,7 @@ ChronoPlayer/
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog
+│   │   ├── stats/                    # StatsDailyChart (views per day), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
@@ -275,6 +278,7 @@ ChronoPlayer/
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
+│   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
 │   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
 │   │   ├── media-session.ts · theme.ts
@@ -286,21 +290,22 @@ ChronoPlayer/
 │   │   ├── tracks/[id]/edit.vue      # Track editor (details, lyrics, sync)
 │   │   ├── playlists/index.vue       # Playlists
 │   │   ├── playlists/[id].vue        # Playlist editor
+│   │   ├── stats.vue                 # Statistics (visits to the share links)
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
-│   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts
+│   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: editable queue, sources, expired-URL recovery
 │   └── utils/errors.ts               # Human-readable error messages
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
-│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers
-│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2)
+│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers · analytics (+ analytics-demo)
+│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2) · web-analytics (Vercel API)
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
-│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers)
+│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
 ├── shared/                           # Pure code used by client and server
-│   ├── schemas/                      # track.ts · playlist.ts (Zod)
-│   ├── types/                        # track.ts · playlist.ts · storage.ts · database.types.ts (generated)
+│   ├── schemas/                      # track.ts · playlist.ts · analytics.ts (Zod)
+│   ├── types/                        # track.ts · playlist.ts · storage.ts · analytics.ts · database.types.ts (generated)
 │   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time
 ├── supabase/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
@@ -310,7 +315,7 @@ ChronoPlayer/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, storage
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, storage, stats
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
@@ -702,7 +707,43 @@ sequenceDiagram
 | Covers | Supabase Storage `covers` (private) | The owner, through `/api/covers/…` (and a copy in their browser cache); visitors of shared pages, through signed URLs issued under the storage policies |
 | Volume | Browser `localStorage` (`chronoplayer:volume`) | That browser only |
 | Play queue (track ids, current track, position) | Browser `localStorage` (`chronoplayer:queue`) | That browser, for the signed-in user only |
-| R2 credentials | Server environment only | The server |
+| Visits to the share pages | Vercel Web Analytics (aggregated, no cookies) | The owner, through `/api/analytics` (the server holds the Vercel token) |
+| R2 credentials, Vercel token | Server environment only | The server |
+
+### 7.16 Statistics
+
+**Counting** happens on the deployed site only (`plugins/web-analytics.client.ts`):
+
+- `@vercel/analytics` loads Vercel's script from `/_vercel/insights`, which exists only on Vercel deployments: the plugin runs only when `public.webAnalytics` is true, i.e. the build ran on Vercel (`VERCEL=1`).
+- Its `beforeSend` hook drops every event except the **share pages** (`/t/<id>`, `/p/<id>`, `lib/web-analytics.ts`) and every visit by a **signed-in** user: the owner opening their own link does not count, and private app pages do not use up the plan's allowance.
+- No cookies; Vercel counts unique visitors with a hash that changes every day. **Plays are not counted**: custom events (such as "play") are not part of Vercel's Hobby plan.
+
+**Reading** (`GET /api/analytics?days=7|30`, `analytics.service.ts`):
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (stats page)
+  participant N as Nuxt API
+  participant D as Postgres
+  participant V as Vercel Analytics API
+  B->>N: GET /api/analytics?days=30
+  N->>D: the user's tracks and playlists (RLS)
+  N->>V: 6 aggregate queries filtered on their paths<br/>(total, per day, per path, referrer, country, device)
+  V-->>N: rows
+  N-->>B: AnalyticsReport (source: vercel)
+```
+
+- **Only the user's pages:** Vercel counts the whole site, so every query is filtered on `environment eq 'production' and requestPath in ('/t/…', '/p/…')`, with the paths of **all** the user's tracks and playlists (a page made private again keeps its past visits). The filter is limited to 2048 characters, so paths go in groups of 40 and the groups' results are summed (unique visitors of different groups can then count twice).
+- The **token** stays on the server (`runtimeConfig.analytics`); the browser only sees the report. Vercel errors become a `502` with a readable message (`refused the access token: check NUXT_ANALYTICS_TOKEN`), never the token.
+- **Where the numbers come from** (`server/utils/web-analytics.ts`, the report's `source`):
+
+| Situation | `source` | The page shows |
+|---|---|---|
+| Token and project id configured | `vercel` | Real data |
+| Not on Vercel (local, Docker, e2e) and not configured | `demo` | **Made-up numbers** around your real tracks and playlists, deterministic, under a yellow "Demo data" banner |
+| On Vercel without token or project id | `unconfigured` | How to configure it ([13.6](#136-statistics-vercel-web-analytics)); never demo data, which could be mistaken for real |
+
+- The page lists every shared item (even without visits) and every item visited in the period; "Private now" marks a page no longer shared.
 
 ---
 
@@ -860,6 +901,12 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list) | `PlaylistDetail` |
 | `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail` |
 
+**Statistics**
+
+| Method | Path | Response |
+|---|---|---|
+| `GET` | `/api/analytics?days=7` or `?days=30` | `AnalyticsReport`: totals, per day, per item, referrers, countries, devices (default 30 days; `400` for other values; `502` when Vercel Analytics fails) |
+
 **Public (no sign-in)**
 
 | Method | Path | Response |
@@ -887,6 +934,10 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `NUXT_AUDIO_STORAGE_ACCESS_KEY_ID` | server only | R2 API token key id |
 | `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | server only | R2 API token secret — **never commit it** |
 | `NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS` | server only, optional | Orphaned files younger than this are never deleted (default `24`; the e2e server uses `0`) |
+| `NUXT_ANALYTICS_TOKEN` | server only, optional | Vercel access token used to read Web Analytics (Statistics page) — **never commit it** |
+| `NUXT_ANALYTICS_PROJECT_ID` | server only, optional | The Vercel project id (`prj_…`) |
+| `NUXT_ANALYTICS_TEAM_ID` | server only, optional | The team id (`team_…`), only for a project owned by a team |
+| `NUXT_PUBLIC_WEB_ANALYTICS` | browser, optional | Forces loading the Vercel Analytics script on or off (default: on only for builds made on Vercel) |
 
 In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` / `NUXT_PUBLIC_SUPABASE_KEY` (runtime overrides of the build-time values). A missing audio storage variable makes audio routes answer `500 Audio storage is not configured` and logs which one is missing.
 
@@ -906,11 +957,12 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 - `routeRules`: rendering modes ([5.4](#54-rendering-modes)) and `no-store` on `/api/**` (the cover routes override it with their own cache header).
 - `runtimeConfig.audioStorage`: server-only audio storage settings, filled from `NUXT_AUDIO_STORAGE_*`.
 - `runtimeConfig.storageCleanup.minAgeHours`: minimum age of a deletable orphan (24 h).
+- `runtimeConfig.analytics`: server-only Vercel Analytics token and project; `runtimeConfig.public.webAnalytics`: load the counting script (builds on Vercel only).
 - `supabase.redirectOptions`: login at `/login`, callback at `/confirm`, public pages excluded; `types` points to the generated database types.
 - `build.transpile: ['pinia']`: one copy of Pinia in the server bundle (without it, server-rendered pages failed with "no active Pinia").
 - `vite.worker.format: 'es'`: the FLAC worker is an ES module worker.
 - `typescript.appTsConfig.vueCompilerOptions.checkUnknownComponents`: a misnamed component is a type error.
-- `pwa`: manifest and a Workbox service worker that caches static assets only (audio and covers come from signed URLs).
+- `pwa`: manifest and a Workbox service worker that caches static assets only (audio comes from signed URLs, covers use the browser cache, the analytics script is left alone).
 - `app/assets/css/main.css`: base font size 125% (20 px), 118.75% while the full-screen player is open.
 
 ---
@@ -971,11 +1023,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up) with mocked repositories; the **R2 client** (incl. paginated listing) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data) with mocked repositories; the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList`, `PlaylistCover` |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed), playlists, storage policies — 52 tests |
-| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner) |
+| End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -1052,6 +1104,18 @@ Dashboard labels may change slightly over time.
 - **With a new migration:** `make db-push` first (so the new code finds the new schema), then commit and push. Vercel never touches the database.
 - Writing a migration: `make db-migration name=<description>` → write the SQL → `make db-migrate` → `make db-test` → `make db-types`.
 
+### 13.6 Statistics (Vercel Web Analytics)
+
+Optional. Without it the app works as usual and the Statistics page explains what is missing.
+
+1. Vercel → the project → **Analytics** → *Enable* (Web Analytics). The package step it suggests is already done in this repository.
+2. Vercel → **Account Settings → Tokens** → *Create*: scope it to the account or team that owns the project, and give it an expiration. The token can do more than read statistics: it lives only in the server environment, never in the code or in a `NUXT_PUBLIC_*` variable.
+3. The project's **Settings → General** shows the *Project ID* (`prj_…`); for a project owned by a team, the team's settings show the *Team ID* (`team_…`).
+4. *Environment Variables* (Production): `NUXT_ANALYTICS_TOKEN` (mark it *Sensitive*), `NUXT_ANALYTICS_PROJECT_ID`, and `NUXT_ANALYTICS_TEAM_ID` if needed. Redeploy.
+5. Open a share link in a private window (signed out), wait a few minutes, then open Statistics.
+
+On the Hobby plan Web Analytics includes 50,000 events a month and keeps one month of data (hence the 7/30-day periods); only share pages are counted, so the allowance goes a long way.
+
 ---
 
 ## 14. Development conventions
@@ -1108,6 +1172,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 - **No offline mode** (downloading tracks for listening without a connection).
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
 - **Revoked links:** an audio URL already handed out stays valid until it expires (up to 6 hours).
+- **Statistics count page openings, not plays** (custom events are not on Vercel's Hobby plan), keep one month of data, and miss visitors with an ad blocker. Real numbers exist only on the Vercel deployment.
 
 ---
 

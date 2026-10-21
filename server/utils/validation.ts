@@ -1,4 +1,4 @@
-import { createError, getRouterParam, readBody, type H3Event } from 'h3'
+import { createError, getQuery, getRouterParam, readBody, type H3Event } from 'h3'
 import { z } from 'zod'
 
 /**
@@ -42,6 +42,24 @@ export async function readValidated<T extends z.ZodType>(event: H3Event, schema:
       statusCode: 400,
       statusMessage: 'Bad Request',
       message: 'Invalid data',
+      data: { issues: z.flattenError(parsed.error).fieldErrors },
+    })
+  }
+  return parsed.data
+}
+
+/**
+ * Validates the query string with a Zod schema; 400 with per-field details
+ * on failure, like readValidated. Values arrive as strings (the schema
+ * converts them).
+ */
+export function readValidatedQuery<T extends z.ZodType>(event: H3Event, schema: T): z.output<T> {
+  const parsed = schema.safeParse(getQuery(event))
+  if (!parsed.success) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Bad Request',
+      message: 'Invalid query',
       data: { issues: z.flattenError(parsed.error).fieldErrors },
     })
   }

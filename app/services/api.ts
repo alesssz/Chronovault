@@ -3,6 +3,7 @@ import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInpu
 import type { PlaylistDetail, PlaylistSummary, SharedPlaylist } from '~~/shared/types/playlist'
 import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas/playlist'
 import type { StorageCleanupResult, StorageReport } from '~~/shared/types/storage'
+import type { AnalyticsPeriod, AnalyticsReport } from '~~/shared/types/analytics'
 
 /**
  * Typed client for the server API. The only place where the frontend
@@ -52,6 +53,11 @@ export const sharedApi = {
 export const storageApi = {
   report: () => $fetch<StorageReport>('/api/storage'),
   cleanOrphans: () => $fetch<StorageCleanupResult>('/api/storage/orphans', { method: 'DELETE' }),
+}
+
+/** Visits to the user's share pages, Statistics page (sign-in required). */
+export const analyticsApi = {
+  report: (days: AnalyticsPeriod) => $fetch<AnalyticsReport>('/api/analytics', { query: { days } }),
 }
 
 /** Built-in and custom genres (sign-in required). */

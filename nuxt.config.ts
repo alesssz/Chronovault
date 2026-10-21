@@ -53,6 +53,21 @@ export default defineNuxtConfig({
     storageCleanup: {
       minAgeHours: 24,
     },
+    // Server-only. Reading Vercel Web Analytics for the Statistics page:
+    // NUXT_ANALYTICS_TOKEN (a Vercel access token: never sent to the browser),
+    // NUXT_ANALYTICS_PROJECT_ID, and NUXT_ANALYTICS_TEAM_ID for team projects.
+    // Without them the page shows demo data outside Vercel (see server/utils/web-analytics.ts).
+    analytics: {
+      token: '',
+      projectId: '',
+      teamId: '',
+    },
+    public: {
+      // Load the Vercel Web Analytics script. Only on Vercel deployments
+      // (Vercel sets VERCEL=1 at build time): elsewhere the script does not
+      // exist and would only fail. NUXT_PUBLIC_WEB_ANALYTICS overrides it.
+      webAnalytics: process.env.VERCEL === '1',
+    },
   },
 
   // A single copy of Pinia in the server bundle: otherwise the Pinia plugin and
@@ -71,6 +86,7 @@ export default defineNuxtConfig({
     '/tracks/**': { ssr: false },
     '/playlists': { ssr: false },
     '/playlists/**': { ssr: false },
+    '/stats': { ssr: false },
     // The sign-in form must never be server-rendered: submitted before
     // hydration it would trigger a native GET submit (password in the URL).
     '/login': { ssr: false },
@@ -123,7 +139,9 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      // Static assets only: audio and covers come from signed URLs and must not be cached.
+      // Static assets only: audio (signed URLs) is never cached here, covers
+      // use the browser's HTTP cache (/api/covers), and the Vercel Analytics
+      // script and its requests (/_vercel/insights) are left untouched.
       globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
       navigateFallback: null,
     },
