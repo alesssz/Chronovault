@@ -33,6 +33,7 @@ describe('parseLrc', () => {
   })
 
   it('ignores metadata tags, empty lines and untimed text', () => {
+    // Metadata tags, a blank line and untimed free text must all be ignored.
     const lrc = '[ar:Artist]\n[ti:Title]\n[length: 03:20]\n\nfree text\n[00:01.00] ok'
     expect(parseLrc(lrc)).toEqual([{ time: 1, text: 'ok' }])
   })
@@ -133,6 +134,7 @@ describe('findActiveLineIndex', () => {
   })
 
   it('never returns a section header', () => {
+    // Synced lines with headers that share their time with the next line.
     const withSections = [
       { time: 0, text: '[Intro]', section: true },
       { time: 0, text: 'Hey' },

@@ -24,12 +24,15 @@ vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
   return { SIGNED_URL_TTL: original.SIGNED_URL_TTL, createSignedUrl: vi.fn(), createSignedUrls: vi.fn() }
 })
 
+// The repositories are mocked: the client is never used, any object will do.
 const db = {} as DbClient
+// Fixed ids and the storage paths they lead to (the format checks only care about the shape).
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
 const AUDIO = `${USER}/${TRACK}.flac`
 const COVER = `${USER}/${TRACK}.webp`
 
+/** A row as get_shared_track() returns it (unlisted, with a cover). */
 function makeRow(overrides: Partial<SharedTrackRow> = {}): SharedTrackRow {
   return {
     id: TRACK, title: 'Artemisia', composers: 'Chronovault', album: 'Baroque', year: 2026, genre: 'Ambient',
@@ -41,6 +44,7 @@ function makeRow(overrides: Partial<SharedTrackRow> = {}): SharedTrackRow {
 }
 
 const presign = vi.fn(async (method: string, key: string) => `https://r2.test/${key}?method=${method}`)
+/** Fake R2 client: presigned URLs are predictable strings. */
 const audio = { presign } as unknown as AudioStorage
 
 beforeEach(() => {
@@ -104,18 +108,23 @@ describe('getSharedCoverUrl', () => {
 })
 
 describe('shared playlists', () => {
+  // A shared playlist holding one unlisted track and one private track.
   const PLAYLIST = '33333333-3333-4333-8333-333333333333'
+  // The private track of the shared playlist.
   const PRIVATE = '44444444-4444-4444-8444-444444444444'
+  /** The shared (unlisted) playlist row, without a custom cover. */
   const playlistRow = {
     id: PLAYLIST, title: 'Night drive', description: 'Late songs', cover_path: null,
     visibility: 'unlisted', updated_at: '2026-10-20T10:00:00Z',
   } as unknown as SharedPlaylistRow
 
+  /** A row as get_shared_playlist_tracks() returns it. */
   function playlistTrack(id: string, position: number, cover: string | null): SharedPlaylistTrackRow {
     const { visibility: _v, ...row } = makeRow({ id, cover_path: cover as string, audio_path: `${USER}/${id}.flac` })
     return { ...row, position }
   }
 
+  /** Its tracks in order: the unlisted one (with a cover), then the private one. */
   const tracks = [playlistTrack(TRACK, 0, COVER), playlistTrack(PRIVATE, 1, null)]
 
   it('lists every track in order, with signed covers and the mosaic', async () => {

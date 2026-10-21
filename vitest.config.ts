@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 
+/** Absolute path from a path relative to this file (for the aliases). */
 const r = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 // The "nuxt" project boots Nuxt while the config is being loaded:

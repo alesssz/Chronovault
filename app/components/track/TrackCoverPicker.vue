@@ -23,14 +23,18 @@ const emit = defineEmits<{
 
 /** The image waiting in the crop editor. */
 const pending = ref<File | null>(null)
+/** The crop editor is open. */
 const cropOpen = ref(false)
 
+/** The user chose the square: hand file and crop to the page. */
 function onCropConfirm(crop: CropRect) {
   if (pending.value) emit('select', pending.value, crop)
 }
 
+/** Hidden file input, opened by the "Add/Change cover" button. */
 const input = ref<HTMLInputElement | null>(null)
 
+/** A file was picked: open the crop editor with it. */
 function onChange(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]

@@ -36,13 +36,17 @@ vi.mock('~~/server/repositories/storage.repository', () => ({
   removeObjects: vi.fn(),
 }))
 
+// The repositories are mocked: the client is never used.
 const db = {} as DbClient
+// Fixed ids and the storage paths they lead to (the format checks only care about the shape).
 const USER = '11111111-1111-4111-8111-111111111111'
 const PLAYLIST = '33333333-3333-4333-8333-333333333333'
+// Three tracks of the user.
 const T1 = 'a1111111-1111-4111-8111-111111111111'
 const T2 = 'a2222222-2222-4222-8222-222222222222'
 const T3 = 'a3333333-3333-4333-8333-333333333333'
 
+/** A private playlist row without a custom cover. */
 function playlistRow(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
   return {
     id: PLAYLIST, user_id: USER, title: 'Night drive', description: null, visibility: 'private', cover_path: null,
@@ -51,6 +55,7 @@ function playlistRow(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
   }
 }
 
+/** A private 60 s track with a cover. */
 function trackRow(id: string, overrides: Partial<TrackSummaryRow> = {}): TrackSummaryRow {
   return {
     id, title: `Track ${id.slice(0, 2)}`, composers: null, album: null, year: null, genre_id: null, mastered: false,
@@ -136,6 +141,7 @@ describe('updatePlaylist', () => {
   })
 
   it('deletes the old cover file when the cover is removed', async () => {
+    // The custom cover the playlist had before removal.
     const cover = `${USER}/playlists/${PLAYLIST}.webp`
     vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([], { cover_path: cover }))
     vi.mocked(playlistsRepo.updatePlaylistRow).mockResolvedValue(playlistRow())

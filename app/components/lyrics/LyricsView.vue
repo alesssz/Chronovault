@@ -14,12 +14,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{ seek: [seconds: number] }>()
 
+/** The scrolling box. */
 const container = ref<HTMLElement | null>(null)
+/** One element per synced line (v-for refs), to scroll the active one into view. */
 const lineRefs = ref<HTMLElement[]>([])
 
+/** Synced lyrics win over plain lyrics when both exist. */
 const hasSynced = computed(() => !!props.synced?.length)
+/** Line currently sung (-1 before the first one). */
 const activeIndex = computed(() => (hasSynced.value ? findActiveLineIndex(props.synced!, props.currentTime) : -1))
 
+/** Plain lyrics split in lines, with [Section] lines marked as headers. */
 const plainLines = computed(() =>
   (props.plain ?? '').split(/\r?\n/).map(text => ({
     text,
@@ -29,12 +34,15 @@ const plainLines = computed(() =>
 
 // When the user scrolls manually, auto-scroll pauses for a few seconds.
 const userScrolledAt = ref(0)
+/** Auto-scroll pauses this long (ms) after the user scrolls by hand. */
 const AUTO_SCROLL_PAUSE = 4000
 
+/** Wheel or touch scrolling: remember when, to pause auto-scroll. */
 function onUserScroll() {
   userScrolledAt.value = Date.now()
 }
 
+// Keep the active line in the middle of the box (unless the user is scrolling).
 watch(activeIndex, (index) => {
   if (index < 0 || Date.now() - userScrolledAt.value < AUTO_SCROLL_PAUSE) return
   lineRefs.value[index]?.scrollIntoView({ block: 'center', behavior: 'smooth' })

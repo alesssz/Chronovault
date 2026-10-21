@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
 import { playlistCreateSchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
 
+/** A valid edit form, with spaces and empty texts the schema must normalize. */
 const validMetadata = {
   title: '  Night  ',
   composers: '',
@@ -47,6 +48,7 @@ describe('trackMetadataSchema', () => {
 })
 
 describe('trackCreateSchema', () => {
+  /** The technical fields of a valid upload. */
   const base = {
     id: '22222222-2222-4222-8222-222222222222',
     title: 'Track',
@@ -85,6 +87,7 @@ describe('trackUpdateSchema', () => {
 })
 
 describe('playlist schemas', () => {
+  // Two track ids.
   const A = 'a1111111-1111-4111-8111-111111111111'
   const B = 'a2222222-2222-4222-8222-222222222222'
 

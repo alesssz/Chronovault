@@ -16,6 +16,7 @@ export interface AudioEngineEvents {
   error: (message: string) => void
 }
 
+/** One set of callbacks per event name, typed by AudioEngineEvents. */
 type Listeners = { [K in keyof AudioEngineEvents]: Set<AudioEngineEvents[K]> }
 
 /** Minimal interface used by the store: lets tests swap in a fake engine. */
@@ -37,6 +38,7 @@ export interface PlaybackEngine {
   readonly duration: number
 }
 
+/** Human-readable text for HTMLMediaElement error codes (MediaError.code). */
 const MEDIA_ERRORS: Record<number, string> = {
   1: 'Playback aborted',
   2: 'Network error while loading the audio',
@@ -44,18 +46,28 @@ const MEDIA_ERRORS: Record<number, string> = {
   4: 'Audio format not supported by this browser',
 }
 
+/**
+ * The real engine: a thin event layer over an HTMLAudioElement. It turns the
+ * element's many events into the few the store needs (time, duration,
+ * play/pause/ended, buffering, error) and adds a per-frame clock.
+ */
 export class AudioEngine implements PlaybackEngine {
+  /** The one <audio> element of the app (also given to wavesurfer.js). */
   readonly element: HTMLAudioElement
   private readonly listeners: Listeners = {
     time: new Set(), duration: new Set(), play: new Set(), pause: new Set(),
     ended: new Set(), buffering: new Set(), error: new Set(),
   }
 
+  /** requestAnimationFrame id of the running clock, null when stopped. */
   private frame: number | null = null
+  /** Last time sent to listeners, to skip updates smaller than 50 ms. */
   private lastEmittedTime = -1
 
+  /** @param element injectable for tests; a detached `new Audio()` in the app. */
   constructor(element: HTMLAudioElement = new Audio()) {
     this.element = element
+    // Only the metadata (duration) is fetched up front; audio streams on demand.
     element.preload = 'metadata'
 
     element.addEventListener('play', () => {
@@ -73,9 +85,12 @@ export class AudioEngine implements PlaybackEngine {
       this.emit('ended')
     })
     element.addEventListener('seeked', () => this.emitTime(true))
+    // While the clock runs it already reports the time; timeupdate covers the rest
+    // (e.g. position changes while paused).
     element.addEventListener('timeupdate', () => {
       if (this.frame === null) this.emitTime()
     })
+    // Streams may report Infinity/NaN before the real duration is known.
     element.addEventListener('durationchange', () => {
       if (Number.isFinite(element.duration)) this.emit('duration', element.duration)
     })
@@ -87,19 +102,23 @@ export class AudioEngine implements PlaybackEngine {
     })
   }
 
+  /** Current position, in seconds. */
   get currentTime(): number {
     return this.element.currentTime
   }
 
+  /** Track length in seconds, 0 while unknown. */
   get duration(): number {
     return Number.isFinite(this.element.duration) ? this.element.duration : 0
   }
 
+  /** Subscribes to an event; returns the function that unsubscribes. */
   on<K extends keyof AudioEngineEvents>(event: K, listener: AudioEngineEvents[K]): () => void {
     this.listeners[event].add(listener)
     return () => this.listeners[event].delete(listener)
   }
 
+  /** Switches to a new source (a presigned URL); playback does not start by itself. */
   load(src: string): void {
     this.stopClock()
     this.lastEmittedTime = -1
@@ -107,6 +126,7 @@ export class AudioEngine implements PlaybackEngine {
     this.element.load()
   }
 
+  /** Empties the element: it stops and releases the stream (closing the player). */
   unload(): void {
     this.stopClock()
     this.lastEmittedTime = -1
@@ -115,32 +135,39 @@ export class AudioEngine implements PlaybackEngine {
     this.element.load()
   }
 
+  /** Starts playback; rejects when the browser refuses (autoplay policy, bad source). */
   play(): Promise<void> {
     return this.element.play()
   }
 
+  /** Pauses; the position is kept. */
   pause(): void {
     this.element.pause()
   }
 
+  /** Pause and back to the start. */
   stop(): void {
     this.element.pause()
     this.seek(0)
   }
 
+  /** Moves to `seconds`, clamped to the track (no upper bound while the duration is unknown). */
   seek(seconds: number): void {
     const max = this.duration || Number.POSITIVE_INFINITY
     this.element.currentTime = Math.min(Math.max(0, seconds), max)
   }
 
+  /** 0..1, clamped. */
   setVolume(volume: number): void {
     this.element.volume = Math.min(1, Math.max(0, volume))
   }
 
+  /** Mutes without changing the volume level. */
   setMuted(muted: boolean): void {
     this.element.muted = muted
   }
 
+  /** Playback speed, with the pitch preserved (slower without sounding lower). */
   setPlaybackRate(rate: number): void {
     this.element.preservesPitch = true
     // Loading a new source resets `playbackRate` to `defaultPlaybackRate`:
@@ -149,6 +176,7 @@ export class AudioEngine implements PlaybackEngine {
     this.element.playbackRate = rate
   }
 
+  /** Calls every listener of `event` with its arguments. */
   private emit<K extends keyof AudioEngineEvents>(event: K, ...args: Parameters<AudioEngineEvents[K]>): void {
     for (const listener of this.listeners[event]) {
       (listener as (...a: Parameters<AudioEngineEvents[K]>) => void)(...args)
@@ -168,6 +196,7 @@ export class AudioEngine implements PlaybackEngine {
   // only ~4 times per second: too coarse for smooth lyrics).
   private startClock(): void {
     if (this.frame !== null) return
+    // Reschedules itself on every frame until stopClock().
     const tick = () => {
       this.emitTime()
       this.frame = requestAnimationFrame(tick)
@@ -175,12 +204,14 @@ export class AudioEngine implements PlaybackEngine {
     this.frame = requestAnimationFrame(tick)
   }
 
+  /** Stops the per-frame clock (pause, end, new source). */
   private stopClock(): void {
     if (this.frame !== null) cancelAnimationFrame(this.frame)
     this.frame = null
   }
 }
 
+/** The app-wide engine (one <audio> element for the whole session). */
 let instance: PlaybackEngine | null = null
 
 /** The shared engine; created on first use, in the browser only. */

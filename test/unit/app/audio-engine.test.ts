@@ -18,6 +18,7 @@ function fakeAudioElement() {
 describe('AudioEngine.setPlaybackRate', () => {
   it('sets the speed, keeps the pitch and survives a source reload', () => {
     const element = fakeAudioElement()
+    // The engine wraps the fake element exactly like a real <audio>.
     const engine = new AudioEngine(element as unknown as HTMLAudioElement)
 
     engine.setPlaybackRate(0.75)

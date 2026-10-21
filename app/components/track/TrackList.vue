@@ -22,9 +22,11 @@ const emit = defineEmits<{
   delete: [track: TrackSummary]
 }>()
 
+// Highlights the current track and opens the full-screen view.
 const player = usePlayerStore()
 const { copyShareLink } = useShareLink()
 const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
+// "Play next" / "Add to queue" in the menu.
 const queue = useQueueActions()
 
 /** Icon + accessible label of each visibility. */
@@ -87,6 +89,7 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
 </script>
 
 <template>
+  <!-- One row per track: cover (play), title, details, badges, duration, menu -->
   <ul class="divide-y divide-default">
     <li
       v-for="{ track, genre } in rows"

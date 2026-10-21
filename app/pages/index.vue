@@ -10,7 +10,9 @@ import { tracksApi } from '~/services/api'
 
 useSeoMeta({ title: 'Library · ChronoPlayer' })
 
+// Playing, and dropping deleted tracks from the queue.
 const player = usePlayerStore()
+// Delete confirmations and failures.
 const toast = useToast()
 const { genres, genreName } = useGenres()
 
@@ -20,8 +22,11 @@ const { data: tracks, status, error, refresh } = await useAsyncData('tracks', ()
 
 // --- Search and filters ----------------------------------------------------------
 const search = ref('')
+/** Genre id, or 'all'. */
 const genreFilter = ref<string>('all')
+/** Mastered tracks only, not mastered only, or both. */
 const masteredFilter = ref<'all' | 'yes' | 'no'>('all')
+/** Newest first (as the API returns them) or by title. */
 const sort = ref<'recent' | 'title'>('recent')
 
 /** Only genres that at least one track uses. */
@@ -32,12 +37,14 @@ const genreOptions = computed(() => [
     .map(g => ({ label: g.name, value: g.id })),
 ])
 
+/** Options of the mastering filter. */
 const masteredOptions = [
   { label: 'All', value: 'all' },
   { label: 'Mastered', value: 'yes' },
   { label: 'Not mastered', value: 'no' },
 ]
 
+/** Options of the sort menu. */
 const sortOptions = [
   { label: 'Most recent', value: 'recent' },
   { label: 'Title A-Z', value: 'title' },
@@ -57,8 +64,10 @@ const filtered = computed(() => {
     : list
 })
 
+/** A filter is active: the empty state offers to clear them. */
 const hasFilters = computed(() => !!search.value || genreFilter.value !== 'all' || masteredFilter.value !== 'all')
 
+/** "Clear filters" (the sort order is kept). */
 function resetFilters() {
   search.value = ''
   genreFilter.value = 'all'
@@ -73,7 +82,9 @@ function onPlay(track: TrackSummary) {
 
 /** Track waiting for the delete confirmation (the dialog is open while set). */
 const toDelete = ref<TrackSummary | null>(null)
+/** The delete request is running (spinner in the dialog). */
 const deleting = ref(false)
+/** The confirmation dialog is open while a track is waiting to be deleted; closing it cancels. */
 const deleteOpen = computed({
   get: () => toDelete.value !== null,
   set: (open) => {
@@ -104,6 +115,7 @@ async function confirmDelete() {
 
 <template>
   <UContainer class="py-6 sm:py-8">
+    <!-- Title and track count -->
     <div class="mb-6 flex items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">
@@ -115,6 +127,7 @@ async function confirmDelete() {
       </div>
     </div>
 
+    <!-- The library could not be loaded -->
     <UAlert
       v-if="error"
       color="error"
@@ -127,6 +140,7 @@ async function confirmDelete() {
     />
 
     <template v-else-if="status === 'pending' && tracks.length === 0">
+      <!-- Loading skeleton -->
       <div class="space-y-3">
         <div
           v-for="n in 6"
@@ -142,6 +156,7 @@ async function confirmDelete() {
       </div>
     </template>
 
+    <!-- Empty library: invitation to upload -->
     <UEmpty
       v-else-if="tracks.length === 0"
       icon="i-lucide-library"
@@ -152,6 +167,7 @@ async function confirmDelete() {
     />
 
     <template v-else>
+      <!-- Search, genre and mastering filters, sort order -->
       <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <UInput
           v-model="search"
@@ -186,6 +202,7 @@ async function confirmDelete() {
         :ui="{ body: 'p-0 sm:p-0' }"
         variant="outline"
       >
+        <!-- The tracks; playing and deleting are handled here -->
         <TrackList
           v-if="filtered.length"
           :tracks="filtered"
@@ -193,6 +210,7 @@ async function confirmDelete() {
           @play="onPlay"
           @delete="toDelete = $event"
         />
+        <!-- Filters match nothing -->
         <UEmpty
           v-else
           icon="i-lucide-search-x"
@@ -203,6 +221,7 @@ async function confirmDelete() {
       </UCard>
     </template>
 
+    <!-- Delete confirmation -->
     <ConfirmDialog
       v-model:open="deleteOpen"
       title="Delete this track?"

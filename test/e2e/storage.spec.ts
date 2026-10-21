@@ -16,6 +16,7 @@ test.describe('storage clean-up', () => {
 
     // An interrupted upload: the file reaches the storage, the track is never registered.
     await page.evaluate(async () => {
+      // 2 KB of filler: the size shows up in the dialog as "2.0 KB".
       const body = new Uint8Array(2048).fill(7)
       const target = await (await fetch('/api/tracks/upload-url', {
         method: 'POST',

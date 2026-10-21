@@ -532,7 +532,7 @@ flowchart LR
 - **Syncing aids** (all manual):
   - speed 0.5× / 0.75× / 1× with the pitch preserved, reset to 1× when leaving the Sync tab (the player bar shows a speed badge meanwhile);
   - a **detailed waveform** (`LyricsSyncTimeline.vue`) that decodes the track itself (the stored 1000 peaks are too coarse to see where a phrase starts), follows playback, zooms from 20 to 400 px/s and shows a numbered, draggable marker per synced line;
-  - a **selected line** (the last stamped, or one clicked in the list or on the waveform): <kbd>R</kbd> replays it from 1 s before, <kbd>←</kbd>/<kbd>→</kbd> move it by 0.05 s; <kbd>↑</kbd> undoes the last stamp; <kbd>P</kbd> plays/pauses.
+  - a **selected line** (the last stamped, or one clicked in the list or on the waveform): <kbd>R</kbd> replays it from 1 s before, <kbd>←</kbd>/<kbd>→</kbd> move it by 0.05 s (the ±0.1 s buttons of each row do the same with the mouse); <kbd>↑</kbd> undoes the last stamp; <kbd>P</kbd> plays/pauses.
 - **LRC** import/export (`shared/utils/lyrics.ts`) keeps sections (`[00:10.00] [Verse 1]`, or an untimed `[Verse 1]` attached to the next timed line), supports several timestamps per line and `[offset:]`.
 - **While playing**, the active line is found with a binary search (`findActiveLineIndex`, never a header) and scrolled into view; scrolling by hand pauses auto-scroll for 4 seconds.
 
@@ -1025,7 +1025,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 ### 14.2 Code conventions
 
 - **Language:** everything in the repository is in English (code, comments, docs, UI text, commit messages).
-- **Comments:** every file starts with what it is for; functions document their contract and the reasons behind non-obvious choices.
+- **Comments, in depth:** every file starts with what it is for and how it fits in; every function, exported constant, type field and non-trivial computed/watch has a doc comment; non-obvious lines explain *why*; the main blocks of Vue templates are labelled; tests describe their fixtures and scenarios. SQL migrations get comments only — their statements never change once applied.
 - **Style:** ESLint with stylistic rules, no Prettier (2 spaces, no semicolons, single quotes). `make lint-fix` fixes what it can; VS Code fixes on save (`.vscode/settings.json`).
 - **Components:** Nuxt prefixes a component with its folder (`components/track/TrackCover.vue` → `<TrackCover>`); files already carry the full name, and the typecheck flags unknown components.
 - **New endpoint:** a route in `server/api/` only authenticates (`requireAuth`, or `visitorClient` for public routes), validates (`readValidated`, `requireUuidParam`) and calls a service. Rules live in the service, tested without Nuxt; queries in a repository; conversions in a mapper.

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import LyricsView from '~/components/lyrics/LyricsView.vue'
 
+/** Three synced lines: at 1 s, 5 s and 9 s. */
 const synced = [
   { time: 0, text: 'First line' },
   { time: 5, text: 'Second line' },
@@ -41,6 +42,7 @@ describe('LyricsView', () => {
   })
 
   it('shows section headers between synced lines, never as the active line', async () => {
+    // Section headers share their time with the line they introduce.
     const structured = [
       { time: 0, text: '[Intro]', section: true },
       { time: 0, text: 'Hey' },

@@ -24,6 +24,7 @@ export async function listGenres(db: DbClient, userId: string): Promise<Genre[]>
  */
 export async function createGenre(db: DbClient, userId: string, name: string): Promise<Genre> {
   const normalized = name.trim().toLocaleLowerCase('en')
+  // A built-in or own genre with the same name (ignoring case and spaces) is reused.
   const existing = (await genresRepo.listGenreRows(db, userId))
     .find(row => row.name.trim().toLocaleLowerCase('en') === normalized)
   if (existing) return toGenre(existing)

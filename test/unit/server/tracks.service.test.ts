@@ -29,7 +29,9 @@ vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
   }
 })
 
+// The repositories are mocked: the client is never used.
 const db = {} as DbClient
+// Fixed ids and the storage paths they lead to (the format checks only care about the shape).
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
 const AUDIO = `${USER}/${TRACK}.flac`
@@ -44,9 +46,12 @@ function fakeAudioStorage() {
   }
 }
 
+/** A fresh fake audio storage for every test. */
 let audio: ReturnType<typeof fakeAudioStorage>
+/** The fake, typed as the real client for the service functions. */
 const storage = () => audio as unknown as AudioStorage
 
+/** A complete track row (private, FLAC, 60 s). */
 function makeRow(overrides: Partial<TrackRow> = {}): TrackRow {
   return {
     id: TRACK, user_id: USER, title: 'Track', composers: null, genre_id: null, year: null, album: null,
@@ -58,6 +63,7 @@ function makeRow(overrides: Partial<TrackRow> = {}): TrackRow {
   }
 }
 
+/** A valid POST /api/tracks body for TRACK. */
 const createInput = {
   id: TRACK,
   title: 'Track',

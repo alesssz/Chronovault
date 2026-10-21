@@ -34,6 +34,7 @@ class FakeEngine implements PlaybackEngine {
     return () => set.delete(listener as (...args: unknown[]) => void)
   }
 
+  /** Test helper: fires an engine event as if the <audio> element had. */
   emit(event: keyof AudioEngineEvents, ...args: unknown[]) {
     this.handlers.get(event)?.forEach(h => h(...args))
   }
@@ -73,6 +74,7 @@ class FakeEngine implements PlaybackEngine {
   })
 }
 
+/** A library item with the given id (120 s, no cover). */
 function summary(id: string): TrackSummary {
   return {
     id, title: `Track ${id}`, composers: null, album: null, year: null, genreId: null, mastered: false,
@@ -81,6 +83,7 @@ function summary(id: string): TrackSummary {
   }
 }
 
+/** The full data the API returns for `summary(id)`. */
 function detail(id: string): TrackDetail {
   return {
     ...summary(id), description: null, sunoPrompt: null, lyrics: null, lyricsSynced: null,
@@ -88,9 +91,12 @@ function detail(id: string): TrackDetail {
   }
 }
 
+/** The library shown on screen: a, b, c (queue context of most tests). */
 const library = ['a', 'b', 'c'].map(summary)
+/** A fresh fake engine for every test. */
 let engine: FakeEngine
 
+/** Lifetime of a signed URL, in ms (as the server issues them). */
 const SIX_HOURS = 6 * 60 * 60 * 1000
 
 beforeEach(() => {
@@ -177,6 +183,7 @@ describe('player store', () => {
 
   it('ignores responses of a load superseded by a newer one', async () => {
     const player = usePlayerStore()
+    // Resolves the slow request by hand, after a newer load has started.
     let releaseSlow!: () => void
     vi.mocked(tracksApi.get).mockImplementationOnce(id => new Promise((resolve) => {
       releaseSlow = () => resolve(detail(id))
@@ -381,6 +388,7 @@ describe('expired or refused audio sources', () => {
 
   it('shows the browser error when the retry fails too', async () => {
     const player = usePlayerStore()
+    // What Chrome throws when the audio URL is refused (e.g. expired).
     const refused = new DOMException('Failed to load because no supported source was found.', 'NotSupportedError')
     engine.play.mockRejectedValueOnce(refused).mockRejectedValueOnce(refused)
 
@@ -391,6 +399,7 @@ describe('expired or refused audio sources', () => {
   })
 
   describe('shared tracks (public page)', () => {
+    /** A track as the public track page receives it. */
     const shared: SharedTrack = {
       id: 's', title: 'Shared', composers: null, album: null, year: null, genre: 'Ambient', description: null,
       lyrics: null, lyricsSynced: null, peaks: [0.5], durationSeconds: 90, coverUrl: null,
@@ -437,12 +446,14 @@ describe('expired or refused audio sources', () => {
   })
 
   describe('shared playlists (public page)', () => {
+    /** A track of a shared playlist (shareable fields only). */
     function sharedTrack(id: string) {
       return {
         id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
         lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
       }
     }
+    /** A shared playlist of three tracks: x, y, z. */
     const playlist: SharedPlaylist = {
       id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
       durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedTrack),
@@ -487,6 +498,7 @@ describe('expired or refused audio sources', () => {
   })
 
   describe('editable queue', () => {
+    /** The queue as a list of ids, for compact assertions. */
     const ids = (player: ReturnType<typeof usePlayerStore>) => player.queue.map(t => t.id)
     const d = summary('d')
     const e = summary('e')

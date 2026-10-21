@@ -9,6 +9,7 @@
 /** Where a file lives: `audio` = Cloudflare R2, `covers` = Supabase Storage. */
 export type StorageBucket = 'audio' | 'covers'
 
+/** A stored file that no track or playlist uses. */
 export interface OrphanFile {
   bucket: StorageBucket
   /** Storage key, e.g. `<userId>/<trackId>.flac`. */
@@ -20,11 +21,13 @@ export interface OrphanFile {
   deletable: boolean
 }
 
+/** File count and total bytes of one bucket. */
 export interface StorageUsage {
   files: number
   bytes: number
 }
 
+/** Response of GET /api/storage. */
 export interface StorageReport {
   /** Everything stored in the user's folders, orphans included. */
   usage: Record<StorageBucket, StorageUsage>
@@ -34,6 +37,7 @@ export interface StorageReport {
   minAgeHours: number
 }
 
+/** Response of DELETE /api/storage/orphans. */
 export interface StorageCleanupResult {
   deletedFiles: number
   freedBytes: number

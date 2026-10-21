@@ -11,6 +11,7 @@ import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 useSeoMeta({ title: 'Upload tracks · ChronoPlayer' })
 
 const { items, pending, completed, add, remove, clearFinished } = useTrackUploader()
+/** Files chosen in the drop zone (moved to the queue right away). */
 const picked = ref<File[] | null>(null)
 
 // The upload component is only used to pick files: they move to the queue right away.
@@ -46,6 +47,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
 
 <template>
   <UContainer class="max-w-3xl py-6 sm:py-8">
+    <!-- Header: back and title -->
     <div class="mb-6 flex items-center gap-2">
       <UButton
         to="/"
@@ -59,6 +61,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
       </h1>
     </div>
 
+    <!-- Drop zone / file picker: files go straight to the upload queue -->
     <UFileUpload
       v-model="picked"
       multiple
@@ -77,6 +80,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
       You can edit them later.
     </p>
 
+    <!-- What happens to WAV files (lossless FLAC conversion) -->
     <UAlert
       icon="i-lucide-shield-check"
       color="neutral"
@@ -93,6 +97,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
       </template>
     </UAlert>
 
+    <!-- The upload queue: status, progress and outcome of every file -->
     <section
       v-if="items.length"
       class="mt-8"

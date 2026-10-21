@@ -10,6 +10,7 @@ import {
  * (lock screen, notifications, keyboard media keys). `.client`: browser only.
  */
 export default defineNuxtPlugin(() => {
+  // Lock-screen controls drive the store; its state feeds the OS.
   const player = usePlayerStore()
 
   setMediaSessionHandlers({

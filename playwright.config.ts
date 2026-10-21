@@ -9,6 +9,7 @@ import { defineConfig, devices } from '@playwright/test'
  */
 const useDev = process.env.E2E_DEV === '1'
 const PORT = Number(process.env.E2E_PORT ?? (useDev ? 3000 : 3100))
+/** Every page.goto("/…") is relative to this. */
 const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({

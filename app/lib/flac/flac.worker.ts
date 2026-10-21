@@ -38,6 +38,7 @@ const scope = self as unknown as WorkerScope
 // defines one inside workers). Point both at the URL emitted by Vite.
 const wasmLocation = { 'libflac.wasm.wasm': wasmUrl }
 scope.FLAC_SCRIPT_LOCATION = wasmLocation
+// `process` exists only in some environments (the Vite dev server shims it in workers).
 const workerProcess = (globalThis as { process?: { env?: Record<string, unknown> } }).process
 if (workerProcess?.env) workerProcess.env.FLAC_SCRIPT_LOCATION = wasmLocation
 
@@ -74,6 +75,7 @@ scope.addEventListener('unhandledrejection', (event) => {
 /** One conversion per message: parse → check compatibility → encode + verify → reply. */
 scope.onmessage = async (event) => {
   try {
+    // The transferred WAV file, as bytes.
     const wav = new Uint8Array(event.data.buffer)
     const info = parseWav(wav)
     const reason = flacIncompatibility(info)

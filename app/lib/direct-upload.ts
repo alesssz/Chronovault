@@ -21,6 +21,7 @@ export interface DirectUploadOptions {
 /** Upload failure; `status` is the HTTP status, or null for network errors and timeouts. */
 export class UploadError extends Error {
   override name = 'UploadError'
+  /** @param status HTTP status, or null for network errors and timeouts. */
   constructor(message: string, readonly status: number | null) {
     super(message)
   }
@@ -50,6 +51,7 @@ export async function directUpload(options: DirectUploadOptions): Promise<void> 
 /** One PUT attempt, reporting progress. */
 function putOnce({ url, file, contentType, onProgress }: DirectUploadOptions): Promise<void> {
   return new Promise((resolve, reject) => {
+    // PUT straight to the presigned URL; the Content-Type must match what was signed.
     const request = new XMLHttpRequest()
     request.open('PUT', url)
     request.setRequestHeader('Content-Type', contentType)

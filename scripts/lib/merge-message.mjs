@@ -22,6 +22,7 @@ export function buildMergeMessage(branch, subjects) {
   // Group repeated subjects (e.g. several "Fix typo") while keeping the first-seen order.
   const counts = new Map()
   for (const subject of cleaned) counts.set(subject, (counts.get(subject) ?? 0) + 1)
+  // One "- subject" line per distinct subject, with "(×N)" when repeated.
   const lines = [...counts].map(([subject, n]) => `- ${subject}${n > 1 ? ` (×${n})` : ''}`)
 
   return `Merge ${branch} (${cleaned.length} commits)\n\n${lines.join('\n')}`

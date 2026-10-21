@@ -10,8 +10,10 @@
  */
 
 const KEY = 'chronoplayer:queue'
+/** Format version: an old or unknown format is discarded rather than misread. */
 const VERSION = 1
 
+/** What is stored under KEY (JSON). */
 export interface SavedQueue {
   version: typeof VERSION
   /** Owner of the queue (`auth.users.id`). */
@@ -38,6 +40,7 @@ function storage(): Storage | null {
 
 /** Saves the queue state; failures (quota, blocked storage) are ignored: it is only a convenience. */
 export function saveQueue(state: Pick<SavedQueue, 'userId' | 'trackIds' | 'index' | 'position'>): void {
+  // Position rounded to a tenth of a second: plenty to resume, compact in storage.
   const saved: SavedQueue = {
     version: VERSION,
     ...state,
@@ -67,6 +70,7 @@ export function clearSavedQueue(): void {
  * another user's queue are discarded.
  */
 export function readSavedQueue(userId: string): SavedQueue | null {
+  // Parsed JSON, validated field by field below (never trusted).
   let value: unknown
   try {
     const raw = storage()?.getItem(KEY)
@@ -99,6 +103,7 @@ export function resolveSavedQueue<T extends { id: string }>(
   saved: Pick<SavedQueue, 'trackIds' | 'index' | 'position'>,
   available: readonly T[],
 ): { items: T[], index: number, position: number } | null {
+  // Existing tracks by id, for O(1) lookups.
   const byId = new Map(available.map(t => [t.id, t]))
   const items = saved.trackIds.flatMap(id => byId.get(id) ?? [])
   if (items.length === 0) return null

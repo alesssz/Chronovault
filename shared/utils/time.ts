@@ -29,6 +29,7 @@ export function formatRemaining(currentTime: number, duration: number): string {
  */
 export function formatAge(iso: string, now = Date.now()): string {
   const seconds = Math.max(0, (now - Date.parse(iso)) / 1000)
+  // `numeric: 'auto'` says "yesterday" instead of "1 day ago".
   const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
   if (seconds < 60) return 'just now'
   if (seconds < 3600) return rtf.format(-Math.floor(seconds / 60), 'minute')
@@ -39,6 +40,7 @@ export function formatAge(iso: string, now = Date.now()): string {
 /** Human-readable file size in binary units, e.g. `34.2 MB`; bytes are shown without decimals. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  // Binary units (1 KB = 1024 B), like file managers.
   const units = ['B', 'KB', 'MB', 'GB']
   // Largest unit that keeps the value ≥ 1, capped at GB.
   const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))

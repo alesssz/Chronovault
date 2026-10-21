@@ -46,16 +46,21 @@ export interface UploadItem {
  * If step 5 fails, the server removes the uploaded audio and the client the cover.
  */
 export function useTrackUploader() {
+  // Covers are uploaded straight to Supabase Storage by the browser.
   const supabase = useSupabaseClient()
+  // The user id builds the storage paths (`<userId>/…`).
   const user = useSupabaseUser()
 
+  /** Every file of the session, in the order it was added (the page renders this list). */
   const items = ref<UploadItem[]>([])
   /** True while the queue is being processed (one file at a time). */
   const running = ref(false)
   /** Genre list, loaded once per page to match the genre tag to a genre id. */
   let genres: Genre[] | null = null
 
+  /** Files still to process or in progress (the page warns before closing while > 0). */
   const pending = computed(() => items.value.filter(i => i.status !== 'done' && i.status !== 'error').length)
+  /** Files uploaded and registered. */
   const completed = computed(() => items.value.filter(i => i.status === 'done').length)
 
   /**
@@ -84,6 +89,7 @@ export function useTrackUploader() {
 
   /** Removes an item that is not being processed (queued, done or failed). */
   function remove(key: string): void {
+    // A file being processed cannot be removed from under the running step.
     const removable: UploadStatus[] = ['queued', 'done', 'error']
     items.value = items.value.filter(i => i.key !== key || !removable.includes(i.status))
   }
@@ -102,6 +108,7 @@ export function useTrackUploader() {
     if (running.value) return
     running.value = true
     try {
+      // Always take the first queued item: files added meanwhile are picked up too.
       let item: UploadItem | undefined
       while ((item = items.value.find(i => i.status === 'queued'))) {
         await process(item)
@@ -122,7 +129,9 @@ export function useTrackUploader() {
 
   /** Runs steps 1-5 for one file; any failure marks the item as failed and cleans up. */
   async function process(item: UploadItem): Promise<void> {
+    // Needed for every storage path; no session = the item fails with a clear message.
     const userId = user.value?.sub
+    // Set once the cover is uploaded, so a failure can remove it again.
     let coverPath: string | null = null
 
     try {
@@ -134,6 +143,7 @@ export function useTrackUploader() {
 
       // Lossless WAV → FLAC: same audio, roughly half the size.
       let audioFile = item.file
+      // What is uploaded: the original file, or the verified FLAC when a WAV converts.
       let mimeType = analysis.mimeType
       if (isWavFile(item.file)) {
         item.status = 'converting'

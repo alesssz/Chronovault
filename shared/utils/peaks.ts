@@ -33,6 +33,7 @@ export function computePeaks(channels: ArrayLike<number>[], buckets = PEAKS_RESO
   for (let b = 0; b < count; b++) {
     const start = Math.floor(b * size)
     const end = Math.max(start + 1, Math.floor((b + 1) * size))
+    // Loudest absolute sample of this bucket, across all channels.
     let peak = 0
     for (const channel of channels) {
       for (let i = start; i < end && i < channel.length; i++) {

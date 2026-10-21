@@ -26,9 +26,12 @@ describe('buildMergeMessage', () => {
 })
 
 describe('merge-main script', () => {
+  /** Temporary folder holding the fake remote and the working copy. */
   let root: string
+  /** The working copy the script runs in. */
   let work: string
 
+  /** Runs git in `cwd` and returns its output. */
   function git(cwd: string, ...args: string[]): string {
     return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   }
@@ -40,6 +43,7 @@ describe('merge-main script', () => {
     git(cwd, 'commit', '-m', message)
   }
 
+  /** A committer identity, and no signing (the developer's global config may require it). */
   function configure(cwd: string) {
     git(cwd, 'config', 'user.name', 'Test')
     git(cwd, 'config', 'user.email', 'test@example.com')
@@ -52,7 +56,9 @@ describe('merge-main script', () => {
     return { code: result.status, output: `${result.stdout}${result.stderr}` }
   }
 
+  /** Branch the working copy is on. */
   const currentBranch = () => git(work, 'branch', '--show-current')
+  /** Branches that exist on the fake remote. */
   const remoteBranches = () => git(work, 'ls-remote', '--heads', 'origin')
 
   /** A pushed feature branch with two commits. */

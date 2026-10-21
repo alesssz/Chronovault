@@ -5,9 +5,12 @@
 definePageMeta({ layout: 'auth' })
 useSeoMeta({ title: 'Confirm · ChronoPlayer' })
 
+// Set once Supabase has created the session from the link.
 const user = useSupabaseUser()
+// The page saved before sign-in, if any.
 const redirect = useSupabaseCookieRedirect()
 
+// Session ready: go where the user wanted (or the library). `replace`: no way back here.
 watch(user, (value) => {
   if (value) void navigateTo(redirect.pluck() || '/', { replace: true })
 }, { immediate: true })

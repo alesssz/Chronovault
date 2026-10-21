@@ -4,9 +4,11 @@
 import { describe, expect, it } from 'vitest'
 import { toSharedTrack, toTrackDetail, toTrackInsert, toTrackUpdate, type TrackRow } from '~~/server/mappers/track'
 
+// Fixed ids for the row below.
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
 
+/** A complete row with every kind of value (texts, nulls, JSON, generated flags). */
 const row: TrackRow = {
   id: TRACK,
   user_id: USER,

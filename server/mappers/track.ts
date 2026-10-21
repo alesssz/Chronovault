@@ -25,6 +25,7 @@ export type TrackSummaryRow = Pick<TrackRow,
   | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'cover_path' | 'created_at' | 'updated_at'
 >
 
+/** Summary row → library item (camelCase), with the cover URL signed by the service. */
 export function toTrackSummary(row: TrackSummaryRow, coverUrl: string | null): TrackSummary {
   return {
     id: row.id,
@@ -123,6 +124,7 @@ export function toTrackInsert(userId: string, input: TrackCreate): TablesInsert<
  * is a compile error.
  */
 export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
+  // Field → column; typed so a new schema field without a column fails to compile.
   const map: Record<keyof TrackUpdate, keyof TablesUpdate<'tracks'>> = {
     title: 'title',
     composers: 'composers',
@@ -137,6 +139,7 @@ export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
     lyricsSynced: 'lyrics_synced',
     coverPath: 'cover_path',
   }
+  // Only fields actually sent (not undefined) are copied.
   const patch: Record<string, unknown> = {}
   for (const [key, column] of Object.entries(map) as [keyof TrackUpdate, string][]) {
     if (input[key] !== undefined) patch[column] = input[key]

@@ -25,6 +25,7 @@ export class WavParseError extends Error {
   override name = 'WavParseError'
 }
 
+/** `fmt ` format tags: integer PCM, IEEE float, and "see SubFormat" (extensible). */
 const WAVE_FORMAT_PCM = 0x0001
 const WAVE_FORMAT_IEEE_FLOAT = 0x0003
 const WAVE_FORMAT_EXTENSIBLE = 0xFFFE
@@ -33,6 +34,7 @@ const WAVE_FORMAT_EXTENSIBLE = 0xFFFE
 const FLAC_MAX_SAMPLE_RATE = 655_350
 /** Bit depths supported by the bundled libFLAC 1.3 encoder. */
 const FLAC_BIT_DEPTHS = new Set([8, 16, 24])
+/** FLAC streams carry at most 8 channels. */
 const FLAC_MAX_CHANNELS = 8
 
 /** Reads a 4-character chunk id (e.g. `RIFF`, `fmt `, `data`). */
@@ -48,6 +50,7 @@ function fourCC(view: DataView, offset: number): string {
  * is not a well-formed WAV.
  */
 export function parseWav(bytes: Uint8Array): WavInfo {
+  // DataView: little-endian integer reads at any offset of the file.
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   if (bytes.byteLength < 12) throw new WavParseError('File too short to be a WAV')
 
@@ -55,9 +58,12 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   if (riff === 'RF64') throw new WavParseError('RF64 (very large) WAV files are not supported')
   if (riff !== 'RIFF' || fourCC(view, 8) !== 'WAVE') throw new WavParseError('Not a WAV file')
 
+  // Filled in when the `fmt ` and `data` chunks are met, in any order.
   let format: Omit<WavInfo, 'dataOffset' | 'dataLength' | 'frames'> | null = null
+  // Where the samples are (the `data` chunk), once found.
   let data: { offset: number, length: number } | null = null
 
+  // Chunks start after the 12-byte header: "RIFF", size, "WAVE".
   let offset = 12
   while (offset + 8 <= bytes.byteLength && (!format || !data)) {
     const id = fourCC(view, offset)
@@ -66,6 +72,7 @@ export function parseWav(bytes: Uint8Array): WavInfo {
 
     if (id === 'fmt ') {
       if (size < 16 || body + 16 > bytes.byteLength) throw new WavParseError('Malformed fmt chunk')
+      // Layout of `fmt `: tag, channels, rate, byte rate, block align, bits.
       let formatTag = view.getUint16(body, true)
       const channels = view.getUint16(body + 2, true)
       const sampleRate = view.getUint32(body + 4, true)

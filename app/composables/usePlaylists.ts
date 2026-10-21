@@ -7,6 +7,7 @@ import { getErrorMessage } from '~/utils/errors'
  * the "New playlist" dialog and "Add to playlist".
  */
 export function usePlaylists() {
+  // "Added to …" feedback.
   const toast = useToast()
   const { data, refresh, status } = useAsyncData('playlists', () => playlistsApi.list(), {
     default: () => [] as PlaylistSummary[],
@@ -28,10 +29,12 @@ export function usePlaylists() {
       : [summary, ...data.value]
   }
 
+  /** Drops a deleted playlist from the cached list. */
   function forget(id: string): void {
     data.value = data.value.filter(p => p.id !== id)
   }
 
+  /** Creates a playlist (optionally with tracks) and adds it to the cached list. */
   async function createPlaylist(title: string, trackIds: string[] = []): Promise<PlaylistDetail> {
     const created = await playlistsApi.create({ title, trackIds })
     remember(created)

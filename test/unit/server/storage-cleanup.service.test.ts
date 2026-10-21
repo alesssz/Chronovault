@@ -15,12 +15,15 @@ vi.mock('~~/server/repositories/tracks.repository')
 vi.mock('~~/server/repositories/playlists.repository')
 vi.mock('~~/server/repositories/storage.repository')
 
+// The repositories are mocked: the client is never used.
 const db = {} as DbClient
+// Fixed user, "now" and two upload times: 3 days old (deletable) and 1 hour old (kept).
 const USER = '11111111-1111-4111-8111-111111111111'
 const NOW = Date.parse('2026-10-21T12:00:00Z')
 const OLD = '2026-10-18T12:00:00.000Z' // 3 days
 const RECENT = '2026-10-21T11:00:00.000Z' // 1 hour
 
+/** The user's R2 folder: one file in use, one old orphan, one recent orphan. */
 const objects: ListedObject[] = [
   { key: `${USER}/used.flac`, size: 1000, lastModified: OLD },
   { key: `${USER}/orphan-old.flac`, size: 500, lastModified: OLD },
@@ -29,6 +32,7 @@ const objects: ListedObject[] = [
 
 const list = vi.fn(async (_prefix: string) => objects)
 const remove = vi.fn(async (_keys: string[]) => {})
+/** Fake R2 client: listing returns `objects`, removals are recorded. */
 const audio = { list, remove } as unknown as AudioStorage
 
 beforeEach(() => {

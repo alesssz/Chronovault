@@ -3,6 +3,7 @@
  */
 import { expect, type Page } from '@playwright/test'
 
+/** Shape of a generated WAV (defaults: 3 s, 8 kHz, mono, 16-bit). */
 export interface WavOptions {
   seconds?: number
   sampleRate?: number
@@ -21,6 +22,7 @@ export function makeWav(options: WavOptions = {}): Buffer {
   for (let i = 0; i < frames; i++) {
     const value = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.5
     for (let ch = 0; ch < channels; ch++) {
+      // Interleaved layout: every channel gets the same sine sample.
       const offset = (i * channels + ch) * bytesPerSample
       if (float) data.writeFloatLE(value, offset)
       else data.writeIntLE(Math.round(value * (2 ** (bitsPerSample - 1) - 1)), offset, bytesPerSample)
@@ -45,12 +47,14 @@ export function makeWav(options: WavOptions = {}): Buffer {
   return Buffer.concat([header, data])
 }
 
+/** A short unique suffix for titles and emails, so tests never collide. */
 export function uniqueId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 }
 
 /** Signs up a new user (email confirmation is disabled locally). */
 export async function signUp(page: Page): Promise<string> {
+  // A throwaway account, unique per test.
   const email = `e2e-${uniqueId()}@chronoplayer.test`
   await page.goto('/login')
   await page.getByRole('button', { name: 'Sign up' }).click()
@@ -61,6 +65,7 @@ export async function signUp(page: Page): Promise<string> {
   return email
 }
 
+/** Signs in an existing user and waits for the library. */
 export async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login')
   await page.getByRole('textbox', { name: 'Email' }).fill(email)

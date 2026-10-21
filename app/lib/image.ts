@@ -41,6 +41,7 @@ export function centerSquareCrop(width: number, height: number): CropRect {
   }
 }
 
+/** `value` limited to [min, max]. */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -80,6 +81,7 @@ export function cropRectOf(view: CropView, width: number, height: number): CropR
   }
 }
 
+/** Options of toSquareWebp (all optional). */
 export interface SquareWebpOptions {
   /** Area to keep, in source pixels; centered square by default. */
   crop?: CropRect

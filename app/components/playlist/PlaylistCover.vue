@@ -15,7 +15,9 @@ const props = withDefaults(defineProps<{
   rounded: 'rounded-md',
 })
 
+/** The 4 mosaic tiles, only when there are enough covers for a full 2×2 grid. */
 const tiles = computed(() => (props.mosaic.length >= MOSAIC_SIZE ? props.mosaic.slice(0, MOSAIC_SIZE) : []))
+/** One image: the custom cover, or the first track cover when the mosaic is incomplete. */
 const single = computed(() => props.url ?? (tiles.value.length ? null : props.mosaic[0] ?? null))
 </script>
 

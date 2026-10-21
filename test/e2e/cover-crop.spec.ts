@@ -51,6 +51,7 @@ test.describe('cover cropping', () => {
       canvas.height = bitmap.height
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(bitmap, 0, 0)
+      // RGB of one pixel of the stored cover.
       const at = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
       return { size: [bitmap.width, bitmap.height], left: at(5, 100), center: at(100, 100), right: at(194, 100) }
     })

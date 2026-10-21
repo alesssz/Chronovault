@@ -27,6 +27,7 @@ export function requireUuidParam(event: H3Event, name = 'id'): string {
  * Returns the parsed output (trimmed strings, empty texts turned into null…).
  */
 export async function readValidated<T extends z.ZodType>(event: H3Event, schema: T): Promise<z.output<T>> {
+  // Anything at all until the schema has checked it.
   let body: unknown
   try {
     body = await readBody(event)

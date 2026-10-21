@@ -63,6 +63,7 @@ export function supabaseStatus() {
 
 /** Starts the local Supabase stack unless it is already running; returns its status. */
 export async function ensureSupabase() {
+  // Already up (e.g. started by a previous command): nothing to do.
   let status = supabaseStatus()
   if (status) {
     console.log('✔ Supabase is already running')
@@ -86,6 +87,7 @@ export function publishableKey(status) {
  * `hostname` replaces 127.0.0.1 when the app runs inside a container.
  */
 export function localAudioStorageEnv(status, hostname) {
+  // The local S3 endpoint of Supabase Storage (stands in for Cloudflare R2).
   const endpoint = new URL(status.STORAGE_S3_URL)
   if (hostname) endpoint.hostname = hostname
   return {
@@ -100,6 +102,7 @@ export function localAudioStorageEnv(status, hostname) {
 /** Sets the given variables in an env file, keeping any other line already there. */
 export function writeEnvFile(path, values) {
   const lines = existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/) : []
+  // Variables already present in the file (updated in place).
   const seen = new Set()
   const updated = lines.map((line) => {
     const key = line.split('=')[0]?.trim()

@@ -8,6 +8,7 @@ import { UApp } from '#components'
 import type { TrackDetail, TrackSummary } from '~~/shared/types/track'
 import TrackList from '~/components/track/TrackList.vue'
 
+/** A private library item with lyrics. */
 function summary(id: string, title: string): TrackSummary {
   return {
     id, title, composers: 'Chronovault', album: null, year: 2026, genreId: null, mastered: false,
@@ -16,6 +17,7 @@ function summary(id: string, title: string): TrackSummary {
   }
 }
 
+/** The list rendered by every test. */
 const tracks = [summary('a', 'Artemisia'), summary('b', 'Caravaggio')]
 
 /** TrackList inside UApp, which provides what Nuxt UI tooltips need (as in the real app). */
@@ -31,6 +33,7 @@ async function mountList() {
 }
 
 describe('TrackList', () => {
+  // The real store (Nuxt environment), reset before every test.
   let player: ReturnType<typeof usePlayerStore>
 
   beforeEach(() => {

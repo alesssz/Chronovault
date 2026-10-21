@@ -64,6 +64,7 @@ export async function getSharedPlaylistPlaybackSource(
   playlistId: string,
   trackId: string,
 ): Promise<PlaybackSource> {
+  // Only a track listed by the shared playlist can be signed through it.
   const track = (await listSharedPlaylistTrackRows(db, playlistId)).find(t => t.id === trackId)
   if (!track) throw notFound()
   return presignAudio(audio, track.audio_path)
@@ -91,6 +92,7 @@ async function presignAudio(audio: AudioStorage, path: string): Promise<Playback
 
 /** Signs a set of cover paths in one request and returns a lookup function. */
 async function signCovers(db: DbClient, paths: (string | null)[]): Promise<SignedUrls> {
+  // Each path once, nulls dropped (tracks without covers).
   const unique = [...new Set(paths.filter((p): p is string => !!p))]
   const urls = await storageRepo.createSignedUrls(db, COVERS_BUCKET, unique)
   return path => (path ? urls.get(path) ?? null : null)

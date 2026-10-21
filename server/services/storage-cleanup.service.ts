@@ -38,10 +38,12 @@ async function inventory(db: DbClient, audio: AudioStorage, userId: string) {
     playlistsRepo.listPlaylistCoverPaths(db, userId),
   ])
 
+  // Every file in the user's folders, from both storages, in one shape.
   const files: StoredFile[] = [
     ...audioObjects.map(o => ({ bucket: 'audio' as const, path: o.key, sizeBytes: o.size, lastModified: o.lastModified })),
     ...[...trackCovers, ...playlistCovers].map(f => ({ bucket: 'covers' as const, path: f.path, sizeBytes: f.size, lastModified: f.lastModified })),
   ]
+  // Every path a track or a playlist points to: these are never orphans.
   const referenced = new Set<string>([
     ...trackPaths.flatMap(t => [t.audio_path, ...(t.cover_path ? [t.cover_path] : [])]),
     ...playlistCoverPaths,
@@ -90,6 +92,7 @@ export async function cleanStorage(
 ): Promise<StorageCleanupResult> {
   const { orphans } = await scanStorage(db, audio, userId, minAgeHours, now)
   const doomed = orphans.filter(o => o.deletable)
+  // Paths to delete in one storage.
   const paths = (bucket: OrphanFile['bucket']) => doomed.filter(o => o.bucket === bucket).map(o => o.path)
 
   // Both removals are best effort: a file that could not be deleted shows up again next time.

@@ -103,6 +103,7 @@ async function decodePeaks(file: File): Promise<{ peaks: number[], duration: num
   // so each attempt needs its own copy.
   for (const sampleRate of [8000, 22050, 44100]) {
     try {
+      // A minimal offline context: only used to decode, never to play.
       const context = new OfflineAudioContext(1, 1, sampleRate)
       const audio = await context.decodeAudioData(buffer.slice(0))
       const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i))

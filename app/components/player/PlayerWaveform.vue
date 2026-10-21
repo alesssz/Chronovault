@@ -16,12 +16,17 @@ const props = withDefaults(defineProps<{
   height: 48,
 })
 
+// Position for the slider semantics, and seek() for the keyboard.
 const player = usePlayerStore()
+/** Where wavesurfer draws. */
 const container = ref<HTMLElement | null>(null)
+/** The wavesurfer instance (not reactive: it is a big imperative object). */
 let wavesurfer: WaveSurfer | null = null
 
+/** Seconds moved by ← / → when the waveform has focus. */
 const KEY_STEP = 5
 
+/** Keyboard seeking (the waveform is a focusable slider for screen readers). */
 function onKeydown(event: KeyboardEvent) {
   const step = event.key === 'ArrowRight' ? KEY_STEP : event.key === 'ArrowLeft' ? -KEY_STEP : 0
   if (!step) return
@@ -32,6 +37,10 @@ function onKeydown(event: KeyboardEvent) {
 /** Flat fallback shape for tracks without peaks. */
 const FLAT_PEAKS = Array.from({ length: 200 }, () => 0.2)
 
+/**
+ * (Re)builds the waveform on the shared audio element, with the stored
+ * peaks: nothing is downloaded or decoded. Theme colors are read at build time.
+ */
 function create() {
   const media = getAudioEngine().element
   if (!container.value || !media || props.duration <= 0) return
@@ -68,6 +77,7 @@ watch(() => props.duration, (value, old) => {
 
 // Colors depend on the light/dark theme.
 const colorMode = useColorMode()
+// Rebuild after the theme switch has applied (nextTick), to pick up the new colors.
 watch(() => colorMode.value, () => nextTick(create))
 </script>
 

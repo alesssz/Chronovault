@@ -14,6 +14,7 @@ export interface MediaSessionTrack {
   artworkUrl: string | null
 }
 
+/** What the OS controls do: wired to the player store. */
 export interface MediaSessionHandlers {
   play: () => void
   pause: () => void
@@ -44,6 +45,7 @@ export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
 /** Routes hardware/OS media controls to the player. */
 export function setMediaSessionHandlers(handlers: MediaSessionHandlers): void {
   if (!supported()) return
+  // Registers one action, ignoring the ones this browser does not know.
   const set = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
     try {
       navigator.mediaSession.setActionHandler(action, handler)

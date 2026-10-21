@@ -6,9 +6,13 @@
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
 
+// Sign-out runs in the browser.
 const supabase = useSupabaseClient()
+// The account email shown in the menu.
 const user = useSupabaseUser()
+// Closed on sign-out.
 const player = usePlayerStore()
+// Sign-out failures.
 const toast = useToast()
 
 /** Stops playback (no audio for a signed-out user), signs out and goes to the sign-in page. */
@@ -22,6 +26,7 @@ async function logout() {
   await navigateTo('/login')
 }
 
+// Which section link is active.
 const route = useRoute()
 /** Section links; `active` also covers sub-pages (a track's edit page belongs to Library). */
 const sections = [
@@ -32,6 +37,7 @@ const sections = [
 /** The Storage dialog (usage and clean-up of orphaned files). */
 const storageOpen = ref(false)
 
+/** Account menu: who is signed in, Storage, Sign out. */
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
   [{ label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) }],
