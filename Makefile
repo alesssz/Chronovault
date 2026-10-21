@@ -9,7 +9,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-migration db-lint db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all
+        check ci clean clean-all merge
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -126,6 +126,11 @@ test-coverage: ## Tests with a coverage report
 check: lint typecheck test ## Quick checks before a commit
 
 ci: check db-lint db-test test-e2e ## Everything the CI runs
+
+# --- Git ----------------------------------------------------------------------
+
+merge: ## Merge the current branch into main (asks first), delete it, back on main
+	$(PNPM) merge:main
 
 # --- Cleanup ------------------------------------------------------------------
 
