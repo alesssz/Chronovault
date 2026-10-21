@@ -39,6 +39,16 @@ export async function findTrackAudioPath(db: DbClient, userId: string, id: strin
   return data?.audio_path ?? null
 }
 
+/** Storage paths of every file the user's tracks use (storage clean-up). */
+export async function listTrackFilePaths(
+  db: DbClient,
+  userId: string,
+): Promise<Pick<TrackRow, 'audio_path' | 'cover_path'>[]> {
+  const { data, error } = await db.from('tracks').select('audio_path, cover_path').eq('user_id', userId)
+  if (error) throw toHttpError(error, 'tracks.listFilePaths')
+  return data
+}
+
 /** Inserts a track and returns the stored row (with defaults and generated columns). */
 export async function insertTrackRow(db: DbClient, row: TablesInsert<'tracks'>): Promise<TrackRow> {
   const { data, error } = await db.from('tracks').insert(row).select('*').single()

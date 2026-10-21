@@ -22,6 +22,14 @@ export interface AudioStorageConfig {
   secretAccessKey: string
 }
 
+/** One object of a bucket listing. */
+export interface ListedObject {
+  key: string
+  size: number
+  /** ISO timestamp of the last upload. */
+  lastModified: string
+}
+
 /** What a HEAD request reveals about a stored object. */
 export interface StoredObject {
   size: number
@@ -106,9 +114,72 @@ export class AudioStorage {
     }))
   }
 
+  /**
+   * Every object whose key starts with `prefix` (S3 ListObjectsV2, followed
+   * page by page: at most 1000 keys per response). Used by the storage
+   * clean-up, always with a user's folder as the prefix.
+   */
+  async list(prefix: string): Promise<ListedObject[]> {
+    const objects: ListedObject[] = []
+    let token: string | null = null
+    do {
+      const url = new URL(this.bucketUrl())
+      url.searchParams.set('list-type', '2')
+      url.searchParams.set('prefix', prefix)
+      if (token) url.searchParams.set('continuation-token', token)
+      const signed = await this.client.sign(url.toString(), { method: 'GET' })
+      const response = await this.fetchImpl(signed)
+      if (!response.ok) throw new Error(`Audio storage LIST failed (${response.status})`)
+      const xml = await response.text()
+      objects.push(...parseListedObjects(xml))
+      token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? xmlValue(xml, 'NextContinuationToken') : null
+    } while (token)
+    return objects
+  }
+
+  /** `<endpoint>/<bucket>` (path style, like objectUrl). */
+  private bucketUrl(): string {
+    return `${this.config.endpoint.replace(/\/$/, '')}/${encodeURIComponent(this.config.bucket)}`
+  }
+
   /** Server-side signed request (headers signature) for HEAD and DELETE. */
   private async request(method: 'HEAD' | 'DELETE', key: string): Promise<Response> {
     const signed = await this.client.sign(this.objectUrl(key), { method })
     return this.fetchImpl(signed)
   }
+}
+
+// --- ListObjectsV2 XML ------------------------------------------------------------------
+// The response is small and regular: a few regular expressions are enough,
+// no XML library needed.
+
+/** Decodes the five predefined XML entities (keys may contain `&`, `<`…). */
+function decodeXml(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, '\'')
+    .replace(/&amp;/g, '&')
+}
+
+/** Text of the first `<tag>…</tag>` in `xml`, decoded, or null. */
+function xmlValue(xml: string, tag: string): string | null {
+  const match = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(xml)
+  return match ? decodeXml(match[1]!) : null
+}
+
+/** The `<Contents>` entries of a ListObjectsV2 response. */
+export function parseListedObjects(xml: string): ListedObject[] {
+  const objects: ListedObject[] = []
+  for (const [, body] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    const key = xmlValue(body!, 'Key')
+    if (!key) continue
+    objects.push({
+      key,
+      size: Number(xmlValue(body!, 'Size') ?? 0),
+      lastModified: xmlValue(body!, 'LastModified') ?? new Date(0).toISOString(),
+    })
+  }
+  return objects
 }

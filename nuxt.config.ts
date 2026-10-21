@@ -47,6 +47,12 @@ export default defineNuxtConfig({
       accessKeyId: '',
       secretAccessKey: '',
     },
+    // Storage clean-up: files without a track are deleted only once they are
+    // this old, so an upload still in progress is never touched.
+    // NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS (the e2e tests set it to 0).
+    storageCleanup: {
+      minAgeHours: 24,
+    },
   },
 
   // A single copy of Pinia in the server bundle: otherwise the Pinia plugin and
