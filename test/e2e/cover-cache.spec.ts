@@ -4,7 +4,7 @@
  * address changes only when the cover does, and only the owner can read it.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { signUp, uniqueId, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
 
 // A 1×1 PNG: the crop editor turns it into the stored WebP cover.
 const TINY_PNG = Buffer.from(
@@ -12,11 +12,14 @@ const TINY_PNG = Buffer.from(
   'base64',
 )
 
-/** Sets a cover from the edit page (keeping the crop editor's centered square). */
+/**
+ * Sets a cover from the edit page (keeping the crop editor's centered square)
+ * and waits until the server has saved it (PATCH /api/tracks/:id): the
+ * "Cover updated" toast of an earlier call may still be on screen.
+ */
 async function setCover(page: Page): Promise<void> {
   await page.getByTestId('cover-input').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG })
-  await page.getByTestId('crop-confirm').click()
-  await expect(page.getByText('Cover updated').first()).toBeVisible()
+  await clickAndWaitForApi(page, page.getByTestId('crop-confirm'), { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ })
 }
 
 test.describe('cover cache', () => {

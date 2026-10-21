@@ -3,7 +3,10 @@
  * a visitor plays private tracks inside the playlist only; private again → 404.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { signUp, uniqueId, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
+
+// The playlist page saves its details with PATCH /api/playlists/:id.
+const SAVE_PLAYLIST = { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ }
 
 /** Opens a library row's menu and its "Add to playlist" submenu. */
 async function openAddToPlaylist(page: Page, trackTitle: string) {
@@ -61,7 +64,7 @@ test.describe('playlists', () => {
     await expect(shareBox).toContainText('Private: only you can listen')
     await page.getByTestId('playlist-field-description').fill('Songs for the road.')
     await page.getByText('Unlisted', { exact: true }).click()
-    await page.getByTestId('save-playlist').click()
+    await clickAndWaitForApi(page, page.getByTestId('save-playlist'), SAVE_PLAYLIST)
     await expect(page.getByText('Changes saved').first()).toBeVisible()
     await expect(page.getByTestId('private-tracks-warning')).toContainText('2 private tracks included')
 
@@ -99,8 +102,9 @@ test.describe('playlists', () => {
 
     // --- Back to private: the link stops working immediately ---
     await page.getByText('Private', { exact: true }).click()
-    await page.getByTestId('save-playlist').click()
-    await expect(page.getByText('Changes saved').first()).toBeVisible()
+    // Wait for the server, not the toast: the first save's toast may still be
+    // on screen, and the visitor must only try once the playlist is private.
+    await clickAndWaitForApi(page, page.getByTestId('save-playlist'), SAVE_PLAYLIST)
 
     expect((await visitor.goto(shareUrl))?.status()).toBe(404)
     await expect(visitor.getByTestId('shared-not-found')).toContainText('Playlist not available')

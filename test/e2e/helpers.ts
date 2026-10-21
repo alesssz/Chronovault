@@ -1,7 +1,8 @@
 /**
- * End-to-end helpers: WAV files generated on the fly, throwaway accounts, uploads.
+ * End-to-end helpers: WAV files generated on the fly, throwaway accounts,
+ * uploads, and waiting for a save to really reach the server.
  */
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 /** Shape of a generated WAV (defaults: 3 s, 8 kHz, mono, 16-bit). */
 export interface WavOptions {
@@ -83,4 +84,27 @@ export async function uploadTrack(page: Page, title: string, wav: WavOptions = {
     buffer: makeWav(wav),
   })
   await expect(page.locator('[data-testid="upload-item"][data-status="done"]')).toHaveCount(1, { timeout: 30_000 })
+}
+
+/** An API request to wait for: HTTP method and a pattern for the URL path. */
+export interface ApiRequest {
+  method: string
+  path: RegExp
+}
+
+/**
+ * Clicks a control that saves through the API and waits for the server's
+ * successful answer.
+ *
+ * Why not just wait for the success toast: when the same toast (e.g.
+ * "Changes saved") is still on screen from an earlier save, the assertion
+ * passes at once, before this request has even reached the server, and the
+ * next step races the save. The response, instead, belongs to this click.
+ */
+export async function clickAndWaitForApi(page: Page, control: Locator, request: ApiRequest): Promise<void> {
+  // Listen before clicking, so a fast response cannot be missed.
+  const response = page.waitForResponse(r =>
+    r.request().method() === request.method && request.path.test(new URL(r.url()).pathname))
+  await control.click()
+  expect((await response).ok()).toBe(true)
 }
