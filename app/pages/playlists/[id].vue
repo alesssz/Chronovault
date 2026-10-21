@@ -24,6 +24,7 @@ const id = route.params.id as string
 const supabase = useSupabaseClient()
 // The signed-in user's id builds the cover path `<userId>/playlists/<id>.webp`.
 const user = useSupabaseUser()
+// Play all, the highlighted current track, click-to-play rows.
 const player = usePlayerStore()
 // Success and failure messages.
 const toast = useToast()
@@ -32,6 +33,8 @@ const { remember, forget } = usePlaylists()
 const { shareUrl, copyShareLink } = useShareLink()
 // "Play next" / "Add to queue" in each track's menu.
 const queue = useQueueActions()
+// "Download" in each track's menu: the file with its metadata written in.
+const { download } = useTrackDownload()
 
 const { data: playlist, error } = await useAsyncData(`playlist-${id}`, () => playlistsApi.get(id))
 
@@ -162,7 +165,10 @@ function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
       { label: 'Move up', icon: 'i-lucide-arrow-up', disabled: index === 0, onSelect: () => move(index, -1) },
       { label: 'Move down', icon: 'i-lucide-arrow-down', disabled: index === tracks.value.length - 1, onSelect: () => move(index, 1) },
     ],
-    [{ label: 'Edit track', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` }],
+    [
+      { label: 'Edit track', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
+      { label: 'Download', icon: 'i-lucide-download', onSelect: () => void download(track.id) },
+    ],
     [{ label: 'Remove from playlist', icon: 'i-lucide-list-x', color: 'error', onSelect: () => removeTrack(track) }],
   ]
 }
