@@ -5,6 +5,7 @@ import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { moveItem } from '~~/shared/utils/arrays'
 import { clamp } from '~~/shared/utils/numbers'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
+import { randomUpcomingSlot, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
@@ -119,6 +120,11 @@ export const usePlayerStore = defineStore('player', () => {
   const shuffle = ref(storedModes.shuffle)
   /** Repeat mode (library playback only). */
   const repeat = ref<RepeatMode>(storedModes.repeat)
+  /**
+   * Track ids of the queue in its order before shuffling, to put it back
+   * when shuffle is turned off; null while shuffle is off or nothing plays.
+   */
+  const originalOrder = ref<string[] | null>(null)
   /** The full-screen view (PlayerExpanded) is open. */
   const expanded = ref(false)
   /** The "Up next" panel (PlayerQueue) is open. */
@@ -319,10 +325,20 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
     setSource(librarySource)
-    queue.value = [...context]
-    const i = queue.value.findIndex(t => t.id === track.id)
-    if (i === -1) queue.value = [track, ...queue.value]
-    await loadIndex(Math.max(0, i), true)
+    let items = [...context]
+    let i = items.findIndex(t => t.id === track.id)
+    if (i === -1) {
+      items = [track, ...items]
+      i = 0
+    }
+    if (shuffle.value) {
+      originalOrder.value = items.map(t => t.id)
+      // The chosen track first, all the others of the list shuffled after it.
+      items = shuffleUpcoming([items[i]!, ...items.filter((_, j) => j !== i)], 0)
+      i = 0
+    }
+    queue.value = items
+    await loadIndex(i, true)
   }
 
   /** Switches the source of the queue (library, shared track, shared playlist). */
@@ -416,8 +432,9 @@ export const usePlayerStore = defineStore('player', () => {
     else seek(0)
   }
 
-  /** "Repeat all" after the last track: back to the first one. */
+  /** "Repeat all" after the last track: back to the first one, reshuffled when shuffle is on. */
   async function startNewRound(): Promise<void> {
+    if (shuffle.value) queue.value = shuffledRound(queue.value, queue.value[index.value]?.id ?? '')
     await loadIndex(0, true)
   }
 
@@ -484,6 +501,28 @@ export const usePlayerStore = defineStore('player', () => {
     engine().setPlaybackRate(value)
   }
 
+  /**
+   * Shuffle button (remembered). With library playback the upcoming tracks
+   * are reordered at once; on a public page only the setting changes.
+   */
+  function setShuffle(on: boolean): void {
+    if (on === shuffle.value) return
+    shuffle.value = on
+    storeModes({ shuffle: shuffle.value, repeat: repeat.value })
+    if (!modesApply.value || index.value < 0) {
+      originalOrder.value = null
+      return
+    }
+    if (on) {
+      originalOrder.value = queue.value.map(t => t.id)
+      queue.value = shuffleUpcoming(queue.value, index.value)
+    }
+    else {
+      if (originalOrder.value) queue.value = unshuffleUpcoming(queue.value, index.value, originalOrder.value)
+      originalOrder.value = null
+    }
+  }
+
   /** Repeat button: off → all → one → off (remembered). */
   function cycleRepeat(): void {
     repeat.value = REPEAT_MODES[(REPEAT_MODES.indexOf(repeat.value) + 1) % REPEAT_MODES.length]!
@@ -506,6 +545,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (engineRef) engineRef.unload()
     queue.value = []
     index.value = -1
+    originalOrder.value = null
     current.value = null
     status.value = 'idle'
     currentTime.value = 0
@@ -540,6 +580,11 @@ export const usePlayerStore = defineStore('player', () => {
     if (i < index.value) index.value--
   }
 
+  /** A track added while shuffled joins the original order too (at its end). */
+  function rememberOriginal(id: string): void {
+    if (originalOrder.value && !originalOrder.value.includes(id)) originalOrder.value = [...originalOrder.value, id]
+  }
+
   /** Puts `track` right after the current one (moving it there if it is already queued). */
   async function playNext(track: QueueItem): Promise<QueueResult> {
     if (!canEditQueue()) {
@@ -552,12 +597,14 @@ export const usePlayerStore = defineStore('player', () => {
     const updated = [...queue.value]
     updated.splice(index.value + 1, 0, track)
     queue.value = updated
+    rememberOriginal(track.id)
     return 'queued'
   }
 
   /**
-   * Appends `track` at the end of the queue. A track already coming up stays
-   * where it is; one already played is moved to the end.
+   * Appends `track` at the end of the queue (at a random place among the
+   * upcoming tracks while shuffled). A track already coming up stays where
+   * it is; one already played is moved.
    */
   async function addToQueue(track: QueueItem): Promise<QueueResult> {
     if (!canEditQueue()) {
@@ -568,7 +615,15 @@ export const usePlayerStore = defineStore('player', () => {
     if (i === index.value) return 'current'
     if (i > index.value) return 'already-queued'
     detach(track.id)
-    queue.value = [...queue.value, track]
+    if (shuffle.value) {
+      const updated = [...queue.value]
+      updated.splice(randomUpcomingSlot(updated.length, index.value), 0, track)
+      queue.value = updated
+      rememberOriginal(track.id)
+    }
+    else {
+      queue.value = [...queue.value, track]
+    }
     return 'queued'
   }
 
@@ -644,13 +699,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     // state
-    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, shuffle, repeat, expanded, queueOpen, error, sourceKey,
+    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, shuffle, repeat, originalOrder, expanded, queueOpen, error, sourceKey,
     // derived
     isActive, displayTrack, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
     playTrack, cueShared, playSharedPlaylist, play, pause,
     playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, restoreQueue, togglePlay, stop, next, previous, seek,
-    setVolume, setMuted, toggleMute, setPlaybackRate, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
+    setVolume, setMuted, toggleMute, setPlaybackRate, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }
 })
 

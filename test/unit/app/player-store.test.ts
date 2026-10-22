@@ -151,6 +151,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 describe('player store', () => {
@@ -790,5 +791,127 @@ describe('repeat', () => {
     expect(player.hasNext).toBe(false)
     engine.emit('ended')
     expect(player.status).toBe('paused')
+  })
+})
+
+describe('shuffle', () => {
+  /** A library of six tracks: a shuffle of five upcoming ones is almost never the identity. */
+  const six = ['a', 'b', 'c', 'd', 'e', 'f'].map(summary)
+  /** Ids of a list of queue items. */
+  const ids = (items: { id: string }[]) => items.map(t => t.id)
+
+  it('turning it on shuffles the upcoming tracks only', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[1]!, six)
+    player.setShuffle(true)
+
+    expect(player.shuffle).toBe(true)
+    expect(ids(player.queue).slice(0, 2)).toEqual(['a', 'b'])
+    expect(ids(player.upcoming).sort()).toEqual(['c', 'd', 'e', 'f'])
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('turning it off carries on in the original order from the current track', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[1]!, six)
+    player.setShuffle(true)
+    player.setShuffle(false)
+
+    expect(ids(player.upcoming)).toEqual(['c', 'd', 'e', 'f'])
+    expect(player.originalOrder).toBeNull()
+  })
+
+  it('starting from the library plays the chosen track first, then all the others shuffled', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.playTrack(six[3]!, six)
+
+    expect(player.index).toBe(0)
+    expect(player.current?.id).toBe('d')
+    expect(ids(player.upcoming).sort()).toEqual(['a', 'b', 'c', 'e', 'f'])
+    // Back in order: carry on after "d", wrapping around.
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['e', 'f', 'a', 'b', 'c'])
+  })
+
+  it('add to queue puts the track at a random place among the upcoming ones', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 3))
+    player.setShuffle(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    await player.addToQueue(six[5]!)
+
+    expect(player.queue[1]?.id).toBe('f')
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'f'])
+  })
+
+  it('play next still goes right after the current track', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 3))
+    player.setShuffle(true)
+
+    await player.playNext(six[5]!)
+
+    expect(player.queue[1]?.id).toBe('f')
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'f'])
+  })
+
+  it('repeat all reshuffles each new round, never repeating the last track', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.playTrack(six[0]!, six)
+    player.cycleRepeat()
+    const last = player.queue.at(-1)!.id
+
+    await player.playFromQueue(5)
+    await player.next()
+
+    expect(player.index).toBe(0)
+    expect(player.current?.id).not.toBe(last)
+    expect(ids(player.queue).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('on public pages it only changes the setting', async () => {
+    const player = usePlayerStore()
+    await player.playSharedPlaylist(sharedPlaylist, 0)
+    const order = ids(player.queue)
+
+    player.setShuffle(true)
+
+    expect(player.shuffle).toBe(true)
+    expect(ids(player.queue)).toEqual(order)
+  })
+
+  it('closing the player forgets the original order but keeps the setting', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    player.setShuffle(true)
+
+    player.close()
+
+    expect(player.shuffle).toBe(true)
+    expect(player.originalOrder).toBeNull()
+  })
+
+  it('is remembered with the repeat mode for the next visit', () => {
+    const stored = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    })
+    try {
+      const player = usePlayerStore()
+      player.setShuffle(true)
+      player.cycleRepeat()
+
+      setActivePinia(createPinia())
+      const next = usePlayerStore()
+      expect(next.shuffle).toBe(true)
+      expect(next.repeat).toBe('all')
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
