@@ -102,7 +102,21 @@ export default defineNuxtConfig({
   vite: {
     // The FLAC worker loads libFLAC with a dynamic import: ES module workers are required.
     worker: { format: 'es' },
-    optimizeDeps: { include: ['libflacjs/dist/libflac.wasm.js'] },
+    // Pre-bundled at dev startup: otherwise Vite discovers them on the first
+    // visit to the page that imports them, and reloads it.
+    optimizeDeps: {
+      include: [
+        '@vercel/analytics/nuxt/runtime',
+        '@vueuse/integrations/useSortable',
+        'browser-id3-writer',
+        'hash-wasm',
+        'libflacjs/dist/libflac.wasm.js',
+        'music-metadata',
+        'wavesurfer.js',
+        'wavesurfer.js/dist/plugins/regions.esm.js',
+        'zod',
+      ],
+    },
   },
 
   typescript: {
