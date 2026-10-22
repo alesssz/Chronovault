@@ -86,6 +86,19 @@ export async function uploadTrack(page: Page, title: string, wav: WavOptions = {
   await expect(page.locator('[data-testid="upload-item"][data-status="done"]')).toHaveCount(1, { timeout: 30_000 })
 }
 
+/**
+ * Waits until Nuxt has hydrated a server-rendered page (the public /t and /p
+ * pages). Their buttons are on screen from the first byte, but a click before
+ * hydration does nothing; on the dev server hydration takes seconds.
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    // The Vue app on the root element; `$nuxt` is the Nuxt app it carries.
+    const root = document.querySelector('#__nuxt') as { __vue_app__?: { $nuxt?: { isHydrating?: boolean } } } | null
+    return root?.__vue_app__?.$nuxt?.isHydrating === false
+  })
+}
+
 /** An API request to wait for: HTTP method and a pattern for the URL path. */
 export interface ApiRequest {
   method: string
