@@ -658,13 +658,16 @@ export const usePlayerStore = defineStore('player', () => {
 
   /**
    * Puts back a saved library queue (app/lib/queue-storage.ts), loaded and
-   * paused at `position`. Does nothing if something is already playing;
-   * a track that cannot be loaded makes it give up and close the player.
+   * paused at `position`; `originalIds` is its order before shuffling.
+   * Does nothing if something is already playing; a track that cannot be
+   * loaded makes it give up and close the player.
    */
-  async function restoreQueue(items: QueueItem[], at: number, position: number): Promise<boolean> {
+  async function restoreQueue(items: QueueItem[], at: number, position: number, originalIds?: string[]): Promise<boolean> {
     if (isActive.value || !items[at]) return false
     setSource(librarySource)
     queue.value = [...items]
+    // Shuffle on: the order to go back to (a queue saved without one keeps its current order).
+    originalOrder.value = shuffle.value ? (originalIds ?? items.map(t => t.id)) : null
     await loadIndex(at, false, position)
     if (status.value === 'error') {
       close()

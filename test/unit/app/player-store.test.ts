@@ -883,6 +883,26 @@ describe('shuffle', () => {
     expect(ids(player.queue)).toEqual(order)
   })
 
+  it('a restored shuffled queue can still go back to its original order', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.restoreQueue(['c', 'a', 'b'].map(summary), 0, 0, ['a', 'b', 'c'])
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c'])
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['a', 'b'])
+  })
+
+  it('a queue saved without an original order keeps its order when shuffle is turned off', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.restoreQueue(['c', 'a', 'b'].map(summary), 0, 0)
+
+    expect(player.originalOrder).toEqual(['c', 'a', 'b'])
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['a', 'b'])
+  })
+
   it('closing the player forgets the original order but keeps the setting', async () => {
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
