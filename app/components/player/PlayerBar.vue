@@ -62,6 +62,7 @@ const track = computed(() => player.displayTrack)
 
       <PlayerControls
         :show-stop="false"
+        :show-modes="false"
         class="md:hidden"
       />
       <PlayerControls class="hidden md:flex" />
