@@ -1042,6 +1042,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 - `supabase.redirectOptions`: login at `/login`, callback at `/confirm`, public pages excluded; `types` points to the generated database types.
 - `build.transpile: ['pinia']`: one copy of Pinia in the server bundle (without it, server-rendered pages failed with "no active Pinia").
 - `vite.worker.format: 'es'`: the FLAC worker is an ES module worker.
+- `vite.optimizeDeps.include`: every package the browser imports (FLAC worker included), pre-bundled when the dev server starts. A package missing from it is discovered on the first visit to a page that imports it, and Vite reloads that page.
 - `typescript.appTsConfig.vueCompilerOptions.checkUnknownComponents`: a misnamed component is a type error.
 - `pwa`: manifest and a Workbox service worker that caches static assets only (audio comes from signed URLs, covers use the browser cache, the analytics script is left alone).
 - `app/assets/css/main.css`: base font size 125% (20 px), 118.75% while the full-screen player is open.
@@ -1340,6 +1341,8 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 ## 15. Known limitations and next steps
 
+### 15.1 Known limitations
+
 - **The queue is per device:** it is saved in the browser, not in the account.
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.
@@ -1347,6 +1350,11 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
 - **Revoked links:** an audio URL already handed out stays valid until it expires (up to 6 hours).
 - **Statistics count page openings, not plays** (custom events are not on Vercel's Hobby plan), keep one month of data, and miss visitors with an ad blocker. Real numbers exist only on the Vercel deployment.
+
+### 15.2 Next steps
+
+- **A check for `vite.optimizeDeps.include`:** a unit test that reads the packages imported by `app/` and `shared/` and fails when one is missing from the list ([10.3](#103-notable-nuxtconfigts-settings)). Today a new browser dependency left out of it is noticed only on the dev server, as a reload on the first visit to the page that imports it.
+- **Audio quality on screen:** format, bit depth and sample rate on the track page, a "Lossless, verified" badge for FLACs that passed the three checks of [7.4](#74-lossless-wav--flac-conversion), and a hint in the player when the volume is below 100% (it is remembered between visits). Bit depth and sample rate are not stored today: this needs a migration, and tracks uploaded before it have no values.
 
 ---
 
@@ -1374,6 +1382,8 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 | A share link answers "not available" | The item is private (or the saved visibility is still private): set Unlisted/Public and **save** |
 | Database types out of date | `make db-types` after every migration |
 | First page load in `make dev` is very slow | Expected: Vite compiles dependencies on the first request |
+| Dev server: `Vite discovered new dependencies at runtime`, then the page reloads | A package the browser imports is missing from `vite.optimizeDeps.include` in `nuxt.config.ts` ([10.3](#103-notable-nuxtconfigts-settings)): add the names the message lists |
+| Vercel: a deployment is **Blocked** | The commit author's email is not one of your GitHub account's (e.g. a work computer's global git identity). Use your own for this repository: `git config user.email <your GitHub email>`. For every personal project in one folder, add to `~/.gitconfig` `[includeIf "gitdir:~/Projects/others/"]` with `path = ~/.gitconfig-personal`, a file holding your `[user]` name and email. Then push a new commit: it deploys everything before it, so the blocked ones need nothing else |
 | E2E tests test an old version | A server is still running on :3100: stop it, Playwright then builds afresh |
 | Every e2e test fails at once with `browserType.launch: Executable doesn't exist` | Playwright's Chromium is missing (new computer, or a Playwright update): `pnpm exec playwright install chromium`. `make test-e2e` does it for you (macOS: `~/Library/Caches/ms-playwright`, Windows: `%LOCALAPPDATA%\ms-playwright`) |
 | Browser console: `preload … not used because it is a cross-world service worker resource mismatch` | Harmless: the PWA service worker serves files Chrome had already preloaded. Absent in `make local` (no service worker in development); DevTools → Application → Service workers → "Bypass for network" hides it on :8080 |
