@@ -120,9 +120,10 @@ const meta = computed(() => {
               {{ player.error }}
             </p>
 
-            <div class="flex items-center justify-between">
-              <PlayerVolume />
+            <!-- Controls on their own row (six buttons fill this column), the volume under them -->
+            <div class="flex flex-col items-center gap-3">
               <PlayerControls size="xl" />
+              <PlayerVolume />
             </div>
           </section>
 

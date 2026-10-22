@@ -40,14 +40,26 @@ export function shuffleUpcoming<T>(queue: readonly T[], index: number, random: R
  * original order does not know go last, in their current order.
  */
 export function unshuffleUpcoming<T extends WithId>(queue: readonly T[], index: number, originalOrder: readonly string[]): T[] {
-  const upcoming = queue.slice(index + 1)
   // Where the original order resumes: right after the current track (0 if it is unknown).
   const start = originalOrder.indexOf(queue[index]?.id ?? '') + 1
-  // Distance of each id from that point, going around the original order.
-  const rank = new Map(originalOrder.map((id, i) => [id, (i - start + originalOrder.length) % originalOrder.length]))
-  const known = upcoming.filter(t => rank.has(t.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!)
-  const unknown = upcoming.filter(t => !rank.has(t.id))
-  return [...queue.slice(0, index + 1), ...known, ...unknown]
+  return [...queue.slice(0, index + 1), ...sortFrom(queue.slice(index + 1), originalOrder, start)]
+}
+
+/** The whole queue back in `originalOrder` (a new round of "repeat all" once shuffle is off); unknown tracks last. */
+export function inOriginalOrder<T extends WithId>(queue: readonly T[], originalOrder: readonly string[]): T[] {
+  return sortFrom(queue, originalOrder, 0)
+}
+
+/**
+ * `items` sorted by their place in `order`, counted from position `start`
+ * and wrapping around; ids `order` does not know go last, in their current order.
+ */
+function sortFrom<T extends WithId>(items: readonly T[], order: readonly string[], start: number): T[] {
+  // Distance of each id from `start`, going around the order.
+  const rank = new Map(order.map((id, i) => [id, (i - start + order.length) % order.length]))
+  const known = items.filter(t => rank.has(t.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!)
+  const unknown = items.filter(t => !rank.has(t.id))
+  return [...known, ...unknown]
 }
 
 /** Where a track added while shuffled goes: any slot after the current track, the end included. */

@@ -3,8 +3,8 @@
  * visit on the same device resumes where the user left off: same queue,
  * same track, same position (paused).
  *
- * Only track ids are stored (and, with shuffle on, their order before
- * shuffling), never track data: on restore the ids are
+ * Only track ids are stored (and, once shuffled, their order before the
+ * first shuffle), never track data: on restore the ids are
  * matched against the user's current library, so deleted tracks drop out
  * and covers come with their current addresses (a cover changed since the
  * queue was saved has a new versioned URL). The saved queue belongs to one
@@ -28,7 +28,7 @@ export interface SavedQueue {
   index: number
   /** Playback position in the current track, in seconds. */
   position: number
-  /** With shuffle on: the queue's ids in their order before shuffling. */
+  /** Once the queue has been shuffled: its ids in their order before the first shuffle. */
   originalTrackIds?: string[]
   /** ISO timestamp of the last save (informational). */
   savedAt: string

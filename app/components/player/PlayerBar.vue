@@ -65,7 +65,11 @@ const track = computed(() => player.displayTrack)
         :show-modes="false"
         class="md:hidden"
       />
-      <PlayerControls class="hidden md:flex" />
+      <!-- Shuffle and repeat only from xl: on narrower screens the waveform needs the room (they stay in the full-screen view) -->
+      <PlayerControls
+        modes-class="hidden xl:inline-flex"
+        class="hidden md:flex"
+      />
 
       <div class="hidden min-w-0 flex-1 items-center gap-3 md:flex">
         <span

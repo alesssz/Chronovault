@@ -10,6 +10,8 @@ withDefaults(defineProps<{
   showStop?: boolean
   /** Shuffle and repeat buttons (the compact phone bar has no room for them). */
   showModes?: boolean
+  /** Extra classes for the shuffle and repeat buttons (e.g. shown only from a breakpoint). */
+  modesClass?: string
 }>(), {
   size: 'md',
   showStop: true,
@@ -24,6 +26,7 @@ const player = usePlayerStore()
   <div class="flex items-center gap-1">
     <UButton
       v-if="showModes && player.queueEditable"
+      :class="modesClass"
       icon="i-lucide-shuffle"
       :color="player.shuffle ? 'primary' : 'neutral'"
       variant="ghost"
@@ -71,6 +74,7 @@ const player = usePlayerStore()
     />
     <UButton
       v-if="showModes && player.queueEditable"
+      :class="modesClass"
       :icon="player.repeat === 'one' ? 'i-lucide-repeat-1' : 'i-lucide-repeat'"
       :color="player.repeat === 'off' ? 'neutral' : 'primary'"
       variant="ghost"

@@ -64,6 +64,8 @@ test.describe('editable queue', () => {
   })
 
   test('shuffle reorders the upcoming tracks and puts them back; repeat one restarts the track', async ({ page }) => {
+    // The bar shows shuffle and repeat from 1280 px (xl): stay clear of that edge.
+    await page.setViewportSize({ width: 1440, height: 900 })
     await signUp(page)
     const id = uniqueId()
     const titles = ['a', 'b', 'c', 'd', 'e'].map(letter => `s${letter}-${id}`)

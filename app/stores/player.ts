@@ -1,11 +1,11 @@
-import { defineStore } from 'pinia'
+import { defineStore, skipHydrate } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { moveItem } from '~~/shared/utils/arrays'
 import { clamp } from '~~/shared/utils/numbers'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
-import { randomUpcomingSlot, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
+import { inOriginalOrder, randomUpcomingSlot, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
@@ -108,8 +108,10 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTime = ref(0)
   /** From the track data at first, then from the audio element once known. */
   const duration = ref(0)
+  // Settings read from this browser's storage. skipHydrate: a server-rendered
+  // page (/t, /p) must not replace them with the server's defaults.
   /** 0..1, restored from the previous visit. */
-  const volume = ref(readStoredVolume())
+  const volume = skipHydrate(ref(readStoredVolume()))
   /** Mute is separate from the volume, so unmuting brings the old level back. */
   const muted = ref(false)
   /** Playback speed (1 = normal); slowed down while syncing lyrics. */
@@ -117,12 +119,14 @@ export const usePlayerStore = defineStore('player', () => {
   /** Shuffle and repeat saved by the previous visit. */
   const storedModes = readStoredModes()
   /** Shuffle is on: upcoming tracks play in random order (library playback only). */
-  const shuffle = ref(storedModes.shuffle)
+  const shuffle = skipHydrate(ref(storedModes.shuffle))
   /** Repeat mode (library playback only). */
-  const repeat = ref<RepeatMode>(storedModes.repeat)
+  const repeat = skipHydrate(ref<RepeatMode>(storedModes.repeat))
   /**
-   * Track ids of the queue in its order before shuffling, to put it back
-   * when shuffle is turned off; null while shuffle is off or nothing plays.
+   * Track ids of the queue in its order before it was first shuffled (plus
+   * tracks added since), to put it back when shuffle is turned off and for
+   * the new rounds of "repeat all" after that. Null for a list never
+   * shuffled, a shared list, or when nothing plays.
    */
   const originalOrder = ref<string[] | null>(null)
   /** The full-screen view (PlayerExpanded) is open. */
@@ -341,10 +345,18 @@ export const usePlayerStore = defineStore('player', () => {
     await loadIndex(i, true)
   }
 
+  /** Plays a whole list ("Play" on a playlist): from its first track, or from a random one while shuffled. */
+  async function playAll(list: QueueItem[]): Promise<void> {
+    const start = shuffle.value ? list[Math.floor(Math.random() * list.length)] : list[0]
+    if (start) await playTrack(start, list)
+  }
+
   /** Switches the source of the queue (library, shared track, shared playlist). */
   function setSource(next: TrackSource): void {
     source = next
     sourceKey.value = next.key
+    // Only library playback is shuffled: a shared list has no original order to keep.
+    if (next !== librarySource) originalOrder.value = null
   }
 
   /** Loads a track shared by link without starting it (public share page). */
@@ -432,9 +444,15 @@ export const usePlayerStore = defineStore('player', () => {
     else seek(0)
   }
 
-  /** "Repeat all" after the last track: back to the first one, reshuffled when shuffle is on. */
+  /**
+   * "Repeat all" after the last track: back to the first one, reshuffled
+   * when shuffle is on, in the original order when it was turned off. A
+   * single track simply starts again in place.
+   */
   async function startNewRound(): Promise<void> {
+    if (queue.value.length === 1) return replay()
     if (shuffle.value) queue.value = shuffledRound(queue.value, queue.value[index.value]?.id ?? '')
+    else if (originalOrder.value) queue.value = inOriginalOrder(queue.value, originalOrder.value)
     await loadIndex(0, true)
   }
 
@@ -514,12 +532,12 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
     if (on) {
-      originalOrder.value = queue.value.map(t => t.id)
+      // Shuffled before: the list's real order is already known (the queue may be mixed by now).
+      originalOrder.value ??= queue.value.map(t => t.id)
       queue.value = shuffleUpcoming(queue.value, index.value)
     }
-    else {
-      if (originalOrder.value) queue.value = unshuffleUpcoming(queue.value, index.value, originalOrder.value)
-      originalOrder.value = null
+    else if (originalOrder.value) {
+      queue.value = unshuffleUpcoming(queue.value, index.value, originalOrder.value)
     }
   }
 
@@ -666,8 +684,8 @@ export const usePlayerStore = defineStore('player', () => {
     if (isActive.value || !items[at]) return false
     setSource(librarySource)
     queue.value = [...items]
-    // Shuffle on: the order to go back to (a queue saved without one keeps its current order).
-    originalOrder.value = shuffle.value ? (originalIds ?? items.map(t => t.id)) : null
+    // The order to go back to; with shuffle on and none saved (an old format), the current one.
+    originalOrder.value = originalIds ?? (shuffle.value ? items.map(t => t.id) : null)
     await loadIndex(at, false, position)
     if (status.value === 'error') {
       close()
@@ -706,7 +724,7 @@ export const usePlayerStore = defineStore('player', () => {
     // derived
     isActive, displayTrack, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
-    playTrack, cueShared, playSharedPlaylist, play, pause,
+    playTrack, playAll, cueShared, playSharedPlaylist, play, pause,
     playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, restoreQueue, togglePlay, stop, next, previous, seek,
     setVolume, setMuted, toggleMute, setPlaybackRate, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }

@@ -783,7 +783,7 @@ describe('repeat', () => {
     expect(player.index).toBe(2)
   })
 
-  it('is ignored on public pages: a shared playlist stops at its end', async () => {
+  it('all is ignored on public pages: a shared playlist stops at its end', async () => {
     const player = usePlayerStore()
     player.cycleRepeat()
     await player.playSharedPlaylist(sharedPlaylist, 2)
@@ -792,6 +792,31 @@ describe('repeat', () => {
     engine.emit('ended')
     expect(player.status).toBe('paused')
   })
+
+  it('one is ignored on public pages: a shared track is not played again', async () => {
+    const player = usePlayerStore()
+    player.cycleRepeat()
+    player.cycleRepeat()
+    await player.playSharedPlaylist(sharedPlaylist, 2)
+
+    engine.emit('ended')
+
+    expect(player.status).toBe('paused')
+    expect(engine.play).toHaveBeenCalledTimes(1)
+  })
+
+  it('all on a single track plays it again in place, without reloading it', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!)
+    player.cycleRepeat()
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(engine.seek).toHaveBeenLastCalledWith(0)
+    expect(tracksApi.get).toHaveBeenCalledTimes(1)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('shuffle', () => {
@@ -799,15 +824,20 @@ describe('shuffle', () => {
   const six = ['a', 'b', 'c', 'd', 'e', 'f'].map(summary)
   /** Ids of a list of queue items. */
   const ids = (items: { id: string }[]) => items.map(t => t.id)
+  /**
+   * Math.random() always 0: Fisher–Yates then moves every item one place to
+   * the left (the first one goes last), so each shuffle has a known result.
+   */
+  const rotateOnShuffle = () => vi.spyOn(Math, 'random').mockReturnValue(0)
 
   it('turning it on shuffles the upcoming tracks only', async () => {
     const player = usePlayerStore()
     await player.playTrack(six[1]!, six)
+    rotateOnShuffle()
     player.setShuffle(true)
 
     expect(player.shuffle).toBe(true)
-    expect(ids(player.queue).slice(0, 2)).toEqual(['a', 'b'])
-    expect(ids(player.upcoming).sort()).toEqual(['c', 'd', 'e', 'f'])
+    expect(ids(player.queue)).toEqual(['a', 'b', 'd', 'e', 'f', 'c'])
     expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
   })
 
@@ -818,7 +848,53 @@ describe('shuffle', () => {
     player.setShuffle(false)
 
     expect(ids(player.upcoming)).toEqual(['c', 'd', 'e', 'f'])
-    expect(player.originalOrder).toBeNull()
+    // Still known: new rounds of "repeat all" follow it.
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('turning it on again keeps the order the list had before the first shuffle', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    rotateOnShuffle()
+    player.setShuffle(true)
+    // Shuffled: a, then c d e f b. Moving on to "d" and turning shuffle off leaves a mixed queue.
+    await player.playFromQueue(2)
+    player.setShuffle(false)
+    expect(ids(player.queue)).toEqual(['a', 'c', 'd', 'e', 'f', 'b'])
+
+    player.setShuffle(true)
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('repeat all with shuffle turned off: the new round plays the original order', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    rotateOnShuffle()
+    player.setShuffle(true)
+    // Shuffled: a, then c d e f b. Play to the end, then turn shuffle off.
+    await player.playFromQueue(5)
+    player.setShuffle(false)
+    player.cycleRepeat()
+
+    await player.next()
+
+    expect(ids(player.queue)).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(player.current?.id).toBe('a')
+  })
+
+  it('play all starts from the first track, or from a random one while shuffled', async () => {
+    const player = usePlayerStore()
+    await player.playAll(six)
+    expect(player.current?.id).toBe('a')
+
+    player.close()
+    player.setShuffle(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    await player.playAll(six)
+
+    expect(player.current?.id).toBe('d')
+    expect(ids(player.upcoming).sort()).toEqual(['a', 'b', 'c', 'e', 'f'])
   })
 
   it('starting from the library plays the chosen track first, then all the others shuffled', async () => {
@@ -857,19 +933,34 @@ describe('shuffle', () => {
     expect(player.originalOrder).toEqual(['a', 'b', 'c', 'f'])
   })
 
-  it('repeat all reshuffles each new round, never repeating the last track', async () => {
+  it('repeat all reshuffles the whole queue for each new round', async () => {
     const player = usePlayerStore()
-    player.setShuffle(true)
     await player.playTrack(six[0]!, six)
-    player.cycleRepeat()
-    const last = player.queue.at(-1)!.id
-
     await player.playFromQueue(5)
+    player.setShuffle(true)
+    player.cycleRepeat()
+    rotateOnShuffle()
+
     await player.next()
 
+    expect(ids(player.queue)).toEqual(['b', 'c', 'd', 'e', 'f', 'a'])
     expect(player.index).toBe(0)
-    expect(player.current?.id).not.toBe(last)
-    expect(ids(player.queue).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(player.current?.id).toBe('b')
+  })
+
+  it('a new round never starts with the track that just ended', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 2))
+    await player.playFromQueue(1)
+    player.setShuffle(true)
+    player.cycleRepeat()
+    // The rotation would start the round with "b", the track that just ended.
+    rotateOnShuffle()
+
+    await player.next()
+
+    expect(ids(player.queue)).toEqual(['a', 'b'])
+    expect(player.current?.id).toBe('a')
   })
 
   it('on public pages it only changes the setting', async () => {
@@ -886,9 +977,10 @@ describe('shuffle', () => {
   it('a restored shuffled queue can still go back to its original order', async () => {
     const player = usePlayerStore()
     player.setShuffle(true)
-    await player.restoreQueue(['c', 'a', 'b'].map(summary), 0, 0, ['a', 'b', 'c'])
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
 
     expect(player.originalOrder).toEqual(['a', 'b', 'c'])
+    // After "c" the original order wraps around to "a", then "b".
     player.setShuffle(false)
     expect(ids(player.upcoming)).toEqual(['a', 'b'])
   })
@@ -896,11 +988,18 @@ describe('shuffle', () => {
   it('a queue saved without an original order keeps its order when shuffle is turned off', async () => {
     const player = usePlayerStore()
     player.setShuffle(true)
-    await player.restoreQueue(['c', 'a', 'b'].map(summary), 0, 0)
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0)
 
-    expect(player.originalOrder).toEqual(['c', 'a', 'b'])
+    expect(player.originalOrder).toEqual(['c', 'b', 'a'])
     player.setShuffle(false)
-    expect(ids(player.upcoming)).toEqual(['a', 'b'])
+    expect(ids(player.upcoming)).toEqual(['b', 'a'])
+  })
+
+  it('a restored queue keeps its original order with shuffle off too (for repeat all)', async () => {
+    const player = usePlayerStore()
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c'])
   })
 
   it('closing the player forgets the original order but keeps the setting', async () => {
@@ -912,6 +1011,42 @@ describe('shuffle', () => {
 
     expect(player.shuffle).toBe(true)
     expect(player.originalOrder).toBeNull()
+  })
+
+  it('a shared list never keeps the library\'s original order', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    player.setShuffle(true)
+
+    await player.playSharedPlaylist(sharedPlaylist, 0)
+
+    expect(player.originalOrder).toBeNull()
+  })
+
+  it('a server-rendered page does not overwrite the remembered settings', () => {
+    const stored = new Map<string, string>([
+      ['chronoplayer:volume', '0.4'],
+      ['chronoplayer:playback-modes', JSON.stringify({ shuffle: true, repeat: 'one' })],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    })
+    try {
+      const pinia = createPinia()
+      // What the public pages (/t, /p) hand over from the server: its defaults.
+      pinia.state.value.player = { volume: 1, shuffle: false, repeat: 'off' }
+      setActivePinia(pinia)
+
+      const player = usePlayerStore()
+
+      expect(player.volume).toBe(0.4)
+      expect(player.shuffle).toBe(true)
+      expect(player.repeat).toBe('one')
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('is remembered with the repeat mode for the next visit', () => {

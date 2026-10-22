@@ -21,21 +21,22 @@ The ordering rules are pure functions in a new module, `app/lib/queue-order.ts`,
 ### State
 
 - `shuffle: boolean`, `repeat: 'off' | 'all' | 'one'` — reactive, exposed by the store, set through `setShuffle(on)` and `cycleRepeat()` (off → all → one → off).
-- `originalOrder: string[] | null` — track ids of the queue before shuffling; `null` while shuffle is off.
+- `originalOrder: string[] | null` — track ids of the queue before its first shuffle (plus tracks added since); kept after shuffle is turned off, until another list starts; `null` for a list never shuffled, a shared list or an idle player.
 
 ### Shuffle
 
 - **Turning it on:** the upcoming tracks are shuffled; the current track and the played ones stay where they are. `originalOrder` = the current queue's ids.
-- **Turning it off:** the tracks still to play go back to the original order, starting with the track that follows the current one in `originalOrder` and wrapping around to the beginning ("carry on in order from here"). Upcoming tracks missing from `originalOrder` (none expected, but the rule must be total) go last, in their current relative order. Manual moves made while shuffled are lost: the user asked for the original order. `originalOrder` becomes `null`.
+- **Turning it off:** the tracks still to play go back to the original order, starting with the track that follows the current one in `originalOrder` and wrapping around to the beginning ("carry on in order from here"). Upcoming tracks missing from `originalOrder` (none expected, but the rule must be total) go last, in their current relative order. Manual moves made while shuffled are lost: the user asked for the original order. `originalOrder` is kept: turning shuffle on again keeps the list's real order, not the mixed queue.
 - **Starting playback from the library with shuffle on** (`playTrack(track, context)`): the clicked track plays first and the rest of the context follows, shuffled — the tracks that came before it included. Queue = `[clicked, ...shuffled others]`, index 0, `originalOrder` = the context's ids.
 - **Add to queue with shuffle on:** the track goes to a random position among the upcoming tracks (any slot after the current one, the end included), and is appended to `originalOrder`.
 - **Play next:** always right after the current track, shuffle or not (an explicit choice); appended to `originalOrder` when shuffle is on, if not already in it.
+- **Play all** (the playlist page's *Play* button, `playAll(list)`): from the first track, or with shuffle on from a random one, the rest shuffled after it.
 - **Restoring a saved queue, playing from Up next, moving and removing:** unchanged; a removed track stays harmlessly in `originalOrder` (only upcoming tracks are sorted on unshuffle).
 
 ### Repeat
 
-- **one:** when a track ends it goes back to 0:00 and plays again, without reloading the source (an expired signed URL is handled by the existing recovery in `play()`). Next and Previous change track following the rules of **off** (Next is disabled on the last track, Previous on the first restarts it); the mode stays.
-- **all:** after the last track the queue starts again from the first. `hasNext` is true whenever the queue is not empty, so Next is never disabled; Previous on the first track (within the first 3 s, the existing restart rule) goes to the last one. With shuffle on, each new round reshuffles the whole queue first; if the reshuffled first track is the one that just ended, it is swapped with another so no track plays twice in a row (unless the queue has one track).
+- **one:** when a track ends it goes back to 0:00 and plays again, without reloading the source (an expired signed URL is replaced first, at 0:00: seeking it would make the browser request the file again). Next and Previous change track following the rules of **off** (Next is disabled on the last track, Previous on the first restarts it); the mode stays.
+- **all:** after the last track the queue starts again from the first. `hasNext` is true whenever the queue is not empty, so Next is never disabled; Previous on the first track (within the first 3 s, the existing restart rule) goes to the last one. A single-track queue simply starts again in place, like *one*. With shuffle off after a shuffle, each new round puts the whole queue back in `originalOrder` (tracks it does not know last). With shuffle on, each new round reshuffles the whole queue first; if the reshuffled first track is the one that just ended, it is swapped with another so no track plays twice in a row (unless the queue has one track).
 - **off:** the end of the queue stops, as today.
 
 ### Public pages
@@ -49,13 +50,13 @@ When the source is not the library (`sourceKey !== librarySource.key`), shuffle 
   - Repeat: `i-lucide-repeat` (neutral) for off, `i-lucide-repeat` (primary) for all, `i-lucide-repeat-1` (primary) for one.
   - Both carry `aria-pressed` and a label naming the state — `Shuffle: off` / `Shuffle: on`, `Repeat: off` / `Repeat: all` / `Repeat: one` — and `data-testid="player-shuffle"` / `"player-repeat"`.
   - Shown only while `player.queueEditable` (library playback).
-- Shown in the desktop bar and in the full-screen view (where the queue is managed on phones); the compact phone bar passes `:show-modes="false"`, as it already hides Stop.
+- Shown in the full-screen view (controls on their own row, the volume under them: six buttons fill that column) and in the bar on screens from 1280 px (`xl`, through a `modesClass` prop); narrower bars have no room left for the waveform, and the compact phone bar passes `:show-modes="false"`, as it already hides Stop.
 - New icons join the Nuxt Icon client bundle automatically (local lucide collection).
 
 ## Persistence
 
-- **Modes:** saved in `localStorage` under `chronoplayer:playback-modes` as `{ shuffle, repeat }`, read and written like the volume (try/catch; invalid or missing values → off). The store comment that calls the volume "the only player setting remembered across visits" is updated.
-- **Saved queue:** `app/lib/queue-storage.ts` moves to format **version 2**, adding an optional `originalTrackIds: string[]` written only while shuffle is on. Version 1 is still read, as a queue without shuffle; any other version is discarded, as today. On restore, `originalTrackIds` goes through the same filter as the queue (tracks deleted since are dropped), and `restoreQueue` takes it as an optional argument. The persistence plugin's save watcher also watches `shuffle` and `originalOrder`, so toggling shuffle saves the queue at once.
+- **Modes:** saved in `localStorage` under `chronoplayer:playback-modes` as `{ shuffle, repeat }`, read and written like the volume (try/catch; invalid or missing values → off). Volume, shuffle and repeat are `skipHydrate` refs: a server-rendered page (`/t`, `/p`) must not replace them with the server's defaults. The store comment that calls the volume "the only player setting remembered across visits" is updated.
+- **Saved queue:** `app/lib/queue-storage.ts` moves to format **version 2**, adding an optional `originalTrackIds: string[]` written once the queue has been shuffled (it survives turning shuffle off, see State). Version 1 is still read, as a queue without shuffle; any other version is discarded, as today. On restore, `originalTrackIds` goes through the same filter as the queue (tracks deleted since are dropped), and `restoreQueue` takes it as an optional argument. The persistence plugin's save watcher also watches `shuffle` and `originalOrder`, so toggling shuffle saves the queue at once.
 - If a saved queue restores without `originalTrackIds` while the stored mode says shuffle on (e.g. a version 1 queue), shuffle starts with `originalOrder` = the restored queue as it is: turning it off then keeps that order.
 
 ## Testing

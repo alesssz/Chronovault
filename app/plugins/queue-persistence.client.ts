@@ -6,7 +6,7 @@ import { tracksApi } from '~/services/api'
  *
  * - Saving: whenever the queue, the current track, the status or the
  *   shuffle order changes, every 5 seconds of playback, and when the page
- *   is hidden or closed. A shuffled queue keeps its original order too.
+ *   is hidden or closed. A queue shuffled at some point keeps its original order too.
  * - Restoring: once per signed-in user, when the app opens on a library page;
  *   the queue comes back paused, at the saved position.
  * - Forgetting: closing the player (×) or signing out clears the saved queue.
@@ -50,7 +50,7 @@ export default defineNuxtPlugin(() => {
       trackIds: player.queue.map(t => t.id),
       index: player.index,
       position: player.currentTime,
-      // Only while shuffled: the order to go back to.
+      // Once shuffled: the list's original order (to unshuffle, and for new rounds of repeat all).
       originalTrackIds: player.originalOrder ?? undefined,
     })
     ownsSavedQueue = true

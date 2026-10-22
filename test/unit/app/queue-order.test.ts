@@ -3,7 +3,7 @@
  * source so every shuffle is reproducible.
  */
 import { describe, expect, it } from 'vitest'
-import { randomUpcomingSlot, shuffled, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
+import { inOriginalOrder, randomUpcomingSlot, shuffled, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
 
 /** Deterministic random numbers in [0, 1) (mulberry32). */
 function seeded(seed: number): () => number {
@@ -53,6 +53,12 @@ describe('unshuffleUpcoming', () => {
 
   it('puts tracks the original order does not know last, in their current order', () => {
     expect(ids(unshuffleUpcoming(items('a', 'x', 'c', 'y', 'b'), 0, original))).toEqual(['a', 'b', 'c', 'x', 'y'])
+  })
+})
+
+describe('inOriginalOrder', () => {
+  it('puts the whole queue back in the original order, unknown tracks last', () => {
+    expect(ids(inOriginalOrder(items('c', 'x', 'a', 'b'), ['a', 'b', 'c']))).toEqual(['a', 'b', 'c', 'x'])
   })
 })
 
