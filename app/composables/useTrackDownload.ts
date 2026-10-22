@@ -1,4 +1,6 @@
 import { getExtension } from '~~/shared/utils/audio-files'
+import { hasText } from '~~/shared/utils/text'
+import { concatBytes } from '~/lib/bytes'
 import { toJpeg } from '~/lib/image'
 import { saveFile } from '~/lib/save-file'
 import { downloadFileName, tagFormatOf, tagsFromTrack, type CoverImage, type TagFormat, type TrackTags, writeTrackTags } from '~/lib/tags/track-tags'
@@ -60,13 +62,7 @@ export function useTrackDownload() {
       if (total) onProgress(Math.min(1, received / total))
     }
     // Join the pieces into one buffer of the real size.
-    const out = new Uint8Array(received)
-    let offset = 0
-    for (const chunk of chunks) {
-      out.set(chunk, offset)
-      offset += chunk.length
-    }
-    return out
+    return concatBytes(chunks)
   }
 
   /** The track's cover as an embeddable JPEG, or null (no cover, or it could not be read). */
@@ -95,7 +91,8 @@ export function useTrackDownload() {
     ]
     // WAV has no standard place for these.
     if (format !== 'wav') fields.push(['lyrics', tags.lyrics], ['synced lyrics', tags.lyricsSynced?.length ? 'yes' : null], ['cover', tags.cover])
-    const written = fields.filter(([, value]) => value != null && String(value).trim() !== '').map(([name]) => name)
+    // The writers leave out the same empty fields (see lib/tags).
+    const written = fields.filter(([, value]) => hasText(value)).map(([name]) => name)
     // The cover is never fetched for WAV, hence `hasCover` from the track itself.
     const lost = format === 'wav' && (tags.lyrics || tags.lyricsSynced?.length || hasCover) ? ' WAV files cannot hold a cover or lyrics.' : ''
     return `Written in: ${written.join(', ')}.${lost}`

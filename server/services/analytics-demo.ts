@@ -1,5 +1,5 @@
 import type { AnalyticsBreakdownRow, AnalyticsCount, AnalyticsDay } from '~~/shared/types/analytics'
-import { itemsOf, type AnalyticsNumbers, type AnalyticsPeriodDays, type AnalyticsTarget } from './analytics.service'
+import { itemsOf, zeroCount, type AnalyticsNumbers, type AnalyticsPeriodDays, type AnalyticsTarget } from './analytics.service'
 
 /**
  * Made-up statistics for environments without Vercel Web Analytics (local
@@ -36,12 +36,12 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
   // Each visited item's totals, by public page path (what itemsOf expects).
   const byPath = new Map<string | null, AnalyticsCount>()
   // Every day of the period, filled item by item below.
-  const daily: AnalyticsDay[] = period.dates.map(date => ({ date, pageviews: 0, visitors: 0 }))
+  const daily: AnalyticsDay[] = period.dates.map(date => ({ date, ...zeroCount() }))
   for (const target of visited) {
     // Some items are much more popular than others (0.3-3.3 views a day on average).
     const popularity = 0.3 + 3 * random(target.id)
     // This item's totals over the period.
-    const sum = { pageviews: 0, visitors: 0 }
+    const sum = zeroCount()
     period.dates.forEach((date, i) => {
       // Weekends get more visits.
       const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()

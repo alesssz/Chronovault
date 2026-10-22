@@ -1,14 +1,13 @@
-import { createError } from 'h3'
 import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
-import { COVERS_BUCKET, buildAudioPath, isTrackPath } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, isTrackPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
-import { notFound } from '../utils/errors'
+import { badRequest, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
 import type { AudioStorage } from '../repositories/audio-storage'
 import * as tracksRepo from '../repositories/tracks.repository'
-import * as storageRepo from '../repositories/storage.repository'
+import { expiresIn, presignPlayback, removeCoverFiles } from './playback'
 
 /**
  * Track business logic. Knows nothing about HTTP or Nuxt: it receives an
@@ -80,11 +79,11 @@ export async function createTrack(
   // make sure it is there, and that it is the file that was declared.
   const stored = await audio.head(input.audioPath)
   if (!stored) {
-    throw createError({ statusCode: 400, message: 'Audio file not found: finish the upload first' })
+    throw badRequest('Audio file not found: finish the upload first')
   }
   if (stored.size !== input.sizeBytes || stored.size > MAX_AUDIO_BYTES) {
     await audio.remove([input.audioPath])
-    throw createError({ statusCode: 400, message: 'The uploaded file does not match the declared one' })
+    throw badRequest('The uploaded file does not match the declared one')
   }
 
   try {
@@ -113,7 +112,7 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
   const row = await tracksRepo.updateTrackRow(db, userId, id, toTrackUpdate(input))
   if (!row) throw notFound()
 
-  if (previousCover) await storageRepo.removeObjects(db, COVERS_BUCKET, [previousCover])
+  await removeCoverFiles(db, [previousCover])
   // A new cover changes `updated_at`, hence the cover URL: browsers fetch the new image.
   return toTrackDetail(row)
 }
@@ -128,7 +127,7 @@ export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: str
 
   await Promise.all([
     audio.remove([paths.audio_path]),
-    paths.cover_path ? storageRepo.removeObjects(db, COVERS_BUCKET, [paths.cover_path]) : Promise.resolve(),
+    removeCoverFiles(db, [paths.cover_path]),
   ])
 }
 
@@ -141,20 +140,10 @@ export async function getPlaybackSource(
 ): Promise<PlaybackSource> {
   const audioPath = await tracksRepo.findTrackAudioPath(db, userId, id)
   if (!audioPath) throw notFound()
-  return {
-    url: await audio.presign('GET', audioPath, storageRepo.SIGNED_URL_TTL),
-    expiresAt: expiresIn(storageRepo.SIGNED_URL_TTL),
-  }
-}
-
-/** ISO timestamp `seconds` from now. */
-function expiresIn(seconds: number): string {
-  return new Date(Date.now() + seconds * 1000).toISOString()
+  return presignPlayback(audio, audioPath)
 }
 
 /** 400 unless `path` is `<userId>/<trackId>.<ext>`: rejects paths a client could forge. */
 function assertTrackPath(path: string, userId: string, trackId: string, label: string): void {
-  if (!isTrackPath(path, userId, trackId)) {
-    throw createError({ statusCode: 400, message: `Invalid ${label} path` })
-  }
+  if (!isTrackPath(path, userId, trackId)) throw badRequest(`Invalid ${label} path`)
 }

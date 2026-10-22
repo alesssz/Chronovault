@@ -8,10 +8,9 @@
  * form saves everything else with "Save" and warns about unsaved changes.
  */
 import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
-import type { TrackDetail, TrackVisibility } from '~~/shared/types/track'
+import type { TrackDetail } from '~~/shared/types/track'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
-import { COVERS_BUCKET, buildCoverPath } from '~~/shared/utils/storage-paths'
-import { toSquareWebp, type CropRect } from '~/lib/image'
+import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { tracksApi } from '~/services/api'
 
 // The track id comes from the route.
@@ -19,10 +18,6 @@ const route = useRoute()
 /** Track id from the URL (/tracks/:id/edit). */
 const id = route.params.id as string
 
-// Supabase: the browser uploads the cover straight to Storage (own folder).
-const supabase = useSupabaseClient()
-// The signed-in user's id builds the cover path `<userId>/<trackId>.webp`.
-const user = useSupabaseUser()
 // Edits are pushed to the player, and the Play button toggles this track.
 const player = usePlayerStore()
 // Success and failure messages.
@@ -63,14 +58,11 @@ function toFormState(t: TrackDetail): FormState {
   }
 }
 
-/** The form, bound to the inputs. */
-const state = reactive<FormState>(toFormState(track.value))
-/** Snapshot of the last saved state: `dirty` compares against it. */
-const baseline = ref(JSON.stringify(state))
-/** Unsaved changes: enables "Save" and the leave-page warning. */
-const dirty = computed(() => JSON.stringify(state) !== baseline.value)
-/** The save request is running (spinner on "Save"). */
-const saving = ref(false)
+/** The form, its unsaved changes and the leave-page warning. */
+const form = useEditForm<FormState>(toFormState(track.value))
+const { state, dirty } = form
+/** The save request (spinner on "Save"). */
+const saving = useAsyncTask()
 
 // Components emit undefined when cleared: the schema expects null.
 const year = computed({
@@ -90,23 +82,15 @@ const genreId = computed({
 /** Genre options for the select menu (built-in and custom, sorted by name). */
 const genreItems = computed(() => genres.value.map(g => ({ label: g.name, value: g.id })))
 
+/** Creating a custom genre from the genre menu. */
+const creatingGenre = useAsyncTask()
+
 /** "Create" in the genre menu: creates the custom genre and selects it. */
 async function onCreateGenre(name: string) {
-  try {
-    const genre = await createGenre(name)
-    state.genreId = genre.id
-  }
-  catch (err) {
-    toast.add({ title: 'Genre not created', description: getErrorMessage(err), color: 'error' })
-  }
+  await creatingGenre.run(async () => {
+    state.genreId = (await createGenre(name)).id
+  }, 'Genre not created')
 }
-
-/** Options of the visibility radio cards. */
-const visibilityItems: { value: TrackVisibility, label: string, description: string }[] = [
-  { value: 'private', label: 'Private', description: 'Only you can listen to it.' },
-  { value: 'unlisted', label: 'Unlisted', description: 'Anyone with the link can listen.' },
-  { value: 'public', label: 'Public', description: 'Anyone with the link can listen; search engines may list it.' },
-]
 
 /** Open tab: details, lyrics or sync. */
 const tab = ref('details')
@@ -125,21 +109,13 @@ function applyServerTrack(updated: TrackDetail) {
 
 /** Saves the whole form (already validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
-  saving.value = true
-  try {
+  const saved = await saving.run(async () => {
     const updated = await tracksApi.update(id, event.data)
     applyServerTrack(updated)
     // The form takes the normalized values back (trimmed texts…) and is clean again.
-    Object.assign(state, toFormState(updated))
-    baseline.value = JSON.stringify(state)
-    toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
-  }
-  catch (err) {
-    toast.add({ title: 'Save failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    saving.value = false
-  }
+    form.reset(toFormState(updated))
+  }, 'Save failed')
+  if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
 }
 
 /** Validation failed (UForm): show where. */
@@ -149,80 +125,31 @@ function onFormError() {
   toast.add({ title: 'Check the highlighted fields', color: 'error' })
 }
 
-// Leaving with unsaved changes asks first (returning false cancels the navigation).
-onBeforeRouteLeave(() => {
-  if (dirty.value && !window.confirm('You have unsaved changes. Leave anyway?')) return false
-})
-
 // --- Cover -----------------------------------------------------------------------
-const coverBusy = ref(false)
-
-/**
- * New cover (already cropped by the user in the crop editor): square WebP in
- * the browser → Supabase Storage (own folder, overwriting the previous one)
- * → PATCH coverPath.
- */
-async function onCoverSelected(file: File, crop: CropRect) {
-  // Needed for the storage path; no session = nothing to do.
-  const userId = user.value?.sub
-  if (!userId) return
-  coverBusy.value = true
-  try {
-    const webp = await toSquareWebp(file, { crop })
-    const path = buildCoverPath(userId, id)
-    const { error: uploadError } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
-      contentType: 'image/webp',
-      upsert: true,
-    })
-    if (uploadError) throw uploadError
-    applyServerTrack(await tracksApi.update(id, { coverPath: path }))
-    toast.add({ title: 'Cover updated', icon: 'i-lucide-image', color: 'success' })
-  }
-  catch (err) {
-    toast.add({ title: 'Cover not updated', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    coverBusy.value = false
-  }
-}
-
-/** Removes the cover; the server deletes the file. */
-async function onCoverRemoved() {
-  coverBusy.value = true
-  try {
-    applyServerTrack(await tracksApi.update(id, { coverPath: null }))
-  }
-  catch (err) {
-    toast.add({ title: 'Cover not removed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    coverBusy.value = false
-  }
-}
+// Picked and cropped → `<userId>/<trackId>.webp` in Storage → PATCH coverPath (saved at once).
+const cover = useCoverEditor({
+  path: userId => buildCoverPath(userId, id),
+  save: async coverPath => applyServerTrack(await tracksApi.update(id, { coverPath })),
+})
 
 // --- Deletion --------------------------------------------------------------------
 /** The delete confirmation dialog. */
 const deleteOpen = ref(false)
-/** The delete request is running. */
-const deleting = ref(false)
+/** The delete request (spinner in the dialog). */
+const deleting = useAsyncTask()
 
 /** Deletes the track (and its files), stops it if playing, back to the library. */
 async function onDelete() {
-  deleting.value = true
-  try {
+  const deleted = await deleting.run(async () => {
     await tracksApi.remove(id)
     player.removeTrack(id)
-    baseline.value = JSON.stringify(state)
-    deleteOpen.value = false
-    toast.add({ title: 'Track deleted', icon: 'i-lucide-trash-2' })
-    await navigateTo('/')
-  }
-  catch (err) {
-    toast.add({ title: 'Delete failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    deleting.value = false
-  }
+  }, 'Delete failed')
+  if (!deleted) return
+  // No "unsaved changes" warning when leaving a deleted track.
+  form.markSaved()
+  deleteOpen.value = false
+  toast.add({ title: 'Track deleted', icon: 'i-lucide-trash-2' })
+  await navigateTo('/')
 }
 
 // "Download": the stored file with the saved metadata written in (unsaved edits are not).
@@ -233,7 +160,6 @@ const isCurrent = computed(() => player.current?.id === id)
 
 // --- Sharing -----------------------------------------------------------------------
 // Based on the saved visibility: a change only applies once saved.
-const { shareUrl, copyShareLink } = useShareLink()
 /** Saved visibility is unlisted/public: show the share link. */
 const isShared = computed(() => !!track.value && track.value.visibility !== 'private')
 </script>
@@ -279,7 +205,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         form="track-form"
         icon="i-lucide-save"
         label="Save"
-        :loading="saving"
+        :loading="saving.running"
         :disabled="!dirty"
         data-testid="save-track"
       />
@@ -291,9 +217,9 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         <TrackCoverPicker
           :url="track.coverUrl"
           :title="track.title"
-          :busy="coverBusy"
-          @select="onCoverSelected"
-          @remove="onCoverRemoved"
+          :busy="cover.busy"
+          @select="cover.select"
+          @remove="cover.remove"
         />
 
         <!-- Technical data of the stored file -->
@@ -324,44 +250,12 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
           </dd>
         </dl>
 
-        <div
-          class="space-y-2"
-          data-testid="share-box"
-        >
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
-            Sharing
-          </h2>
-          <template v-if="isShared">
-            <p class="text-sm text-muted">
-              Anyone with the link can listen, without an account. The Suno prompt and the mastering status are never shown.
-            </p>
-            <UFieldGroup class="w-full">
-              <UButton
-                label="Copy share link"
-                icon="i-lucide-link"
-                color="neutral"
-                variant="subtle"
-                block
-                data-testid="copy-share-link"
-                @click="copyShareLink(id)"
-              />
-              <UButton
-                :to="shareUrl(id)"
-                target="_blank"
-                icon="i-lucide-external-link"
-                color="neutral"
-                variant="subtle"
-                aria-label="Open share page"
-              />
-            </UFieldGroup>
-          </template>
-          <p
-            v-else
-            class="text-sm text-muted"
-          >
-            Private: only you can listen. Set the visibility to Unlisted or Public and save to get a share link.
-          </p>
-        </div>
+        <!-- Sharing: link of the public page, or how to get one -->
+        <ShareLinkBox
+          :id="id"
+          kind="track"
+          :shared="isShared"
+        />
 
         <UButton
           label="Delete track"
@@ -524,7 +418,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
               >
                 <URadioGroup
                   v-model="state.visibility"
-                  :items="visibilityItems"
+                  :items="VISIBILITY_ITEMS"
                   orientation="horizontal"
                   variant="card"
                   class="w-full"
@@ -574,7 +468,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
       title="Delete this track?"
       :description="`“${track.title}” and its files will be permanently deleted.`"
       confirm-label="Delete"
-      :loading="deleting"
+      :loading="deleting.running"
       @confirm="onDelete"
     />
   </UContainer>

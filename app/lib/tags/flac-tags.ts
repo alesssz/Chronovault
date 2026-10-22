@@ -17,6 +17,8 @@
  * Spec: https://xiph.org/flac/format.html
  */
 import { serializeLrc } from '~~/shared/utils/lyrics'
+import { asciiAt, concatBytes } from '../bytes'
+import { hasText } from '~~/shared/utils/text'
 import type { TrackTags } from './track-tags'
 
 /** Metadata block types used here (see the header above). */
@@ -54,7 +56,7 @@ function leadingId3Size(file: Uint8Array): number {
 export function readFlacBlocks(file: Uint8Array): { blocks: Block[], audioOffset: number } {
   // Read position: past a leading ID3 tag, if any.
   let offset = leadingId3Size(file)
-  const magic = String.fromCharCode(...file.subarray(offset, offset + 4))
+  const magic = asciiAt(file, offset)
   if (magic !== 'fLaC') throw new Error('Not a FLAC file')
   offset += 4
 
@@ -92,18 +94,6 @@ function u32be(value: number): Uint8Array {
   return out
 }
 
-/** Joins byte arrays into one. */
-function concat(parts: Uint8Array[]): Uint8Array {
-  // One buffer of the total size, filled part after part.
-  const out = new Uint8Array(parts.reduce((sum, p) => sum + p.length, 0))
-  let offset = 0
-  for (const part of parts) {
-    out.set(part, offset)
-    offset += part.length
-  }
-  return out
-}
-
 /**
  * VORBIS_COMMENT body: vendor string, then `FIELD=value` entries (UTF-8,
  * each preceded by its length). Field names follow the common conventions
@@ -129,10 +119,10 @@ function vorbisCommentBlock(tags: TrackTags): Uint8Array {
     ['UNSYNCEDLYRICS', synced ? tags.lyrics : null],
   ]
   const entries = fields
-    .filter(([, value]) => value != null && String(value).trim() !== '')
+    .filter(([, value]) => hasText(value))
     .map(([name, value]) => utf8.encode(`${name}=${value}`))
   const vendor = utf8.encode(VENDOR)
-  return concat([
+  return concatBytes([
     u32le(vendor.length), vendor,
     u32le(entries.length),
     ...entries.flatMap(entry => [u32le(entry.length), entry]),
@@ -143,7 +133,7 @@ function vorbisCommentBlock(tags: TrackTags): Uint8Array {
 function pictureBlock(cover: NonNullable<TrackTags['cover']>): Uint8Array {
   const mime = utf8.encode(cover.mimeType)
   const description = utf8.encode('Cover')
-  return concat([
+  return concatBytes([
     u32be(3), // picture type: front cover
     u32be(mime.length), mime,
     u32be(description.length), description,
@@ -165,7 +155,7 @@ function encodeBlock(block: Block, isLast: boolean): Uint8Array {
     (block.body.length >> 8) & 0xFF,
     block.body.length & 0xFF,
   ])
-  return concat([header, block.body])
+  return concatBytes([header, block.body])
 }
 
 /**
@@ -183,7 +173,7 @@ export function writeFlacTags(file: Uint8Array, tags: TrackTags): Uint8Array {
     ...(tags.cover ? [{ type: BLOCK.PICTURE, body: pictureBlock(tags.cover) }] : []),
     { type: BLOCK.PADDING, body: new Uint8Array(PADDING_BYTES) },
   ]
-  return concat([
+  return concatBytes([
     utf8.encode('fLaC'),
     ...chain.map((block, i) => encodeBlock(block, i === chain.length - 1)),
     file.subarray(audioOffset),

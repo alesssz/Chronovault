@@ -10,7 +10,6 @@
  * playlist, "Share for feedback" (a new unlisted playlist whose link is
  * copied), delete.
  */
-import type { DropdownMenuItem } from '@nuxt/ui'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistsApi, tracksApi } from '~/services/api'
 import { feedbackPlaylistTitle } from '~/lib/feedback-playlist'
@@ -68,13 +67,13 @@ const sortOptions = [
 
 /** Tracks matching the search (title, composers, album) and filters, in the chosen order. */
 const filtered = computed(() => {
-  const q = search.value.trim().toLocaleLowerCase('en')
+  const q = foldCase(search.value)
   const list = tracks.value.filter((t) => {
     if (genreFilter.value !== 'all' && t.genreId !== genreFilter.value) return false
     if (masteredFilter.value !== 'all' && t.mastered !== (masteredFilter.value === 'yes')) return false
     if (statusFilter.value !== 'all' && t.status !== statusFilter.value) return false
     if (!q) return true
-    return [t.title, t.composers, t.album].some(v => v?.toLocaleLowerCase('en').includes(q))
+    return [t.title, t.composers, t.album].some(v => v && foldCase(v).includes(q))
   })
   return sort.value === 'title'
     ? [...list].sort((a, b) => a.title.localeCompare(b.title, 'en'))
@@ -114,7 +113,7 @@ async function setStatus(ids: string[], status: TrackStatus) {
   const failed = results.filter(r => r.status === 'rejected').length
   const done = ids.length - failed
   const what = status === 'final' ? 'final' : 'draft'
-  if (done) toast.add({ title: done === 1 ? `Marked as ${what}` : `${done} tracks marked as ${what}`, icon: 'i-lucide-check', color: 'success' })
+  if (done) toast.add({ title: done === 1 ? `Marked as ${what}` : `${pluralize(done, 'track')} marked as ${what}`, icon: 'i-lucide-check', color: 'success' })
   if (failed) toast.add({ title: `${failed} not updated`, description: 'Try again', color: 'error' })
 }
 
@@ -148,22 +147,15 @@ function stopSelecting() {
 }
 
 // "Add to playlist" and "Share for feedback" of the selection.
-const { playlists, openCreateDialog, addToPlaylist, remember } = usePlaylists()
+const { addToPlaylistMenu, remember } = usePlaylists()
 // Copies the feedback playlist's link.
 const { copyShareLink } = useShareLink()
 
 /** "Add to playlist" menu of the selection: a new playlist, or an existing one. */
-const addToPlaylistMenu = computed<DropdownMenuItem[][]>(() => [
-  [{ label: 'New playlist…', icon: 'i-lucide-plus', onSelect: () => openCreateDialog(selectedIds.value) }],
-  playlists.value.map(playlist => ({
-    label: playlist.title,
-    icon: 'i-lucide-list-music',
-    onSelect: () => void addToPlaylist(playlist, selectedIds.value),
-  })),
-].filter(group => group.length > 0))
+const selectionPlaylistMenu = computed(() => addToPlaylistMenu(() => selectedIds.value))
 
-/** The feedback playlist is being created (spinner on the button). */
-const sharing = ref(false)
+/** Creating the feedback playlist (spinner on the button). */
+const sharing = useAsyncTask()
 
 /**
  * "Share for feedback": a new unlisted playlist with the selected versions,
@@ -174,8 +166,7 @@ const sharing = ref(false)
 async function shareForFeedback() {
   const chosen = selectedTracks.value
   if (!chosen.length) return
-  sharing.value = true
-  try {
+  await sharing.run(async () => {
     const playlist = await playlistsApi.create({
       title: feedbackPlaylistTitle(chosen.map(t => t.title)),
       visibility: 'unlisted',
@@ -185,13 +176,7 @@ async function shareForFeedback() {
     remember(playlist)
     await copyShareLink(playlist.id, 'playlist')
     stopSelecting()
-  }
-  catch (err) {
-    toast.add({ title: 'Could not create the playlist', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    sharing.value = false
-  }
+  }, 'Could not create the playlist')
 }
 
 /** The bulk delete confirmation is open. */
@@ -214,15 +199,15 @@ async function confirmBulkDelete() {
   bulkDeleting.value = false
   bulkDeleteOpen.value = false
   const failed = chosen.length - deleted.length
-  if (deleted.length) toast.add({ title: deleted.length === 1 ? 'Track deleted' : `${deleted.length} tracks deleted`, icon: 'i-lucide-trash-2' })
+  if (deleted.length) toast.add({ title: deleted.length === 1 ? 'Track deleted' : `${pluralize(deleted.length, 'track')} deleted`, icon: 'i-lucide-trash-2' })
   if (failed) toast.add({ title: `${failed} not deleted`, description: 'They are still selected: try again', color: 'error' })
   else stopSelecting()
 }
 
 /** Track waiting for the delete confirmation (the dialog is open while set). */
 const toDelete = ref<TrackSummary | null>(null)
-/** The delete request is running (spinner in the dialog). */
-const deleting = ref(false)
+/** The delete request (spinner in the dialog). */
+const deleting = useAsyncTask()
 /** The confirmation dialog is open while a track is waiting to be deleted; closing it cancels. */
 const deleteOpen = computed({
   get: () => toDelete.value !== null,
@@ -235,20 +220,13 @@ const deleteOpen = computed({
 async function confirmDelete() {
   const track = toDelete.value
   if (!track) return
-  deleting.value = true
-  try {
+  await deleting.run(async () => {
     await tracksApi.remove(track.id)
     player.removeTrack(track.id)
     tracks.value = tracks.value.filter(t => t.id !== track.id)
     toast.add({ title: 'Track deleted', description: track.title, icon: 'i-lucide-trash-2' })
     toDelete.value = null
-  }
-  catch (err) {
-    toast.add({ title: 'Delete failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    deleting.value = false
-  }
+  }, 'Delete failed')
 }
 </script>
 
@@ -261,7 +239,7 @@ async function confirmDelete() {
           Your library
         </h1>
         <p class="text-sm text-muted">
-          {{ tracks.length === 1 ? '1 track' : `${tracks.length} tracks` }}
+          {{ pluralize(tracks.length, 'track') }}
         </p>
       </div>
       <UButton
@@ -385,7 +363,7 @@ async function confirmDelete() {
             <span class="hidden sm:inline">Mark final</span>
           </UButton>
           <UDropdownMenu
-            :items="addToPlaylistMenu"
+            :items="selectionPlaylistMenu"
             :content="{ align: 'end' }"
             :disabled="!selectedIds.length"
           >
@@ -403,7 +381,7 @@ async function confirmDelete() {
             icon="i-lucide-messages-square"
             color="neutral"
             variant="ghost"
-            :loading="sharing"
+            :loading="sharing.running"
             :disabled="!selectedIds.length"
             aria-label="Share for feedback"
             data-testid="bulk-feedback"
@@ -457,7 +435,7 @@ async function confirmDelete() {
       title="Delete this track?"
       :description="toDelete ? `“${toDelete.title}” and its files will be permanently deleted.` : undefined"
       confirm-label="Delete"
-      :loading="deleting"
+      :loading="deleting.running"
       @confirm="confirmDelete"
     />
 

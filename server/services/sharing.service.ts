@@ -2,12 +2,13 @@ import type { PlaybackSource, SharedTrack } from '~~/shared/types/track'
 import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { COVERS_BUCKET } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
-import { notFound } from '../utils/errors'
+import { notFound, playlistNotFound } from '../utils/errors'
 import { toSharedTrack } from '../mappers/track'
 import { mosaicPaths, toSharedPlaylist, type SignedUrls } from '../mappers/playlist'
 import type { AudioStorage } from '../repositories/audio-storage'
 import { findSharedPlaylistRow, findSharedTrackRow, listSharedPlaylistTrackRows } from '../repositories/sharing.repository'
 import * as storageRepo from '../repositories/storage.repository'
+import { presignPlayback } from './playback'
 
 /**
  * Public sharing: what anyone with the link of an 'unlisted' or 'public'
@@ -29,7 +30,7 @@ export async function getSharedTrack(db: DbClient, id: string): Promise<SharedTr
 export async function getSharedPlaybackSource(db: DbClient, audio: AudioStorage, id: string): Promise<PlaybackSource> {
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
-  return presignAudio(audio, row.audio_path)
+  return presignPlayback(audio, row.audio_path)
 }
 
 /** Fresh signed URL of the cover: social previews link to a stable address that redirects here. */
@@ -41,8 +42,6 @@ export async function getSharedCoverUrl(db: DbClient, id: string): Promise<strin
 }
 
 // --- Playlists --------------------------------------------------------------------
-
-const playlistNotFound = () => notFound('Playlist not found')
 
 /** Public data of an unlisted/public playlist and all its tracks, covers signed in one request. */
 export async function getSharedPlaylist(db: DbClient, id: string): Promise<SharedPlaylist> {
@@ -67,7 +66,7 @@ export async function getSharedPlaylistPlaybackSource(
   // Only a track listed by the shared playlist can be signed through it.
   const track = (await listSharedPlaylistTrackRows(db, playlistId)).find(t => t.id === trackId)
   if (!track) throw notFound()
-  return presignAudio(audio, track.audio_path)
+  return presignPlayback(audio, track.audio_path)
 }
 
 /** Fresh signed URL of the playlist's cover: the custom one, otherwise the first track cover. */
@@ -81,14 +80,6 @@ export async function getSharedPlaylistCoverUrl(db: DbClient, id: string): Promi
 }
 
 // --- Helpers ----------------------------------------------------------------------
-
-/** Presigned GET on the audio storage, with its expiry. */
-async function presignAudio(audio: AudioStorage, path: string): Promise<PlaybackSource> {
-  return {
-    url: await audio.presign('GET', path, storageRepo.SIGNED_URL_TTL),
-    expiresAt: new Date(Date.now() + storageRepo.SIGNED_URL_TTL * 1000).toISOString(),
-  }
-}
 
 /** Signs a set of cover paths in one request and returns a lookup function. */
 async function signCovers(db: DbClient, paths: (string | null)[]): Promise<SignedUrls> {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRACK_VISIBILITIES } from '../types/track'
-import { optionalText, storagePath } from './track'
+import { optionalText, patchSchemaOf } from './track'
 
 /**
  * Playlist validation schemas, shared by the playlist page form and the
@@ -44,10 +44,7 @@ export type PlaylistCreateInput = z.input<typeof playlistCreateSchema>
 export type PlaylistCreate = z.output<typeof playlistCreateSchema>
 
 /** Body of PATCH /api/playlists/:id: any subset of the metadata, or the cover (`null` removes it). */
-export const playlistUpdateSchema = playlistMetadataSchema
-  .partial()
-  .extend({ coverPath: storagePath.nullable().optional() })
-  .refine(data => Object.keys(data).length > 0, 'Nothing to update')
+export const playlistUpdateSchema = patchSchemaOf(playlistMetadataSchema)
 
 /** Body a client sends to PATCH /api/playlists/:id. */
 export type PlaylistUpdateInput = z.input<typeof playlistUpdateSchema>

@@ -31,3 +31,20 @@ export function trackCoverUrl(trackId: string, updatedAt: string): string {
 export function playlistCoverUrl(playlistId: string, updatedAt: string): string {
   return `/api/covers/playlists/${playlistId}?v=${version(updatedAt)}`
 }
+
+/** The columns a cover address is built from (tracks and playlists alike). */
+export interface CoverRow {
+  id: string
+  cover_path: string | null
+  updated_at: string
+}
+
+/** A track row's cover address, or null when the track has no cover. */
+export function trackCoverUrlOf(row: CoverRow): string | null {
+  return row.cover_path ? trackCoverUrl(row.id, row.updated_at) : null
+}
+
+/** A playlist row's custom cover address, or null when it has none (the UI then shows the mosaic). */
+export function playlistCoverUrlOf(row: CoverRow): string | null {
+  return row.cover_path ? playlistCoverUrl(row.id, row.updated_at) : null
+}

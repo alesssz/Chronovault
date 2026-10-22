@@ -54,7 +54,7 @@ const axisDates = computed(() => {
 
 /** Tooltip text of a day. */
 function describe(day: AnalyticsDay): string {
-  return `${shortDate(day.date)}: ${day.pageviews} view${day.pageviews === 1 ? '' : 's'}, ${day.visitors} visitor${day.visitors === 1 ? '' : 's'}`
+  return `${shortDate(day.date)}: ${pluralize(day.pageviews, 'view')}, ${pluralize(day.visitors, 'visitor')}`
 }
 
 /** Gridline labels: compact from 1,000 up (1K, 2.5K). */

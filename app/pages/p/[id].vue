@@ -17,21 +17,14 @@ const player = usePlayerStore()
 // Site origin (works during SSR too): absolute URLs for the link preview tags.
 const origin = useRequestURL().origin
 
-const { data: playlist, error } = await useAsyncData(`shared-playlist-${id}`, () => sharedApi.playlist(id))
-
-/** The playlist is private, missing or the id is malformed: "not available". */
-const notFound = computed(() => !playlist.value && [400, 404].includes(error.value?.statusCode ?? 0))
-if (import.meta.server && !playlist.value) {
-  setResponseStatus(useRequestEvent()!, notFound.value ? 404 : 500)
-}
+// Private, missing or malformed links answer 404 (see useSharedItem).
+const { data: playlist, notFound } = await useSharedItem(`shared-playlist-${id}`, () => sharedApi.playlist(id))
 
 // --- Link preview -----------------------------------------------------------------
+/** "Playlist · 12 tracks · 48:10" (under the title, and the preview text without a description). */
 const summary = computed(() => {
   const p = playlist.value
-  if (!p) return ''
-  // "1 track" / "N tracks"
-  const count = `${p.tracks.length} track${p.tracks.length === 1 ? '' : 's'}`
-  return `Playlist · ${count} · ${formatTime(p.durationSeconds)}`
+  return p ? joinParts(['Playlist', pluralize(p.tracks.length, 'track'), formatTime(p.durationSeconds)]) : ''
 })
 /** Preview text: the description, or a summary (count and duration). */
 const previewText = computed(() => {
@@ -42,25 +35,15 @@ const previewText = computed(() => {
 /** There is an image for the preview (custom cover or a track cover). */
 const hasCover = computed(() => !!playlist.value && (!!playlist.value.coverUrl || playlist.value.mosaic.length > 0))
 
-useSeoMeta({
-  title: () => (playlist.value ? `${playlist.value.title} · ChronoPlayer` : 'Playlist not available · ChronoPlayer'),
+useShareMeta({
+  kind: 'playlist',
+  id,
+  origin,
+  title: () => playlist.value?.title ?? null,
   description: () => previewText.value,
-  ogTitle: () => playlist.value?.title ?? 'Playlist not available',
-  ogDescription: () => previewText.value,
-  ogType: 'music.playlist',
-  ogSiteName: 'ChronoPlayer',
-  ogUrl: `${origin}/p/${id}`,
-  // A stable address that redirects to a fresh signed URL: previews are cached for long.
-  ogImage: () => (hasCover.value ? `${origin}/api/shared/playlists/${id}/cover` : undefined),
-  twitterCard: 'summary',
-  // Unlisted playlists are for whoever has the link: keep them out of search engines.
-  robots: () => (playlist.value?.visibility === 'public' ? 'index, follow' : 'noindex, nofollow'),
+  hasImage: () => hasCover.value,
+  isPublic: () => playlist.value?.visibility === 'public',
 })
-
-/** Cuts a preview text at `max` characters with an ellipsis. */
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
-}
 
 // --- Playback ---------------------------------------------------------------------
 /** The player is playing this playlist (and not something else). */
@@ -76,10 +59,10 @@ const activeTrack = computed(() => {
 /** "Album · Year · Genre" of the active track. */
 const activeMeta = computed(() => {
   const t = activeTrack.value
-  return t ? [t.album, t.year, t.genre].filter(Boolean).join(' · ') : ''
+  return t ? joinParts([t.album, t.year, t.genre]) : ''
 })
 /** The active track has lyrics to show (otherwise "No lyrics for this track"). */
-const activeHasLyrics = computed(() => !!activeTrack.value?.lyricsSynced?.length || !!activeTrack.value?.lyrics?.trim())
+const activeHasLyrics = computed(() => !!activeTrack.value && hasLyrics(activeTrack.value))
 
 // The first track is ready (waveform included) before the first click.
 onMounted(() => {
@@ -146,45 +129,13 @@ function onLyricSeek(seconds: number) {
           </p>
         </div>
 
-        <div
+        <!-- Play button, waveform, times and playback errors -->
+        <SharePlayer
           v-if="playlist.tracks.length"
-          class="flex items-center gap-4"
-        >
-          <UButton
-            :icon="isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
-            :loading="isHere && player.status === 'loading'"
-            size="xl"
-            class="shrink-0 rounded-full p-4"
-            data-testid="shared-play"
-            @click="togglePlay"
-          />
-          <div class="min-w-0 flex-1">
-            <ClientOnly>
-              <PlayerWaveform
-                v-if="isHere && player.current"
-                :key="player.current.id"
-                :peaks="player.current.peaks"
-                :duration="player.duration"
-                :height="56"
-              />
-              <template #fallback>
-                <div class="h-14" />
-              </template>
-            </ClientOnly>
-            <div class="mt-1 flex justify-between text-xs tabular-nums text-muted">
-              <span>{{ formatTime(isHere ? player.currentTime : 0) }}</span>
-              <span>{{ formatTime(isHere ? player.duration : activeTrack?.durationSeconds) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <p
-          v-if="isHere && player.status === 'error'"
-          class="text-sm text-error"
-        >
-          {{ player.error }}
-        </p>
+          :active="isHere"
+          :duration="activeTrack?.durationSeconds ?? null"
+          @toggle="togglePlay"
+        />
 
         <!-- The tracks: click to play (or toggle the active one) -->
         <ol
@@ -315,15 +266,10 @@ function onLyricSeek(seconds: number) {
     </div>
 
     <!-- Private, missing or malformed link -->
-    <UEmpty
+    <ShareUnavailable
       v-else
-      :icon="notFound ? 'i-lucide-link-2-off' : 'i-lucide-circle-alert'"
-      :title="notFound ? 'Playlist not available' : 'Something went wrong'"
-      :description="notFound
-        ? 'The link is wrong, or the owner made this playlist private.'
-        : 'The playlist could not be loaded. Try again in a moment.'"
-      class="py-24"
-      data-testid="shared-not-found"
+      kind="playlist"
+      :not-found="notFound"
     />
   </UContainer>
 </template>

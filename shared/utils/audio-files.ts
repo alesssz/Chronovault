@@ -28,6 +28,12 @@ export const AUDIO_EXTENSIONS: Record<string, string> = {
 }
 
 /**
+ * Names browsers and tools give WAV files (one format, several MIME types):
+ * used to spot WAV uploads (FLAC conversion) and WAV downloads (tagging).
+ */
+export const WAV_MIME_TYPES: readonly string[] = ['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave']
+
+/**
  * Value for the `accept` attribute of file inputs: any `audio/*` type plus
  * the explicit extensions, so files with an empty `File.type` can still be
  * picked in the system dialog.

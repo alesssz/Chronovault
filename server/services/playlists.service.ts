@@ -1,10 +1,9 @@
-import { createError } from 'h3'
 import type { PlaylistDetail, PlaylistSummary } from '~~/shared/types/playlist'
 import type { PlaylistCreate, PlaylistUpdate } from '~~/shared/schemas/playlist'
 import { MAX_PLAYLIST_TRACKS } from '~~/shared/schemas/playlist'
-import { COVERS_BUCKET, buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
+import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
-import { notFound } from '../utils/errors'
+import { badRequest, playlistNotFound } from '../utils/errors'
 import {
   toPlaylistDetail,
   toPlaylistInsert,
@@ -12,7 +11,7 @@ import {
   toPlaylistUpdate,
 } from '../mappers/playlist'
 import * as playlistsRepo from '../repositories/playlists.repository'
-import * as storageRepo from '../repositories/storage.repository'
+import { removeCoverFiles } from './playback'
 
 /**
  * Playlist business logic: an ordered list of the user's own tracks.
@@ -23,8 +22,6 @@ import * as storageRepo from '../repositories/storage.repository'
  * Every mutation returns the fresh PlaylistDetail, so the client can replace
  * its copy with the server's (no second request).
  */
-
-const playlistNotFound = () => notFound('Playlist not found')
 
 /** The user's playlists, newest first (cover addresses are stable: nothing to sign). */
 export async function listPlaylists(db: DbClient, userId: string): Promise<PlaylistSummary[]> {
@@ -56,7 +53,7 @@ export async function createPlaylist(db: DbClient, userId: string, input: Playli
  */
 export async function updatePlaylist(db: DbClient, userId: string, id: string, input: PlaylistUpdate): Promise<PlaylistDetail> {
   if (input.coverPath && input.coverPath !== buildPlaylistCoverPath(userId, id)) {
-    throw createError({ statusCode: 400, message: 'Invalid cover path' })
+    throw badRequest('Invalid cover path')
   }
 
   // When the cover is removed we need the old path to delete the file.
@@ -67,7 +64,7 @@ export async function updatePlaylist(db: DbClient, userId: string, id: string, i
   const row = await playlistsRepo.updatePlaylistRow(db, userId, id, toPlaylistUpdate(input))
   if (!row) throw playlistNotFound()
 
-  if (previousCover) await storageRepo.removeObjects(db, COVERS_BUCKET, [previousCover])
+  await removeCoverFiles(db, [previousCover])
   return getPlaylist(db, userId, id)
 }
 
@@ -75,7 +72,7 @@ export async function updatePlaylist(db: DbClient, userId: string, id: string, i
 export async function deletePlaylist(db: DbClient, userId: string, id: string): Promise<void> {
   const deleted = await playlistsRepo.deletePlaylistRow(db, userId, id)
   if (!deleted) throw playlistNotFound()
-  if (deleted.cover_path) await storageRepo.removeObjects(db, COVERS_BUCKET, [deleted.cover_path])
+  await removeCoverFiles(db, [deleted.cover_path])
 }
 
 /** Replaces the tracks of the playlist: reordering and removal. */
@@ -92,7 +89,7 @@ export async function addPlaylistTracks(db: DbClient, userId: string, id: string
   const added = trackIds.filter(trackId => !current.includes(trackId))
   if (added.length > 0) {
     if (current.length + added.length > MAX_PLAYLIST_TRACKS) {
-      throw createError({ statusCode: 400, message: `A playlist holds at most ${MAX_PLAYLIST_TRACKS} tracks` })
+      throw badRequest(`A playlist holds at most ${MAX_PLAYLIST_TRACKS} tracks`)
     }
     await playlistsRepo.setPlaylistTrackIds(db, id, [...current, ...added])
   }

@@ -3,26 +3,12 @@
  * Playlists page (client-rendered): a grid of cards (cover or mosaic,
  * title, visibility, track count) and "New playlist".
  */
-import type { TrackVisibility } from '~~/shared/types/track'
-
 useSeoMeta({ title: 'Playlists · ChronoPlayer' })
 
 const { playlists, status, refresh, openCreateDialog } = usePlaylists()
 
 // Track edits and deletions elsewhere change counts and mosaics.
 onMounted(() => void refresh())
-
-/** Icon + accessible label of each visibility, shown on the cards. */
-const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
-  private: { icon: 'i-lucide-lock', label: 'Private' },
-  unlisted: { icon: 'i-lucide-link', label: 'Unlisted' },
-  public: { icon: 'i-lucide-globe', label: 'Public' },
-}
-
-/** "1 track" / "N tracks". */
-function trackCount(count: number) {
-  return `${count} track${count === 1 ? '' : 's'}`
-}
 </script>
 
 <template>
@@ -75,12 +61,12 @@ function trackCount(count: number) {
           </p>
           <p class="flex items-center gap-1.5 text-sm text-muted">
             <UIcon
-              :name="visibilityIcon[playlist.visibility].icon"
-              :aria-label="visibilityIcon[playlist.visibility].label"
+              :name="VISIBILITY_INFO[playlist.visibility].icon"
+              :aria-label="VISIBILITY_INFO[playlist.visibility].label"
               class="size-3.5 shrink-0"
             />
             <span class="truncate">
-              {{ trackCount(playlist.trackCount) }}<span class="hidden sm:inline"> · {{ formatTime(playlist.durationSeconds) }}</span>
+              {{ pluralize(playlist.trackCount, 'track') }}<span class="hidden sm:inline"> · {{ formatTime(playlist.durationSeconds) }}</span>
             </span>
           </p>
         </NuxtLink>

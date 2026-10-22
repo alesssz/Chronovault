@@ -1,7 +1,8 @@
 # =============================================================================
 # ChronoPlayer — project commands
 # Usage: make <command>     (make help for the full list)
-# On Windows: run from Git Bash (ships GNU Make) or WSL.
+# On Windows: run from Git Bash (GNU Make: winget install ezwinports.make) or WSL.
+# New computer: make doctor (or node scripts/doctor.mjs) lists what is missing.
 # =============================================================================
 
 SHELL := bash
@@ -9,7 +10,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-migration db-lint db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all merge
+        check ci clean clean-all merge doctor
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -34,6 +35,9 @@ docker-logs: ## Follow the logs of the app container
 	docker compose logs -f app
 
 # --- Setup --------------------------------------------------------------------
+
+doctor: ## Check this computer's prerequisites (Node, pnpm, Docker…) and print the fixes
+	node scripts/doctor.mjs
 
 setup: install db-start env db-types ## First run: dependencies, local DB, .env, types
 	@echo ""
@@ -117,7 +121,8 @@ test-unit: ## Unit tests only
 test-nuxt: ## Component tests only (Nuxt environment)
 	$(PNPM) test:nuxt
 
-test-e2e: ## End-to-end tests (Playwright, requires db-start)
+test-e2e: ## End-to-end tests (Playwright, requires db-start; installs its Chromium when missing)
+	$(PNPM) exec playwright install chromium
 	$(PNPM) test:e2e
 
 test-coverage: ## Tests with a coverage report

@@ -1,3 +1,6 @@
+import { WAV_MIME_TYPES } from '~~/shared/utils/audio-files'
+import { asciiAt } from '../bytes'
+
 /**
  * Minimal RIFF/WAVE parser: finds the audio format and the PCM data block.
  * It never decodes or resamples anything: the samples are read straight from
@@ -37,13 +40,6 @@ const FLAC_BIT_DEPTHS = new Set([8, 16, 24])
 /** FLAC streams carry at most 8 channels. */
 const FLAC_MAX_CHANNELS = 8
 
-/** Reads a 4-character chunk id (e.g. `RIFF`, `fmt `, `data`). */
-function fourCC(view: DataView, offset: number): string {
-  return String.fromCharCode(
-    view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3),
-  )
-}
-
 /**
  * Walks the RIFF chunks until both `fmt ` and `data` are found; every other
  * chunk (LIST, bext, cue…) is skipped. Throws WavParseError on anything that
@@ -54,9 +50,9 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   if (bytes.byteLength < 12) throw new WavParseError('File too short to be a WAV')
 
-  const riff = fourCC(view, 0)
+  const riff = asciiAt(bytes, 0)
   if (riff === 'RF64') throw new WavParseError('RF64 (very large) WAV files are not supported')
-  if (riff !== 'RIFF' || fourCC(view, 8) !== 'WAVE') throw new WavParseError('Not a WAV file')
+  if (riff !== 'RIFF' || asciiAt(bytes, 8) !== 'WAVE') throw new WavParseError('Not a WAV file')
 
   // Filled in when the `fmt ` and `data` chunks are met, in any order.
   let format: Omit<WavInfo, 'dataOffset' | 'dataLength' | 'frames'> | null = null
@@ -66,7 +62,7 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   // Chunks start after the 12-byte header: "RIFF", size, "WAVE".
   let offset = 12
   while (offset + 8 <= bytes.byteLength && (!format || !data)) {
-    const id = fourCC(view, offset)
+    const id = asciiAt(bytes, offset)
     const size = view.getUint32(offset + 4, true)
     const body = offset + 8
 
@@ -133,5 +129,5 @@ export function readWavSample(view: DataView, offset: number, bitsPerSample: num
 
 /** By extension or MIME type (browsers report WAV under several names). */
 export function isWavFile(file: { name: string, type: string }): boolean {
-  return /\.wave?$/i.test(file.name) || ['audio/wav', 'audio/x-wav', 'audio/wave', 'audio/vnd.wave'].includes(file.type)
+  return /\.wave?$/i.test(file.name) || WAV_MIME_TYPES.includes(file.type)
 }

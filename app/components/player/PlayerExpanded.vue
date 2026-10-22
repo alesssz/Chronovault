@@ -16,13 +16,12 @@ const open = computed({
 // Slightly smaller base scale while the full-screen view is open (see main.css).
 useHead({ htmlAttrs: { class: computed(() => (open.value ? 'player-expanded' : '')) } })
 
-/** While loading there is no detail yet: show the summary from the queue. */
-const track = computed(() => player.current ?? player.queue[player.index] ?? null)
+/** What the view shows (the queued summary while the full data loads). */
+const track = computed(() => player.displayTrack)
 /** "Album · Year · Genre" line (only the parts that are set). */
 const meta = computed(() => {
   const t = player.current
-  if (!t) return ''
-  return [t.album, t.year, genreName(t.genreId)].filter(Boolean).join(' · ')
+  return t ? joinParts([t.album, t.year, genreName(t.genreId)]) : ''
 })
 </script>
 

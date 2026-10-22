@@ -13,10 +13,8 @@ useSeoMeta({ title: 'Sign in · ChronoPlayer' })
 
 // Supabase Auth runs in the browser: sign-in and sign-up set the session cookies.
 const supabase = useSupabaseClient()
-// Becomes set as soon as a session exists (watched below).
-const user = useSupabaseUser()
-// The page the user wanted before being sent here (saved by the auth middleware).
-const redirect = useSupabaseCookieRedirect()
+// As soon as a session exists, enter the app (also when landing here already signed in).
+useSignedInRedirect()
 // Sign-in/sign-up failures.
 const toast = useToast()
 
@@ -40,12 +38,7 @@ const fields: AuthFormField[] = [
   { name: 'password', type: 'password', label: 'Password', placeholder: '••••••••', required: true },
 ]
 
-// As soon as a session exists, enter the app (also when landing here already signed in).
-watch(user, (value) => {
-  if (value) void navigateTo(redirect.pluck() || '/', { replace: true })
-}, { immediate: true })
-
-/** Signs in (the `user` watcher then redirects) or signs up. */
+/** Signs in (useSignedInRedirect then enters the app) or signs up. */
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {

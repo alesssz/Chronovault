@@ -59,7 +59,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 
 ## 2. Quick start
 
-**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12 (`corepack enable` or `npm i -g pnpm`), Docker Desktop (running). Details in [11.1](#111-prerequisites).
+**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12, Docker Desktop (running). Details in [11.1](#111-prerequisites). **Setting up a new computer (macOS or Windows)?** Run `node scripts/doctor.mjs` and follow the [checklist from a blank computer](#from-a-blank-computer): it covers every step that is easy to forget.
 
 ```bash
 pnpm install       # installs dependencies (the package store lives in .pnpm-store/)
@@ -77,6 +77,7 @@ Open **http://localhost:3000** and sign in with **`demo@chronoplayer.local` / `c
 | Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
 | Run all checks before a commit | `make check` (lint, types, unit tests) |
 | Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`), see [14.1](#141-git-workflow) |
+| Check a new computer's prerequisites | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`), see [11.1](#from-a-blank-computer) |
 
 ---
 
@@ -118,11 +119,12 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm env:local` | Write `.env` from the running local stack |
 | `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload, range streaming, size check, CORS, delete |
 | `pnpm generate:pwa-assets` | Regenerate the PWA icons from `public/favicon.svg` |
+| `pnpm doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs` |
 | `pnpm merge:main [--yes]` | Merge the current (pushed) branch into `main`, push, delete the branch locally and on GitHub, end on an up-to-date `main` ([14.1](#141-git-workflow)) |
 
 ### 3.3 Makefile
 
-`make help` lists every target. On Windows, run `make` from Git Bash (it ships GNU Make) or use the `pnpm` scripts.
+`make help` lists every target. On Windows, run `make` from Git Bash (GNU Make is a separate install: `winget install ezwinports.make`) or use the `pnpm` scripts.
 
 | Target | What it does |
 |---|---|
@@ -140,6 +142,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make test` · `test-unit` · `test-nuxt` · `test-e2e` · `test-coverage` | Tests |
 | `make check` | lint + typecheck + test: quick checks before a commit |
 | `make ci` | Everything the CI runs (adds `db-lint`, `db-test`, `test-e2e`) |
+| `make doctor` | `pnpm doctor` |
 | `make merge` · `make merge yes=1` | `pnpm merge:main`: merge the current branch into `main` and clean up · without the confirmation question (make cannot take `--yes`: it would read it as its own option) |
 | `make clean` · `make clean-all` | Remove builds and reports · also `node_modules` |
 
@@ -252,6 +255,50 @@ The local database and the production database are **completely separate**: acco
 
 The `@nuxtjs/supabase` route middleware sends signed-out visitors to `/login`, except on `/t/*` and `/p/*`.
 
+### 5.5 Reusable building blocks
+
+Logic that more than one page, component or service needs lives in one place. Check here before writing a new helper.
+
+**Shared (`shared/utils`, client and server, auto-imported):**
+
+| Helper | File | What it does |
+|---|---|---|
+| `pluralize`, `truncate`, `joinParts`, `foldCase`, `hasText` | `text.ts` | "3 tracks", cut texts with "…", "Album · 2026 · Genre" lines, case-insensitive keys (search, genre names), blank-value checks (tag writers, download toast) |
+| `clamp` | `numbers.ts` | Volume, speed, seek position, crop geometry |
+| `moveItem` | `arrays.ts` | Move inside an ordered list without mutating it (play queue, playlist order) |
+| `syncRowsFromLines`, `roundToCentiseconds`, `hasLyrics` | `lyrics.ts` | Sync editor rows from stored or imported lines, LRC precision, "has lyrics to show" (public pages) |
+| `WAV_MIME_TYPES` | `audio-files.ts` | The names WAV goes by: FLAC conversion on upload, tagging on download |
+| `patchSchemaOf` | `shared/schemas/track.ts` | PATCH body of an item with a cover: tracks and playlists |
+
+**Backend (`server/`):**
+
+| Helper | File | What it does |
+|---|---|---|
+| `presignPlayback`, `expiresIn` | `services/playback.ts` | Streaming URL with its expiry, for the owner's library and the public pages |
+| `removeCoverFiles` | `services/playback.ts` | Best-effort deletion of cover files, skipping items without one |
+| `trackCoverUrlOf`, `playlistCoverUrlOf` | `mappers/cover-urls.ts` | Cacheable cover address of a row, or null (mappers, statistics) |
+| `toSharedTrackContent` | `mappers/track.ts` | Shareable fields of a track: the public track page and each track of a public playlist |
+| `byPosition` | `repositories/playlists.repository.ts` | Playlist order of embedded and RPC rows |
+| `badRequest`, `notFound`, `playlistNotFound`, `toHttpError` | `utils/errors.ts` | Consistent HTTP errors |
+
+**Frontend (`app/`):**
+
+| Building block | Kind | Used by |
+|---|---|---|
+| `useAsyncTask` | composable | Every button that calls the API: a `running` flag for the spinner, failures as an error toast |
+| `useEditForm` | composable | Track editor, playlist page: form state, "unsaved changes" and the leave-page confirmation |
+| `useCoverEditor` + `useCoverStorage` | composables | Cover pickers (crop → WebP → Storage → `PATCH coverPath`), and the covers found in tags during an upload |
+| `useSortableList` + `<DragHandle>` | composable + component | Drag and drop of the playlist page and the "Up next" panel |
+| `useSharedItem`, `useShareMeta` | composables | Public pages: SSR load with `404`/`500`, link-preview tags |
+| `<SharePlayer>`, `<ShareUnavailable>`, `<ShareLinkBox>` | components | Public pages' player and "not available" state; the "Sharing" box of the editors |
+| `useQueueActions().menuItems`, `usePlaylists().addToPlaylistMenu` | composables | "Play next / Add to queue" and "Add to playlist" menu entries (library, selection bar, playlist page) |
+| `useSignedInRedirect` | composable | Sign-in and confirmation pages: enter the app once a session exists |
+| `player.displayTrack` | store getter | What the bar, the full-screen view and the queue show while a track loads |
+| `VISIBILITY_INFO`, `VISIBILITY_ITEMS` | `app/utils/visibility.ts` | Labels, explanations and icons of the three visibilities |
+| `copyText` | `app/utils/clipboard.ts` | Clipboard with a fallback (share links, LRC export) |
+| `concatBytes`, `asciiAt` | `app/lib/bytes.ts` | WAV parser, FLAC encoder, tag writers, streamed downloads |
+| `waveformColors` | `app/lib/theme.ts` | Colors of every waveform, from the current theme |
+
 ---
 
 ## 6. Project structure
@@ -263,20 +310,24 @@ ChronoPlayer/
 │   ├── app.config.ts                 # Nuxt UI theme (orange on zinc)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, base scale, room for the player bar
 │   ├── components/
-│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue · StorageDialog.vue · CoverCropDialog.vue
+│   │   ├── AppHeader.vue · AppLogo.vue · ConfirmDialog.vue · StorageDialog.vue · CoverCropDialog.vue · DragHandle.vue
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog
+│   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer, ShareUnavailable (public pages)
 │   │   ├── stats/                    # StatsDailyChart (views per day), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
-│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
+│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
+│   │                                 #   useAsyncTask, useEditForm, useCoverEditor, useCoverStorage, useSortableList,
+│   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5)
 │   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages)
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
 │   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
+│   │   ├── bytes.ts                  #   concatBytes, asciiAt (binary file code)
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
@@ -298,17 +349,18 @@ ChronoPlayer/
 │   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: editable queue, sources, expired-URL recovery
-│   └── utils/errors.ts               # Human-readable error messages
+│   └── utils/                        # errors (human-readable messages) · clipboard · visibility (labels, icons)
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
 │   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers · analytics (+ analytics-demo)
+│   │                                 #   · playback (presigned streaming URLs, cover file removal)
 │   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2) · web-analytics (Vercel API)
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
 │   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
 ├── shared/                           # Pure code used by client and server
 │   ├── schemas/                      # track.ts · playlist.ts · analytics.ts (Zod)
 │   ├── types/                        # track.ts · playlist.ts · storage.ts · analytics.ts · database.types.ts (generated)
-│   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time
+│   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time · text · numbers · arrays
 ├── supabase/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
 │   ├── migrations/                   # Versioned schema (section 8.2)
@@ -324,6 +376,7 @@ ChronoPlayer/
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check
+│   ├── doctor.mjs                    # pnpm doctor (prerequisites check) · lib/doctor-checks.mjs
 │   ├── merge-main.mjs                # pnpm merge:main
 │   └── lib/merge-message.mjs         # cumulative merge commit message
 ├── public/                           # Favicon and PWA icons
@@ -533,9 +586,9 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 ### 7.8 Editing a track
 
 1. `tracks/[id]/edit.vue` loads `GET /api/tracks/:id`. The form validates with the same Zod schema as the server (`trackMetadataSchema`).
-2. **Save** sends `PATCH /api/tracks/:id`. The mapper turns only the fields present into columns (`undefined` = unchanged, `null` = cleared); RLS guarantees the track is the user's. Leaving the page with unsaved changes asks for confirmation.
+2. **Save** sends `PATCH /api/tracks/:id`. The mapper turns only the fields present into columns (`undefined` = unchanged, `null` = cleared); RLS guarantees the track is the user's. Leaving the page with unsaved changes asks for confirmation (`useEditForm`, shared with the playlist page).
 3. **Genre:** typing a new name and choosing "Create" calls `POST /api/genres`, which returns an existing genre with the same name (built-in or custom, case-insensitive) instead of creating a duplicate.
-4. **Cover:** a picked image opens the **crop editor** (`CoverCropDialog.vue`, see below); the browser then cuts the chosen square and converts it, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }`. Removing it (`coverPath: null`) makes the server delete the file.
+4. **Cover:** a picked image opens the **crop editor** (`CoverCropDialog.vue`, see below); the browser then cuts the chosen square and converts it, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }` (`useCoverEditor`, shared with the playlist page). Removing it (`coverPath: null`) makes the server delete the file.
 5. The updated track is pushed to the player (`syncTrack`), so the bar, the queue and the full-screen view show the new title, cover and lyrics at once.
 
 **The crop editor** (`CoverCropDialog.vue`, used for track and playlist covers):
@@ -658,7 +711,7 @@ sequenceDiagram
 
 - **Creating:** from the Playlists page, or from a track's menu → "Add to playlist" → "New playlist…" (the playlist starts with that track). The dialog (`PlaylistCreateDialog.vue`) lives in the layout, so any page can open it.
 - **Adding:** "Add to playlist" → a playlist appends the track; a track already there keeps its place ("Already in …").
-- **Reordering and removing** save immediately (`PUT …/tracks` with the full ordered list). The page updates optimistically and rolls back if the request fails. Drag uses SortableJS through a handle (works with touch); Move up/down is the keyboard-friendly alternative.
+- **Reordering and removing** save immediately (`PUT …/tracks` with the full ordered list). The page updates optimistically and rolls back if the request fails. Drag uses SortableJS through a handle (works with touch; `useSortableList` and `<DragHandle>`, shared with the "Up next" panel); Move up/down is the keyboard-friendly alternative.
 - **Atomic order.** `set_playlist_tracks()` deletes and re-inserts every row in one database transaction, running with the caller's rights: RLS refuses other users' playlists and tracks.
 - **Covers.** A custom cover goes through the same crop editor as track covers, and is uploaded to `covers/<userId>/playlists/<playlistId>.webp`. Without one, the UI shows a **mosaic**: the server lists the cover addresses of the first 4 tracks that have one (the same cached `/api/covers/tracks/…` images as the library); 4 covers make a 2×2 grid, fewer show the first alone (`PlaylistCover.vue`).
 - **Play all** queues the playlist's tracks in order in the normal player.
@@ -700,6 +753,7 @@ sequenceDiagram
 - **Link previews.** The pages set `og:title`, `og:description`, `og:image` and `robots`. The image points to `/api/shared/…/cover`, a stable address that redirects to a fresh signed URL (previews are cached for a long time; signed URLs expire). A playlist without a custom cover uses its first track cover.
 - **Revoking.** Making an item private closes its page immediately (the next request answers `404`); an audio URL already handed out keeps working until it expires, at most 6 hours.
 - **Leaving a public page** stops its music: it is the only place that controls it.
+- **One implementation for both pages.** `useSharedItem` loads the item during SSR and sets the `404`/`500` status, `useShareMeta` writes the preview tags, `<SharePlayer>` and `<ShareUnavailable>` render the player and the "not available" state. On the server, `toSharedTrackContent` builds the shareable fields of a shared track and of every track of a shared playlist, and `presignPlayback` signs their audio.
 
 ### 7.15 Where each piece of data lives
 
@@ -1001,9 +1055,101 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 | Tool | Version | Notes |
 |---|---|---|
 | Node.js | **24.11+** (or 22.21+) | `.nvmrc` pins 24; older versions make Nuxt print a warning |
-| pnpm | 12 | `corepack enable` or `npm i -g pnpm`; pinned in `packageManager` |
+| pnpm | 12 | `npm i -g pnpm@12.14.0` (pinned in `packageManager`); `corepack enable` also works where Node ships Corepack (Homebrew's Node does not) |
 | Docker Desktop | recent | Runs the local Supabase stack (and the app in Docker mode) |
-| GNU Make | optional | Ships with Git Bash on Windows; every target has a `pnpm` equivalent |
+| GNU Make | optional | macOS: comes with `xcode-select --install`. Windows: `winget install ezwinports.make` (not part of Git for Windows). Every target has a `pnpm` equivalent |
+| Playwright's Chromium | for e2e tests only | Not your own Chrome: Playwright downloads its own (~150 MB, in `~/Library/Caches/ms-playwright` on macOS). `make test-e2e` installs it when missing |
+
+#### From a blank computer
+
+Everything a new computer needs, in order, for **macOS** and **Windows**. Each step says why: every one of them is a problem that really happened.
+
+**Start here, on any system:** once Git and any Node are installed, clone the project and run
+
+```bash
+node scripts/doctor.mjs     # later also: pnpm doctor · make doctor
+```
+
+It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwright's Chromium, Make and the local stack, and prints the command that fixes each missing item for the system you are on. It only reads: nothing is installed or changed. Run it again after each step until it says **Ready**.
+
+##### macOS
+
+1. **Homebrew** (https://brew.sh), **Git** (`xcode-select --install`, which also brings GNU Make) and **Docker Desktop** (https://www.docker.com/products/docker-desktop/). Open Docker Desktop once and wait until the engine says it is running.
+2. **Node 24 through nvm**, not Homebrew's `node`. Homebrew may ship an older Node (e.g. 22.9): with it `pnpm install` silently skips a native package (rolldown requires Node ≥ 22.12), and the build and tests then fail with `Cannot find native binding`. nvm also leaves other projects on their own Node.
+   ```bash
+   brew install nvm
+   mkdir -p ~/.nvm
+   cat >> ~/.zshrc <<'ZSH'
+
+   # nvm (Node Version Manager)
+   export NVM_DIR="$HOME/.nvm"
+   [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+   ZSH
+   source ~/.zshrc
+   cd <path>/ChronoPlayer
+   nvm install          # reads .nvmrc → Node 24
+   nvm use
+   ```
+   - The first Node installed with nvm becomes the default in every new terminal. To keep Homebrew's Node as the default for other projects: `nvm alias default system`, then `nvm use` inside this folder.
+   - Brew's notes also suggest a `bash_completion` line: leave it out, it is meant for bash.
+   - If `source ~/.zshrc` prints `command not found: compdef`, another tool's completion (e.g. Angular CLI's `source <(ng completion script)`) runs before zsh's completion system: put `autoload -Uz compinit && compinit` on the line before it.
+3. **pnpm**, installed for that Node (with nvm, global packages belong to one Node version):
+   ```bash
+   npm i -g pnpm@12.14.0 --allow-scripts=pnpm
+   node -v && pnpm -v   # v24.x and 12.14.0
+   ```
+   Recent npm versions skip install scripts unless allowed. Without `--allow-scripts=pnpm` you only get a warning, and pnpm still works through Node instead of its native binary (marginally slower).
+4. **Dependencies and the local stack.** The first run downloads the Supabase Docker images (a few GB, several minutes):
+   ```bash
+   pnpm install
+   make local           # → http://localhost:3000
+   ```
+5. **Docker mode only** (`make docker`, http://localhost:8080): the browser must resolve `host.docker.internal`, and Docker Desktop for Mac never adds it to the hosts file (its setting exists only on Windows). Once per machine, with your password:
+   ```bash
+   echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
+   ```
+   Without it, sign-in fails with `ERR_NAME_NOT_RESOLVED`. `make local` does not need it.
+6. **End-to-end tests:** `make test-e2e`. The first time it downloads Playwright's own Chromium (~150 MB, in `~/Library/Caches/ms-playwright`).
+
+##### Windows (10/11)
+
+Use **PowerShell** for the installs and **Git Bash** for the project commands: the Makefile and the npm scripts expect a POSIX shell. The repository forces LF line endings (`.gitattributes`), so the scripts, the Makefile and the SQL files keep working after a Windows checkout.
+
+1. **Git and Docker Desktop**, from PowerShell:
+   ```powershell
+   winget install Git.Git
+   winget install Docker.DockerDesktop     # uses WSL 2; restart Windows when asked
+   ```
+   Open Docker Desktop once and wait until the engine says it is running. If it asks to install or update WSL, accept, or run `wsl --update` in an administrator PowerShell.
+2. **Node 24 through nvm-windows.** First remove any Node already installed from *Settings → Apps*: nvm-windows cannot manage it, and the two would conflict. Then:
+   ```powershell
+   winget install CoreyButler.NVMforWindows
+   # close and reopen the terminal, then:
+   nvm install 24
+   nvm use 24          # needs an administrator terminal (or Windows Developer Mode)
+   ```
+   nvm-windows does not read `.nvmrc`: the version is given explicitly. `nvm use` switches Node for every terminal and every project.
+3. **pnpm**, from Git Bash or PowerShell:
+   ```bash
+   npm i -g pnpm@12.14.0 --allow-scripts=pnpm
+   node -v && pnpm -v   # v24.x and 12.14.0
+   ```
+4. **GNU Make** (optional: every `make` target has a `pnpm` equivalent). The standard Git for Windows does not include it:
+   ```powershell
+   winget install ezwinports.make           # then reopen Git Bash
+   ```
+5. **Dependencies and the local stack**, from Git Bash. The first run downloads the Supabase Docker images (a few GB, several minutes):
+   ```bash
+   pnpm install
+   pnpm local           # or make local → http://localhost:3000
+   ```
+   pnpm keeps its store inside the project (`.pnpm-store/`): hard links only work within one drive, so it never creates a store at the root of your drive.
+6. **Docker mode only** (`pnpm docker`, http://localhost:8080): the browser must resolve `host.docker.internal`. Docker Desktop for Windows adds it to the hosts file when *Settings → General → "Add the \*.docker.internal names to the host's /etc/hosts file"* is on (the default). Check with `ping host.docker.internal`. If it does not answer, turn the setting on, or open Notepad **as administrator** and add this line at the end of `C:\Windows\System32\drivers\etc\hosts`:
+   ```
+   127.0.0.1 host.docker.internal
+   ```
+7. **End-to-end tests:** `make test-e2e` (or `pnpm exec playwright install chromium`, then `pnpm test:e2e`). Playwright's Chromium goes to `%LOCALAPPDATA%\ms-playwright`.
+8. If `git commit` fails with "Permission denied", an antivirus is locking files in `.git`: add the project folder to its exclusions.
 
 The Supabase CLI is a dev dependency: no global install needed. pnpm keeps its package store in the project (`.pnpm-store/`, git-ignored, see `pnpm-workspace.yaml`); `node_modules` holds hard links to it, so the space is not used twice even if Explorer counts it twice.
 
@@ -1023,7 +1169,7 @@ or `make setup` followed by `make dev`.
 
 Supabase always runs in the containers managed by the Supabase CLI. `pnpm docker` builds the app image from the `Dockerfile` (multi-stage: dependencies and build in the first stage, only the self-contained `.output/` in the final `node:24-alpine` image, run as the unprivileged `node` user, with a health check on `/api/health`) and starts it with `compose.yaml` on port 8080.
 
-Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. Docker Desktop maps that name on the host too, so the browser and the server use the same URLs, including the presigned audio URLs. The script writes them to `.env.docker`. The image is rebuilt on every `pnpm docker` (the pnpm store is a build cache, so rebuilds are fast).
+Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. The browser uses the same URLs (including the presigned audio URLs), so the host must resolve that name too: Docker Desktop on Windows adds it to the hosts file, on macOS it has to be added once by hand (see [Troubleshooting](#16-troubleshooting)). The script writes them to `.env.docker`. The image is rebuilt on every `pnpm docker` (the pnpm store is a build cache, so rebuilds are fast).
 
 ### 11.4 Local services
 
@@ -1050,9 +1196,9 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, cover crop geometry, Zod schemas, mappers; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data) with mocked repositories; the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, shared helpers (plurals, labels, clamping, list moves, byte arrays), cover crop geometry, Zod schemas, mappers (incl. cover addresses and the shared-track fields common to both public pages); presigned playback URLs and cover removal; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data) with mocked repositories; the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `LyricsView`, `TrackCover`, `TrackList` (incl. draft badge and selection mode), `PlaylistCover` |
-| Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message |
+| Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message. **`doctor`**: Node version ranges, the pinned pnpm, Playwright's browser folder per OS, the macOS/Windows fixes |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed, draft/final status returned), new tracks start as drafts, playlists, storage policies — 55 tests |
 | End-to-end | Playwright (Chromium) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **synced lyrics transfer** (LRC opened from a file, copied and downloaded; a downloaded FLAC uploaded into another account brings its sync back); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API); **draft versions** (uploads are drafts, two versions shared for feedback and seen as WIP by a visitor, one marked final, the version filter, the other drafts deleted in one go) |
 
@@ -1187,6 +1333,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 - **New endpoint:** a route in `server/api/` only authenticates (`requireAuth`, or `visitorClient` for public routes), validates (`readValidated`, `requireUuidParam`) and calls a service. Rules live in the service, tested without Nuxt; queries in a repository; conversions in a mapper.
 - **New table or column:** migration (RLS policies + explicit `grant`s) → `make db-migrate` → pgTAP tests → `make db-types` → mapper → repository → service → route → `app/services/api.ts`.
 - **Shared code:** anything both sides need goes in `shared/` (pure code: no browser or Node APIs).
+- **Reuse before writing:** API calls behind a button go through `useAsyncTask`, edit forms through `useEditForm`, covers through `useCoverEditor`, labels through `pluralize` / `joinParts`… The full list is in [5.5](#55-reusable-building-blocks); a pattern that appears a second time becomes a helper there.
 - **Never** use the Supabase service key in the app, and never put storage credentials in client code or in git.
 
 ---
@@ -1208,10 +1355,15 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 | Problem | Solution |
 |---|---|
 | `Current version of Node.js … is unsupported` | Upgrade Node to 24.11+ (`nvm install 24`) |
-| "Docker is not running" | Open Docker Desktop and wait for the engine; if it hangs while starting, use **Restart** from its tray menu |
+| `pnpm: command not found` (e.g. from `make docker`) | pnpm is not installed for the Node in use: `npm i -g pnpm@12.14.0 --allow-scripts=pnpm`. With nvm (or nvm-windows), repeat it after installing a new Node version |
+| `Cannot find native binding` / `postinstall: nuxt prepare exited with status 1` | Node is too old (e.g. Homebrew's 22.9): `pnpm install` skipped rolldown's native package. Switch to Node 24 (`nvm use`, or `nvm use 24` on Windows), then `pnpm install` again |
+| Windows: `nvm use` says "exit status 1" or access denied | Run the terminal as administrator, or turn on Developer Mode (Settings → System → For developers) |
+| `source ~/.zshrc` prints `command not found: compdef` (macOS) | Another tool's completion runs before zsh's: add `autoload -Uz compinit && compinit` on the line before it |
+| `npm warn install-scripts … pnpm@12.14.0` | Harmless: pnpm works without its install script. `npm i -g pnpm@12.14.0 --allow-scripts=pnpm` silences it and uses the native binary |
+| "Docker is not running" | Open Docker Desktop and wait for the engine; if it hangs while starting, use **Restart** from its tray menu. Windows: if it complains about WSL, run `wsl --update` in an administrator PowerShell |
 | `supabase start` fails | Docker must be running; `pnpm db:stop`, then try again |
 | Always sent back to `/login` locally | `.env` missing or stale: `make env`, then restart the dev server |
-| `pnpm docker`: the app cannot reach Supabase | Docker Desktop must map `host.docker.internal` (Settings → General → "Add the *.docker.internal names to the host's /etc/hosts file") |
+| `pnpm docker`: sign-in fails with `ERR_NAME_NOT_RESOLVED` on `host.docker.internal` | The host must resolve `host.docker.internal`. **macOS:** `echo "127.0.0.1 host.docker.internal" \| sudo tee -a /etc/hosts` (Docker Desktop for Mac never adds it). **Windows:** Docker Desktop → Settings → General → "Add the *.docker.internal names to the host's /etc/hosts file", or add `127.0.0.1 host.docker.internal` to `C:\Windows\System32\drivers\etc\hosts` with Notepad run as administrator. Or use `pnpm local`, which needs neither |
 | Forgot the local login | Use the demo account, or look at Authentication → Users in Studio (http://127.0.0.1:54323) |
 | `Failed to load because no supported source was found` | The audio URL could not be loaded (expired or wrong storage settings): press play again; if it persists check the `NUXT_AUDIO_STORAGE_*` values |
 | `Audio format not supported` | The browser lacks that codec (e.g. some OGG files on older Safari). The file stays saved. |
@@ -1223,5 +1375,9 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 | Database types out of date | `make db-types` after every migration |
 | First page load in `make dev` is very slow | Expected: Vite compiles dependencies on the first request |
 | E2E tests test an old version | A server is still running on :3100: stop it, Playwright then builds afresh |
+| Every e2e test fails at once with `browserType.launch: Executable doesn't exist` | Playwright's Chromium is missing (new computer, or a Playwright update): `pnpm exec playwright install chromium`. `make test-e2e` does it for you (macOS: `~/Library/Caches/ms-playwright`, Windows: `%LOCALAPPDATA%\ms-playwright`) |
+| Browser console: `preload … not used because it is a cross-world service worker resource mismatch` | Harmless: the PWA service worker serves files Chrome had already preloaded. Absent in `make local` (no service worker in development); DevTools → Application → Service workers → "Bypass for network" hides it on :8080 |
+| Browser console: errors from `VM123:…` scripts (e.g. `reading 'startTime'` in `reportAllChanges`) | A browser extension, not the app (app files are `/_nuxt/….js`). A private window, without extensions, confirms it |
 | `git commit`: "Permission denied" on Windows | An antivirus may lock files in `.git`: add the project folder to its exclusions |
-| `make` not found on Windows | Use Git Bash, or the equivalent `pnpm` commands |
+| `make` not found on Windows | `winget install ezwinports.make`, then reopen Git Bash; or use the equivalent `pnpm` commands |
+| Not sure what is missing on a new computer | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`): checks every prerequisite and prints the fix for your system |

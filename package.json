@@ -40,7 +40,8 @@
     "env:local": "node scripts/setup-env.mjs",
     "generate:pwa-assets": "pwa-assets-generator",
     "r2:check": "node scripts/check-r2.mjs",
-    "merge:main": "node scripts/merge-main.mjs"
+    "merge:main": "node scripts/merge-main.mjs",
+    "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
     "@nuxt/ui": "^4.12.0",

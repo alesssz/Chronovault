@@ -23,6 +23,17 @@ export const optionalText = (max: number) =>
 /** A storage key such as `<userId>/<trackId>.webp`; ownership is checked by the services. */
 export const storagePath = z.string().min(3).max(300)
 
+/**
+ * PATCH body of an item with a cover (tracks, playlists): any non-empty
+ * subset of its metadata, or the cover (`coverPath: null` removes it).
+ */
+export function patchSchemaOf<Shape extends z.ZodRawShape>(metadata: z.ZodObject<Shape>) {
+  return metadata
+    .partial()
+    .extend({ coverPath: storagePath.nullable().optional() })
+    .refine(data => Object.keys(data).length > 0, 'Nothing to update')
+}
+
 /** One synced lyric line; `time` is capped at 24 hours as a sanity check. */
 export const syncedLyricLineSchema = z.object({
   time: z.number().min(0).max(86_400),
@@ -91,10 +102,7 @@ export type TrackCreate = z.output<typeof trackCreateSchema>
  * Body of PATCH /api/tracks/:id: any subset of the metadata, or the cover
  * (`coverPath: null` removes it). An empty body is rejected.
  */
-export const trackUpdateSchema = trackMetadataSchema
-  .partial()
-  .extend({ coverPath: storagePath.nullable().optional() })
-  .refine(data => Object.keys(data).length > 0, 'Nothing to update')
+export const trackUpdateSchema = patchSchemaOf(trackMetadataSchema)
 
 /** Body a client sends to PATCH /api/tracks/:id. */
 export type TrackUpdateInput = z.input<typeof trackUpdateSchema>

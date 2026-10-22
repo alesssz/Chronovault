@@ -9,8 +9,8 @@
  */
 const player = usePlayerStore()
 
-/** While loading there is no detail yet: show the summary from the queue. */
-const track = computed(() => player.current ?? player.queue[player.index] ?? null)
+/** What the bar shows (the queued summary while the full data loads). */
+const track = computed(() => player.displayTrack)
 </script>
 
 <template>

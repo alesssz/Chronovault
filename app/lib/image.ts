@@ -7,6 +7,8 @@
  * from file tags during an upload are center-cropped automatically.
  */
 
+import { clamp } from '~~/shared/utils/numbers'
+
 /** Side length of the stored cover (px). */
 export const COVER_SIZE = 800
 
@@ -39,11 +41,6 @@ export function centerSquareCrop(width: number, height: number): CropRect {
     y: Math.round((height - size) / 2),
     size,
   }
-}
-
-/** `value` limited to [min, max]. */
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
 }
 
 /** The editor's starting view: the centered, largest square (what automatic cropping picks). */
@@ -81,6 +78,23 @@ export function cropRectOf(view: CropView, width: number, height: number): CropR
   }
 }
 
+/** A blank canvas of the given size and its 2D context (throws where canvas is unavailable). */
+function createCanvas(width: number, height: number): { canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D } {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not available')
+  return { canvas, ctx }
+}
+
+/** Encodes what the canvas holds as an image file (`image/jpeg`, `image/webp`…). */
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Image conversion failed'))), type, quality)
+  })
+}
+
 /** An image re-encoded as JPEG, with its size (needed by the FLAC PICTURE block). */
 export interface JpegImage {
   data: Uint8Array
@@ -96,18 +110,12 @@ export interface JpegImage {
 export async function toJpeg(source: Blob, quality = 0.9): Promise<JpegImage> {
   const bitmap = await createImageBitmap(source)
   try {
-    const canvas = document.createElement('canvas')
-    canvas.width = bitmap.width
-    canvas.height = bitmap.height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas not available')
+    const { canvas, ctx } = createCanvas(bitmap.width, bitmap.height)
     // JPEG has no transparency: transparent pixels become white instead of black.
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bitmap, 0, 0)
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Image conversion failed'))), 'image/jpeg', quality)
-    })
+    const blob = await canvasToBlob(canvas, 'image/jpeg', quality)
     return { data: new Uint8Array(await blob.arrayBuffer()), width: bitmap.width, height: bitmap.height }
   }
   finally {
@@ -145,17 +153,11 @@ export async function toSquareWebp(source: Blob, options: SquareWebpOptions = {}
       : centerSquareCrop(bitmap.width, bitmap.height)
     // Never upscale: a small image keeps its own size.
     const target = Math.min(size, crop.size)
-    const canvas = document.createElement('canvas')
-    canvas.width = target
-    canvas.height = target
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas not available')
+    const { canvas, ctx } = createCanvas(target, target)
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(bitmap, crop.x, crop.y, crop.size, crop.size, 0, 0, target, target)
 
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Image conversion failed'))), 'image/webp', quality)
-    })
+    return await canvasToBlob(canvas, 'image/webp', quality)
   }
   finally {
     // Release the decoded image memory right away (it can be tens of MB).

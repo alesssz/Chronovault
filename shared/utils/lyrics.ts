@@ -31,8 +31,8 @@ const META_TAG = /^\[(ar|ti|al|au|by|re|ve|length|tool|offset|#)\s*:([^\]]*)\]$/
 /** A whole line made of one bracketed text, e.g. `[Chorus x2]`. */
 const SECTION_TAG = /^\[[^\]]+\]$/
 
-/** Rounds to centiseconds: the precision of LRC timestamps. */
-function round2(n: number): number {
+/** Rounds seconds to centiseconds: the precision of LRC timestamps (and of the sync editor). */
+export function roundToCentiseconds(n: number): number {
   return Math.round(n * 100) / 100
 }
 
@@ -105,7 +105,7 @@ export function parseLrc(input: string): SyncedLyricLine[] {
 
   // Array.prototype.sort is stable: a header stays before the line it introduces.
   return lines
-    .map(line => ({ ...line, time: round2(Math.max(0, line.time - offsetSeconds)) }))
+    .map(line => ({ ...line, time: roundToCentiseconds(Math.max(0, line.time - offsetSeconds)) }))
     .sort((a, b) => a.time - b.time)
 }
 
@@ -182,6 +182,14 @@ export function syncRowsFromLyrics(lyrics: string | null | undefined): SyncRow[]
 }
 
 /**
+ * Rows to edit, taken from stored (or imported LRC) synced lines: lyric lines
+ * keep their time; section headers get none, since they follow their line.
+ */
+export function syncRowsFromLines(lines: readonly SyncedLyricLine[]): SyncRow[] {
+  return lines.map(line => (line.section ? { text: line.text, time: null, section: true } : { text: line.text, time: line.time }))
+}
+
+/**
  * Turns editor rows into stored synced lines, sorted by time.
  * Lyric lines need a time; a section header takes the time of the lyric line
  * right after it, and is left out until that line is synced.
@@ -192,12 +200,17 @@ export function buildSyncedLines(rows: readonly SyncRow[]): SyncedLyricLine[] {
   rows.forEach((row, i) => {
     if (row.section) {
       const next = rows.slice(i + 1).find(r => !r.section)
-      if (next?.time != null) lines.push({ time: round2(next.time), text: row.text, section: true })
+      if (next?.time != null) lines.push({ time: roundToCentiseconds(next.time), text: row.text, section: true })
     }
     else if (row.time != null) {
-      lines.push({ time: round2(row.time), text: row.text })
+      lines.push({ time: roundToCentiseconds(row.time), text: row.text })
     }
   })
   // Stable sort: headers pushed before their line keep that order at equal times.
   return lines.sort((a, b) => a.time - b.time)
+}
+
+/** The track has lyrics to show: synced lines, or plain text that is not blank. */
+export function hasLyrics(track: { lyrics: string | null, lyricsSynced: readonly SyncedLyricLine[] | null }): boolean {
+  return !!track.lyricsSynced?.length || !!track.lyrics?.trim()
 }

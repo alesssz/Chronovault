@@ -64,7 +64,7 @@ export class AudioStorage {
    */
   objectUrl(key: string): string {
     const encodedKey = key.split('/').map(encodeURIComponent).join('/')
-    return `${this.config.endpoint.replace(/\/$/, '')}/${encodeURIComponent(this.config.bucket)}/${encodedKey}`
+    return `${this.bucketUrl()}/${encodedKey}`
   }
 
   /**

@@ -1,3 +1,5 @@
+import { clamp } from '~~/shared/utils/numbers'
+
 /**
  * Media Session API: controls and metadata on the lock screen, in phone
  * notifications and on keyboard media keys.
@@ -79,7 +81,7 @@ export function setMediaSessionPosition(duration: number, position: number, play
   try {
     navigator.mediaSession.setPositionState({
       duration,
-      position: Math.min(Math.max(0, position), duration),
+      position: clamp(position, 0, duration),
       playbackRate,
     })
   }

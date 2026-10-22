@@ -1,7 +1,7 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
-import type { SharedTrack, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { SharedTrack, SharedTrackContent, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
-import { trackCoverUrl } from './cover-urls'
+import { trackCoverUrlOf } from './cover-urls'
 
 /**
  * Conversion between database rows (snake_case) and domain types (camelCase).
@@ -46,7 +46,7 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
     hasLyrics: row.has_lyrics ?? false,
     hasSyncedLyrics: row.has_synced_lyrics ?? false,
     // Stable, cacheable address (see cover-urls.ts); null when the track has no cover.
-    coverUrl: row.cover_path ? trackCoverUrl(row.id, row.updated_at) : null,
+    coverUrl: trackCoverUrlOf(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -73,11 +73,21 @@ export function toTrackDetail(row: TrackRow): TrackDetail {
 export type SharedTrackRow = Database['public']['Functions']['get_shared_track']['Returns'][number]
 
 /**
- * Public view of a shared track: only the fields that are meant to be shared.
- * The row has no Suno prompt or mastering status to begin with (the SQL
- * function never selects them); storage paths are dropped here.
+ * The shareable columns, common to get_shared_track() and
+ * get_shared_playlist_tracks() rows (the latter add `position`, the former `visibility`).
  */
-export function toSharedTrack(row: SharedTrackRow, coverUrl: string | null): SharedTrack {
+export type SharedContentRow = Pick<SharedTrackRow,
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre' | 'description'
+  | 'lyrics' | 'lyrics_synced' | 'peaks' | 'duration_seconds' | 'status' | 'updated_at'
+>
+
+/**
+ * Shareable fields of a track, for the public track page and the tracks of a
+ * shared playlist alike. The row has no Suno prompt or mastering status to
+ * begin with (the SQL functions never select them); storage paths are not
+ * copied. `coverUrl` is the signed URL computed by the sharing service.
+ */
+export function toSharedTrackContent(row: SharedContentRow, coverUrl: string | null): SharedTrackContent {
   return {
     id: row.id,
     title: row.title,
@@ -91,12 +101,19 @@ export function toSharedTrack(row: SharedTrackRow, coverUrl: string | null): Sha
     lyricsSynced: (row.lyrics_synced as SyncedLyricLine[] | null) ?? null,
     peaks: (row.peaks as number[] | null) ?? null,
     durationSeconds: row.duration_seconds ?? null,
-    // Shown as "Work in progress" on the public page.
+    // Shown as "Work in progress" on the public pages.
     status: row.status ?? 'final',
     coverUrl,
+    updatedAt: row.updated_at,
+  }
+}
+
+/** Public view of a shared track: the shareable fields and its link visibility. */
+export function toSharedTrack(row: SharedTrackRow, coverUrl: string | null): SharedTrack {
+  return {
+    ...toSharedTrackContent(row, coverUrl),
     // The database function never returns private tracks.
     visibility: row.visibility === 'public' ? 'public' : 'unlisted',
-    updatedAt: row.updated_at,
   }
 }
 
