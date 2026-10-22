@@ -3,7 +3,7 @@
  * a visitor plays private tracks inside the playlist only; private again → 404.
  */
 import { expect, test, type Page } from '@playwright/test'
-import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
 // The playlist page saves its details with PATCH /api/playlists/:id.
 const SAVE_PLAYLIST = { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ }
@@ -89,7 +89,8 @@ test.describe('playlists', () => {
     await expect(visitorRows).toHaveText([new RegExp(second), new RegExp(first)])
     await expect(visitor.getByTestId('shared-now-playing-title')).toHaveText(second)
 
-    // Private tracks play inside the playlist…
+    // Private tracks play inside the playlist (once the page is interactive)…
+    await waitForHydration(visitor)
     await visitorRows.filter({ hasText: first }).getByRole('button').click()
     await expect(visitor.getByTestId('shared-now-playing-title')).toHaveText(first)
     await expect(visitor.getByTestId('shared-play')).toHaveAttribute('aria-label', 'Pause')

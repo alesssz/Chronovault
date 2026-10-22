@@ -74,6 +74,21 @@ class FakeEngine implements PlaybackEngine {
   })
 }
 
+/**
+ * The next play() behaves like a browser still buffering: 'play' fires at
+ * once, but the promise only settles when the audio starts, and a pause()
+ * before that rejects it with an AbortError.
+ */
+function startSlowly() {
+  engine.play.mockImplementationOnce(() => new Promise<void>((_, reject) => {
+    engine.emit('play')
+    engine.pause.mockImplementationOnce(() => {
+      engine.emit('pause')
+      reject(new DOMException('The play() request was interrupted by a call to pause().', 'AbortError'))
+    })
+  }))
+}
+
 /** A library item with the given id (120 s, no cover). */
 function summary(id: string): TrackSummary {
   return {
@@ -384,6 +399,54 @@ describe('expired or refused audio sources', () => {
 
     expect(tracksApi.playback).toHaveBeenCalledTimes(2)
     expect(player.status).toBe('playing')
+  })
+
+  it('a pause before the audio starts is kept: the interrupted first play is not retried', async () => {
+    const player = usePlayerStore()
+    startSlowly()
+
+    const starting = player.playTrack(library[0]!, library)
+    await vi.waitFor(() => expect(player.status).toBe('playing'))
+    await player.togglePlay()
+    await starting
+
+    expect(player.status).toBe('paused')
+    expect(engine.play).toHaveBeenCalledTimes(1)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
+
+  it('a pause before a resumed track starts is kept too', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    await player.togglePlay()
+    startSlowly()
+
+    const resuming = player.togglePlay()
+    await vi.waitFor(() => expect(player.status).toBe('playing'))
+    await player.togglePlay()
+    await resuming
+
+    expect(player.status).toBe('paused')
+    expect(engine.play).toHaveBeenCalledTimes(2)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
+
+  it('a pause while an expired URL is being replaced shows no error', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.pause()
+    vi.setSystemTime(Date.now() + SIX_HOURS + 60_000)
+    startSlowly()
+
+    const resuming = player.play()
+    await vi.waitFor(() => expect(player.status).toBe('playing'))
+    player.pause()
+    await resuming
+
+    expect(tracksApi.playback).toHaveBeenCalledTimes(2)
+    expect(player.status).toBe('paused')
+    expect(player.error).toBeNull()
   })
 
   it('shows the browser error when the retry fails too', async () => {

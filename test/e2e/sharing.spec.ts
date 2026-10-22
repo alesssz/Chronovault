@@ -3,7 +3,7 @@
  * prompt or mastering status, and answers 404 once private again.
  */
 import { expect, test } from '@playwright/test'
-import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
 // The edit page saves with PATCH /api/tracks/:id.
 const SAVE_TRACK = { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ }
@@ -68,7 +68,8 @@ test.describe('public sharing', () => {
     // The library API stays closed to visitors.
     expect((await visitor.request.get(`/api/tracks/${trackId}`)).status()).toBe(401)
 
-    // The visitor can play the track.
+    // The visitor can play the track (once the page is interactive).
+    await waitForHydration(visitor)
     const play = visitor.getByTestId('shared-play')
     await play.click()
     await expect(play).toHaveAttribute('aria-label', 'Pause')

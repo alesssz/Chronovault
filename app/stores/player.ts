@@ -243,8 +243,9 @@ export const usePlayerStore = defineStore('player', () => {
       else if (status.value !== 'paused') status.value = 'paused'
       return true
     }
-    catch {
-      return false
+    catch (err) {
+      // Paused while the fresh source was starting: recovered, just not playing.
+      return isInterrupted(err)
     }
     finally {
       recovering = false
@@ -283,7 +284,7 @@ export const usePlayerStore = defineStore('player', () => {
         await e.play()
       }
       catch (err) {
-        if (token !== loadToken) return
+        if (token !== loadToken || isInterrupted(err)) return
         if (!(await recoverSource(true))) throw err
       }
     }
@@ -356,6 +357,7 @@ export const usePlayerStore = defineStore('player', () => {
       await engine().play()
     }
     catch (err) {
+      if (isInterrupted(err)) return
       if (!(await recoverSource(true))) fail(getErrorMessage(err, 'Could not start playback'))
     }
   }
@@ -600,6 +602,14 @@ export const usePlayerStore = defineStore('player', () => {
     setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }
 })
+
+/**
+ * play() was cut short on purpose: a pause (or a new source) came before the
+ * audio started. Browsers reject it with an AbortError; it is not a failure.
+ */
+function isInterrupted(err: unknown): boolean {
+  return err instanceof DOMException && err.name === 'AbortError'
+}
 
 /** The TrackSummary part of a TrackDetail (to refresh a queue item after an edit). */
 function pickSummary(detail: TrackDetail): TrackSummary {
