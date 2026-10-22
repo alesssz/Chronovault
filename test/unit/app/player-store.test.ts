@@ -106,6 +106,20 @@ function detail(id: string): TrackDetail {
   }
 }
 
+/** A track of a shared playlist (shareable fields only). */
+function sharedPlaylistTrack(id: string) {
+  return {
+    id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
+    lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
+  }
+}
+
+/** A shared playlist of three tracks: x, y, z. */
+const sharedPlaylist: SharedPlaylist = {
+  id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
+  durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedPlaylistTrack),
+}
+
 /** The library shown on screen: a, b, c (queue context of most tests). */
 const library = ['a', 'b', 'c'].map(summary)
 /** A fresh fake engine for every test. */
@@ -509,18 +523,7 @@ describe('expired or refused audio sources', () => {
   })
 
   describe('shared playlists (public page)', () => {
-    /** A track of a shared playlist (shareable fields only). */
-    function sharedTrack(id: string) {
-      return {
-        id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
-        lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
-      }
-    }
-    /** A shared playlist of three tracks: x, y, z. */
-    const playlist: SharedPlaylist = {
-      id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
-      durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedTrack),
-    }
+    const playlist = sharedPlaylist
 
     it('cues the first track through the playlist, without playing', async () => {
       const player = usePlayerStore()
@@ -690,5 +693,102 @@ describe('expired or refused audio sources', () => {
       expect(player.status).toBe('idle')
       expect(player.queue).toEqual([])
     })
+  })
+})
+
+describe('repeat', () => {
+  it('starts off and cycles off → all → one → off', () => {
+    const player = usePlayerStore()
+    expect(player.repeat).toBe('off')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('all')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('one')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('off')
+  })
+
+  it('one: a track that ends starts again from 0:00, without a new URL', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(engine.seek).toHaveBeenLastCalledWith(0)
+    expect(player.index).toBe(0)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
+
+  it('one: an expired URL is replaced and the track starts again from 0:00', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+    engine.currentTime = 120
+    vi.setSystemTime(Date.now() + SIX_HOURS + 60_000)
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(tracksApi.playback).toHaveBeenCalledTimes(2)
+    expect(engine.currentTime).toBe(0)
+    expect(player.status).toBe('playing')
+  })
+
+  it('one: next and previous still change track, and next stops at the last one', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[1]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+
+    await player.next()
+    expect(player.index).toBe(2)
+    expect(player.hasNext).toBe(false)
+    await player.previous()
+    expect(player.index).toBe(1)
+  })
+
+  it('all: after the last track the queue starts again from the first', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[2]!, library)
+    player.cycleRepeat()
+    expect(player.hasNext).toBe(true)
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(player.current?.id).toBe('a'))
+    expect(player.index).toBe(0)
+    expect(player.status).toBe('playing')
+  })
+
+  it('all: previous on the first track goes to the last one', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+
+    await player.previous()
+    expect(player.index).toBe(2)
+  })
+
+  it('off: the end of the queue stops', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[2]!, library)
+
+    engine.emit('ended')
+    expect(player.status).toBe('paused')
+    expect(player.index).toBe(2)
+  })
+
+  it('is ignored on public pages: a shared playlist stops at its end', async () => {
+    const player = usePlayerStore()
+    player.cycleRepeat()
+    await player.playSharedPlaylist(sharedPlaylist, 2)
+
+    expect(player.hasNext).toBe(false)
+    engine.emit('ended')
+    expect(player.status).toBe('paused')
   })
 })
