@@ -106,6 +106,20 @@ function detail(id: string): TrackDetail {
   }
 }
 
+/** A track of a shared playlist (shareable fields only). */
+function sharedPlaylistTrack(id: string) {
+  return {
+    id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
+    lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
+  }
+}
+
+/** A shared playlist of three tracks: x, y, z. */
+const sharedPlaylist: SharedPlaylist = {
+  id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
+  durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedPlaylistTrack),
+}
+
 /** The library shown on screen: a, b, c (queue context of most tests). */
 const library = ['a', 'b', 'c'].map(summary)
 /** A fresh fake engine for every test. */
@@ -137,6 +151,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 describe('player store', () => {
@@ -509,18 +524,7 @@ describe('expired or refused audio sources', () => {
   })
 
   describe('shared playlists (public page)', () => {
-    /** A track of a shared playlist (shareable fields only). */
-    function sharedTrack(id: string) {
-      return {
-        id, title: `Shared ${id}`, composers: null, album: null, year: null, genre: null, description: null,
-        lyrics: null, lyricsSynced: null, peaks: null, durationSeconds: 60, coverUrl: null, updatedAt: '',
-      }
-    }
-    /** A shared playlist of three tracks: x, y, z. */
-    const playlist: SharedPlaylist = {
-      id: 'p', title: 'Night drive', description: null, visibility: 'unlisted', coverUrl: null, mosaic: [],
-      durationSeconds: 180, updatedAt: '', tracks: ['x', 'y', 'z'].map(sharedTrack),
-    }
+    const playlist = sharedPlaylist
 
     it('cues the first track through the playlist, without playing', async () => {
       const player = usePlayerStore()
@@ -690,5 +694,379 @@ describe('expired or refused audio sources', () => {
       expect(player.status).toBe('idle')
       expect(player.queue).toEqual([])
     })
+  })
+})
+
+describe('repeat', () => {
+  it('starts off and cycles off → all → one → off', () => {
+    const player = usePlayerStore()
+    expect(player.repeat).toBe('off')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('all')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('one')
+    player.cycleRepeat()
+    expect(player.repeat).toBe('off')
+  })
+
+  it('one: a track that ends starts again from 0:00, without a new URL', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(engine.seek).toHaveBeenLastCalledWith(0)
+    expect(player.index).toBe(0)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
+
+  it('one: an expired URL is replaced and the track starts again from 0:00', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+    engine.currentTime = 120
+    vi.setSystemTime(Date.now() + SIX_HOURS + 60_000)
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(tracksApi.playback).toHaveBeenCalledTimes(2)
+    expect(engine.currentTime).toBe(0)
+    expect(player.status).toBe('playing')
+  })
+
+  it('one: next and previous still change track, and next stops at the last one', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[1]!, library)
+    player.cycleRepeat()
+    player.cycleRepeat()
+
+    await player.next()
+    expect(player.index).toBe(2)
+    expect(player.hasNext).toBe(false)
+    await player.previous()
+    expect(player.index).toBe(1)
+  })
+
+  it('all: after the last track the queue starts again from the first', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[2]!, library)
+    player.cycleRepeat()
+    expect(player.hasNext).toBe(true)
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(player.current?.id).toBe('a'))
+    expect(player.index).toBe(0)
+    expect(player.status).toBe('playing')
+  })
+
+  it('all: previous on the first track goes to the last one', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.cycleRepeat()
+
+    await player.previous()
+    expect(player.index).toBe(2)
+  })
+
+  it('off: the end of the queue stops', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[2]!, library)
+
+    engine.emit('ended')
+    expect(player.status).toBe('paused')
+    expect(player.index).toBe(2)
+  })
+
+  it('all is ignored on public pages: a shared playlist stops at its end', async () => {
+    const player = usePlayerStore()
+    player.cycleRepeat()
+    await player.playSharedPlaylist(sharedPlaylist, 2)
+
+    expect(player.hasNext).toBe(false)
+    engine.emit('ended')
+    expect(player.status).toBe('paused')
+  })
+
+  it('one is ignored on public pages: a shared track is not played again', async () => {
+    const player = usePlayerStore()
+    player.cycleRepeat()
+    player.cycleRepeat()
+    await player.playSharedPlaylist(sharedPlaylist, 2)
+
+    engine.emit('ended')
+
+    expect(player.status).toBe('paused')
+    expect(engine.play).toHaveBeenCalledTimes(1)
+  })
+
+  it('all on a single track plays it again in place, without reloading it', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!)
+    player.cycleRepeat()
+
+    engine.emit('ended')
+    await vi.waitFor(() => expect(engine.play).toHaveBeenCalledTimes(2))
+
+    expect(engine.seek).toHaveBeenLastCalledWith(0)
+    expect(tracksApi.get).toHaveBeenCalledTimes(1)
+    expect(tracksApi.playback).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('shuffle', () => {
+  /** A library of six tracks: a shuffle of five upcoming ones is almost never the identity. */
+  const six = ['a', 'b', 'c', 'd', 'e', 'f'].map(summary)
+  /** Ids of a list of queue items. */
+  const ids = (items: { id: string }[]) => items.map(t => t.id)
+  /**
+   * Math.random() always 0: Fisher–Yates then moves every item one place to
+   * the left (the first one goes last), so each shuffle has a known result.
+   */
+  const rotateOnShuffle = () => vi.spyOn(Math, 'random').mockReturnValue(0)
+
+  it('turning it on shuffles the upcoming tracks only', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[1]!, six)
+    rotateOnShuffle()
+    player.setShuffle(true)
+
+    expect(player.shuffle).toBe(true)
+    expect(ids(player.queue)).toEqual(['a', 'b', 'd', 'e', 'f', 'c'])
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('turning it off carries on in the original order from the current track', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[1]!, six)
+    player.setShuffle(true)
+    player.setShuffle(false)
+
+    expect(ids(player.upcoming)).toEqual(['c', 'd', 'e', 'f'])
+    // Still known: new rounds of "repeat all" follow it.
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('turning it on again keeps the order the list had before the first shuffle', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    rotateOnShuffle()
+    player.setShuffle(true)
+    // Shuffled: a, then c d e f b. Moving on to "d" and turning shuffle off leaves a mixed queue.
+    await player.playFromQueue(2)
+    player.setShuffle(false)
+    expect(ids(player.queue)).toEqual(['a', 'c', 'd', 'e', 'f', 'b'])
+
+    player.setShuffle(true)
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
+  it('repeat all with shuffle turned off: the new round plays the original order', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    rotateOnShuffle()
+    player.setShuffle(true)
+    // Shuffled: a, then c d e f b. Play to the end, then turn shuffle off.
+    await player.playFromQueue(5)
+    player.setShuffle(false)
+    player.cycleRepeat()
+
+    await player.next()
+
+    expect(ids(player.queue)).toEqual(['a', 'b', 'c', 'd', 'e', 'f'])
+    expect(player.current?.id).toBe('a')
+  })
+
+  it('play all starts from the first track, or from a random one while shuffled', async () => {
+    const player = usePlayerStore()
+    await player.playAll(six)
+    expect(player.current?.id).toBe('a')
+
+    player.close()
+    player.setShuffle(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    await player.playAll(six)
+
+    expect(player.current?.id).toBe('d')
+    expect(ids(player.upcoming).sort()).toEqual(['a', 'b', 'c', 'e', 'f'])
+  })
+
+  it('starting from the library plays the chosen track first, then all the others shuffled', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.playTrack(six[3]!, six)
+
+    expect(player.index).toBe(0)
+    expect(player.current?.id).toBe('d')
+    expect(ids(player.upcoming).sort()).toEqual(['a', 'b', 'c', 'e', 'f'])
+    // Back in order: carry on after "d", wrapping around.
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['e', 'f', 'a', 'b', 'c'])
+  })
+
+  it('add to queue puts the track at a random place among the upcoming ones', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 3))
+    player.setShuffle(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    await player.addToQueue(six[5]!)
+
+    expect(player.queue[1]?.id).toBe('f')
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'f'])
+  })
+
+  it('play next still goes right after the current track', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 3))
+    player.setShuffle(true)
+
+    await player.playNext(six[5]!)
+
+    expect(player.queue[1]?.id).toBe('f')
+    expect(player.originalOrder).toEqual(['a', 'b', 'c', 'f'])
+  })
+
+  it('repeat all reshuffles the whole queue for each new round', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    await player.playFromQueue(5)
+    player.setShuffle(true)
+    player.cycleRepeat()
+    rotateOnShuffle()
+
+    await player.next()
+
+    expect(ids(player.queue)).toEqual(['b', 'c', 'd', 'e', 'f', 'a'])
+    expect(player.index).toBe(0)
+    expect(player.current?.id).toBe('b')
+  })
+
+  it('a new round never starts with the track that just ended', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six.slice(0, 2))
+    await player.playFromQueue(1)
+    player.setShuffle(true)
+    player.cycleRepeat()
+    // The rotation would start the round with "b", the track that just ended.
+    rotateOnShuffle()
+
+    await player.next()
+
+    expect(ids(player.queue)).toEqual(['a', 'b'])
+    expect(player.current?.id).toBe('a')
+  })
+
+  it('on public pages it only changes the setting', async () => {
+    const player = usePlayerStore()
+    await player.playSharedPlaylist(sharedPlaylist, 0)
+    const order = ids(player.queue)
+
+    player.setShuffle(true)
+
+    expect(player.shuffle).toBe(true)
+    expect(ids(player.queue)).toEqual(order)
+  })
+
+  it('a restored shuffled queue can still go back to its original order', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c'])
+    // After "c" the original order wraps around to "a", then "b".
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['a', 'b'])
+  })
+
+  it('a queue saved without an original order keeps its order when shuffle is turned off', async () => {
+    const player = usePlayerStore()
+    player.setShuffle(true)
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0)
+
+    expect(player.originalOrder).toEqual(['c', 'b', 'a'])
+    player.setShuffle(false)
+    expect(ids(player.upcoming)).toEqual(['b', 'a'])
+  })
+
+  it('a restored queue keeps its original order with shuffle off too (for repeat all)', async () => {
+    const player = usePlayerStore()
+    await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
+
+    expect(player.originalOrder).toEqual(['a', 'b', 'c'])
+  })
+
+  it('closing the player forgets the original order but keeps the setting', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    player.setShuffle(true)
+
+    player.close()
+
+    expect(player.shuffle).toBe(true)
+    expect(player.originalOrder).toBeNull()
+  })
+
+  it('a shared list never keeps the library\'s original order', async () => {
+    const player = usePlayerStore()
+    await player.playTrack(six[0]!, six)
+    player.setShuffle(true)
+
+    await player.playSharedPlaylist(sharedPlaylist, 0)
+
+    expect(player.originalOrder).toBeNull()
+  })
+
+  it('a server-rendered page does not overwrite the remembered settings', () => {
+    const stored = new Map<string, string>([
+      ['chronoplayer:volume', '0.4'],
+      ['chronoplayer:playback-modes', JSON.stringify({ shuffle: true, repeat: 'one' })],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    })
+    try {
+      const pinia = createPinia()
+      // What the public pages (/t, /p) hand over from the server: its defaults.
+      pinia.state.value.player = { volume: 1, shuffle: false, repeat: 'off' }
+      setActivePinia(pinia)
+
+      const player = usePlayerStore()
+
+      expect(player.volume).toBe(0.4)
+      expect(player.shuffle).toBe(true)
+      expect(player.repeat).toBe('one')
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('is remembered with the repeat mode for the next visit', () => {
+    const stored = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    })
+    try {
+      const player = usePlayerStore()
+      player.setShuffle(true)
+      player.cycleRepeat()
+
+      setActivePinia(createPinia())
+      const next = usePlayerStore()
+      expect(next.shuffle).toBe(true)
+      expect(next.repeat).toBe('all')
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

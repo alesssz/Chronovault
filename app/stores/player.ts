@@ -1,10 +1,11 @@
-import { defineStore } from 'pinia'
+import { defineStore, skipHydrate } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { moveItem } from '~~/shared/utils/arrays'
 import { clamp } from '~~/shared/utils/numbers'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
+import { inOriginalOrder, randomUpcomingSlot, shuffledRound, shuffleUpcoming, unshuffleUpcoming } from '~/lib/queue-order'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
@@ -24,6 +25,9 @@ export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
  * - `already-queued`: "Add to queue" on a track already coming up, nothing changed.
  */
 export type QueueResult = 'started' | 'queued' | 'current' | 'already-queued'
+
+/** What happens at the end of a track: carry on and stop after the last one, loop the queue, or repeat the track. */
+export type RepeatMode = 'off' | 'all' | 'one'
 
 /** A queued track: what the player bar shows while the full data loads. */
 export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
@@ -63,8 +67,12 @@ function sharedPlaylistSource(playlist: SharedPlaylist): TrackSource {
 
 /** Past this point (seconds) "previous" restarts the track instead of going back. */
 const RESTART_THRESHOLD = 3
-/** localStorage key of the volume: the only player setting remembered across visits. */
+/** localStorage key of the volume, remembered across visits like shuffle and repeat. */
 const VOLUME_KEY = 'chronoplayer:volume'
+/** localStorage key of shuffle and repeat (remembered like the volume). */
+const MODES_KEY = 'chronoplayer:playback-modes'
+/** Repeat modes in the order the button cycles through them. */
+const REPEAT_MODES: readonly RepeatMode[] = ['off', 'all', 'one']
 /** A signed URL this close to its expiry is replaced before being used again. */
 const SOURCE_EXPIRY_MARGIN_MS = 60_000
 /** Playback speed bounds (the sync editor uses 0.5 and 0.75). */
@@ -100,12 +108,27 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTime = ref(0)
   /** From the track data at first, then from the audio element once known. */
   const duration = ref(0)
+  // Settings read from this browser's storage. skipHydrate: a server-rendered
+  // page (/t, /p) must not replace them with the server's defaults.
   /** 0..1, restored from the previous visit. */
-  const volume = ref(readStoredVolume())
+  const volume = skipHydrate(ref(readStoredVolume()))
   /** Mute is separate from the volume, so unmuting brings the old level back. */
   const muted = ref(false)
   /** Playback speed (1 = normal); slowed down while syncing lyrics. */
   const playbackRate = ref(1)
+  /** Shuffle and repeat saved by the previous visit. */
+  const storedModes = readStoredModes()
+  /** Shuffle is on: upcoming tracks play in random order (library playback only). */
+  const shuffle = skipHydrate(ref(storedModes.shuffle))
+  /** Repeat mode (library playback only). */
+  const repeat = skipHydrate(ref<RepeatMode>(storedModes.repeat))
+  /**
+   * Track ids of the queue in its order before it was first shuffled (plus
+   * tracks added since), to put it back when shuffle is turned off and for
+   * the new rounds of "repeat all" after that. Null for a list never
+   * shuffled, a shared list, or when nothing plays.
+   */
+  const originalOrder = ref<string[] | null>(null)
   /** The full-screen view (PlayerExpanded) is open. */
   const expanded = ref(false)
   /** The "Up next" panel (PlayerQueue) is open. */
@@ -125,10 +148,14 @@ export const usePlayerStore = defineStore('player', () => {
   const displayTrack = computed<QueueItem | null>(() => current.value ?? queue.value[index.value] ?? null)
   /** Audio is playing right now (Play/Pause icons). */
   const isPlaying = computed(() => status.value === 'playing')
-  /** There is a track after the current one ("next" enabled). */
-  const hasNext = computed(() => index.value < queue.value.length - 1)
-  /** There is a track before the current one. */
-  const hasPrevious = computed(() => index.value > 0)
+  /** Shuffle and repeat apply: library playback (public pages play their list in order). */
+  const modesApply = computed(() => sourceKey.value === librarySource.key)
+  /** "Repeat all" is in effect: the queue starts again after its last track. */
+  const loops = computed(() => modesApply.value && repeat.value === 'all' && queue.value.length > 0)
+  /** There is a track after the current one, or the queue loops ("next" enabled). */
+  const hasNext = computed(() => loops.value || index.value < queue.value.length - 1)
+  /** There is a track before the current one, or the queue loops. */
+  const hasPrevious = computed(() => loops.value || index.value > 0)
   /** Tracks after the current one, in play order. */
   const upcoming = computed(() => (index.value >= 0 ? queue.value.slice(index.value + 1) : []))
   /** Queue editing ("Play next", "Add to queue", the Up next panel) applies to library playback only. */
@@ -178,7 +205,8 @@ export const usePlayerStore = defineStore('player', () => {
       if (!waiting) sourceRecovered = false
     })
     e.on('ended', () => {
-      if (hasNext.value) void loadIndex(index.value + 1, true)
+      if (modesApply.value && repeat.value === 'one') void replay()
+      else if (hasNext.value) void next()
       else status.value = 'paused'
     })
     e.on('error', (message) => {
@@ -301,16 +329,34 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
     setSource(librarySource)
-    queue.value = [...context]
-    const i = queue.value.findIndex(t => t.id === track.id)
-    if (i === -1) queue.value = [track, ...queue.value]
-    await loadIndex(Math.max(0, i), true)
+    let items = [...context]
+    let i = items.findIndex(t => t.id === track.id)
+    if (i === -1) {
+      items = [track, ...items]
+      i = 0
+    }
+    if (shuffle.value) {
+      originalOrder.value = items.map(t => t.id)
+      // The chosen track first, all the others of the list shuffled after it.
+      items = shuffleUpcoming([items[i]!, ...items.filter((_, j) => j !== i)], 0)
+      i = 0
+    }
+    queue.value = items
+    await loadIndex(i, true)
+  }
+
+  /** Plays a whole list ("Play" on a playlist): from its first track, or from a random one while shuffled. */
+  async function playAll(list: QueueItem[]): Promise<void> {
+    const start = shuffle.value ? list[Math.floor(Math.random() * list.length)] : list[0]
+    if (start) await playTrack(start, list)
   }
 
   /** Switches the source of the queue (library, shared track, shared playlist). */
   function setSource(next: TrackSource): void {
     source = next
     sourceKey.value = next.key
+    // Only library playback is shuffled: a shared list has no original order to keep.
+    if (next !== librarySource) originalOrder.value = null
   }
 
   /** Loads a track shared by link without starting it (public share page). */
@@ -383,13 +429,47 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Next track of the queue, if any. */
   async function next(): Promise<void> {
-    if (hasNext.value) await loadIndex(index.value + 1, true)
+    if (index.value < queue.value.length - 1) await loadIndex(index.value + 1, true)
+    else if (loops.value) await startNewRound()
   }
 
-  /** Like every player: restarts the track after 3 s, otherwise goes to the previous one. */
+  /**
+   * Like every player: restarts the track after 3 s, otherwise goes to the
+   * previous one (from the first, to the last when the queue loops).
+   */
   async function previous(): Promise<void> {
-    if (currentTime.value > RESTART_THRESHOLD || !hasPrevious.value) seek(0)
-    else await loadIndex(index.value - 1, true)
+    if (currentTime.value > RESTART_THRESHOLD) seek(0)
+    else if (index.value > 0) await loadIndex(index.value - 1, true)
+    else if (loops.value && queue.value.length > 1) await loadIndex(queue.value.length - 1, true)
+    else seek(0)
+  }
+
+  /**
+   * "Repeat all" after the last track: back to the first one, reshuffled
+   * when shuffle is on, in the original order when it was turned off. A
+   * single track simply starts again in place.
+   */
+  async function startNewRound(): Promise<void> {
+    if (queue.value.length === 1) return replay()
+    if (shuffle.value) queue.value = shuffledRound(queue.value, queue.value[index.value]?.id ?? '')
+    else if (originalOrder.value) queue.value = inOriginalOrder(queue.value, originalOrder.value)
+    await loadIndex(0, true)
+  }
+
+  /**
+   * "Repeat one": the track that just ended starts again from 0:00 without
+   * reloading it. An expired URL is replaced first, at 0:00 (seeking it
+   * would make the browser request the file again and fail).
+   */
+  async function replay(): Promise<void> {
+    currentTime.value = 0
+    if (sourceExpired()) {
+      sourceRecovered = false
+      if (!(await recoverSource(true, 0))) fail('Could not replay the track')
+      return
+    }
+    engine().seek(0)
+    await play()
   }
 
   /**
@@ -439,6 +519,34 @@ export const usePlayerStore = defineStore('player', () => {
     engine().setPlaybackRate(value)
   }
 
+  /**
+   * Shuffle button (remembered). With library playback the upcoming tracks
+   * are reordered at once; on a public page only the setting changes.
+   */
+  function setShuffle(on: boolean): void {
+    if (on === shuffle.value) return
+    shuffle.value = on
+    storeModes({ shuffle: shuffle.value, repeat: repeat.value })
+    if (!modesApply.value || index.value < 0) {
+      originalOrder.value = null
+      return
+    }
+    if (on) {
+      // Shuffled before: the list's real order is already known (the queue may be mixed by now).
+      originalOrder.value ??= queue.value.map(t => t.id)
+      queue.value = shuffleUpcoming(queue.value, index.value)
+    }
+    else if (originalOrder.value) {
+      queue.value = unshuffleUpcoming(queue.value, index.value, originalOrder.value)
+    }
+  }
+
+  /** Repeat button: off → all → one → off (remembered). */
+  function cycleRepeat(): void {
+    repeat.value = REPEAT_MODES[(REPEAT_MODES.indexOf(repeat.value) + 1) % REPEAT_MODES.length]!
+    storeModes({ shuffle: shuffle.value, repeat: repeat.value })
+  }
+
   /** Opens/closes the full-screen view (only while something is loaded). */
   function setExpanded(value: boolean): void {
     expanded.value = value && isActive.value
@@ -455,6 +563,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (engineRef) engineRef.unload()
     queue.value = []
     index.value = -1
+    originalOrder.value = null
     current.value = null
     status.value = 'idle'
     currentTime.value = 0
@@ -489,6 +598,11 @@ export const usePlayerStore = defineStore('player', () => {
     if (i < index.value) index.value--
   }
 
+  /** A track added while shuffled joins the original order too (at its end). */
+  function rememberOriginal(id: string): void {
+    if (originalOrder.value && !originalOrder.value.includes(id)) originalOrder.value = [...originalOrder.value, id]
+  }
+
   /** Puts `track` right after the current one (moving it there if it is already queued). */
   async function playNext(track: QueueItem): Promise<QueueResult> {
     if (!canEditQueue()) {
@@ -501,12 +615,14 @@ export const usePlayerStore = defineStore('player', () => {
     const updated = [...queue.value]
     updated.splice(index.value + 1, 0, track)
     queue.value = updated
+    rememberOriginal(track.id)
     return 'queued'
   }
 
   /**
-   * Appends `track` at the end of the queue. A track already coming up stays
-   * where it is; one already played is moved to the end.
+   * Appends `track` at the end of the queue (at a random place among the
+   * upcoming tracks while shuffled). A track already coming up stays where
+   * it is; one already played is moved.
    */
   async function addToQueue(track: QueueItem): Promise<QueueResult> {
     if (!canEditQueue()) {
@@ -517,7 +633,15 @@ export const usePlayerStore = defineStore('player', () => {
     if (i === index.value) return 'current'
     if (i > index.value) return 'already-queued'
     detach(track.id)
-    queue.value = [...queue.value, track]
+    if (shuffle.value) {
+      const updated = [...queue.value]
+      updated.splice(randomUpcomingSlot(updated.length, index.value), 0, track)
+      queue.value = updated
+      rememberOriginal(track.id)
+    }
+    else {
+      queue.value = [...queue.value, track]
+    }
     return 'queued'
   }
 
@@ -552,13 +676,16 @@ export const usePlayerStore = defineStore('player', () => {
 
   /**
    * Puts back a saved library queue (app/lib/queue-storage.ts), loaded and
-   * paused at `position`. Does nothing if something is already playing;
-   * a track that cannot be loaded makes it give up and close the player.
+   * paused at `position`; `originalIds` is its order before shuffling.
+   * Does nothing if something is already playing; a track that cannot be
+   * loaded makes it give up and close the player.
    */
-  async function restoreQueue(items: QueueItem[], at: number, position: number): Promise<boolean> {
+  async function restoreQueue(items: QueueItem[], at: number, position: number, originalIds?: string[]): Promise<boolean> {
     if (isActive.value || !items[at]) return false
     setSource(librarySource)
     queue.value = [...items]
+    // The order to go back to; with shuffle on and none saved (an old format), the current one.
+    originalOrder.value = originalIds ?? (shuffle.value ? items.map(t => t.id) : null)
     await loadIndex(at, false, position)
     if (status.value === 'error') {
       close()
@@ -593,13 +720,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     // state
-    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, queueOpen, error, sourceKey,
+    queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, shuffle, repeat, originalOrder, expanded, queueOpen, error, sourceKey,
     // derived
     isActive, displayTrack, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
-    playTrack, cueShared, playSharedPlaylist, play, pause,
+    playTrack, playAll, cueShared, playSharedPlaylist, play, pause,
     playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, restoreQueue, togglePlay, stop, next, previous, seek,
-    setVolume, setMuted, toggleMute, setPlaybackRate, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
+    setVolume, setMuted, toggleMute, setPlaybackRate, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
   }
 })
 
@@ -639,5 +766,30 @@ function storeVolume(value: number): void {
   }
   catch {
     // Storage unavailable (e.g. private browsing): the volume is not remembered.
+  }
+}
+
+/** Shuffle and repeat saved by the previous visit (both off when absent, invalid or storage is blocked). */
+function readStoredModes(): { shuffle: boolean, repeat: RepeatMode } {
+  try {
+    const raw = globalThis.localStorage?.getItem(MODES_KEY)
+    const value = (raw ? JSON.parse(raw) : {}) as { shuffle?: unknown, repeat?: unknown }
+    return {
+      shuffle: value.shuffle === true,
+      repeat: REPEAT_MODES.find(mode => mode === value.repeat) ?? 'off',
+    }
+  }
+  catch {
+    return { shuffle: false, repeat: 'off' }
+  }
+}
+
+/** Remembers shuffle and repeat for the next visit (best effort). */
+function storeModes(modes: { shuffle: boolean, repeat: RepeatMode }): void {
+  try {
+    globalThis.localStorage?.setItem(MODES_KEY, JSON.stringify(modes))
+  }
+  catch {
+    // Storage unavailable (e.g. private browsing): the modes are not remembered.
   }
 }

@@ -40,7 +40,7 @@ afterEach(() => {
 describe('saving and reading', () => {
   it('reads back what was saved, for the same user', () => {
     saveQueue({ userId: 'u1', trackIds: ['a', 'b', 'c'], index: 1, position: 42.345 })
-    expect(readSavedQueue('u1')).toMatchObject({ version: 1, userId: 'u1', trackIds: ['a', 'b', 'c'], index: 1, position: 42.3 })
+    expect(readSavedQueue('u1')).toMatchObject({ version: 2, userId: 'u1', trackIds: ['a', 'b', 'c'], index: 1, position: 42.3 })
   })
 
   it('never hands one user\'s queue to another, and forgets it', () => {
@@ -54,10 +54,23 @@ describe('saving and reading', () => {
     ['an old format', JSON.stringify({ version: 0, userId: 'u1', trackIds: ['a'], index: 0, position: 0 })],
     ['an index out of range', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 3, position: 0 })],
     ['a bad position', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 0, position: 'x' })],
+    ['a bad original order', JSON.stringify({ version: 2, userId: 'u1', trackIds: ['a'], index: 0, position: 0, originalTrackIds: [1] })],
   ])('discards %s', (_label, raw) => {
     localStorage.setItem(KEY, raw)
     expect(readSavedQueue('u1')).toBeNull()
     expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('saves the original order of a shuffled queue', () => {
+    saveQueue({ userId: 'u1', trackIds: ['c', 'a', 'b'], index: 0, position: 0, originalTrackIds: ['a', 'b', 'c'] })
+    expect(readSavedQueue('u1')?.originalTrackIds).toEqual(['a', 'b', 'c'])
+  })
+
+  it('still reads a queue saved in format 1 (no shuffle)', () => {
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a', 'b'], index: 1, position: 3 }))
+    const saved = readSavedQueue('u1')
+    expect(saved).toMatchObject({ trackIds: ['a', 'b'], index: 1, position: 3 })
+    expect(saved?.originalTrackIds).toBeUndefined()
   })
 
   it('clears the saved queue', () => {
@@ -76,6 +89,15 @@ describe('saving and reading', () => {
 describe('resolveSavedQueue', () => {
   /** Minimal library items: only ids matter here. */
   const tracks = (...ids: string[]) => ids.map(id => ({ id }))
+
+  it('drops deleted tracks from the original order too', () => {
+    const resolved = resolveSavedQueue({ trackIds: ['b', 'a'], index: 0, position: 0, originalTrackIds: ['a', 'x', 'b'] }, tracks('a', 'b'))
+    expect(resolved?.originalIds).toEqual(['a', 'b'])
+  })
+
+  it('has no original order for a queue saved without shuffle', () => {
+    expect(resolveSavedQueue({ trackIds: ['a'], index: 0, position: 0 }, tracks('a'))?.originalIds).toBeUndefined()
+  })
 
   it('resumes the same track at the same position', () => {
     expect(resolveSavedQueue({ trackIds: ['a', 'b', 'c'], index: 1, position: 30 }, tracks('a', 'b', 'c')))

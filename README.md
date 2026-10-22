@@ -40,7 +40,7 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Accounts** | Sign-up, sign-in and sign-out with email and password. Each user only sees their own tracks and playlists. |
 | **Library** | Track list with cover, composers, duration, genre, mastering status, synced-lyrics and visibility badges, and a **Draft** badge on work-in-progress versions. Search (title, composers, album), genre, mastering and version (final / drafts) filters, sorting. **Select** mode: tick several tracks to mark them final, add them to a playlist, share them for feedback or delete them in one go. Clicking a track's name plays it; clicking the name of the track already in the player opens the full-screen view. |
 | **Upload** | Drop several files at once (MP3, WAV, FLAC, AAC/M4A, OGG/Opus, WebM; max 500 MB each). Title, composers, album, year, genre, lyrics (synced ones too) and cover are read from the tags. **WAV files are converted to FLAC losslessly**, verified bit for bit ([7.4](#74-lossless-wav--flac-conversion)). Direct upload to storage with a progress bar, retried on network errors. |
-| **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, volume and mute (the volume is remembered). Lock-screen and media-key controls (Media Session). |
+| **Player** | Bottom bar that stays visible across pages. Clickable and draggable waveform, elapsed and remaining time, play/pause, stop, previous/next, **shuffle** and **repeat** (off / all / one), volume and mute (volume, shuffle and repeat are remembered). Lock-screen and media-key controls (Media Session). |
 | **Queue** | "Play next" and "Add to queue" in every track menu (library and playlists). The **Up next** panel (from the player bar, or the full-screen view on phones) shows the track playing and the upcoming ones: drag to reorder (mouse or touch), move up/down, remove, play one right away, clear. The queue is **saved on the device**: after a reload you find the same queue and track, paused where you left it. |
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. |
 | **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, draft/final version, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
@@ -330,6 +330,7 @@ ChronoPlayer/
 │   │   ├── bytes.ts                  #   concatBytes, asciiAt (binary file code)
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
+│   │   ├── queue-order.ts            #   shuffle rules: shuffle, unshuffle, new round
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
@@ -544,10 +545,11 @@ sequenceDiagram
 ```
 
 - **The engine** (`app/lib/audio-engine.ts`) wraps one `<audio>` element created on first use, outside Vue. While playing it reports the time on every animation frame (`timeupdate` alone fires only ~4 times a second, too coarse for lyrics).
-- **The store** (`app/stores/player.ts`) holds the queue, the current track, status, time, volume (saved in `localStorage`), speed and the full-screen flag. Every track change increments a token: responses of superseded loads (fast double clicks) are ignored.
+- **The store** (`app/stores/player.ts`) holds the queue, the current track, status, time, volume, shuffle and repeat (saved in `localStorage`), speed and the full-screen flag. Every track change increments a token: responses of superseded loads (fast double clicks) are ignored.
 - **Track sources.** The store fetches data and URLs from a *source*: the library (signed-in API), a shared track or a shared playlist (public API). The same player, waveform and lyrics components therefore work on the public pages.
 - **Waveform** (`PlayerWaveform.vue`): wavesurfer.js draws the stored peaks on the engine's own `<audio>` element; clicking, dragging or ←/→ seek directly. Nothing is downloaded twice.
 - **"Previous"** restarts the current track when more than 3 seconds have played, otherwise goes back one track.
+- **Repeat** (library playback only): *all* starts the queue again after its last track (and "Previous" on the first track goes to the last); *one* starts the track that ended again from 0:00 without reloading it (an expired URL is replaced first), while "Next" and "Previous" still change track. *Off* stops at the end of the queue.
 - **Media Session** (`plugins/media-session.client.ts`): title, artist, album and cover on the lock screen, with play/pause/next/previous/seek controls.
 
 ### 7.6 Editable queue
@@ -559,16 +561,18 @@ The queue lives in the player store (`app/stores/player.ts`): the tracks already
 | **Play next** | Track menu (library, playlist page); "Play next" in the Up next panel | Puts the track right after the current one. A track already in the queue is moved there instead of duplicated |
 | **Add to queue** | Track menu | Appends the track. One already coming up stays where it is ("already in the queue"); one already played is moved to the end |
 | **Reorder** | Up next panel: drag handle, or Move up/down | Changes the order of the upcoming tracks |
-| **Remove** · **Clear** | Up next panel | Drops one upcoming track · all of them (playback stops after the current track) |
+| **Remove** · **Clear** | Up next panel | Drops one upcoming track · all of them (playback stops after the current track; with repeat *all* it starts again from the first track of the queue) |
 | **Play now** | Up next panel: click a track | Jumps to it; the tracks skipped become "previous" |
+| **Shuffle** | Player bar (screens from 1280 px wide), full-screen view | On: the upcoming tracks are shuffled (the current one and the history stay put). Off: they go back to the original order, carrying on from the current track |
 
 - A track appears **at most once** in the queue, and only upcoming tracks can be edited: the current track and the history stay put, and `index` always points at the current track.
 - When nothing from the library is playing, "Play next" and "Add to queue" simply start the track. A toast says what happened (`plays next`, `added to the queue`, `already playing`…).
 - "Next", the end of a track and the lock-screen controls all follow the edited order.
+- **Shuffle** reorders the queue itself (pure rules in `lib/queue-order.ts`), so Up next always shows the real play order. The store keeps the original order (`originalOrder`, track ids) to put it back: turning shuffle off continues from the current track in the original order, wrapping around, and drops manual moves made while shuffled. The original order is kept after shuffle is turned off too, so with repeat *all* every new round plays the list in that order (tracks added later at the end). With shuffle on, playing a track from a list puts it first and the rest of the list after it, shuffled (the playlist's *Play* button starts from a random track); "Add to queue" lands at a random place among the upcoming tracks, "Play next" still right after the current one; with repeat *all* every new round is reshuffled, never starting with the track that just ended.
 - The panel (`PlayerQueue.vue` + `PlayerQueueList.vue`) mirrors the store: a drag moves the DOM through SortableJS, then the store receives the move, so the panel and the player never disagree.
 - Queue editing applies to library playback only; the public pages have their own fixed order.
 - **The queue survives reloads** on the same device (`lib/queue-storage.ts`, `plugins/queue-persistence.client.ts`): it is saved in the browser whenever it changes, every 5 seconds of playback and when the page is hidden. Opening the app again brings back the same queue and track, **paused at the same position**.
-  - Only track ids are saved: on restore they are matched against the current library, so deleted tracks drop out (if the current one is gone, the next one is loaded from the start) and covers get their current addresses.
+  - Only track ids are saved (format 2 adds `originalTrackIds`, the order before the first shuffle, once the queue has been shuffled; format 1 is still read as a queue without shuffle): on restore they are matched against the current library, so deleted tracks drop out (if the current one is gone, the next one is loaded from the start) and covers get their current addresses.
   - The saved queue belongs to one user: another account on the same browser never sees it.
   - Closing the player (×) or signing out forgets it. Public pages neither restore nor touch it.
   - It is per device: the queue on your phone and on your computer are separate.

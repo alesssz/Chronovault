@@ -81,10 +81,10 @@ function isCurrent(track: TrackSummary) {
   return player.current?.id === track.id
 }
 
-/** "Play all": pause/resume when this playlist is playing, otherwise start from the first track. */
+/** "Play all": pause/resume when this playlist is playing, otherwise start it (from a random track while shuffled). */
 function playAll() {
   if (isPlayingHere.value) void player.togglePlay()
-  else if (tracks.value[0]) void player.playTrack(tracks.value[0], tracks.value)
+  else void player.playAll(tracks.value)
 }
 
 /** A reorder/removal is being saved (spinner next to "Tracks"). */

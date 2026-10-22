@@ -4,8 +4,9 @@ import { tracksApi } from '~/services/api'
 /**
  * Keeps the library play queue across reloads and visits on this device.
  *
- * - Saving: whenever the queue, the current track or the status changes,
- *   every 5 seconds of playback, and when the page is hidden or closed.
+ * - Saving: whenever the queue, the current track, the status or the
+ *   shuffle order changes, every 5 seconds of playback, and when the page
+ *   is hidden or closed. A queue shuffled at some point keeps its original order too.
  * - Restoring: once per signed-in user, when the app opens on a library page;
  *   the queue comes back paused, at the saved position.
  * - Forgetting: closing the player (×) or signing out clears the saved queue.
@@ -49,6 +50,8 @@ export default defineNuxtPlugin(() => {
       trackIds: player.queue.map(t => t.id),
       index: player.index,
       position: player.currentTime,
+      // Once shuffled: the list's original order (to unshuffle, and for new rounds of repeat all).
+      originalTrackIds: player.originalOrder ?? undefined,
     })
     ownsSavedQueue = true
   }
@@ -76,7 +79,7 @@ export default defineNuxtPlugin(() => {
       // The user may have started something while the library loaded.
       if (player.isActive) return
       const resolved = resolveSavedQueue(saved, library)
-      if (!resolved || !(await player.restoreQueue(resolved.items, resolved.index, resolved.position))) {
+      if (!resolved || !(await player.restoreQueue(resolved.items, resolved.index, resolved.position, resolved.originalIds))) {
         clearSavedQueue()
         return
       }
@@ -95,8 +98,8 @@ export default defineNuxtPlugin(() => {
   watch(() => user.value?.sub, () => maybeRestore(window.location.pathname), { immediate: true })
   router.afterEach(to => maybeRestore(to.path))
 
-  // Save on every change of the queue, the current track or the status.
-  watch([() => player.queue, () => player.index, () => player.status], persist)
+  // Save on every change of the queue, the current track, the status or the shuffle order.
+  watch([() => player.queue, () => player.index, () => player.status, () => player.originalOrder], persist)
   // Position: every 5 seconds is enough to resume close to where the user was.
   watch(() => Math.floor(player.currentTime / 5), persist)
   // Exact position when leaving: tab hidden, page closed or reloaded.
