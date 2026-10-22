@@ -1,3 +1,5 @@
+import { clamp } from '~~/shared/utils/numbers'
+
 /**
  * Audio engine: a single HTMLAudioElement for the whole app.
  *
@@ -154,12 +156,12 @@ export class AudioEngine implements PlaybackEngine {
   /** Moves to `seconds`, clamped to the track (no upper bound while the duration is unknown). */
   seek(seconds: number): void {
     const max = this.duration || Number.POSITIVE_INFINITY
-    this.element.currentTime = Math.min(Math.max(0, seconds), max)
+    this.element.currentTime = clamp(seconds, 0, max)
   }
 
   /** 0..1, clamped. */
   setVolume(volume: number): void {
-    this.element.volume = Math.min(1, Math.max(0, volume))
+    this.element.volume = clamp(volume, 0, 1)
   }
 
   /** Mutes without changing the volume level. */

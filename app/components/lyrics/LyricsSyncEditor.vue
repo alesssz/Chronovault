@@ -4,7 +4,9 @@ import {
   buildSyncedLines,
   formatLrcTimestamp,
   parseLrc,
+  roundToCentiseconds,
   serializeLrc,
+  syncRowsFromLines,
   syncRowsFromLyrics,
   type SyncRow,
 } from '~~/shared/utils/lyrics'
@@ -52,12 +54,7 @@ const rows = ref<SyncRow[]>(initialRows())
 
 /** Existing synced lines when there are some, otherwise the plain lyrics (nothing synced yet). */
 function initialRows(): SyncRow[] {
-  if (model.value?.length) {
-    return model.value.map(line => line.section
-      ? { text: line.text, time: null, section: true }
-      : { text: line.text, time: line.time })
-  }
-  return syncRowsFromLyrics(props.lyrics)
+  return model.value?.length ? syncRowsFromLines(model.value) : syncRowsFromLyrics(props.lyrics)
 }
 
 /** Rebuilds the rows from the lyrics, keeping the times of lines already synced. */
@@ -107,7 +104,7 @@ const selected = ref<number | null>(null)
 function stamp() {
   if (!isLoaded.value || cursor.value >= rows.value.length) return
   const index = cursor.value
-  rows.value[index]!.time = Math.round(player.currentTime * 100) / 100
+  rows.value[index]!.time = roundToCentiseconds(player.currentTime)
   selected.value = index
 }
 
@@ -137,23 +134,27 @@ function moveLine(i: number, time: number) {
 
 /** Clears the last synced line and jumps back to just before the previous one (↑). */
 function undo() {
-  // Last synced lyric line before the cursor.
-  let last = cursor.value - 1
-  while (last >= 0 && (rows.value[last]!.section || rows.value[last]!.time == null)) last--
+  const last = syncedBefore(cursor.value)
   if (last < 0) return
   rows.value[last]!.time = null
   if (selected.value === last) selected.value = null
   // The synced line before the undone one: playback goes back to just before it.
-  let previous = last - 1
-  while (previous >= 0 && (rows.value[previous]!.section || rows.value[previous]!.time == null)) previous--
+  const previous = syncedBefore(last)
   if (isLoaded.value) player.seek(Math.max(0, (rows.value[previous]?.time ?? 0) - 1))
+}
+
+/** Index of the last synced lyric line before row `index` (section headers skipped), -1 when none. */
+function syncedBefore(index: number): number {
+  let i = index - 1
+  while (i >= 0 && (rows.value[i]!.section || rows.value[i]!.time == null)) i--
+  return i
 }
 
 /** Shifts a line's start by `delta` seconds (←/→), never below 0. */
 function nudge(i: number, delta: number) {
   const row = rows.value[i]
   if (row?.time == null) return
-  row.time = Math.max(0, Math.round((row.time + delta) * 100) / 100)
+  row.time = Math.max(0, roundToCentiseconds(row.time + delta))
 }
 
 /** Moves playback to a synced line's start. */
@@ -229,11 +230,10 @@ function openLrc() {
 
 /** Copies the dialog's LRC text to the clipboard (export, e.g. to paste it into another ChronoPlayer). */
 async function copyLrc() {
-  try {
-    await navigator.clipboard.writeText(lrcText.value)
+  if (await copyText(lrcText.value)) {
     toast.add({ title: 'LRC copied', icon: 'i-lucide-copy', color: 'success' })
   }
-  catch {
+  else {
     // Clipboard refused (permissions): the text is still there to select by hand.
     toast.add({ title: 'Could not copy', description: 'Select the text and copy it by hand', color: 'warning' })
   }
@@ -267,9 +267,7 @@ function applyLrc() {
     toast.add({ title: 'No valid lines', description: 'Use the [mm:ss.xx] text format', color: 'error' })
     return
   }
-  rows.value = parsed.map(line => line.section
-    ? { text: line.text, time: null, section: true }
-    : { text: line.text, time: line.time })
+  rows.value = syncRowsFromLines(parsed)
   selected.value = null
   lrcOpen.value = false
 }

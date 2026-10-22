@@ -2,6 +2,7 @@ import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 import type { SharedTrackRow } from '../mappers/track'
 import type { SharedPlaylistRow, SharedPlaylistTrackRow } from '../mappers/playlist'
+import { byPosition } from './playlists.repository'
 
 /**
  * Tracks and playlists shared by link ('unlisted' and 'public'), for anyone,
@@ -35,5 +36,5 @@ export async function findSharedPlaylistRow(db: DbClient, id: string): Promise<S
 export async function listSharedPlaylistTrackRows(db: DbClient, id: string): Promise<SharedPlaylistTrackRow[]> {
   const { data, error } = await db.rpc('get_shared_playlist_tracks', { p_playlist_id: id })
   if (error) throw toHttpError(error, 'sharedPlaylists.tracks')
-  return [...data].sort((a, b) => a.position - b.position)
+  return [...data].sort(byPosition)
 }

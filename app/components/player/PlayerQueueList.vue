@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { SortableEvent } from 'sortablejs'
-import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
 import type { QueueItem } from '~/stores/player'
 
 /**
@@ -12,8 +10,8 @@ import type { QueueItem } from '~/stores/player'
  */
 const player = usePlayerStore()
 
-/** While loading there is no detail yet: show the summary from the queue. */
-const current = computed(() => player.current ?? player.queue[player.index] ?? null)
+/** The "Now playing" row (the queued summary while the full data loads). */
+const current = computed(() => player.displayTrack)
 /** Queue position of the first upcoming track. */
 const offset = computed(() => player.index + 1)
 
@@ -29,15 +27,8 @@ watch(() => player.upcoming, (value) => {
 
 /** The <ol> that SortableJS makes draggable. */
 const listEl = ref<HTMLElement | null>(null)
-useSortable(listEl, items, {
-  handle: '[data-drag-handle]',
-  animation: 150,
-  onUpdate: (event: SortableEvent) => {
-    if (event.oldIndex == null || event.newIndex == null || event.oldIndex === event.newIndex) return
-    moveArrayElement(items, event.oldIndex, event.newIndex, event)
-    player.moveInQueue(offset.value + event.oldIndex, offset.value + event.newIndex)
-  },
-})
+// A dragged row moves in the store's queue (list positions → queue positions).
+useSortableList(listEl, items, (from, to) => player.moveInQueue(offset.value + from, offset.value + to))
 
 /** Moves the upcoming track at list position `i` by `delta` places. */
 function move(i: number, delta: number) {
@@ -134,16 +125,7 @@ function menuFor(i: number): DropdownMenuItem[][] {
           class="flex items-center gap-2 rounded-md px-1 py-1.5 hover:bg-elevated/50"
           data-testid="queue-item"
         >
-          <span
-            class="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center text-dimmed hover:text-muted active:cursor-grabbing"
-            aria-hidden="true"
-            data-drag-handle
-          >
-            <UIcon
-              name="i-lucide-grip-vertical"
-              class="size-4"
-            />
-          </span>
+          <DragHandle />
           <TrackCover
             :url="track.coverUrl"
             :title="track.title"

@@ -1,5 +1,6 @@
 import type * as LibFlac from 'libflacjs/dist/index'
 import { createMD5 } from 'hash-wasm'
+import { concatBytes } from '../bytes'
 import { flacIncompatibility, readWavSample, type WavInfo } from './wav'
 
 /**
@@ -62,8 +63,6 @@ export async function encodeWavToFlac(
 
   // --- 1. Encode (with libFLAC verify mode) ------------------------------------------
   const output: Uint8Array[] = []
-  // Total bytes written by the encoder, to join the chunks at the end.
-  let outputLength = 0
   // MD5 libFLAC writes in STREAMINFO, compared with our own MD5 (check 2).
   let streamMd5: string | null = null
 
@@ -77,7 +76,6 @@ export async function encodeWavToFlac(
       // Write callback: libFLAC reuses its buffer, so copy every chunk.
       (data, numberOfBytes) => {
         output.push(data.slice(0, numberOfBytes))
-        outputLength += numberOfBytes
       },
       // Metadata callback: STREAMINFO arrives at the end, with the MD5 of the encoded audio.
       (metadata) => {
@@ -110,7 +108,7 @@ export async function encodeWavToFlac(
     Flac.FLAC__stream_encoder_delete(encoder)
   }
 
-  const flac = concat(output, outputLength)
+  const flac = concatBytes(output)
 
   // --- 2. Source MD5 === MD5 stored in the FLAC ----------------------------------------
   if (streamMd5 !== sourceMd5) {
@@ -228,16 +226,4 @@ async function md5OfWavAudio(audio: Uint8Array, bitsPerSample: number): Promise<
     }
   }
   return md5.digest('hex')
-}
-
-/** Joins the encoder's output chunks into one buffer. */
-function concat(parts: Uint8Array[], length: number): Uint8Array<ArrayBuffer> {
-  // One buffer of the final size, filled chunk after chunk.
-  const out = new Uint8Array(length)
-  let offset = 0
-  for (const part of parts) {
-    out.set(part, offset)
-    offset += part.byteLength
-  }
-  return out
 }

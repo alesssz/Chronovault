@@ -19,7 +19,7 @@
  * the mastering status are personal notes and are never written.
  */
 import type { SyncedLyricLine, TrackDetail } from '~~/shared/types/track'
-import { getExtension } from '~~/shared/utils/audio-files'
+import { WAV_MIME_TYPES, getExtension } from '~~/shared/utils/audio-files'
 import { writeFlacTags } from './flac-tags'
 import { writeMp3Tags } from './id3-tags'
 import { writeWavTags } from './wav-tags'
@@ -54,21 +54,11 @@ export type TagFormat = 'flac' | 'mp3' | 'wav'
 
 /** Which tag system a stored file uses, from its MIME type; null = cannot be tagged. */
 export function tagFormatOf(mimeType: string): TagFormat | null {
-  switch (mimeType.toLowerCase()) {
-    case 'audio/flac':
-    case 'audio/x-flac':
-      return 'flac'
-    case 'audio/mpeg':
-    case 'audio/mp3':
-      return 'mp3'
-    case 'audio/wav':
-    case 'audio/x-wav':
-    case 'audio/wave':
-    case 'audio/vnd.wave':
-      return 'wav'
-    default:
-      return null
-  }
+  const type = mimeType.toLowerCase()
+  if (type === 'audio/flac' || type === 'audio/x-flac') return 'flac'
+  if (type === 'audio/mpeg' || type === 'audio/mp3') return 'mp3'
+  if (WAV_MIME_TYPES.includes(type)) return 'wav'
+  return null
 }
 
 /** The tags of a track (genre given by name: the track only has its id). */

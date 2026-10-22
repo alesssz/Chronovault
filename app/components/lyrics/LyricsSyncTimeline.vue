@@ -3,7 +3,7 @@ import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import type { SyncRow } from '~~/shared/utils/lyrics'
 import { getAudioEngine } from '~/lib/audio-engine'
-import { themeColor } from '~/lib/theme'
+import { waveformColors } from '~/lib/theme'
 
 /**
  * Zoomable, detailed waveform of the track being synced. It follows playback
@@ -71,7 +71,7 @@ function markerLabel(marker: Marker): HTMLElement {
   // Rendered inside wavesurfer's shadow DOM: inline styles, no Tailwind classes.
   const label = document.createElement('div')
   label.dataset.testid = 'sync-marker'
-  label.textContent = `${marker.number}. ${marker.text.length > 28 ? `${marker.text.slice(0, 27)}…` : marker.text || '♪'}`
+  label.textContent = `${marker.number}. ${truncate(marker.text, 28) || '♪'}`
   Object.assign(label.style, {
     fontSize: '11px',
     lineHeight: '1.3',
@@ -90,8 +90,8 @@ function markerLabel(marker: Marker): HTMLElement {
 function renderMarkers() {
   if (!regions || !ready.value) return
   regions.clearRegions()
-  const accent = themeColor('--ui-primary', '#f97316')
-  const highlight = themeColor('--ui-text-highlighted', '#fafafa')
+  // Markers use the progress color; the selected one the cursor's.
+  const { progressColor: accent, cursorColor: highlight } = waveformColors()
   for (const marker of markers.value) {
     regions.addRegion({
       id: `line-${marker.index}`,
@@ -130,9 +130,7 @@ function create() {
     autoCenter: true,
     dragToSeek: true,
     normalize: true,
-    waveColor: themeColor('--ui-border-accented', '#3f3f46'),
-    progressColor: themeColor('--ui-primary', '#f97316'),
-    cursorColor: themeColor('--ui-text-highlighted', '#fafafa'),
+    ...waveformColors(),
     cursorWidth: 2,
     plugins: [regions],
   })

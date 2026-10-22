@@ -10,7 +10,7 @@ import type { WebAnalyticsSource } from '../utils/web-analytics'
 import type { WebAnalyticsClient, WebAnalyticsDimension, WebAnalyticsRow } from '../repositories/web-analytics'
 import * as tracksRepo from '../repositories/tracks.repository'
 import * as playlistsRepo from '../repositories/playlists.repository'
-import { playlistCoverUrl, trackCoverUrl } from '../mappers/cover-urls'
+import { playlistCoverUrlOf, trackCoverUrlOf } from '../mappers/cover-urls'
 import { demoNumbers } from './analytics-demo'
 
 /**
@@ -32,6 +32,11 @@ export const PATHS_PER_QUERY = 40
 export const BREAKDOWN_SIZE = 8
 /** The group in which the API (and this service) puts the values beyond the top ones. */
 const OTHERS = 'Others'
+
+/** No visits: the starting point of every sum (a new object each time, safe to mutate). */
+export function zeroCount(): AnalyticsCount {
+  return { pageviews: 0, visitors: 0 }
+}
 
 /** A track or playlist whose public page may have visits. */
 export type AnalyticsTarget = Omit<AnalyticsItem, keyof AnalyticsCount>
@@ -87,7 +92,7 @@ async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarge
       id: t.id,
       title: t.title,
       visibility: t.visibility,
-      coverUrl: t.cover_path ? trackCoverUrl(t.id, t.updated_at) : null,
+      coverUrl: trackCoverUrlOf(t),
       path: `/t/${t.id}`,
     })),
     ...playlists.map(p => ({
@@ -95,7 +100,7 @@ async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarge
       id: p.id,
       title: p.title,
       visibility: p.visibility,
-      coverUrl: p.cover_path ? playlistCoverUrl(p.id, p.updated_at) : null,
+      coverUrl: playlistCoverUrlOf(p),
       path: `/p/${p.id}`,
     })),
   ]
@@ -107,8 +112,8 @@ export type AnalyticsNumbers = Pick<AnalyticsReport, 'totals' | 'daily' | 'items
 /** A report with no visits: zero totals, every day at zero. */
 function emptyNumbers(period: AnalyticsPeriodDays): AnalyticsNumbers {
   return {
-    totals: { pageviews: 0, visitors: 0 },
-    daily: period.dates.map(date => ({ date, pageviews: 0, visitors: 0 })),
+    totals: zeroCount(),
+    daily: period.dates.map(date => ({ date, ...zeroCount() })),
     items: [],
     referrers: [],
     countries: [],
@@ -157,7 +162,7 @@ async function vercelNumbers(
   const byPath = groupSum(results.get('requestPath')!, row => row.key)
   return {
     totals,
-    daily: period.dates.map(date => ({ date, ...(byDay.get(date) ?? { pageviews: 0, visitors: 0 }) })),
+    daily: period.dates.map(date => ({ date, ...(byDay.get(date) ?? zeroCount()) })),
     items: itemsOf(targets, byPath),
     referrers: breakdown(results.get('referrerHostname')!),
     countries: breakdown(results.get('country')!),
@@ -167,7 +172,7 @@ async function vercelNumbers(
 
 /** Sum of the counts of some rows. */
 function sumRows(rows: AnalyticsCount[]): AnalyticsCount {
-  return rows.reduce((acc, row) => ({ pageviews: acc.pageviews + row.pageviews, visitors: acc.visitors + row.visitors }), { pageviews: 0, visitors: 0 })
+  return rows.reduce((acc, row) => ({ pageviews: acc.pageviews + row.pageviews, visitors: acc.visitors + row.visitors }), zeroCount())
 }
 
 /** Counts summed per key (rows of different path groups with the same key add up). */
@@ -176,7 +181,7 @@ function groupSum(rows: WebAnalyticsRow[], keyOf: (row: WebAnalyticsRow) => stri
   const sums = new Map<string | null, AnalyticsCount>()
   for (const row of rows) {
     const key = keyOf(row)
-    sums.set(key, sumRows([sums.get(key) ?? { pageviews: 0, visitors: 0 }, row]))
+    sums.set(key, sumRows([sums.get(key) ?? zeroCount(), row]))
   }
   return sums
 }
@@ -188,7 +193,7 @@ function groupSum(rows: WebAnalyticsRow[], keyOf: (row: WebAnalyticsRow) => stri
  */
 export function itemsOf(targets: AnalyticsTarget[], byPath: Map<string | null, AnalyticsCount>): AnalyticsItem[] {
   return targets
-    .map(target => ({ ...target, ...(byPath.get(target.path) ?? { pageviews: 0, visitors: 0 }) }))
+    .map(target => ({ ...target, ...(byPath.get(target.path) ?? zeroCount()) }))
     .filter(item => item.visibility !== 'private' || item.pageviews > 0)
     .sort((a, b) => b.pageviews - a.pageviews || a.title.localeCompare(b.title))
 }

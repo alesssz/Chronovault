@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, FormSubmitEvent } from '@nuxt/ui'
-import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
-import type { SortableEvent } from 'sortablejs'
 import type { PlaylistDetail } from '~~/shared/types/playlist'
-import type { TrackSummary, TrackVisibility } from '~~/shared/types/track'
+import type { TrackSummary } from '~~/shared/types/track'
 import { playlistMetadataSchema, type PlaylistMetadata, type PlaylistMetadataInput } from '~~/shared/schemas/playlist'
-import { COVERS_BUCKET, buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
-import { toSquareWebp, type CropRect } from '~/lib/image'
+import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
 import { playlistsApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
@@ -20,17 +17,12 @@ import { getErrorMessage } from '~/utils/errors'
 const route = useRoute()
 const id = route.params.id as string
 
-// Supabase: the browser uploads the custom cover straight to Storage (own folder).
-const supabase = useSupabaseClient()
-// The signed-in user's id builds the cover path `<userId>/playlists/<id>.webp`.
-const user = useSupabaseUser()
 // Play all, the highlighted current track, click-to-play rows.
 const player = usePlayerStore()
 // Success and failure messages.
 const toast = useToast()
 // Keeps the cached list of the Playlists page in sync with changes made here.
 const { remember, forget } = usePlaylists()
-const { shareUrl, copyShareLink } = useShareLink()
 // "Play next" / "Add to queue" in each track's menu.
 const queue = useQueueActions()
 // "Download" in each track's menu: the file with its metadata written in.
@@ -64,42 +56,22 @@ function toFormState(p: PlaylistDetail): FormState {
   return { title: p.title, description: p.description ?? '', visibility: p.visibility }
 }
 
-/** The details form, bound to the inputs. */
-const state = reactive<FormState>(toFormState(playlist.value))
-/** Snapshot of the last saved form: `dirty` compares against it. */
-const baseline = ref(JSON.stringify(state))
-/** Unsaved changes: enables "Save" and the leave-page warning. */
-const dirty = computed(() => JSON.stringify(state) !== baseline.value)
-/** The save request is running (spinner on "Save"). */
-const saving = ref(false)
-
-/** Options of the visibility radio cards (same wording as tracks). */
-const visibilityItems: { value: TrackVisibility, label: string, description: string }[] = [
-  { value: 'private', label: 'Private', description: 'Only you can listen to it.' },
-  { value: 'unlisted', label: 'Unlisted', description: 'Anyone with the link can listen.' },
-  { value: 'public', label: 'Public', description: 'Anyone with the link can listen; search engines may list it.' },
-]
+/** The details form, its unsaved changes and the leave-page warning. */
+const form = useEditForm<FormState>(toFormState(playlist.value))
+const { state, dirty } = form
+/** The save request (spinner on "Save"). */
+const saving = useAsyncTask()
 
 /** Saves title, description and visibility (validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
-  saving.value = true
-  try {
-    applyServerPlaylist(await playlistsApi.update(id, event.data))
-    Object.assign(state, toFormState(playlist.value!))
-    baseline.value = JSON.stringify(state)
-    toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
-  }
-  catch (err) {
-    toast.add({ title: 'Save failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    saving.value = false
-  }
+  const saved = await saving.run(async () => {
+    const updated = await playlistsApi.update(id, event.data)
+    applyServerPlaylist(updated)
+    // The form takes the normalized values back and is clean again.
+    form.reset(toFormState(updated))
+  }, 'Save failed')
+  if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
 }
-
-onBeforeRouteLeave(() => {
-  if (dirty.value && !window.confirm('You have unsaved changes. Leave anyway?')) return false
-})
 
 // --- Tracks: play, reorder, remove ------------------------------------------------------
 const isPlayingHere = computed(() => player.sourceKey === 'library' && tracks.value.some(t => t.id === player.current?.id))
@@ -142,11 +114,7 @@ async function saveTracks(next: TrackSummary[], failureTitle: string) {
 function move(index: number, offset: number) {
   const target = index + offset
   if (target < 0 || target >= tracks.value.length) return
-  // Array move on a copy: remove at `index`, insert at `target`.
-  const next = [...tracks.value]
-  const [item] = next.splice(index, 1)
-  next.splice(target, 0, item!)
-  void saveTracks(next, 'Order not saved')
+  void saveTracks(moveItem(tracks.value, index, target), 'Order not saved')
 }
 
 /** "Remove from playlist" (the track stays in the library). */
@@ -157,10 +125,7 @@ function removeTrack(track: TrackSummary) {
 /** The "⋮" menu of a track row: queue actions, move, edit, remove. */
 function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
   return [
-    [
-      { label: 'Play next', icon: 'i-lucide-list-start', onSelect: () => void queue.playNext(track) },
-      { label: 'Add to queue', icon: 'i-lucide-list-end', onSelect: () => void queue.addToQueue(track) },
-    ],
+    queue.menuItems(track),
     [
       { label: 'Move up', icon: 'i-lucide-arrow-up', disabled: index === 0, onSelect: () => move(index, -1) },
       { label: 'Move down', icon: 'i-lucide-arrow-down', disabled: index === tracks.value.length - 1, onSelect: () => move(index, 1) },
@@ -173,60 +138,17 @@ function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
   ]
 }
 
-// Drag and drop (mouse and touch) through the handle of each row.
+// Drag and drop (mouse and touch) through the handle of each row; the new order saves at once.
 const listEl = ref<HTMLElement | null>(null)
-useSortable(listEl, tracks, {
-  handle: '[data-drag-handle]',
-  animation: 150,
-  onUpdate: (event: SortableEvent) => {
-    if (event.oldIndex == null || event.newIndex == null || event.oldIndex === event.newIndex) return
-    moveArrayElement(tracks, event.oldIndex, event.newIndex, event)
-    nextTick(() => void saveTracks([...tracks.value], 'Order not saved'))
-  },
-})
+useSortableList(listEl, tracks, () => void saveTracks([...tracks.value], 'Order not saved'))
 
 // --- Cover -----------------------------------------------------------------------------
-/** A cover upload/removal is running (spinner over the cover). */
-const coverBusy = ref(false)
-
-/** New custom cover (cropped in the crop editor): WebP → Supabase Storage → PATCH coverPath. */
-async function onCoverSelected(file: File, crop: CropRect) {
-  // Needed for the storage path; no session = nothing to do.
-  const userId = user.value?.sub
-  if (!userId) return
-  coverBusy.value = true
-  try {
-    const webp = await toSquareWebp(file, { crop })
-    const path = buildPlaylistCoverPath(userId, id)
-    const { error: uploadError } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
-      contentType: 'image/webp',
-      upsert: true,
-    })
-    if (uploadError) throw uploadError
-    applyServerPlaylist(await playlistsApi.update(id, { coverPath: path }))
-    toast.add({ title: 'Cover updated', icon: 'i-lucide-image', color: 'success' })
-  }
-  catch (err) {
-    toast.add({ title: 'Cover not updated', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    coverBusy.value = false
-  }
-}
-
-/** Removes the custom cover (the server deletes the file); the mosaic shows again. */
-async function onCoverRemoved() {
-  coverBusy.value = true
-  try {
-    applyServerPlaylist(await playlistsApi.update(id, { coverPath: null }))
-  }
-  catch (err) {
-    toast.add({ title: 'Cover not removed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    coverBusy.value = false
-  }
-}
+// Custom cover: picked and cropped → `<userId>/playlists/<id>.webp` → PATCH coverPath.
+// Removing it brings the mosaic of the first track covers back.
+const cover = useCoverEditor({
+  path: userId => buildPlaylistCoverPath(userId, id),
+  save: async coverPath => applyServerPlaylist(await playlistsApi.update(id, { coverPath })),
+})
 
 // --- Sharing (based on the saved visibility) -------------------------------------------
 /** Saved visibility is unlisted/public: show the share link (a change applies once saved). */
@@ -235,27 +157,21 @@ const isShared = computed(() => playlist.value?.visibility !== 'private')
 // --- Deletion ----------------------------------------------------------------------------
 /** The delete confirmation dialog. */
 const deleteOpen = ref(false)
-/** The delete request is running. */
-const deleting = ref(false)
+/** The delete request (spinner in the dialog). */
+const deleting = useAsyncTask()
 
 /** Deletes the playlist (tracks stay in the library) and goes back to the Playlists page. */
 async function onDelete() {
-  deleting.value = true
-  try {
+  const deleted = await deleting.run(async () => {
     await playlistsApi.remove(id)
     forget(id)
-    // No "unsaved changes" warning when leaving a deleted playlist.
-    baseline.value = JSON.stringify(state)
-    deleteOpen.value = false
-    toast.add({ title: 'Playlist deleted', icon: 'i-lucide-trash-2' })
-    await navigateTo('/playlists')
-  }
-  catch (err) {
-    toast.add({ title: 'Delete failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    deleting.value = false
-  }
+  }, 'Delete failed')
+  if (!deleted) return
+  // No "unsaved changes" warning when leaving a deleted playlist.
+  form.markSaved()
+  deleteOpen.value = false
+  toast.add({ title: 'Playlist deleted', icon: 'i-lucide-trash-2' })
+  await navigateTo('/playlists')
 }
 </script>
 
@@ -293,7 +209,7 @@ async function onDelete() {
         form="playlist-form"
         icon="i-lucide-save"
         label="Save"
-        :loading="saving"
+        :loading="saving.running"
         :disabled="!dirty"
         data-testid="save-playlist"
       />
@@ -305,9 +221,9 @@ async function onDelete() {
         <TrackCoverPicker
           :url="playlist.coverUrl"
           :title="playlist.title"
-          :busy="coverBusy"
-          @select="onCoverSelected"
-          @remove="onCoverRemoved"
+          :busy="cover.busy"
+          @select="cover.select"
+          @remove="cover.remove"
         >
           <template #preview>
             <PlaylistCover
@@ -343,53 +259,22 @@ async function onDelete() {
         </dl>
 
         <!-- Sharing: link and warning about private tracks, or how to share -->
-        <div
-          class="space-y-2"
-          data-testid="share-box"
+        <ShareLinkBox
+          :id="id"
+          kind="playlist"
+          :shared="isShared"
         >
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
-            Sharing
-          </h2>
-          <template v-if="isShared">
-            <p class="text-sm text-muted">
-              Anyone with the link can listen to every track in this playlist, without an account. The Suno prompt and the mastering status are never shown.
-            </p>
-            <UAlert
-              v-if="playlist.privateTrackCount > 0"
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-lock-open"
-              :title="`${playlist.privateTrackCount} private track${playlist.privateTrackCount > 1 ? 's' : ''} included`"
-              description="They can be heard through this link, but only inside the playlist."
-              data-testid="private-tracks-warning"
-            />
-            <UFieldGroup class="w-full">
-              <UButton
-                label="Copy share link"
-                icon="i-lucide-link"
-                color="neutral"
-                variant="subtle"
-                block
-                data-testid="copy-share-link"
-                @click="copyShareLink(id, 'playlist')"
-              />
-              <UButton
-                :to="shareUrl(id, 'playlist')"
-                target="_blank"
-                icon="i-lucide-external-link"
-                color="neutral"
-                variant="subtle"
-                aria-label="Open share page"
-              />
-            </UFieldGroup>
-          </template>
-          <p
-            v-else
-            class="text-sm text-muted"
-          >
-            Private: only you can listen. Set the visibility to Unlisted or Public and save to get a share link.
-          </p>
-        </div>
+          <!-- Sharing a playlist shares its private tracks too (only inside it) -->
+          <UAlert
+            v-if="playlist.privateTrackCount > 0"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-lock-open"
+            :title="`${pluralize(playlist.privateTrackCount, 'private track')} included`"
+            description="They can be heard through this link, but only inside the playlist."
+            data-testid="private-tracks-warning"
+          />
+        </ShareLinkBox>
 
         <UButton
           label="Delete playlist"
@@ -443,7 +328,7 @@ async function onDelete() {
           >
             <URadioGroup
               v-model="state.visibility"
-              :items="visibilityItems"
+              :items="VISIBILITY_ITEMS"
               orientation="horizontal"
               variant="card"
               class="w-full"
@@ -485,16 +370,7 @@ async function onDelete() {
               :class="{ 'bg-primary/5': isCurrent(track) }"
               data-testid="playlist-track"
             >
-              <span
-                class="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center text-dimmed hover:text-muted active:cursor-grabbing"
-                aria-hidden="true"
-                data-drag-handle
-              >
-                <UIcon
-                  name="i-lucide-grip-vertical"
-                  class="size-4"
-                />
-              </span>
+              <DragHandle />
               <TrackCover
                 :url="track.coverUrl"
                 :title="track.title"
@@ -553,7 +429,7 @@ async function onDelete() {
       title="Delete this playlist?"
       description="The playlist and its link are removed. Its tracks stay in your library."
       confirm-label="Delete"
-      :loading="deleting"
+      :loading="deleting.running"
       @confirm="onDelete"
     />
   </UContainer>

@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import type { PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { SharedPlaylist } from '~~/shared/types/playlist'
+import { moveItem } from '~~/shared/utils/arrays'
+import { clamp } from '~~/shared/utils/numbers'
 import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
 import { sharedApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
@@ -116,6 +118,11 @@ export const usePlayerStore = defineStore('player', () => {
   // --- Derived state ------------------------------------------------------------------
   /** Something is loaded (or loading): the player bar is shown. */
   const isActive = computed(() => status.value !== 'idle')
+  /**
+   * The track to show: the loaded one, or while it loads (no full data yet)
+   * its summary from the queue. Null when idle.
+   */
+  const displayTrack = computed<QueueItem | null>(() => current.value ?? queue.value[index.value] ?? null)
   /** Audio is playing right now (Play/Pause icons). */
   const isPlaying = computed(() => status.value === 'playing')
   /** There is a track after the current one ("next" enabled). */
@@ -197,14 +204,22 @@ export const usePlayerStore = defineStore('player', () => {
     return Date.now() > sourceExpiresAt - SOURCE_EXPIRY_MARGIN_MS
   }
 
-  /** Loads a fresh signed URL for `trackId` into the engine, starting at `position`. */
-  async function loadSource(trackId: string, position: number, token: number): Promise<boolean> {
-    const playback = await source.playback(trackId)
-    if (token !== loadToken) return false
+  /**
+   * Puts a signed URL in the engine, remembers its expiry and moves to
+   * `position` (applied by the element as soon as the metadata is in).
+   */
+  function applySource(playback: PlaybackSource, position: number): void {
     const e = engine()
     e.load(playback.url)
     sourceExpiresAt = Date.parse(playback.expiresAt) || 0
     if (position > 0) e.seek(position)
+  }
+
+  /** Loads a fresh signed URL for `trackId` into the engine, starting at `position`. */
+  async function loadSource(trackId: string, position: number, token: number): Promise<boolean> {
+    const playback = await source.playback(trackId)
+    if (token !== loadToken) return false
+    applySource(playback, position)
     return true
   }
 
@@ -256,13 +271,8 @@ export const usePlayerStore = defineStore('player', () => {
       if (token !== loadToken) return
       // Audio source first, then the current track: the waveform mounted when
       // `current` changes already finds the audio element on the right file.
-      e.load(playback.url)
-      sourceExpiresAt = Date.parse(playback.expiresAt) || 0
-      if (position > 0) {
-        // Applied by the element as soon as the metadata is in.
-        e.seek(position)
-        currentTime.value = position
-      }
+      applySource(playback, position)
+      if (position > 0) currentTime.value = position
       current.value = detail
       if (detail.durationSeconds) duration.value = detail.durationSeconds
       if (!autoplay) {
@@ -402,7 +412,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Sets the volume (0..1, remembered); raising it above 0 also unmutes. */
   function setVolume(value: number): void {
-    volume.value = Math.min(1, Math.max(0, value))
+    volume.value = clamp(value, 0, 1)
     engine().setVolume(volume.value)
     if (volume.value > 0 && muted.value) setMuted(false)
     storeVolume(volume.value)
@@ -421,7 +431,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Changes the playback speed, keeping the pitch (e.g. 0.75 while syncing lyrics). */
   function setPlaybackRate(rate: number): void {
-    const value = Math.min(MAX_PLAYBACK_RATE, Math.max(MIN_PLAYBACK_RATE, rate))
+    const value = clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE)
     if (value === playbackRate.value) return
     playbackRate.value = value
     engine().setPlaybackRate(value)
@@ -513,11 +523,8 @@ export const usePlayerStore = defineStore('player', () => {
   function moveInQueue(from: number, to: number): void {
     const last = queue.value.length - 1
     if (from === to || from <= index.value || to <= index.value || from > last || to > last) return
-    // Remove, then insert at the target: the classic array move, on a copy.
-    const updated = [...queue.value]
-    const [item] = updated.splice(from, 1)
-    updated.splice(to, 0, item!)
-    queue.value = updated
+    // A new array (never mutate in place): watchers and the saved queue see the change.
+    queue.value = moveItem(queue.value, from, to)
   }
 
   /** Removes an upcoming track from the queue (the current one cannot be removed this way). */
@@ -586,7 +593,7 @@ export const usePlayerStore = defineStore('player', () => {
     // state
     queue, index, current, status, buffering, currentTime, duration, volume, muted, playbackRate, expanded, queueOpen, error, sourceKey,
     // derived
-    isActive, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
+    isActive, displayTrack, isPlaying, hasNext, hasPrevious, progress, upcoming, queueEditable,
     // commands
     playTrack, cueShared, playSharedPlaylist, play, pause,
     playNext, addToQueue, moveInQueue, removeFromQueue, clearUpcoming, playFromQueue, restoreQueue, togglePlay, stop, next, previous, seek,
@@ -608,7 +615,7 @@ function readStoredVolume(): number {
   try {
     const raw = globalThis.localStorage?.getItem(VOLUME_KEY)
     const value = raw == null ? Number.NaN : Number(raw)
-    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 1
+    return Number.isFinite(value) ? clamp(value, 0, 1) : 1
   }
   catch {
     return 1

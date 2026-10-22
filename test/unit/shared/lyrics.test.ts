@@ -6,9 +6,12 @@ import {
   buildSyncedLines,
   findActiveLineIndex,
   formatLrcTimestamp,
+  hasLyrics,
   isSectionHeader,
   parseLrc,
+  roundToCentiseconds,
   serializeLrc,
+  syncRowsFromLines,
   syncRowsFromLyrics,
 } from '~~/shared/utils/lyrics'
 
@@ -194,5 +197,44 @@ describe('buildSyncedLines', () => {
       { text: '[Chorus]', time: null, section: true },
       { text: 'La la', time: null },
     ])).toEqual([{ time: 2, text: 'Hey' }])
+  })
+})
+
+describe('syncRowsFromLines', () => {
+  it('keeps lyric times and gives headers none (they follow their line)', () => {
+    expect(syncRowsFromLines([
+      { time: 2, text: '[Intro]', section: true },
+      { time: 2, text: 'Hey' },
+    ])).toEqual([
+      { text: '[Intro]', time: null, section: true },
+      { text: 'Hey', time: 2 },
+    ])
+  })
+
+  it('round-trips through buildSyncedLines', () => {
+    const lines = [{ time: 1.5, text: '[Verse 1]', section: true }, { time: 1.5, text: 'One' }, { time: 4, text: 'Two' }]
+    expect(buildSyncedLines(syncRowsFromLines(lines))).toEqual(lines)
+  })
+})
+
+describe('roundToCentiseconds', () => {
+  it.each([
+    [1.234, 1.23],
+    [1.235, 1.24],
+    [0, 0],
+  ])('%s → %s', (input, expected) => {
+    expect(roundToCentiseconds(input)).toBe(expected)
+  })
+})
+
+describe('hasLyrics', () => {
+  it('is true for synced lines or plain text that is not blank', () => {
+    expect(hasLyrics({ lyrics: null, lyricsSynced: [{ time: 0, text: 'Hey' }] })).toBe(true)
+    expect(hasLyrics({ lyrics: 'Hey', lyricsSynced: null })).toBe(true)
+  })
+
+  it('is false for nothing, blank text or an empty sync', () => {
+    expect(hasLyrics({ lyrics: null, lyricsSynced: null })).toBe(false)
+    expect(hasLyrics({ lyrics: '  \n ', lyricsSynced: [] })).toBe(false)
   })
 })

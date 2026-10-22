@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { playlistMetadataSchema } from '~~/shared/schemas/playlist'
-import { getErrorMessage } from '~/utils/errors'
 
 /** "New playlist" dialog, opened through usePlaylists().openCreateDialog(). */
 const { createDialog, createPlaylist } = usePlaylists()
@@ -9,8 +8,8 @@ const toast = useToast()
 
 /** The title being typed. */
 const title = ref('')
-/** The create request is running (dialog locked). */
-const saving = ref(false)
+/** The create request (dialog locked while it runs). */
+const saving = useAsyncTask()
 /** Validation message under the field. */
 const titleError = ref<string | null>(null)
 
@@ -18,7 +17,7 @@ const titleError = ref<string | null>(null)
 const open = computed({
   get: () => createDialog.value.open,
   set: (value) => {
-    if (!saving.value) createDialog.value = { ...createDialog.value, open: value }
+    if (!saving.running) createDialog.value = { ...createDialog.value, open: value }
   },
 })
 
@@ -37,19 +36,12 @@ async function onSubmit() {
     titleError.value = parsed.error.issues[0]?.message ?? 'Invalid title'
     return
   }
-  saving.value = true
-  try {
+  await saving.run(async () => {
     const created = await createPlaylist(parsed.data, createDialog.value.trackIds)
     createDialog.value = { open: false, trackIds: [] }
     toast.add({ title: `Playlist "${created.title}" created`, icon: 'i-lucide-list-music', color: 'success' })
     await navigateTo(`/playlists/${created.id}`)
-  }
-  catch (err) {
-    toast.add({ title: 'Playlist not created', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    saving.value = false
-  }
+  }, 'Playlist not created')
 }
 </script>
 
@@ -60,7 +52,7 @@ async function onSubmit() {
     :description="createDialog.trackIds.length
       ? `It will start with the selected track${createDialog.trackIds.length > 1 ? 's' : ''}.`
       : 'You can add tracks from the library.'"
-    :dismissible="!saving"
+    :dismissible="!saving.running"
   >
     <template #body>
       <form
@@ -88,7 +80,7 @@ async function onSubmit() {
           label="Cancel"
           color="neutral"
           variant="ghost"
-          :disabled="saving"
+          :disabled="saving.running"
           @click="open = false"
         />
         <UButton
@@ -96,7 +88,7 @@ async function onSubmit() {
           form="playlist-create-form"
           label="Create"
           icon="i-lucide-plus"
-          :loading="saving"
+          :loading="saving.running"
           data-testid="playlist-create-submit"
         />
       </div>

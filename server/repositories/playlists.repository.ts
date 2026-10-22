@@ -25,9 +25,14 @@ export type PlaylistListRow = PlaylistRow & { playlist_tracks: PlaylistEntry<Pla
 /** A playlist row with the summary of every track. */
 export type PlaylistDetailRow = PlaylistRow & { playlist_tracks: PlaylistEntry<TrackSummaryRow>[] }
 
+/** Comparator for playlist rows: ascending `position` (embedded and RPC rows have no guaranteed order). */
+export function byPosition(a: { position: number }, b: { position: number }): number {
+  return a.position - b.position
+}
+
 /** The tracks of a playlist row, in playlist order (embedded rows come back unordered). */
 export function orderedTracks<T>(entries: PlaylistEntry<T>[]): T[] {
-  return [...entries].sort((a, b) => a.position - b.position).flatMap(e => (e.tracks ? [e.tracks] : []))
+  return [...entries].sort(byPosition).flatMap(e => (e.tracks ? [e.tracks] : []))
 }
 
 /** The user's playlists, newest first. */
@@ -66,7 +71,7 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
     .maybeSingle()
   if (error) throw toHttpError(error, 'playlists.findTrackIds')
   if (!data) return null
-  return [...data.playlist_tracks].sort((a, b) => a.position - b.position).map(e => e.track_id)
+  return [...data.playlist_tracks].sort(byPosition).map(e => e.track_id)
 }
 
 /** What the Statistics page shows of a playlist (and needs for its cover address). */

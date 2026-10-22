@@ -1,3 +1,4 @@
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PlaylistDetail, PlaylistSummary } from '~~/shared/types/playlist'
 import { playlistsApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
@@ -57,5 +58,20 @@ export function usePlaylists() {
     }
   }
 
-  return { playlists: data, status, refresh, createDialog, openCreateDialog, createPlaylist, addToPlaylist, remember, forget }
+  /**
+   * "Add to playlist" menu entries: "New playlist…", then every playlist.
+   * `trackIds` is read when an entry is picked (e.g. the current selection).
+   */
+  function addToPlaylistMenu(trackIds: () => string[]): DropdownMenuItem[][] {
+    return [
+      [{ label: 'New playlist…', icon: 'i-lucide-plus', onSelect: () => openCreateDialog(trackIds()) }],
+      data.value.map(playlist => ({
+        label: playlist.title,
+        icon: 'i-lucide-list-music',
+        onSelect: () => void addToPlaylist(playlist, trackIds()),
+      })),
+    ].filter(group => group.length > 0)
+  }
+
+  return { playlists: data, status, refresh, createDialog, openCreateDialog, createPlaylist, addToPlaylist, addToPlaylistMenu, remember, forget }
 }

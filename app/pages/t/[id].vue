@@ -16,52 +16,37 @@ const player = usePlayerStore()
 // Site origin (works during SSR too): absolute URLs for the link preview tags.
 const origin = useRequestURL().origin
 
-const { data: track, error } = await useAsyncData(`shared-${id}`, () => sharedApi.get(id))
-
-/** The track is private, missing or the id is malformed: "not available". */
-const notFound = computed(() => !track.value && [400, 404].includes(error.value?.statusCode ?? 0))
-if (import.meta.server && !track.value) {
-  setResponseStatus(useRequestEvent()!, notFound.value ? 404 : 500)
-}
+// Private, missing or malformed links answer 404 (see useSharedItem).
+const { data: track, notFound } = await useSharedItem(`shared-${id}`, () => sharedApi.get(id))
 
 // --- Link preview -----------------------------------------------------------------
+/** "Album · Year · Genre" (only the parts that are set). */
 const meta = computed(() => {
   const t = track.value
-  return t ? [t.album, t.year, t.genre].filter(Boolean).join(' · ') : ''
+  return t ? joinParts([t.album, t.year, t.genre]) : ''
 })
 /** Preview text: the description, or composers and album/year/genre. */
 const previewText = computed(() => {
   const t = track.value
   if (!t) return 'This track is not available.'
-  return truncate(t.description?.trim() || [t.composers, meta.value].filter(Boolean).join(' · ') || 'Listen on ChronoPlayer', 200)
+  return truncate(t.description?.trim() || joinParts([t.composers, meta.value]) || 'Listen on ChronoPlayer', 200)
 })
 
-useSeoMeta({
-  title: () => (track.value ? `${track.value.title} · ChronoPlayer` : 'Track not available · ChronoPlayer'),
+useShareMeta({
+  kind: 'track',
+  id,
+  origin,
+  title: () => track.value?.title ?? null,
   description: () => previewText.value,
-  ogTitle: () => track.value?.title ?? 'Track not available',
-  ogDescription: () => previewText.value,
-  ogType: 'music.song',
-  ogSiteName: 'ChronoPlayer',
-  ogUrl: `${origin}/t/${id}`,
-  // A stable address that redirects to a fresh signed URL: previews are cached for long.
-  ogImage: () => (track.value?.coverUrl ? `${origin}/api/shared/${id}/cover` : undefined),
-  twitterCard: 'summary',
-  // Unlisted tracks are for whoever has the link: keep them out of search engines.
-  robots: () => (track.value?.visibility === 'public' ? 'index, follow' : 'noindex, nofollow'),
+  hasImage: () => !!track.value?.coverUrl,
+  isPublic: () => track.value?.visibility === 'public',
 })
-
-/** Cuts a preview text at `max` characters with an ellipsis. */
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
-}
 
 // --- Playback ---------------------------------------------------------------------
+/** The player holds this track. */
 const isLoaded = computed(() => player.current?.id === id)
-/** Playing this track right now (big button shows Pause). */
-const isPlaying = computed(() => isLoaded.value && player.isPlaying)
 /** The lyrics column is shown only when there are lyrics. */
-const hasLyrics = computed(() => !!track.value?.lyricsSynced?.length || !!track.value?.lyrics?.trim())
+const showLyrics = computed(() => !!track.value && hasLyrics(track.value))
 
 // The audio is ready (waveform included) before the first click.
 onMounted(() => {
@@ -88,7 +73,7 @@ function onLyricSeek(seconds: number) {
     <div
       v-if="track"
       class="mx-auto grid grid-cols-[minmax(0,1fr)] gap-8"
-      :class="hasLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
+      :class="showLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
       data-testid="shared-track"
     >
       <!-- Left: cover, title and details, player, description -->
@@ -131,43 +116,12 @@ function onLyricSeek(seconds: number) {
           </p>
         </div>
 
-        <!-- Play button, waveform and times -->
-        <div class="flex items-center gap-4">
-          <UButton
-            :icon="isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
-            :loading="isLoaded && player.status === 'loading'"
-            size="xl"
-            class="shrink-0 rounded-full p-4"
-            data-testid="shared-play"
-            @click="togglePlay"
-          />
-          <div class="min-w-0 flex-1">
-            <ClientOnly>
-              <PlayerWaveform
-                v-if="isLoaded && player.current"
-                :key="player.current.id"
-                :peaks="player.current.peaks"
-                :duration="player.duration"
-                :height="56"
-              />
-              <template #fallback>
-                <div class="h-14" />
-              </template>
-            </ClientOnly>
-            <div class="mt-1 flex justify-between text-xs tabular-nums text-muted">
-              <span>{{ formatTime(isLoaded ? player.currentTime : 0) }}</span>
-              <span>{{ formatTime(isLoaded ? player.duration : track.durationSeconds) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <p
-          v-if="isLoaded && player.status === 'error'"
-          class="text-sm text-error"
-        >
-          {{ player.error }}
-        </p>
+        <!-- Play button, waveform, times and playback errors -->
+        <SharePlayer
+          :active="isLoaded"
+          :duration="track.durationSeconds"
+          @toggle="togglePlay"
+        />
 
         <div
           v-if="track.description"
@@ -187,7 +141,7 @@ function onLyricSeek(seconds: number) {
 
       <!-- Right: the lyrics (synced ones follow playback) -->
       <section
-        v-if="hasLyrics"
+        v-if="showLyrics"
         class="h-[70dvh] rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 lg:h-[calc(100dvh-10rem)]"
         aria-label="Lyrics"
         data-testid="shared-lyrics"
@@ -202,15 +156,10 @@ function onLyricSeek(seconds: number) {
     </div>
 
     <!-- Private, missing or malformed link -->
-    <UEmpty
+    <ShareUnavailable
       v-else
-      :icon="notFound ? 'i-lucide-link-2-off' : 'i-lucide-circle-alert'"
-      :title="notFound ? 'Track not available' : 'Something went wrong'"
-      :description="notFound
-        ? 'The link is wrong, or the owner made this track private.'
-        : 'The track could not be loaded. Try again in a moment.'"
-      class="py-24"
-      data-testid="shared-not-found"
+      kind="track"
+      :not-found="notFound"
     />
   </UContainer>
 </template>

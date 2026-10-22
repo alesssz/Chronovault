@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { toSharedTrack, toTrackDetail, toTrackInsert, toTrackUpdate, type TrackRow } from '~~/server/mappers/track'
+import { toSharedPlaylistTrack } from '~~/server/mappers/playlist'
+import { playlistCoverUrlOf, trackCoverUrlOf } from '~~/server/mappers/cover-urls'
 
 // Fixed ids for the row below.
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -71,6 +73,38 @@ describe('toSharedTrack', () => {
       'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'visibility', 'year',
     ])
     expect(shared).toMatchObject({ genre: 'Ambient', visibility: 'public', coverUrl: 'https://signed/cover' })
+  })
+})
+
+describe('toSharedPlaylistTrack', () => {
+  it('gives a playlist track the same shareable fields as a shared track page, without visibility', () => {
+    const shared = toSharedPlaylistTrack({
+      id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
+      description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
+      duration_seconds: 180.5, peaks: [0.1, 1], cover_path: `${USER}/${TRACK}.webp`,
+      audio_path: `${USER}/${TRACK}.mp3`, position: 3, status: 'draft', updated_at: '2026-10-18T11:00:00Z',
+    }, path => (path ? `https://signed/${path}` : null))
+
+    expect(Object.keys(shared).sort()).toEqual([
+      'album', 'composers', 'coverUrl', 'description', 'durationSeconds', 'genre', 'id', 'lyrics',
+      'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'year',
+    ])
+    expect(shared).toMatchObject({ status: 'draft', coverUrl: `https://signed/${USER}/${TRACK}.webp` })
+  })
+})
+
+describe('cover addresses', () => {
+  // Version of the row's updated_at, as cover-urls.ts writes it.
+  const v = Date.parse(row.updated_at).toString(36)
+
+  it('builds versioned addresses for items with a cover', () => {
+    expect(trackCoverUrlOf({ id: TRACK, cover_path: 'x.webp', updated_at: row.updated_at })).toBe(`/api/covers/tracks/${TRACK}?v=${v}`)
+    expect(playlistCoverUrlOf({ id: 'p1', cover_path: 'y.webp', updated_at: row.updated_at })).toBe(`/api/covers/playlists/p1?v=${v}`)
+  })
+
+  it('gives null without a cover', () => {
+    expect(trackCoverUrlOf({ id: TRACK, cover_path: null, updated_at: row.updated_at })).toBeNull()
+    expect(playlistCoverUrlOf({ id: 'p1', cover_path: null, updated_at: row.updated_at })).toBeNull()
   })
 })
 

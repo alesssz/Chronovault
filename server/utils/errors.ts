@@ -50,3 +50,13 @@ export function toHttpError(error: DbError, context: string) {
 export function notFound(message = 'Track not found') {
   return createError({ statusCode: 404, statusMessage: 'Not Found', message })
 }
+
+/** 404 for playlists (owner routes and public pages alike). */
+export function playlistNotFound() {
+  return notFound('Playlist not found')
+}
+
+/** 400 for a request the services refuse (forged paths, limits); the message is shown to the user. */
+export function badRequest(message: string) {
+  return createError({ statusCode: 400, message })
+}

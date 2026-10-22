@@ -19,8 +19,8 @@ const report = ref<StorageReport | null>(null)
 const loading = ref(false)
 /** Scan failure message (e.g. R2 unreachable), with a "Try again" action. */
 const loadError = ref<string | null>(null)
-/** A deletion is running: the dialog cannot be dismissed meanwhile. */
-const cleaning = ref(false)
+/** The deletion: the dialog cannot be dismissed while it runs. */
+const cleaning = useAsyncTask()
 
 /** Scans the storage (on every opening: it must reflect the current state). */
 async function load() {
@@ -49,23 +49,16 @@ const deletableBytes = computed(() => deletable.value.reduce((sum, o) => sum + o
 
 /** Deletes the deletable orphans (the server rescans first), then shows the new state. */
 async function clean() {
-  cleaning.value = true
-  try {
+  await cleaning.run(async () => {
     const result = await storageApi.cleanOrphans()
     toast.add({
-      title: `Deleted ${result.deletedFiles} file${result.deletedFiles === 1 ? '' : 's'}`,
+      title: `Deleted ${pluralize(result.deletedFiles, 'file')}`,
       description: `${formatBytes(result.freedBytes)} freed`,
       icon: 'i-lucide-trash-2',
       color: 'success',
     })
     await load()
-  }
-  catch (err) {
-    toast.add({ title: 'Clean-up failed', description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    cleaning.value = false
-  }
+  }, 'Clean-up failed')
 }
 
 /** File name only: the folder is always the user's own id. */
@@ -79,7 +72,7 @@ function fileName(orphan: OrphanFile) {
     v-model:open="open"
     title="Storage"
     description="Your files, and files left behind by interrupted uploads."
-    :dismissible="!cleaning"
+    :dismissible="!cleaning.running"
   >
     <template #body>
       <div
@@ -116,7 +109,7 @@ function fileName(orphan: OrphanFile) {
               {{ formatBytes(report.usage.audio.bytes) }}
             </dd>
             <dd class="text-sm text-muted">
-              {{ report.usage.audio.files }} file{{ report.usage.audio.files === 1 ? '' : 's' }}
+              {{ pluralize(report.usage.audio.files, 'file') }}
             </dd>
           </div>
           <div class="rounded-lg border border-default p-3">
@@ -127,7 +120,7 @@ function fileName(orphan: OrphanFile) {
               {{ formatBytes(report.usage.covers.bytes) }}
             </dd>
             <dd class="text-sm text-muted">
-              {{ report.usage.covers.files }} file{{ report.usage.covers.files === 1 ? '' : 's' }}
+              {{ pluralize(report.usage.covers.files, 'file') }}
             </dd>
           </div>
         </dl>
@@ -194,17 +187,17 @@ function fileName(orphan: OrphanFile) {
           label="Close"
           color="neutral"
           variant="ghost"
-          :disabled="cleaning"
+          :disabled="cleaning.running"
           @click="open = false"
         />
         <UButton
           :label="deletable.length
-            ? `Delete ${deletable.length} file${deletable.length === 1 ? '' : 's'} (${formatBytes(deletableBytes)})`
+            ? `Delete ${pluralize(deletable.length, 'file')} (${formatBytes(deletableBytes)})`
             : 'Nothing to delete'"
           icon="i-lucide-trash-2"
           color="error"
           :disabled="!deletable.length || loading"
-          :loading="cleaning"
+          :loading="cleaning.running"
           data-testid="storage-delete"
           @click="clean"
         />

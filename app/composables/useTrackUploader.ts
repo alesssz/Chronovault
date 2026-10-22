@@ -1,10 +1,10 @@
 import type { Genre } from '~~/shared/types/track'
 import { MAX_AUDIO_BYTES, resolveAudioMimeType, storageExtension } from '~~/shared/utils/audio-files'
-import { COVERS_BUCKET, buildCoverPath } from '~~/shared/utils/storage-paths'
+import { buildCoverPath } from '~~/shared/utils/storage-paths'
+import { foldCase } from '~~/shared/utils/text'
 import { analyzeAudioFile } from '~/lib/audio-analysis'
 import { convertWavToFlac } from '~/lib/flac/convert'
 import { isWavFile } from '~/lib/flac/wav'
-import { toSquareWebp } from '~/lib/image'
 import { directUpload } from '~/lib/direct-upload'
 import { genresApi, tracksApi } from '~/services/api'
 
@@ -46,10 +46,8 @@ export interface UploadItem {
  * If step 5 fails, the server removes the uploaded audio and the client the cover.
  */
 export function useTrackUploader() {
-  // Covers are uploaded straight to Supabase Storage by the browser.
-  const supabase = useSupabaseClient()
-  // The user id builds the storage paths (`<userId>/…`).
-  const user = useSupabaseUser()
+  // Covers go straight to Supabase Storage; the user id builds every storage path (`<userId>/…`).
+  const covers = useCoverStorage()
 
   /** Every file of the session, in the order it was added (the page renders this list). */
   const items = ref<UploadItem[]>([])
@@ -123,14 +121,14 @@ export function useTrackUploader() {
   async function findGenreId(name: string | null): Promise<string | null> {
     if (!name) return null
     genres ??= await genresApi.list().catch(() => [])
-    const wanted = name.trim().toLocaleLowerCase('en')
-    return genres.find(g => g.name.toLocaleLowerCase('en') === wanted)?.id ?? null
+    const wanted = foldCase(name)
+    return genres.find(g => foldCase(g.name) === wanted)?.id ?? null
   }
 
   /** Runs steps 1-5 for one file; any failure marks the item as failed and cleans up. */
   async function process(item: UploadItem): Promise<void> {
     // Needed for every storage path; no session = the item fails with a clear message.
-    const userId = user.value?.sub
+    const userId = covers.userId.value
     // Set once the cover is uploaded, so a failure can remove it again.
     let coverPath: string | null = null
 
@@ -212,20 +210,16 @@ export function useTrackUploader() {
       item.error = getErrorMessage(error, 'Upload failed')
       // No orphaned cover when the track was not registered
       // (the server takes care of the audio file).
-      if (coverPath) await supabase.storage.from(COVERS_BUCKET).remove([coverPath])
+      if (coverPath) await covers.remove([coverPath])
     }
   }
 
-  /** The cover is optional: if it fails, the track is saved anyway. */
+  /** The cover is optional (center-cropped from the tags): if it fails, the track is saved anyway. */
   async function uploadCover(userId: string, trackId: string, source: Blob): Promise<string | null> {
+    const path = buildCoverPath(userId, trackId)
     try {
-      const webp = await toSquareWebp(source)
-      const path = buildCoverPath(userId, trackId)
-      const { error } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
-        contentType: 'image/webp',
-        upsert: true,
-      })
-      return error ? null : path
+      await covers.upload(path, source)
+      return path
     }
     catch {
       return null

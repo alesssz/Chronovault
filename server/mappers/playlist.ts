@@ -1,9 +1,9 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import { MOSAIC_SIZE, type PlaylistDetail, type PlaylistSummary, type SharedPlaylist } from '~~/shared/types/playlist'
-import type { SharedTrackContent, SyncedLyricLine } from '~~/shared/types/track'
+import type { SharedTrackContent } from '~~/shared/types/track'
 import type { PlaylistCreate, PlaylistUpdate } from '~~/shared/schemas/playlist'
-import { toTrackSummary, type TrackSummaryRow } from './track'
-import { playlistCoverUrl, trackCoverUrl } from './cover-urls'
+import { toSharedTrackContent, toTrackSummary, type TrackSummaryRow } from './track'
+import { playlistCoverUrlOf, trackCoverUrl } from './cover-urls'
 
 /**
  * Conversion between playlist rows (snake_case) and domain types (camelCase).
@@ -62,7 +62,7 @@ export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRo
     title: row.title,
     description: row.description,
     visibility: row.visibility,
-    coverUrl: row.cover_path ? playlistCoverUrl(row.id, row.updated_at) : null,
+    coverUrl: playlistCoverUrlOf(row),
     // The mosaic shows the covers of the tracks themselves.
     mosaic: mosaicTracks(tracks).map(t => trackCoverUrl(t.id, t.updated_at)),
     trackCount: tracks.length,
@@ -116,23 +116,8 @@ export type SharedPlaylistTrackRow = Database['public']['Functions']['get_shared
  * copied into the response.
  */
 export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: SignedUrls): SharedTrackContent {
-  return {
-    id: row.id,
-    title: row.title,
-    composers: row.composers ?? null,
-    album: row.album ?? null,
-    year: row.year ?? null,
-    genre: row.genre ?? null,
-    description: row.description ?? null,
-    lyrics: row.lyrics ?? null,
-    lyricsSynced: (row.lyrics_synced as SyncedLyricLine[] | null) ?? null,
-    peaks: (row.peaks as number[] | null) ?? null,
-    durationSeconds: row.duration_seconds ?? null,
-    // Shown as "Work in progress" on the public playlist page.
-    status: row.status ?? 'final',
-    coverUrl: signed(row.cover_path ?? null),
-    updatedAt: row.updated_at,
-  }
+  // Same shareable fields as a shared track's page (drafts show as "Work in progress").
+  return toSharedTrackContent(row, signed(row.cover_path ?? null))
 }
 
 /** Public playlist page data. `tracks` must be in playlist order. */

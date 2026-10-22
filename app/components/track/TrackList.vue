@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { TrackStatus, TrackSummary, TrackVisibility } from '~~/shared/types/track'
+import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 
 /**
  * The library list: cover (play/pause on click), title (play, or open the
@@ -50,18 +50,11 @@ function toggleSelected(track: TrackSummary): void {
 // Highlights the current track and opens the full-screen view.
 const player = usePlayerStore()
 const { copyShareLink } = useShareLink()
-const { playlists, openCreateDialog, addToPlaylist } = usePlaylists()
+const { addToPlaylistMenu } = usePlaylists()
 // "Play next" / "Add to queue" in the menu.
 const queue = useQueueActions()
 // "Download": the file with its metadata written in.
 const { download } = useTrackDownload()
-
-/** Icon + accessible label of each visibility. */
-const visibilityIcon: Record<TrackVisibility, { icon: string, label: string }> = {
-  private: { icon: 'i-lucide-lock', label: 'Private' },
-  unlisted: { icon: 'i-lucide-link', label: 'Unlisted' },
-  public: { icon: 'i-lucide-globe', label: 'Public' },
-}
 
 /** The track is in the player, or being loaded into it. */
 function isCurrent(track: TrackSummary) {
@@ -83,25 +76,11 @@ function onTitleClick(track: TrackSummary) {
 /** The "⋮" menu of a row; groups are separated by dividers. */
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
-    [
-      { label: 'Play next', icon: 'i-lucide-list-start', onSelect: () => void queue.playNext(track) },
-      { label: 'Add to queue', icon: 'i-lucide-list-end', onSelect: () => void queue.addToQueue(track) },
-    ],
+    queue.menuItems(track),
     [
       { label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
       { label: 'Download', icon: 'i-lucide-download', onSelect: () => void download(track.id) },
-      {
-        label: 'Add to playlist',
-        icon: 'i-lucide-list-plus',
-        children: [
-          [{ label: 'New playlist…', icon: 'i-lucide-plus', onSelect: () => openCreateDialog([track.id]) }],
-          playlists.value.map(playlist => ({
-            label: playlist.title,
-            icon: 'i-lucide-list-music',
-            onSelect: () => void addToPlaylist(playlist, [track.id]),
-          })),
-        ].filter(group => group.length > 0),
-      },
+      { label: 'Add to playlist', icon: 'i-lucide-list-plus', children: addToPlaylistMenu(() => [track.id]) },
       // Draft ⇄ final in one click (also a switch on the edit page).
       track.status === 'draft'
         ? { label: 'Mark as final', icon: 'i-lucide-circle-check', onSelect: () => emit('status', track, 'final') }
@@ -191,7 +170,7 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
             class="shrink-0"
             data-testid="draft-badge"
           />
-          <span class="truncate">{{ [track.composers, track.album, track.year].filter(Boolean).join(' · ') || '—' }}</span>
+          <span class="truncate">{{ joinParts([track.composers, track.album, track.year]) || '—' }}</span>
         </p>
       </button>
 
@@ -220,9 +199,9 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
             :class="track.hasSyncedLyrics ? 'text-primary' : 'text-muted'"
           />
         </UTooltip>
-        <UTooltip :text="visibilityIcon[track.visibility].label">
+        <UTooltip :text="VISIBILITY_INFO[track.visibility].label">
           <UIcon
-            :name="visibilityIcon[track.visibility].icon"
+            :name="VISIBILITY_INFO[track.visibility].icon"
             class="size-4 text-muted"
           />
         </UTooltip>

@@ -23,11 +23,10 @@ export function useShareLink() {
   /** Copies the link to the clipboard and confirms with a toast (showing the link). */
   async function copyShareLink(id: string, kind: ShareKind = 'track'): Promise<void> {
     const url = shareUrl(id, kind)
-    try {
-      await navigator.clipboard.writeText(url)
+    if (await copyText(url)) {
       toast.add({ title: 'Share link copied', description: url, icon: 'i-lucide-link', color: 'success' })
     }
-    catch {
+    else {
       // Clipboard not available (e.g. permission denied): show the link to copy by hand.
       toast.add({ title: 'Copy this link', description: url, icon: 'i-lucide-link', duration: 15000 })
     }

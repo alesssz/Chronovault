@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import WaveSurfer from 'wavesurfer.js'
 import { getAudioEngine } from '~/lib/audio-engine'
-import { themeColor } from '~/lib/theme'
+import { waveformColors } from '~/lib/theme'
 
 /**
  * Interactive waveform (click and drag to scrub).
@@ -51,9 +51,7 @@ function create() {
     peaks: [props.peaks?.length ? props.peaks : FLAT_PEAKS],
     duration: props.duration,
     height: props.height,
-    waveColor: themeColor('--ui-border-accented', '#3f3f46'),
-    progressColor: themeColor('--ui-primary', '#f97316'),
-    cursorColor: themeColor('--ui-text-highlighted', '#fafafa'),
+    ...waveformColors(),
     cursorWidth: 1,
     barWidth: 2,
     barGap: 1,

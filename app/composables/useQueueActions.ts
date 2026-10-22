@@ -1,3 +1,4 @@
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { QueueItem, QueueResult } from '~/stores/player'
 
 /**
@@ -37,5 +38,13 @@ export function useQueueActions() {
     notify(await player.addToQueue(track), track, false)
   }
 
-  return { playNext, addToQueue }
+  /** The "Play next" / "Add to queue" group of a track's "⋮" menu (library, playlist page). */
+  function menuItems(track: QueueItem): DropdownMenuItem[] {
+    return [
+      { label: 'Play next', icon: 'i-lucide-list-start', onSelect: () => void playNext(track) },
+      { label: 'Add to queue', icon: 'i-lucide-list-end', onSelect: () => void addToQueue(track) },
+    ]
+  }
+
+  return { playNext, addToQueue, menuItems }
 }
