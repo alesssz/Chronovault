@@ -61,6 +61,11 @@ function isCurrent(track: TrackSummary) {
   return player.current?.id === track.id || (player.status === 'loading' && player.queue[player.index]?.id === track.id)
 }
 
+/** What a click on the cover does: its accessible name and its tooltip. */
+function coverLabel(track: TrackSummary) {
+  return isCurrent(track) && player.isPlaying ? `Pause ${track.title}` : `Play ${track.title}`
+}
+
 /**
  * Clicking a track's name plays it; on the track already in the player
  * (playing or paused) it opens the full-screen view instead.
@@ -119,32 +124,38 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
         @update:model-value="toggleSelected(track)"
       />
 
-      <button
-        type="button"
-        class="relative size-12 shrink-0 cursor-pointer"
-        :aria-label="isCurrent(track) && player.isPlaying ? `Pause ${track.title}` : `Play ${track.title}`"
-        @click="emit('play', track)"
+      <!-- The cover plays the track: a tooltip names it, like the icon-only buttons -->
+      <UTooltip
+        :text="coverLabel(track)"
+        :content="{ side: 'top' }"
       >
-        <TrackCover
-          :url="track.coverUrl"
-          :title="track.title"
-        />
-        <span
-          class="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 text-white transition-opacity"
-          :class="isCurrent(track) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'"
+        <button
+          type="button"
+          class="relative size-12 shrink-0 cursor-pointer"
+          :aria-label="coverLabel(track)"
+          @click="emit('play', track)"
         >
-          <UIcon
-            v-if="isCurrent(track) && player.status === 'loading'"
-            name="i-lucide-loader-circle"
-            class="size-5 animate-spin"
+          <TrackCover
+            :url="track.coverUrl"
+            :title="track.title"
           />
-          <UIcon
-            v-else
-            :name="isCurrent(track) && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-            class="size-5"
-          />
-        </span>
-      </button>
+          <span
+            class="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 text-white transition-opacity"
+            :class="isCurrent(track) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'"
+          >
+            <UIcon
+              v-if="isCurrent(track) && player.status === 'loading'"
+              name="i-lucide-loader-circle"
+              class="size-5 animate-spin"
+            />
+            <UIcon
+              v-else
+              :name="isCurrent(track) && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
+              class="size-5"
+            />
+          </span>
+        </button>
+      </UTooltip>
 
       <button
         type="button"
@@ -215,11 +226,11 @@ const rows = computed(() => props.tracks.map(track => ({ track, genre: props.gen
         :items="menuFor(track)"
         :content="{ align: 'end' }"
       >
-        <UButton
+        <IconButton
           icon="i-lucide-ellipsis-vertical"
           color="neutral"
           variant="ghost"
-          :aria-label="`Actions for ${track.title}`"
+          :label="`Actions for ${track.title}`"
         />
       </UDropdownMenu>
     </li>

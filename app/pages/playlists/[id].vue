@@ -182,12 +182,12 @@ async function onDelete() {
   >
     <!-- Header: back, title, Play all, Save -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
-      <UButton
+      <IconButton
         to="/playlists"
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
-        aria-label="Back to playlists"
+        label="Back to playlists"
       />
       <h1
         class="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight"
@@ -411,11 +411,11 @@ async function onDelete() {
                 :items="menuFor(track, index)"
                 :content="{ align: 'end' }"
               >
-                <UButton
+                <IconButton
                   icon="i-lucide-ellipsis-vertical"
                   color="neutral"
                   variant="ghost"
-                  :aria-label="`Actions for ${track.title}`"
+                  :label="`Actions for ${track.title}`"
                 />
               </UDropdownMenu>
             </li>

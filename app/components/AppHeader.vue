@@ -89,22 +89,22 @@ const menu = computed<DropdownMenuItem[][]>(() => [
           label="Add"
           class="hidden sm:inline-flex"
         />
-        <UButton
+        <IconButton
           to="/tracks/new"
           icon="i-lucide-plus"
-          aria-label="Add tracks"
+          label="Add tracks"
           class="sm:hidden"
         />
-        <UColorModeButton />
+        <ThemeButton />
         <UDropdownMenu
           :items="menu"
           :content="{ align: 'end' }"
         >
-          <UButton
+          <IconButton
             icon="i-lucide-circle-user-round"
             color="neutral"
             variant="ghost"
-            aria-label="User menu"
+            label="User menu"
           />
         </UDropdownMenu>
       </div>

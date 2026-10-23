@@ -49,13 +49,13 @@ const reach = computed(() => (props.kind === 'playlist'
           data-testid="copy-share-link"
           @click="copyShareLink(id, kind)"
         />
-        <UButton
+        <IconButton
           :to="shareUrl(id, kind)"
           target="_blank"
           icon="i-lucide-external-link"
           color="neutral"
           variant="subtle"
-          aria-label="Open share page"
+          label="Open share page"
         />
       </UFieldGroup>
     </template>

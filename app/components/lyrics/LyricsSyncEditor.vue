@@ -292,18 +292,18 @@ function applyLrc() {
     >
       <!-- Sync controls: play/pause, back 5 s, stamp line, undo, replay line, playback speed -->
       <div class="flex flex-wrap items-center gap-2">
-        <UButton
+        <IconButton
           :icon="player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
           color="neutral"
           variant="subtle"
-          :aria-label="player.isPlaying ? 'Pause' : 'Play'"
+          :label="player.isPlaying ? 'Pause' : 'Play'"
           @click="player.togglePlay()"
         />
-        <UButton
+        <IconButton
           icon="i-lucide-rotate-ccw"
           color="neutral"
           variant="ghost"
-          aria-label="Back 5 seconds"
+          label="Back 5 seconds"
           @click="player.seek(player.currentTime - 5)"
         />
         <span class="w-20 text-center font-mono text-sm tabular-nums">{{ formatLrcTimestamp(player.currentTime) }}</span>
@@ -457,28 +457,28 @@ function applyLrc() {
             {{ row.text || '♪' }}
           </button>
           <template v-if="row.time != null">
-            <UButton
+            <IconButton
               icon="i-lucide-minus"
               color="neutral"
               variant="ghost"
               size="xs"
-              aria-label="0.1 seconds earlier"
+              label="0.1 seconds earlier"
               @click="nudge(i, -0.1)"
             />
-            <UButton
+            <IconButton
               icon="i-lucide-plus"
               color="neutral"
               variant="ghost"
               size="xs"
-              aria-label="0.1 seconds later"
+              label="0.1 seconds later"
               @click="nudge(i, 0.1)"
             />
-            <UButton
+            <IconButton
               icon="i-lucide-x"
               color="neutral"
               variant="ghost"
               size="xs"
-              aria-label="Clear time"
+              label="Clear time"
               @click="row.time = null"
             />
           </template>

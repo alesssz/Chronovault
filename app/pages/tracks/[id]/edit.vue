@@ -171,12 +171,12 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
   >
     <!-- Header: back, title, Play/Pause, Save -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
-      <UButton
+      <IconButton
         to="/"
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
-        aria-label="Back to library"
+        label="Back to library"
       />
       <h1 class="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight">
         {{ track.title }}

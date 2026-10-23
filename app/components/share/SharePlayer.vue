@@ -24,9 +24,9 @@ const player = usePlayerStore()
   <div>
     <!-- Play button, waveform and times -->
     <div class="flex items-center gap-4">
-      <UButton
+      <IconButton
         :icon="active && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-        :aria-label="active && player.isPlaying ? 'Pause' : 'Play'"
+        :label="active && player.isPlaying ? 'Pause' : 'Play'"
         :loading="active && player.status === 'loading'"
         size="xl"
         class="shrink-0 rounded-full p-4"

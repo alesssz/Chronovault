@@ -49,12 +49,12 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
   <UContainer class="max-w-3xl py-6 sm:py-8">
     <!-- Header: back and title -->
     <div class="mb-6 flex items-center gap-2">
-      <UButton
+      <IconButton
         to="/"
         icon="i-lucide-arrow-left"
         color="neutral"
         variant="ghost"
-        aria-label="Back to library"
+        label="Back to library"
       />
       <h1 class="text-2xl font-semibold tracking-tight">
         Upload tracks
@@ -191,13 +191,13 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
             variant="subtle"
             size="sm"
           />
-          <UButton
+          <IconButton
             v-else-if="item.status === 'queued' || item.status === 'error'"
             icon="i-lucide-x"
             color="neutral"
             variant="ghost"
             size="sm"
-            aria-label="Remove from list"
+            label="Remove from list"
             @click="remove(item.key)"
           />
         </li>

@@ -86,12 +86,12 @@ function onChange(event: Event) {
         :disabled="busy"
         @click="input?.click()"
       />
-      <UButton
+      <IconButton
         v-if="url"
         icon="i-lucide-trash-2"
         color="neutral"
         variant="ghost"
-        aria-label="Remove cover"
+        label="Remove cover"
         :disabled="busy"
         @click="emit('remove')"
       />

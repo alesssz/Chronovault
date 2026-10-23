@@ -40,31 +40,31 @@ const meta = computed(() => {
       >
         <!-- Top bar: collapse, title, Up next and edit buttons -->
         <header class="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2">
-          <UButton
+          <IconButton
             icon="i-lucide-chevron-down"
             color="neutral"
             variant="ghost"
-            aria-label="Collapse player"
+            label="Collapse player"
             @click="open = false"
           />
           <span class="text-xs font-medium uppercase tracking-widest text-muted">Now playing</span>
           <div class="flex items-center">
             <!-- The queue panel opens on top of this view (also the way to reach it on phones). -->
-            <UButton
+            <IconButton
               v-if="player.queueEditable"
               icon="i-lucide-list-music"
               color="neutral"
               variant="ghost"
-              aria-label="Up next"
+              label="Up next"
               @click="player.setQueueOpen(true)"
             />
-            <UButton
+            <IconButton
               v-if="player.current"
               :to="`/tracks/${player.current.id}/edit`"
               icon="i-lucide-pencil"
               color="neutral"
               variant="ghost"
-              aria-label="Edit track"
+              label="Edit track"
               @click="open = false"
             />
           </div>
