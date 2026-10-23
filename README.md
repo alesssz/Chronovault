@@ -1234,6 +1234,24 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 - **New migrations: `pnpm db:migrate`** (or `make db-migrate`) applies them and keeps every account and track. `pnpm db:reset` rebuilds the database from scratch and **deletes all local data** — use it only when you mean it.
 - Local and production data are separate (see [5.3](#53-where-everything-runs)).
 
+### 11.6 Updating dependencies
+
+1. On a branch: `pnpm outdated` lists what is behind; `pnpm update` moves every package to the newest version its range in `package.json` allows, indirect dependencies included. That is the safe step: no major version changes.
+2. Then `pnpm check`, and the end-to-end tests on a production build (`pnpm test:e2e`): the waveform (wavesurfer.js), tag reading (music-metadata) and the PWA are only really exercised there.
+3. Major versions one at a time, each with the same checks.
+
+**Versions younger than a day are not installed.** pnpm 12 has a supply-chain protection on by default (`minimumReleaseAge`, 24 hours): a compromised release is usually found and pulled within hours, so pnpm waits. A new release (e.g. of the Supabase CLI, which announces itself in the terminal) is simply skipped by `pnpm update` until it is a day old. Asking for it by name (`pnpm add -D pkg@x.y.z`) installs it anyway, but pnpm then writes a `minimumReleaseAgeExclude` list into `pnpm-workspace.yaml`: do not commit it, wait a day instead.
+
+**Major versions held back on purpose** (as of October 2026):
+
+| Package | Stays on | Why |
+|---|---|---|
+| `typescript` | 6 (`~6.0.3`) | TypeScript 7, the native rewrite, drops the internal files tools load: `vue-tsc` (3.3) fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` (`typescript/lib/tsc`), so `pnpm typecheck` cannot run. Move when `vue-tsc` supports it |
+| `h3` | 1 | Nitro, Nuxt 4's server, runs on h3 1 (`^1.15.11`) and the server code uses its helpers (`createError`, `H3Event`); an h3 2 copy next to it would make errors Nitro does not recognise (500s). Move with Nuxt |
+| `@vite-pwa/assets-generator` | 1 | `@vite-pwa/nuxt` 1.1 runs on `vite-plugin-pwa` 1, which expects generator 1; it is only used by `pnpm generate:pwa-assets`. Move together with `@vite-pwa/nuxt` |
+
+`pnpm peers check` reports one known mismatch, older than these notes: `@vercel/analytics` declares `vue-router` 4 while the app uses 5. It does not stop the install, the build or the tests; whether page views are counted can only be seen on the Vercel deployment ([7.16](#716-statistics)).
+
 ---
 
 ## 12. Testing
