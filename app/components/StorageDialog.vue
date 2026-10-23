@@ -37,6 +37,11 @@ async function load() {
   }
 }
 
+// The Android back button closes the dialog, except while files are being deleted (it is locked then).
+useCloseOnBack(open, () => {
+  if (!cleaning.running) open.value = false
+})
+
 // Every opening rescans: the storage may have changed since.
 watch(open, (value) => {
   if (value) void load()

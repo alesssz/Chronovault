@@ -150,8 +150,8 @@ function stopSelecting() {
 const { addToPlaylistMenu } = usePlaylists()
 // The Versions page's list, which "Share for feedback" adds to.
 const versionGroups = usePlaylistList('versions')
-// Copies the group's share link.
-const { copyShareLink } = useShareLink()
+// Shares the group's link: the device's share sheet on touch screens, the clipboard elsewhere.
+const { shareLink } = useShareLink()
 
 /** "Add to playlist" menu of the selection: a new playlist, or an existing one. */
 const selectionPlaylistMenu = computed(() => addToPlaylistMenu(() => selectedIds.value))
@@ -162,7 +162,9 @@ const sharing = useAsyncTask()
 /**
  * "Share for feedback": a new unlisted group of versions (a playlist whose
  * purpose is 'versions', kept apart from the curated playlists) with the selected
- * tracks, named after them ("Night drive – versions"), and its link copied.
+ * tracks, named after them ("Night drive – versions"), and its link shared
+ * (the share sheet on touch screens, copied elsewhere; if the sheet is
+ * refused because the request took too long after the tap, it is copied).
  * Friends open one link and hear every version in a row, drafts marked
  * "Work in progress".
  */
@@ -178,7 +180,7 @@ async function shareForFeedback() {
     })
     // The Versions page sees it at once.
     versionGroups.remember(playlist)
-    await copyShareLink(playlist.id, 'playlist')
+    await shareLink(playlist.id, 'playlist', playlist.title)
     stopSelecting()
   }, 'Could not create the group of versions')
 }

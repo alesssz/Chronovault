@@ -25,8 +25,33 @@
  * the middle one is a bit narrower (`flex-[1.5]`, still wide enough for
  * the six controls): the title gets the difference. Tapping the title area
  * opens the full-screen view.
+ *
+ * On touch screens the title area also takes swipes (useTrackSwipe): left
+ * for the next track, right for the previous one, up for the full-screen
+ * view. The cover and title follow the finger sideways and fade a little,
+ * so the gesture shows before it commits.
  */
 const player = usePlayerStore()
+
+/** The title area (cover and title): tap to open the full-screen view, swipe to change track. */
+const trackArea = ref<HTMLElement | null>(null)
+/** Swipes on the title area, touch only. */
+const swipe = useTrackSwipe(trackArea, {
+  canNext: () => player.hasNext,
+  onNext: () => void player.next(),
+  onPrevious: () => void player.previous(),
+  onOpen: () => player.setExpanded(true),
+})
+/**
+ * Cover and title while swiped: moved with the finger and fading the
+ * further they go; no transition while dragging (they stick to the finger),
+ * a short one on release (back in place).
+ */
+const swipeStyle = computed(() => ({
+  transform: swipe.offset.value ? `translateX(${swipe.offset.value}px)` : undefined,
+  opacity: swipe.offset.value ? Math.max(0.3, 1 - Math.abs(swipe.offset.value) / 250) : undefined,
+  transition: swipe.dragging.value ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
+}))
 
 /** What the bar shows (the queued summary while the full data loads). */
 const track = computed(() => player.displayTrack)
@@ -46,37 +71,48 @@ const track = computed(() => player.displayTrack)
     </div>
 
     <UContainer class="flex h-(--player-bar-height) items-center gap-3 md:gap-5 lg:gap-8">
-      <!-- Left column: cover and title (opens the full-screen view) -->
+      <!--
+        Left column: cover and title (opens the full-screen view). On touch screens it also
+        takes swipes, so the browser must leave its touches alone (`touch-none`: no page
+        scroll or navigation starting here); the inner row is what moves with the finger.
+      -->
       <button
+        ref="trackArea"
         type="button"
-        class="flex min-w-0 flex-1 basis-0 cursor-pointer items-center gap-3 text-left"
+        class="flex min-w-0 flex-1 basis-0 cursor-pointer touch-none items-center text-left"
         aria-label="Open player"
+        data-testid="player-track-area"
         @click="player.setExpanded(true)"
       >
-        <TrackCover
-          :url="track?.coverUrl"
-          :title="track?.title"
-          class="size-12"
-        />
-        <div class="min-w-0">
-          <p
-            class="truncate font-medium"
-            data-testid="player-title"
-          >
-            {{ track?.title }}
-          </p>
-          <p
-            v-if="player.status === 'error'"
-            class="truncate text-sm text-error"
-          >
-            {{ player.error }}
-          </p>
-          <p
-            v-else
-            class="truncate text-sm text-muted"
-          >
-            {{ track?.composers || '—' }}
-          </p>
+        <div
+          class="flex min-w-0 items-center gap-3"
+          :style="swipeStyle"
+        >
+          <TrackCover
+            :url="track?.coverUrl"
+            :title="track?.title"
+            class="size-12"
+          />
+          <div class="min-w-0">
+            <p
+              class="truncate font-medium"
+              data-testid="player-title"
+            >
+              {{ track?.title }}
+            </p>
+            <p
+              v-if="player.status === 'error'"
+              class="truncate text-sm text-error"
+            >
+              {{ player.error }}
+            </p>
+            <p
+              v-else
+              class="truncate text-sm text-muted"
+            >
+              {{ track?.composers || '—' }}
+            </p>
+          </div>
         </div>
       </button>
 

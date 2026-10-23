@@ -255,6 +255,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
           :id="id"
           kind="track"
           :shared="isShared"
+          :title="track?.title"
         />
 
         <UButton

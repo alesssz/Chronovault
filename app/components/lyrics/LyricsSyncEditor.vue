@@ -12,6 +12,7 @@ import {
 } from '~~/shared/utils/lyrics'
 import { lrcFileName } from '~/lib/tags/track-tags'
 import { saveFile } from '~/lib/save-file'
+import { HAPTIC, haptic } from '~/lib/haptics'
 
 /**
  * Manual "tap to sync": while the track plays, press Space (or ↓) at the
@@ -29,6 +30,12 @@ import { saveFile } from '~/lib/save-file'
  * scroll by; the lines scroll with the page instead of inside a box of
  * their own (a scroll area nested in the page is awkward with a finger).
  * The keyboard legend shows only where there is a mouse or trackpad.
+ *
+ * Syncing is done by ear, often without touching the phone for a while, so:
+ * - the screen stays on while the editor is open with its track loaded
+ *   (Screen Wake Lock), instead of dimming and locking mid-song;
+ * - stamping a line gives a short vibration, undoing two (Android only;
+ *   see lib/haptics), so each tap is felt without looking.
  */
 const props = defineProps<{
   track: TrackSummary
@@ -113,6 +120,8 @@ function stamp() {
   const index = cursor.value
   rows.value[index]!.time = roundToCentiseconds(player.currentTime)
   selected.value = index
+  // Felt in the hand: the tap landed (keyboard stamps too, on a phone with a keyboard).
+  haptic(HAPTIC.tick)
 }
 
 /** Selects a lyric row; when it is synced, playback jumps to it. */
@@ -145,6 +154,8 @@ function undo() {
   if (last < 0) return
   rows.value[last]!.time = null
   if (selected.value === last) selected.value = null
+  // A different feel from a stamp: two short ticks.
+  haptic(HAPTIC.undo)
   // The synced line before the undone one: playback goes back to just before it.
   const previous = syncedBefore(last)
   if (isLoaded.value) player.seek(Math.max(0, (rows.value[previous]?.time ?? 0) - 1))
@@ -182,6 +193,21 @@ watch(() => props.active, (active) => {
   if (!active) player.setPlaybackRate(1)
 })
 onBeforeUnmount(() => player.setPlaybackRate(1))
+
+// --- Screen kept on while syncing ----------------------------------------------------
+// Without this the phone dims and locks after its usual timeout, since syncing
+// means listening rather than touching. VueUse's useWakeLock asks for it again
+// whenever the page comes back to the foreground (the browser drops it when
+// hidden) and lets it go when the component goes away.
+const wakeLock = useWakeLock()
+/** The editor is in use: its tab is shown and the track is in the player. */
+const syncing = computed(() => props.active && isLoaded.value)
+watch(syncing, (on) => {
+  if (!wakeLock.isSupported.value) return
+  // Refusals are fine (e.g. battery saver): the screen just behaves as usual.
+  if (on) wakeLock.request('screen').catch(() => {})
+  else wakeLock.release().catch(() => {})
+}, { immediate: true })
 
 /** Loads (and starts) this track in the player, from the "Start the track to sync" notice. */
 function loadInPlayer() {
@@ -226,6 +252,10 @@ watch(cursor, (i) => {
 
 // --- LRC import / export ---------------------------------------------------------
 const lrcOpen = ref(false)
+// The Android back button closes the LRC dialog without applying it.
+useCloseOnBack(lrcOpen, () => {
+  lrcOpen.value = false
+})
 /** Text of the LRC dialog (export prefill, or what the user pastes). */
 const lrcText = ref('')
 
