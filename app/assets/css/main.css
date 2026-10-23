@@ -31,6 +31,17 @@ html.player-expanded {
   --player-bar-height: 5.5rem;
 }
 
+/*
+ * From `md` (48rem = 768px: media queries ignore the 125% base size) the bar
+ * holds two rows, the waveform and the controls, so it gets more height to
+ * leave some air around them; the one-row phone bar stays compact.
+ */
+@media (width >= 48rem) {
+  :root {
+    --player-bar-height: 6.5rem;
+  }
+}
+
 /* Keeps content from ending up underneath the player bar. */
 .has-player {
   padding-bottom: calc(var(--player-bar-height) + env(safe-area-inset-bottom));

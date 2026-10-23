@@ -13,9 +13,15 @@
  * button through `$attrs`. Buttons that show their text from `sm` up keep
  * a plain UButton (a tooltip would repeat what is written). Tooltips do not
  * open on touch screens or on disabled buttons; the aria-label still names
- * the button there. Tooltips open above the button (in the player bar a
- * tooltip below would cover the waveform), and below when there is no room
- * above, as for the header.
+ * the button there. Tooltips open above the button (the player bar sits at
+ * the bottom of the screen), and below when there is no room above, as for
+ * the header.
+ *
+ * In the player bar the controls are under the waveform, so their tooltips
+ * open over it. `disable-hoverable-content` closes a tooltip as soon as the
+ * pointer leaves its button: otherwise Reka keeps it open while the pointer
+ * crosses it, and a click meant for the waveform would land on the tooltip.
+ * It is only a label, so nothing is lost by not being able to hover it.
  *
  * UButton's props are only types here (the vue-ignore marker on `extends`),
  * not runtime props, so they stay in `$attrs` and reach the UButton
@@ -37,6 +43,7 @@ defineProps<IconButtonProps>()
   <UTooltip
     :text="label"
     :content="{ side: 'top' }"
+    disable-hoverable-content
   >
     <UButton
       v-bind="$attrs"

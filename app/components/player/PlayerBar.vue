@@ -6,9 +6,12 @@
  * Responsive:
  * - phones: cover, title and play/next, plus a thin progress line on top;
  * - from `md`, three columns: cover and title on the left; in the middle,
- *   on two rows, the transport controls (shuffle, stop, previous, play,
- *   next, repeat) above the times and the waveform; on the right Up next,
- *   expand and close, with the volume from `lg`.
+ *   on two rows, the times and the waveform above the transport controls
+ *   (shuffle, stop, previous, play, next, repeat), the same order as the
+ *   full-screen view, and like the phones' progress line on top; on the
+ *   right Up next, expand and close, with the volume from `lg`. From `md`
+ *   the bar is also taller (`--player-bar-height`, see main.css), so the
+ *   two rows have room around them.
  *
  * The side columns share the room left over by the middle one at a 1:2
  * ratio (`flex-1` / `flex-[2]`, all from a zero basis), so the waveform
@@ -35,7 +38,7 @@ const track = computed(() => player.displayTrack)
       />
     </div>
 
-    <UContainer class="flex h-(--player-bar-height) items-center gap-3 md:gap-5">
+    <UContainer class="flex h-(--player-bar-height) items-center gap-3 md:gap-5 lg:gap-8">
       <!-- Left column: cover and title (opens the full-screen view) -->
       <button
         type="button"
@@ -77,9 +80,8 @@ const track = computed(() => player.displayTrack)
         class="md:hidden"
       />
 
-      <!-- Middle column (md+): the controls on top, the times and the waveform under them -->
-      <div class="hidden min-w-0 flex-[2] basis-0 flex-col items-center gap-1 md:flex">
-        <PlayerControls />
+      <!-- Middle column (md+): the times and the waveform on top, the controls under them -->
+      <div class="hidden min-w-0 flex-[2] basis-0 flex-col items-center gap-2 md:flex">
         <div class="flex w-full min-w-0 items-center gap-3">
           <span
             class="w-12 shrink-0 text-right text-xs tabular-nums text-muted"
@@ -117,6 +119,7 @@ const track = computed(() => player.displayTrack)
             data-testid="player-rate"
           />
         </div>
+        <PlayerControls />
       </div>
 
       <!-- Right column (md+): volume from lg, then Up next, expand and close -->

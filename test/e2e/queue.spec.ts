@@ -2,7 +2,9 @@
  * End-to-end, editable queue: "Add to queue" and "Play next" from the library
  * menu, then the Up next panel: order, move, remove, play now, clear; shuffle
  * reorders it and puts it back, repeat one restarts the track; tooltips on
- * icon-only buttons, and the bar's waveform at tablet width.
+ * icon-only buttons, and the bar's waveform at tablet width: a real width,
+ * above the controls, never covered by their tooltips once the pointer moves
+ * onto it.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { signUp, uniqueId, uploadTrack } from './helpers'
@@ -149,5 +151,20 @@ test.describe('editable queue', () => {
     await expect(shuffleButton).toBeVisible()
     const waveform = await bar.getByTestId('player-waveform').boundingBox()
     expect(waveform?.width).toBeGreaterThan(120)
+
+    // --- The waveform sits above the controls, and their tooltips never catch its clicks ---
+    const toggleBox = await toggle.boundingBox()
+    expect(waveform!.y + waveform!.height).toBeLessThanOrEqual(toggleBox!.y)
+    // Play's tooltip opens over the waveform; the waveform's middle, right
+    // above the button, is inside it. Moving there must close it, so that a
+    // click lands on the waveform and not on the tooltip.
+    await expectTooltip(page, toggle, 'Play')
+    const x = toggleBox!.x + toggleBox!.width / 2
+    const y = waveform!.y + waveform!.height / 2
+    await page.mouse.move(x, y)
+    await expect(page.getByRole('tooltip')).toHaveCount(0)
+    const hit = await page.evaluate(([px, py]) =>
+      !!document.elementFromPoint(px!, py!)?.closest('[data-testid="player-waveform"]'), [x, y])
+    expect(hit).toBe(true)
   })
 })
