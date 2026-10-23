@@ -12,6 +12,15 @@ export default defineNuxtConfig({
     ...(isTest ? [] : ['@vite-pwa/nuxt']),
   ],
 
+  // Development only: /sw.js answers with a service worker that unregisters
+  // itself, so one left on localhost by a production build stops running
+  // (see server/dev/stale-service-worker.ts).
+  $development: {
+    nitro: {
+      handlers: [{ route: '/sw.js', handler: '~~/server/dev/stale-service-worker.ts' }],
+    },
+  },
+
   devtools: { enabled: true },
 
   app: {
