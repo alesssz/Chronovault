@@ -31,15 +31,46 @@ function supported(): boolean {
   return typeof navigator !== 'undefined' && 'mediaSession' in navigator
 }
 
-/** Shows the track (or nothing) on the lock screen / notification. Covers are 800×800 WebP. */
+/** Shown where a track has no artist or album, so the media card always says which app is playing. */
+export const APP_NAME = 'ChronoPlayer'
+
+/**
+ * The app icon, for tracks without a cover: without any artwork Android
+ * shows an empty or generic tile on the lock screen. The PWA icons in
+ * public/ (two sizes: the system picks the closest).
+ */
+const APP_ARTWORK: MediaImage[] = [
+  { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+  { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+]
+
+/**
+ * Absolute form of an image address. Cover addresses are relative
+ * (`/api/covers/…`); the artwork is fetched by the browser for the system's
+ * media card, outside the page, so the full address avoids any doubt about
+ * what it is relative to.
+ */
+function absolute(src: string): string {
+  return new URL(src, window.location.href).href
+}
+
+/**
+ * Shows the track (or nothing) on the lock screen and in the media
+ * notification. Covers are 800×800 WebP; a track without one shows the app
+ * icon, and a missing artist or album reads "ChronoPlayer", so the card
+ * always shows the track and the app.
+ */
 export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
   if (!supported()) return
+  const artwork = track?.artworkUrl
+    ? [{ src: track.artworkUrl, sizes: '800x800', type: 'image/webp' }]
+    : APP_ARTWORK
   navigator.mediaSession.metadata = track
     ? new MediaMetadata({
         title: track.title,
-        artist: track.artist ?? '',
-        album: track.album ?? '',
-        artwork: track.artworkUrl ? [{ src: track.artworkUrl, sizes: '800x800', type: 'image/webp' }] : [],
+        artist: track.artist || APP_NAME,
+        album: track.album || APP_NAME,
+        artwork: artwork.map(image => ({ ...image, src: absolute(image.src) })),
       })
     : null
 }

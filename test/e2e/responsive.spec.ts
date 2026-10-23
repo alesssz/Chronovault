@@ -9,6 +9,8 @@
  * CloseWatcher, and with recorders standing in for what a headless browser cannot do (see
  * installDeviceProbes): swipes on the player bar and pull-down on the full-screen view, the
  * Android back button closing the panel on top, and links shared through the share sheet.
+ * Also the lock-screen media card (the browser's real Media Session) and the Cast button,
+ * against a stand-in for a Chromecast on the network (see installCastDevice).
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
@@ -122,6 +124,47 @@ async function installDeviceProbes(page: Page): Promise<void> {
       }
       Object.assign(window, { CloseWatcher: TrackedCloseWatcher })
     }
+  })
+}
+
+/**
+ * Pretends a Chromecast is on the network: every media element's `remote` (Remote Playback
+ * API) reports a device at once, and its picker "connects" on the first prompt. Prompts are
+ * counted in `window.__castPrompts`. A real device cannot be reached from a test browser.
+ */
+async function installCastDevice(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const prompts: number[] = []
+    Object.assign(window, { __castPrompts: prompts })
+    /** One fake RemotePlayback per element, like the browser's. */
+    const remotes = new WeakMap<HTMLMediaElement, EventTarget>()
+    Object.defineProperty(HTMLMediaElement.prototype, 'remote', {
+      configurable: true,
+      get(this: HTMLMediaElement) {
+        let remote = remotes.get(this)
+        if (!remote) {
+          const fake = Object.assign(new EventTarget(), {
+            state: 'disconnected',
+            watchAvailability: async (callback: (available: boolean) => void) => {
+              callback(true)
+              return 1
+            },
+            cancelWatchAvailability: async () => {},
+            prompt: async () => {
+              prompts.push(Date.now())
+              // The user picks the TV: connecting, then connected.
+              fake.state = 'connecting'
+              fake.dispatchEvent(new Event('connecting'))
+              fake.state = 'connected'
+              fake.dispatchEvent(new Event('connect'))
+            },
+          })
+          remote = fake
+          remotes.set(this, remote)
+        }
+        return remote
+      },
+    })
   })
 }
 
@@ -306,6 +349,35 @@ test.describe('touch screens', () => {
     await pressBack(page)
     await expect(expanded).toBeHidden()
     await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible()
+  })
+
+  test('phone: the lock screen shows the track and the app; Cast reaches a TV', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await installCastDevice(page)
+    await signUpWithTrack(page)
+    await page.getByTestId('track-title').tap()
+    await expect(page.getByTestId('player-title')).toHaveText('Touch screen song')
+
+    // The media card (lock screen, notification): the title, and the app where the track
+    // has no composers, album or cover.
+    const card = await page.evaluate(() => {
+      const metadata = navigator.mediaSession.metadata!
+      return { title: metadata.title, artist: metadata.artist, album: metadata.album, artwork: metadata.artwork.map(a => a.src) }
+    })
+    expect(card.title).toBe('Touch screen song')
+    expect(card.artist).toBe('ChronoPlayer')
+    expect(card.album).toBe('ChronoPlayer')
+    expect(card.artwork[0]).toMatch(/^http.*\/pwa-192x192\.png$/)
+
+    // Cast: on phones it is in the full-screen view; a tap opens the device picker, and the
+    // button shows the connection.
+    await page.getByTestId('player-track-area').tap()
+    const castButton = page.getByTestId('player-expanded').getByTestId('player-cast')
+    await expect(castButton).toHaveAttribute('data-state', 'disconnected')
+    await castButton.tap()
+    await expect(castButton).toHaveAttribute('data-state', 'connected')
+    await expect(castButton).toHaveAccessibleName('Casting: stop or change device')
+    expect(await page.evaluate(() => (window as unknown as { __castPrompts: number[] }).__castPrompts.length)).toBe(1)
   })
 
   test('phone: share links open the share sheet', async ({ page }, testInfo) => {

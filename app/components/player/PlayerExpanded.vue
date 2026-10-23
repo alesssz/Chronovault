@@ -81,7 +81,7 @@ const meta = computed(() => {
         :style="viewStyle"
         data-testid="player-expanded"
       >
-        <!-- Top bar: collapse, title, Up next and edit buttons -->
+        <!-- Top bar: collapse, title, Cast (when a device is around), Up next and edit buttons -->
         <header class="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2">
           <IconButton
             icon="i-lucide-chevron-down"
@@ -92,6 +92,8 @@ const meta = computed(() => {
           />
           <span class="text-xs font-medium uppercase tracking-widest text-muted">Now playing</span>
           <div class="flex items-center">
+            <!-- Cast to a TV or speaker (the phones' way to reach it: their player bar has no room) -->
+            <PlayerCastButton />
             <!-- The queue panel opens on top of this view (also the way to reach it on phones). -->
             <IconButton
               v-if="player.queueEditable"
