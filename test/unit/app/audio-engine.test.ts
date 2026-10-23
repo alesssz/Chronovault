@@ -1,8 +1,9 @@
 /**
- * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate.
+ * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate;
+ * plus the volume-support probe (iOS ignores the volume set from JavaScript).
  */
 import { describe, expect, it } from 'vitest'
-import { AudioEngine } from '~/lib/audio-engine'
+import { AudioEngine, canSetVolume } from '~/lib/audio-engine'
 
 /** Just enough of an HTMLAudioElement for the engine's setters. */
 function fakeAudioElement() {
@@ -27,5 +28,35 @@ describe('AudioEngine.setPlaybackRate', () => {
     expect(element.preservesPitch).toBe(true)
     // Loading a new source resets playbackRate to defaultPlaybackRate.
     expect(element.defaultPlaybackRate).toBe(0.75)
+  })
+})
+
+describe('canSetVolume', () => {
+  it('is true when the volume sticks (desktop browsers, Android)', () => {
+    const probe = { volume: 1 }
+    expect(canSetVolume(probe as unknown as HTMLAudioElement)).toBe(true)
+  })
+
+  it('is false when the volume always reads back 1 (iPhone, iPad)', () => {
+    // iOS ignores the write: the getter keeps answering 1.
+    const probe = {
+      get volume() {
+        return 1
+      },
+      set volume(_: number) {},
+    }
+    expect(canSetVolume(probe as unknown as HTMLAudioElement)).toBe(false)
+  })
+
+  it('is false when setting the volume throws', () => {
+    const probe = {
+      get volume() {
+        return 1
+      },
+      set volume(_: number) {
+        throw new Error('read-only')
+      },
+    }
+    expect(canSetVolume(probe as unknown as HTMLAudioElement)).toBe(false)
   })
 })

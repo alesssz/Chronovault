@@ -29,7 +29,17 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Every flow, on the desktop layout; the touch-screen checks have their own projects below.
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /responsive\.spec\.ts/ },
+    // Touch screens: only the responsive spec, written for phone and tablet layouts. Both run in
+    // Chromium (no extra browser to install), with touch and a mobile viewport emulated.
+    { name: 'phone', use: { ...devices['Pixel 7'] }, testMatch: /responsive\.spec\.ts/ },
+    {
+      name: 'tablet',
+      // An 820×1180 portrait tablet (iPad Air size): between the `md` and `lg` breakpoints.
+      use: { ...devices['Desktop Chrome'], viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true },
+      testMatch: /responsive\.spec\.ts/,
+    },
   ],
   webServer: {
     // The production server reads its runtime config (audio storage keys…) from the environment.

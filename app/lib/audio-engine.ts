@@ -229,3 +229,34 @@ export function getAudioEngine(): PlaybackEngine {
 export function setAudioEngine(engine: PlaybackEngine | null): void {
   instance = engine
 }
+
+/** Cached answer of canSetVolume() (the browser does not change mid-session). */
+let volumeSettable: boolean | null = null
+
+/**
+ * Whether the page can change the audio volume. On iPhone and iPad the level
+ * is always under the user's physical control: `volume` cannot be set from
+ * JavaScript and always reads back 1, so a volume slider would do nothing
+ * there (muting still works). Detected by setting a probe element's volume
+ * and reading it back, rather than by sniffing the user agent (iPadOS
+ * presents itself as a Mac).
+ *
+ * @param probe injectable for tests; a detached `new Audio()` in the app.
+ */
+export function canSetVolume(probe?: HTMLAudioElement): boolean {
+  if (probe) return probeVolume(probe)
+  if (volumeSettable === null) volumeSettable = probeVolume(new Audio())
+  return volumeSettable
+}
+
+/** Sets an element's volume to an unusual level and checks that it stuck. */
+function probeVolume(element: HTMLAudioElement): boolean {
+  try {
+    element.volume = 0.5
+    return element.volume === 0.5
+  }
+  catch {
+    // Some engines throw instead of ignoring the write: not settable either.
+    return false
+  }
+}
