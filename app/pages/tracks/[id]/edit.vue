@@ -169,7 +169,11 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
     v-if="track"
     class="max-w-5xl py-6 sm:py-8"
   >
-    <!-- Header: back, title, Play/Pause, Save -->
+    <!--
+      Header: back, title, Play/Pause, Download, Save. On phones the three buttons are icons only
+      (their text shows from `sm`, and `aria-label` names them for screen readers meanwhile),
+      so the title keeps most of the row instead of shrinking to a few letters.
+    -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <IconButton
         to="/"
@@ -183,12 +187,13 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
       </h1>
       <UButton
         :icon="isCurrent && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-        :label="isCurrent && player.isPlaying ? 'Pause' : 'Play'"
+        :aria-label="isCurrent && player.isPlaying ? 'Pause' : 'Play'"
         color="neutral"
         variant="subtle"
         @click="player.playTrack(track)"
-      />
-      <!-- Icon only on phones, where the header is narrow. -->
+      >
+        <span class="hidden sm:inline">{{ isCurrent && player.isPlaying ? 'Pause' : 'Play' }}</span>
+      </UButton>
       <UButton
         icon="i-lucide-download"
         color="neutral"
@@ -204,11 +209,13 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         type="submit"
         form="track-form"
         icon="i-lucide-save"
-        label="Save"
+        aria-label="Save"
         :loading="saving.running"
         :disabled="!dirty"
         data-testid="save-track"
-      />
+      >
+        <span class="hidden sm:inline">Save</span>
+      </UButton>
     </div>
 
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">

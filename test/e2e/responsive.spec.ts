@@ -158,7 +158,7 @@ async function swipe(page: Page, locator: Locator, dx: number, dy: number): Prom
 }
 
 test.describe('touch screens', () => {
-  test('pages fit the screen and covers show their play button', async ({ page }) => {
+  test('pages fit the screen and covers show their play button', async ({ page }, testInfo) => {
     await signUpWithTrack(page)
     for (const path of PAGES) {
       await page.goto(path)
@@ -166,6 +166,10 @@ test.describe('touch screens', () => {
       await expect(page.getByRole('navigation', { name: 'Sections' })).toBeVisible()
       await expectNoSidewaysScroll(page, path)
     }
+
+    // A smaller base size on phones (17px, more fits on a line); tablets keep the 20px of the desktop.
+    const baseSize = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)
+    expect(baseSize).toBe(testInfo.project.name === 'phone' ? '17px' : '20px')
 
     // No hover on a touch screen: the play overlay is on even for a track that is not playing.
     await page.goto('/')
@@ -175,6 +179,10 @@ test.describe('touch screens', () => {
     await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
     await expect(page.getByRole('tab', { name: 'Sync' })).toBeVisible()
     await expectNoSidewaysScroll(page, '/tracks/[id]/edit')
+    // Its header keeps room for the title: on phones Play, Download and Save are icons
+    // (with their text the title shrank to a few letters).
+    const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!
+    expect(heading.width).toBeGreaterThan(150)
   })
 
   test('tablet: player bar with a readable title and the volume in a popover', async ({ page }, testInfo) => {
