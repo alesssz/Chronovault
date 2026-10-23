@@ -22,6 +22,13 @@ import { saveFile } from '~/lib/save-file'
  * shows a draggable marker per synced line.
  * Section headers ([Intro], [Verse 1]…) are kept: they take the time of the
  * line right after them, so they never need stamping.
+ *
+ * Phones have no keyboard and little height: there, Stamp line and Undo
+ * leave the controls row for a bar pinned to the bottom of the screen, just
+ * above the player bar, so they stay under the thumb while the lines
+ * scroll by; the lines scroll with the page instead of inside a box of
+ * their own (a scroll area nested in the page is awkward with a finger).
+ * The keyboard legend shows only where there is a mouse or trackpad.
  */
 const props = defineProps<{
   track: TrackSummary
@@ -282,7 +289,7 @@ function applyLrc() {
       color="neutral"
       variant="subtle"
       title="Start the track to sync"
-      description="Lyrics are synced while you listen: press Space at the start of each line. Section headers like [Verse 1] follow their first line automatically."
+      description="Lyrics are synced while you listen: press Space (or tap Stamp line) at the start of each line. Section headers like [Verse 1] follow their first line automatically."
       :actions="[{ label: 'Load in player', icon: 'i-lucide-play', onClick: loadInPlayer }]"
     />
 
@@ -290,7 +297,7 @@ function applyLrc() {
       v-else
       class="space-y-3 rounded-lg border border-default p-2"
     >
-      <!-- Sync controls: play/pause, back 5 s, stamp line, undo, replay line, playback speed -->
+      <!-- Sync controls: play/pause, back 5 s, stamp line, undo, replay line, playback speed (on phones stamp and undo are in the pinned bar below) -->
       <div class="flex flex-wrap items-center gap-2">
         <IconButton
           :icon="player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
@@ -311,6 +318,7 @@ function applyLrc() {
           icon="i-lucide-corner-down-left"
           label="Stamp line"
           :disabled="cursor >= rows.length"
+          class="hidden md:inline-flex"
           data-testid="sync-stamp"
           @click="stamp"
         />
@@ -320,6 +328,7 @@ function applyLrc() {
           color="neutral"
           variant="ghost"
           :disabled="syncedCount === 0"
+          class="hidden md:inline-flex"
           @click="undo"
         />
         <UButton
@@ -360,7 +369,8 @@ function applyLrc() {
         @select="select"
       />
 
-      <div class="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted lg:flex">
+      <!-- Keyboard legend: only with a mouse or trackpad (a keyboard is likely there, unlike on a touch screen) -->
+      <div class="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted pointer-fine:flex">
         <span><UKbd value="Space" /> stamp</span>
         <span><UKbd value="↑" /> undo</span>
         <span><UKbd value="R" /> replay line</span>
@@ -410,17 +420,21 @@ function applyLrc() {
       description="Write the lyrics in the «Lyrics» tab first, then press «Reload from lyrics», or import an LRC file."
     />
 
-    <!-- The rows: time (click to seek), text (click to select), ±0.1 s and clear buttons; the next line to stamp is highlighted -->
+    <!--
+      The rows: time (click to seek), text (click to select), ±0.1 s and clear buttons; the next line to stamp is highlighted.
+      From `md` they scroll inside their own box; on phones with the page, and the scroll margins keep the
+      line brought into view clear of the sticky header (top) and of the stamp bar and player bar (bottom).
+    -->
     <ol
       v-else
-      class="max-h-[32rem] divide-y divide-default overflow-y-auto rounded-lg border border-default"
+      class="divide-y divide-default rounded-lg border border-default md:max-h-[32rem] md:overflow-y-auto"
       data-testid="sync-rows"
     >
       <li
         v-for="(row, i) in rows"
         :key="i"
         ref="rowRefs"
-        class="flex items-center gap-2 px-2 py-1.5"
+        class="flex scroll-mt-16 scroll-mb-[calc(var(--player-bar-height)+6rem)] items-center gap-2 px-2 py-1.5 md:scroll-m-0"
         :class="row.section
           ? 'bg-elevated/50 pt-3'
           : {
@@ -485,6 +499,38 @@ function applyLrc() {
         </template>
       </li>
     </ol>
+
+    <!--
+      Phones: Undo and Stamp line pinned to the bottom of the screen, just above the player
+      bar (its height and the home-indicator area, plus a small gap that also clears its thin
+      progress line), for as long as the editor is on screen. Last in the editor, so it rests
+      under the lines once the page is scrolled to the end.
+    -->
+    <div
+      v-if="isLoaded"
+      class="sticky bottom-[calc(var(--player-bar-height)+env(safe-area-inset-bottom)+0.5rem)] z-10 flex gap-2 rounded-lg border border-default bg-default/95 p-2 shadow-lg backdrop-blur md:hidden"
+      data-testid="sync-stamp-bar"
+    >
+      <UButton
+        icon="i-lucide-undo-2"
+        label="Undo"
+        color="neutral"
+        variant="subtle"
+        size="xl"
+        :disabled="syncedCount === 0"
+        @click="undo"
+      />
+      <UButton
+        icon="i-lucide-corner-down-left"
+        label="Stamp line"
+        size="xl"
+        block
+        class="flex-1"
+        :disabled="cursor >= rows.length"
+        data-testid="sync-stamp-mobile"
+        @click="stamp"
+      />
+    </div>
 
     <!-- LRC import / export dialog -->
     <UModal

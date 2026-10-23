@@ -9,15 +9,22 @@
  *   on two rows, the times and the waveform above the transport controls
  *   (shuffle, stop, previous, play, next, repeat), the same order as the
  *   full-screen view, and like the phones' progress line on top; on the
- *   right Up next, expand and close, with the volume from `lg`. From `md`
- *   the bar is also taller (`--player-bar-height`, see main.css), so the
- *   two rows have room around them.
+ *   right the volume, Up next, expand and close. From `md` the bar is also
+ *   taller (`--player-bar-height`, see main.css), so the two rows have room
+ *   around them;
+ * - tablets (`md` to `lg`): the volume is a single speaker button opening a
+ *   small popover with the slider (no room for an inline one); from `lg`
+ *   the slider sits inline.
  *
- * The side columns share the room left over by the middle one at a 1:2
- * ratio (`flex-1` / `flex-[2]`, all from a zero basis), so the waveform
- * keeps a real width at every size instead of being the only thing that
- * shrinks; the title truncates first. Tapping the title area opens the
- * full-screen view.
+ * From `lg` the side columns share the room left over by the middle one at
+ * a 1:2 ratio (`flex-1` / `flex-[2]`, all from a zero basis), so the
+ * waveform keeps a real width at every size instead of being the only thing
+ * that shrinks, and the middle column stays centred; the title truncates
+ * first. On tablets that ratio left the title a few letters wide, so there
+ * the right column only takes the width of its buttons (`flex-none`) and
+ * the middle one is a bit narrower (`flex-[1.5]`, still wide enough for
+ * the six controls): the title gets the difference. Tapping the title area
+ * opens the full-screen view.
  */
 const player = usePlayerStore()
 
@@ -81,7 +88,7 @@ const track = computed(() => player.displayTrack)
       />
 
       <!-- Middle column (md+): the times and the waveform on top, the controls under them -->
-      <div class="hidden min-w-0 flex-[2] basis-0 flex-col items-center gap-2 md:flex">
+      <div class="hidden min-w-0 flex-[1.5] basis-0 flex-col items-center gap-2 md:flex lg:flex-[2]">
         <div class="flex w-full min-w-0 items-center gap-3">
           <span
             class="w-12 shrink-0 text-right text-xs tabular-nums text-muted"
@@ -122,10 +129,15 @@ const track = computed(() => player.displayTrack)
         <PlayerControls />
       </div>
 
-      <!-- Right column (md+): volume from lg, then Up next, expand and close -->
-      <div class="hidden flex-1 basis-0 items-center justify-end gap-3 md:flex">
+      <!-- Right column (md+): volume (a popover button on tablets, inline from lg), then Up next, expand and close -->
+      <div class="hidden flex-none items-center justify-end gap-3 md:flex lg:flex-1 lg:basis-0">
         <PlayerVolume class="hidden lg:flex" />
         <div class="flex shrink-0 items-center">
+          <!-- Tablets: the volume joins the icon buttons, as one more of them -->
+          <PlayerVolume
+            compact
+            class="lg:hidden"
+          />
           <IconButton
             v-if="player.queueEditable"
             icon="i-lucide-list-music"
