@@ -5,12 +5,21 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
 /**
  * Shows the lyrics: synced (active line highlighted, auto-scroll, click to
  * seek) or plain text. Both keep the section headers ([Intro], [Verse 1]…).
+ *
+ * It scrolls inside its own box, which takes the height its parent gives
+ * it (`h-full`): the parent must have a definite height, or the box grows
+ * with the text and auto-scroll moves the page around it instead.
+ *
+ * `size="large"`: one step bigger, for the phones' lyrics view of the
+ * full-screen player, where the lyrics have the whole screen to themselves.
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   synced: SyncedLyricLine[] | null
   plain: string | null
   currentTime: number
-}>()
+  /** Text size: 'default' (beside the cover) or 'large' (lyrics on their own). */
+  size?: 'default' | 'large'
+}>(), { size: 'default' })
 
 const emit = defineEmits<{ seek: [seconds: number] }>()
 
@@ -62,7 +71,8 @@ watch(activeIndex, (index) => {
     -->
     <ol
       v-if="hasSynced"
-      class="space-y-3 pt-2 pb-[45vh] text-xl font-semibold leading-snug sm:text-2xl"
+      class="space-y-3 pt-2 pb-[45vh] font-semibold leading-snug"
+      :class="size === 'large' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'"
       data-testid="lyrics-synced"
     >
       <li
@@ -95,7 +105,8 @@ watch(activeIndex, (index) => {
 
     <div
       v-else-if="plain"
-      class="space-y-1 py-4 text-lg leading-relaxed"
+      class="space-y-1 py-4 leading-relaxed"
+      :class="size === 'large' ? 'text-xl' : 'text-lg'"
     >
       <p
         v-for="(line, i) in plainLines"
