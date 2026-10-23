@@ -1,10 +1,23 @@
 /**
  * End-to-end, editable queue: "Add to queue" and "Play next" from the library
  * menu, then the Up next panel: order, move, remove, play now, clear; shuffle
- * reorders it and puts it back, repeat one restarts the track.
+ * reorders it and puts it back, repeat one restarts the track; tooltips on
+ * icon-only buttons, and the bar's waveform at tablet width.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { signUp, uniqueId, uploadTrack } from './helpers'
+
+/**
+ * Hovers `target` and expects its tooltip. The mouse first leaves whatever
+ * it is on: Playwright jumps straight to the target, and a tooltip already
+ * open (the button just clicked) stays open during such a jump.
+ */
+async function expectTooltip(page: Page, target: Locator, text: string) {
+  await page.mouse.move(0, 0)
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+  await target.hover()
+  await expect(page.getByRole('tooltip')).toHaveText(text)
+}
 
 /** Opens a library row's menu and picks an item. */
 async function rowAction(page: Page, title: string, action: string) {
@@ -64,8 +77,6 @@ test.describe('editable queue', () => {
   })
 
   test('shuffle reorders the upcoming tracks and puts them back; repeat one restarts the track', async ({ page }) => {
-    // The bar shows shuffle and repeat from 1280 px (xl): stay clear of that edge.
-    await page.setViewportSize({ width: 1440, height: 900 })
     await signUp(page)
     const id = uniqueId()
     const titles = ['a', 'b', 'c', 'd', 'e'].map(letter => `s${letter}-${id}`)
@@ -74,12 +85,22 @@ test.describe('editable queue', () => {
 
     // Newest first: playing the last upload leaves the other four, newest first, up next.
     const [first, ...rest] = [...titles].reverse() as [string, ...string[]]
+
+    // Icon-only buttons name themselves in a tooltip; on a menu trigger the menu still opens.
+    const actions = page.getByRole('button', { name: `Actions for ${first}` })
+    await expectTooltip(page, actions, `Actions for ${first}`)
+    await actions.click()
+    await expect(page.getByRole('menuitem', { name: 'Play next' })).toBeVisible()
+    await page.keyboard.press('Escape')
     await page.getByTestId('track-row').filter({ hasText: first }).getByTestId('track-title').click()
     const bar = page.getByTestId('player-bar')
     const toggle = bar.locator('[data-testid="player-toggle"]:visible')
     await expect(toggle).toHaveAttribute('aria-label', 'Pause')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-label', 'Play')
+    // The bar's buttons name themselves too (before the Up next panel: closing it gives the focus
+    // back to its button, which then shows its own tooltip, as keyboard users expect).
+    await expectTooltip(page, bar.getByTestId('player-shuffle'), 'Shuffle: off')
 
     /** The Up next titles, read from the panel (opened, then closed again). */
     const upNext = async () => {
@@ -122,5 +143,11 @@ test.describe('editable queue', () => {
     await expect(bar.getByTestId('player-title')).toHaveText(first)
     await expect(toggle).toHaveAttribute('aria-label', 'Pause')
     await toggle.click()
+
+    // --- Tablet width: the bar keeps a real waveform (it used to shrink to nothing) ---
+    await page.setViewportSize({ width: 820, height: 1180 })
+    await expect(shuffleButton).toBeVisible()
+    const waveform = await bar.getByTestId('player-waveform').boundingBox()
+    expect(waveform?.width).toBeGreaterThan(120)
   })
 })

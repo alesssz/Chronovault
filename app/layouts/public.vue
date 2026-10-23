@@ -7,7 +7,7 @@
     <header class="border-b border-default">
       <UContainer class="flex h-14 items-center justify-between gap-3">
         <AppLogo />
-        <UColorModeButton />
+        <ThemeButton />
       </UContainer>
     </header>
 

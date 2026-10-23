@@ -20,11 +20,11 @@ const level = computed({
 
 <template>
   <div class="flex items-center gap-2">
-    <UButton
+    <IconButton
       :icon="icon"
       color="neutral"
       variant="ghost"
-      :aria-label="player.muted ? 'Unmute' : 'Mute'"
+      :label="player.muted ? 'Unmute' : 'Mute'"
       @click="player.toggleMute()"
     />
     <USlider

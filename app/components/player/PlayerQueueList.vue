@@ -150,11 +150,11 @@ function menuFor(i: number): DropdownMenuItem[][] {
             :items="menuFor(i)"
             :content="{ align: 'end' }"
           >
-            <UButton
+            <IconButton
               icon="i-lucide-ellipsis-vertical"
               color="neutral"
               variant="ghost"
-              :aria-label="`Queue actions for ${track.title}`"
+              :label="`Queue actions for ${track.title}`"
             />
           </UDropdownMenu>
         </li>
