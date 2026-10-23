@@ -1,7 +1,8 @@
 /**
  * End-to-end, draft versions: new uploads are drafts; several versions are
  * sent to friends in one "Share for feedback" link (marked "WIP" there);
- * the chosen one is marked final; the others are deleted in one go.
+ * the group shows up on the Versions page, not among the playlists; the
+ * chosen one is marked final from the group; the others are deleted in one go.
  */
 import { expect, test } from '@playwright/test'
 import { signUp, uploadTrack } from './helpers'
@@ -44,15 +45,39 @@ test.describe('draft versions', () => {
       await expect(friend.getByTestId('shared-playlist-title')).toHaveText('Night drive – versions')
       await expect(friend.getByTestId('shared-playlist-track')).toHaveCount(2)
       await expect(friend.getByTestId('shared-track-wip')).toHaveCount(2)
+      // Introduced as versions to choose from, not as a playlist.
+      await expect(friend.getByText(/^Versions · 2 versions/)).toBeVisible()
+      await expect(friend.getByTestId('shared-versions-hint')).toBeVisible()
     }
     finally {
       await friendContext.close()
     }
 
-    // --- v2 wins: mark it final from its menu ---
-    await row('Night drive v2').getByRole('button', { name: 'Actions for Night drive v2' }).click()
+    // --- The group is kept apart from the playlists ---
+    await page.getByRole('link', { name: 'Playlists' }).click()
+    await expect(page.getByText('No playlists yet')).toBeVisible()
+    await expect(page.getByTestId('playlist-card')).toHaveCount(0)
+    await page.getByRole('link', { name: 'Versions', exact: true }).click()
+    await expect(page).toHaveURL(/\/versions$/)
+    const card = page.getByTestId('playlist-card')
+    await expect(card).toHaveCount(1)
+    await expect(card).toContainText('Night drive – versions')
+    await expect(card).toContainText('2 versions')
+
+    // --- v2 wins: mark it final from the group's page ---
+    await card.click()
+    await expect(page).toHaveURL(/\/versions\/[0-9a-f-]{36}$/)
+    await expect(page.getByTestId('playlist-title')).toHaveText('Night drive – versions')
+    const versionRow = (title: string) => page.getByTestId('playlist-track').filter({ hasText: title })
+    await versionRow('Night drive v2').getByRole('button', { name: 'Actions for Night drive v2' }).click()
     await page.getByRole('menuitem', { name: 'Mark as final' }).click()
     await expect(page.getByText('Marked as final').first()).toBeVisible()
+    await expect(versionRow('Night drive v2').getByTestId('version-final')).toBeVisible()
+    await expect(versionRow('Night drive v1').getByTestId('version-final')).toHaveCount(0)
+
+    // The library agrees: v2 is no longer a draft.
+    await page.getByRole('link', { name: 'Library' }).click()
+    await expect(rows).toHaveCount(3)
     await expect(row('Night drive v2').getByTestId('draft-badge')).toHaveCount(0)
 
     // --- The version filter ---

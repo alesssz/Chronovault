@@ -11,6 +11,11 @@ export function pluralize(count: number, singular: string, plural = `${singular}
   return `${count} ${count === 1 ? singular : plural}`
 }
 
+/** First letter in upper case: `capitalize('version')` → `Version` (labels built from a noun). */
+export function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 /** Cuts `text` at `max` characters, ending with an ellipsis when something was cut. */
 export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text

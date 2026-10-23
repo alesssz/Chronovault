@@ -6,6 +6,8 @@ import { sharedApi } from '~/services/api'
  * account needed. Lists every track (private ones included: sharing a
  * playlist shares its content) and shows the lyrics and description of the
  * track being played. Server-rendered for link previews.
+ * A group of versions (purpose 'versions', made by "Share for feedback") is the
+ * same page, introduced as versions of one song to choose from.
  */
 definePageMeta({ layout: 'public' })
 
@@ -21,10 +23,18 @@ const origin = useRequestURL().origin
 const { data: playlist, notFound } = await useSharedItem(`shared-playlist-${id}`, () => sharedApi.playlist(id))
 
 // --- Link preview -----------------------------------------------------------------
-/** "Playlist · 12 tracks · 48:10" (under the title, and the preview text without a description). */
+/** A group of versions of one song, rather than a playlist. */
+const isVersions = computed(() => playlist.value?.purpose === 'versions')
+/**
+ * "Playlist · 12 tracks · 48:10", or "Versions · 3 versions · 9:30" for a
+ * group (under the title, and the preview text without a description).
+ */
 const summary = computed(() => {
   const p = playlist.value
-  return p ? joinParts(['Playlist', pluralize(p.tracks.length, 'track'), formatTime(p.durationSeconds)]) : ''
+  if (!p) return ''
+  return isVersions.value
+    ? joinParts(['Versions', pluralize(p.tracks.length, 'version'), formatTime(p.durationSeconds)])
+    : joinParts(['Playlist', pluralize(p.tracks.length, 'track'), formatTime(p.durationSeconds)])
 })
 /** Preview text: the description, or a summary (count and duration). */
 const previewText = computed(() => {
@@ -126,6 +136,14 @@ function onLyricSeek(seconds: number) {
             data-testid="shared-playlist-description"
           >
             {{ playlist.description }}
+          </p>
+          <!-- A group without a note of its own: what the listener is asked to do -->
+          <p
+            v-else-if="isVersions"
+            class="mt-3 leading-relaxed text-muted"
+            data-testid="shared-versions-hint"
+          >
+            Different versions of the same song: listen to each and pick your favourite.
           </p>
         </div>
 

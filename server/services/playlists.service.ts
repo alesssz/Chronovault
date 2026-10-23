@@ -1,4 +1,4 @@
-import type { PlaylistDetail, PlaylistSummary } from '~~/shared/types/playlist'
+import type { PlaylistDetail, PlaylistPurpose, PlaylistSummary } from '~~/shared/types/playlist'
 import type { PlaylistCreate, PlaylistUpdate } from '~~/shared/schemas/playlist'
 import { MAX_PLAYLIST_TRACKS } from '~~/shared/schemas/playlist'
 import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
@@ -15,6 +15,8 @@ import { removeCoverFiles } from './playback'
 
 /**
  * Playlist business logic: an ordered list of the user's own tracks.
+ * The same logic serves both purposes: curated playlists and groups of versions
+ * sent for feedback (only the lists are split by purpose).
  * Covers (the custom one, plus the first track covers for the automatic
  * mosaic) are stable /api/covers addresses built by the mappers: nothing to
  * sign, and the browser caches them across visits.
@@ -23,9 +25,9 @@ import { removeCoverFiles } from './playback'
  * its copy with the server's (no second request).
  */
 
-/** The user's playlists, newest first (cover addresses are stable: nothing to sign). */
-export async function listPlaylists(db: DbClient, userId: string): Promise<PlaylistSummary[]> {
-  const rows = await playlistsRepo.listPlaylistRows(db, userId)
+/** The user's playlists of one purpose, newest first (cover addresses are stable: nothing to sign). */
+export async function listPlaylists(db: DbClient, userId: string, purpose: PlaylistPurpose): Promise<PlaylistSummary[]> {
+  const rows = await playlistsRepo.listPlaylistRows(db, userId, purpose)
   return rows.map(row => toPlaylistSummary(row, playlistsRepo.orderedTracks(row.playlist_tracks)))
 }
 

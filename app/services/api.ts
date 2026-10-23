@@ -1,6 +1,6 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
-import type { PlaylistDetail, PlaylistSummary, SharedPlaylist } from '~~/shared/types/playlist'
+import type { PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist } from '~~/shared/types/playlist'
 import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas/playlist'
 import type { StorageCleanupResult, StorageReport } from '~~/shared/types/storage'
 import type { AnalyticsPeriod, AnalyticsReport } from '~~/shared/types/analytics'
@@ -25,9 +25,10 @@ export const tracksApi = {
   playback: (id: string) => $fetch<PlaybackSource>(`/api/tracks/${id}/playback`),
 }
 
-/** The user's playlists (sign-in required). */
+/** The user's playlists and groups of versions (sign-in required). */
 export const playlistsApi = {
-  list: () => $fetch<PlaylistSummary[]>('/api/playlists'),
+  /** One purpose only: curated playlists ('playlist') or groups of versions ('versions'). */
+  list: (purpose: PlaylistPurpose) => $fetch<PlaylistSummary[]>('/api/playlists', { query: { purpose } }),
   get: (id: string) => $fetch<PlaylistDetail>(`/api/playlists/${id}`),
   create: (body: PlaylistCreateInput) => $fetch<PlaylistDetail>('/api/playlists', { method: 'POST', body }),
   update: (id: string, body: PlaylistUpdateInput) => $fetch<PlaylistDetail>(`/api/playlists/${id}`, { method: 'PATCH', body }),

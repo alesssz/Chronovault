@@ -95,6 +95,8 @@ export default defineNuxtConfig({
     '/tracks/**': { ssr: false },
     '/playlists': { ssr: false },
     '/playlists/**': { ssr: false },
+    '/versions': { ssr: false },
+    '/versions/**': { ssr: false },
     '/stats': { ssr: false },
     // The sign-in form must never be server-rendered: submitted before
     // hydration it would trigger a native GET submit (password in the URL).

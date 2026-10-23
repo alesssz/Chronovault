@@ -114,7 +114,7 @@ describe('shared playlists', () => {
   const PRIVATE = '44444444-4444-4444-8444-444444444444'
   /** The shared (unlisted) playlist row, without a custom cover. */
   const playlistRow = {
-    id: PLAYLIST, title: 'Night drive', description: 'Late songs', cover_path: null,
+    id: PLAYLIST, purpose: 'playlist', title: 'Night drive', description: 'Late songs', cover_path: null,
     visibility: 'unlisted', updated_at: '2026-10-20T10:00:00Z',
   } as unknown as SharedPlaylistRow
 
@@ -138,6 +138,13 @@ describe('shared playlists', () => {
     expect(playlist.mosaic).toEqual([`https://signed/${COVER}`])
     expect(playlist.durationSeconds).toBe(400)
     expect(JSON.stringify(playlist)).not.toMatch(/audio_?[pP]ath|sunoPrompt|mastered|\.flac/)
+  })
+
+  it('tells a group of versions from a playlist (the page words it differently)', async () => {
+    vi.mocked(findSharedPlaylistRow).mockResolvedValue({ ...playlistRow, purpose: 'versions' })
+    vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
+
+    expect((await getSharedPlaylist(db, PLAYLIST)).purpose).toBe('versions')
   })
 
   it('answers 404 for a missing or private playlist', async () => {
