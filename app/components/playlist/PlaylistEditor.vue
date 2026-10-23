@@ -319,6 +319,7 @@ async function onDelete() {
           :id="id"
           kind="playlist"
           :shared="isShared"
+          :title="playlist?.title"
         >
           <!-- Sharing a playlist shares its private tracks too (only inside it) -->
           <UAlert

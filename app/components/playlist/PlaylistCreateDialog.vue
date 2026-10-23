@@ -21,6 +21,11 @@ const open = computed({
   },
 })
 
+// The Android back button cancels (the setter above refuses while saving).
+useCloseOnBack(open, () => {
+  open.value = false
+})
+
 // Each opening starts from an empty field.
 watch(open, (value) => {
   if (value) {

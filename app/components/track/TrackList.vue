@@ -49,7 +49,8 @@ function toggleSelected(track: TrackSummary): void {
 
 // Highlights the current track and opens the full-screen view.
 const player = usePlayerStore()
-const { copyShareLink } = useShareLink()
+// "Share link" (the device's share sheet on touch screens) or "Copy share link" in the menu.
+const { shareLink, nativeShare } = useShareLink()
 const { addToPlaylistMenu } = usePlaylists()
 // "Play next" / "Add to queue" in the menu.
 const queue = useQueueActions()
@@ -95,7 +96,11 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
     ...(track.visibility === 'private'
       ? []
       : [[
-          { label: 'Copy share link', icon: 'i-lucide-link', onSelect: () => void copyShareLink(track.id) },
+          {
+            label: nativeShare.value ? 'Share link' : 'Copy share link',
+            icon: nativeShare.value ? 'i-lucide-share-2' : 'i-lucide-link',
+            onSelect: () => void shareLink(track.id, 'track', track.title),
+          },
           { label: 'Open share page', icon: 'i-lucide-external-link', to: `/t/${track.id}`, target: '_blank' },
         ]]),
     [{ label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => emit('delete', track) }],

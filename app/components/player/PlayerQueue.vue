@@ -13,6 +13,11 @@ const open = computed({
   get: () => player.queueOpen,
   set: value => player.setQueueOpen(value),
 })
+
+// The Android back button closes the panel first (it may sit on top of the full-screen view).
+useCloseOnBack(open, () => {
+  open.value = false
+})
 </script>
 
 <template>

@@ -4,7 +4,9 @@ import type { ShareKind } from '~/composables/useShareLink'
 /**
  * "Sharing" box of the track editor and the playlist page: for an unlisted
  * or public item, what visitors get, "Copy share link" and a button that
- * opens the public page; for a private one, how to get a link.
+ * opens the public page; for a private one, how to get a link. On touch
+ * screens the first button is "Share link" instead and opens the device's
+ * share sheet (useShareLink decides).
  * `shared` must reflect the *saved* visibility: a change applies once saved.
  * The default slot adds notes under the description (e.g. the playlist's
  * warning about the private tracks it contains).
@@ -15,9 +17,11 @@ const props = defineProps<{
   kind: ShareKind
   /** The saved visibility is unlisted or public. */
   shared: boolean
+  /** Name of the track or playlist, given to the share sheet along with the link. */
+  title?: string
 }>()
 
-const { shareUrl, copyShareLink } = useShareLink()
+const { shareUrl, shareLink, nativeShare } = useShareLink()
 
 /** What a visitor can do with the link. */
 const reach = computed(() => (props.kind === 'playlist'
@@ -38,16 +42,16 @@ const reach = computed(() => (props.kind === 'playlist'
         {{ reach }} The Suno prompt and the mastering status are never shown.
       </p>
       <slot />
-      <!-- Copy the link, or open the public page in a new tab -->
+      <!-- Share (touch screens) or copy the link, or open the public page in a new tab -->
       <UFieldGroup class="w-full">
         <UButton
-          label="Copy share link"
-          icon="i-lucide-link"
+          :label="nativeShare ? 'Share link' : 'Copy share link'"
+          :icon="nativeShare ? 'i-lucide-share-2' : 'i-lucide-link'"
           color="neutral"
           variant="subtle"
           block
           data-testid="copy-share-link"
-          @click="copyShareLink(id, kind)"
+          @click="shareLink(id, kind, title)"
         />
         <IconButton
           :to="shareUrl(id, kind)"

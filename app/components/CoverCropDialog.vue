@@ -30,6 +30,11 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ confirm: [crop: CropRect] }>()
 
+// The Android back button cancels the crop, like Cancel.
+useCloseOnBack(open, () => {
+  open.value = false
+})
+
 // --- The image ---------------------------------------------------------------------------
 /** Object URL of the file, revoked when the file changes or the dialog goes away. */
 const src = ref<string | null>(null)

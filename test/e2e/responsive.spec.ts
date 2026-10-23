@@ -3,10 +3,18 @@
  * `tablet`, see playwright.config.ts; the desktop project skips this file). No page scrolls
  * sideways, track covers show that they play without needing a hover, the tablet player bar
  * keeps a readable title and reaches the volume through a popover, and on phones the lyrics
- * sync editor keeps Stamp line pinned above the player bar.
+ * sync editor keeps Stamp line pinned above the player bar, keeps the screen on and vibrates.
+ *
+ * Phone-only device features, checked in Chromium with real touch events and a real
+ * CloseWatcher, and with recorders standing in for what a headless browser cannot do (see
+ * installDeviceProbes): swipes on the player bar and pull-down on the full-screen view, the
+ * Android back button closing the panel on top, and links shared through the share sheet.
  */
-import { expect, test, type Page } from '@playwright/test'
-import { signUp, uploadTrack } from './helpers'
+import { expect, test, type Locator, type Page } from '@playwright/test'
+import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
+
+// The edit page saves with PATCH /api/tracks/:id.
+const SAVE_TRACK = { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ }
 
 /** Pages of the signed-in app that must fit the screen width. */
 const PAGES = ['/', '/playlists', '/versions', '/stats', '/tracks/new']
@@ -37,6 +45,116 @@ async function signUpWithTrack(page: Page): Promise<void> {
   await uploadTrack(page, 'Touch screen song')
   await page.goto('/')
   await expect(page.getByTestId('track-row')).toHaveCount(1)
+}
+
+/** What the device probes recorded in the page (see installDeviceProbes). */
+interface DeviceLog {
+  /** Patterns passed to navigator.vibrate. */
+  vibrations: (number | number[])[]
+  /** Wake lock requests ('screen') and releases ('release'), in order. */
+  wakeLocks: string[]
+  /** Data passed to navigator.share. */
+  shared: { title?: string, url?: string }[]
+}
+
+/**
+ * Installs, before any page script runs, recorders for what a headless browser cannot do or
+ * show: vibration, the screen wake lock and the share sheet are replaced by fakes that log
+ * their calls (read with deviceLog). The real CloseWatcher is kept but wrapped, so a test can
+ * play the Android back button on the newest active watcher (pressBack).
+ */
+async function installDeviceProbes(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const log: DeviceLog = { vibrations: [], wakeLocks: [], shared: [] }
+    Object.assign(window, { __deviceLog: log })
+    Object.defineProperty(navigator, 'vibrate', {
+      configurable: true,
+      value: (pattern: number | number[]) => {
+        log.vibrations.push(pattern)
+        return true
+      },
+    })
+    Object.defineProperty(navigator, 'wakeLock', {
+      configurable: true,
+      value: {
+        request: async (type: string) => {
+          log.wakeLocks.push(type)
+          // A sentinel like the browser's: an event target that can be released once.
+          const sentinel = Object.assign(new EventTarget(), {
+            type,
+            released: false,
+            release: async () => {
+              sentinel.released = true
+              log.wakeLocks.push('release')
+            },
+          })
+          return sentinel
+        },
+      },
+    })
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: async (data: { title?: string, url?: string }) => {
+        log.shared.push(data)
+      },
+    })
+
+    // The real CloseWatcher, wrapped to know which watchers are still active.
+    type Watcher = EventTarget & { requestClose: () => void, destroy: () => void, spent?: boolean }
+    const Native = (window as unknown as { CloseWatcher?: new () => Watcher }).CloseWatcher
+    if (Native) {
+      const watchers: Watcher[] = []
+      Object.assign(window, { __closeWatchers: watchers })
+      class TrackedCloseWatcher extends Native {
+        constructor() {
+          super()
+          watchers.push(this)
+          // Fired once: the watcher is spent afterwards.
+          this.addEventListener('close', () => {
+            this.spent = true
+          })
+        }
+
+        override destroy() {
+          this.spent = true
+          super.destroy()
+        }
+      }
+      Object.assign(window, { CloseWatcher: TrackedCloseWatcher })
+    }
+  })
+}
+
+/** What the probes recorded so far. */
+async function deviceLog(page: Page): Promise<DeviceLog> {
+  return page.evaluate(() => (window as unknown as { __deviceLog: DeviceLog }).__deviceLog)
+}
+
+/** The Android back button: a close request to the newest active CloseWatcher, as the system sends it. */
+async function pressBack(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const watchers = (window as unknown as { __closeWatchers: { spent?: boolean, requestClose: () => void }[] }).__closeWatchers
+    watchers.filter(w => !w.spent).at(-1)!.requestClose()
+  })
+}
+
+/**
+ * A finger swipe from the centre of `locator`, moved by (dx, dy) pixels in small steps, as
+ * real touch events (Chrome DevTools Protocol): Playwright's touchscreen API only taps.
+ */
+async function swipe(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
+  const box = (await locator.boundingBox())!
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  const steps = 10
+  for (let i = 1; i <= steps; i++) {
+    const point = { x: x + (dx * i) / steps, y: y + (dy * i) / steps }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] })
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
 }
 
 test.describe('touch screens', () => {
@@ -80,6 +198,7 @@ test.describe('touch screens', () => {
 
   test('phone: Stamp line stays pinned above the player bar while syncing', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await installDeviceProbes(page)
     await signUpWithTrack(page)
 
     // Enough lyrics to make the page scroll, then the Sync tab with the track in the player.
@@ -103,8 +222,107 @@ test.describe('touch screens', () => {
     const player = await page.getByTestId('player-bar').boundingBox()
     expect(bar!.y + bar!.height).toBeLessThanOrEqual(player!.y)
 
-    // A tap stamps the next line.
+    // While syncing, the screen is kept on.
+    await expect.poll(async () => (await deviceLog(page)).wakeLocks).toEqual(['screen'])
+
+    // A tap stamps the next line, with a short vibration; Undo vibrates twice.
     await stamp.tap()
     await expect(page.getByText('1 / 30 lines synced')).toBeVisible()
+    await page.getByTestId('sync-stamp-bar').getByRole('button', { name: 'Undo' }).tap()
+    await expect(page.getByText('0 / 30 lines synced')).toBeVisible()
+    expect((await deviceLog(page)).vibrations).toEqual([15, [10, 60, 10]])
+
+    // Leaving the Sync tab lets the screen go back to its usual timeout.
+    await page.getByRole('tab', { name: 'Lyrics' }).tap()
+    await expect.poll(async () => (await deviceLog(page)).wakeLocks).toEqual(['screen', 'release'])
+  })
+
+  test('phone: swipes change track and open the player; a pull-down closes it', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await signUp(page)
+    // Long enough not to end during the test (the queue would move on by itself).
+    await uploadTrack(page, 'Older song', { seconds: 30 })
+    // A long title: the full-screen view must truncate it, not grow wider than the screen.
+    const newer = 'Newer song with a title far too long to fit on a phone screen'
+    await uploadTrack(page, newer, { seconds: 30 })
+    await page.goto('/')
+    await expect(page.getByTestId('track-row')).toHaveCount(2)
+
+    // Newest first: playing the first row queues both, "Older song" next.
+    await page.getByTestId('track-title').first().tap()
+    const bar = page.getByTestId('player-bar')
+    const title = bar.getByTestId('player-title')
+    const trackArea = bar.getByTestId('player-track-area')
+    await expect(title).toHaveText(newer)
+
+    // Swipe left: the next track.
+    await swipe(page, trackArea, -150, 0)
+    await expect(title).toHaveText('Older song')
+    // Paused right away, so "previous" goes back a track instead of restarting this one (after 3 s).
+    await bar.getByRole('button', { name: 'Pause' }).tap()
+    // Swipe right: the previous track.
+    await swipe(page, trackArea, 150, 0)
+    await expect(title).toHaveText(newer)
+
+    // Swipe up: the full-screen view.
+    await swipe(page, trackArea, 0, -150)
+    const expanded = page.getByTestId('player-expanded')
+    await expect(expanded).toBeVisible()
+    // It fits the screen even with the long title (its column once grew to the title's width).
+    const heading = (await expanded.getByRole('heading', { name: newer }).boundingBox())!
+    expect(heading.x + heading.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+
+    // Pull it down from its top: it closes.
+    await swipe(page, expanded.getByText('Now playing'), 0, 300)
+    await expect(expanded).toBeHidden()
+  })
+
+  test('phone: the back button closes the panel on top first', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await installDeviceProbes(page)
+    await signUpWithTrack(page)
+
+    // The full-screen view, then Up next on top of it.
+    await page.getByTestId('track-title').tap()
+    await page.getByTestId('player-track-area').tap()
+    const expanded = page.getByTestId('player-expanded')
+    await expect(expanded).toBeVisible()
+    await expanded.getByRole('button', { name: 'Up next' }).tap()
+    const queue = page.getByRole('dialog', { name: 'Up next' })
+    await expect(queue).toBeVisible()
+
+    // Back closes Up next only; back again closes the full-screen view; the page stays.
+    await pressBack(page)
+    await expect(queue).toBeHidden()
+    await expect(expanded).toBeVisible()
+    await pressBack(page)
+    await expect(expanded).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible()
+  })
+
+  test('phone: share links open the share sheet', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await installDeviceProbes(page)
+    await signUpWithTrack(page)
+
+    // An unlisted track has a public link.
+    await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
+    await page.getByText('Unlisted', { exact: true }).tap()
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
+
+    // The share box: "Share link" hands title and link to the share sheet.
+    const share = page.getByTestId('share-box').getByTestId('copy-share-link')
+    await expect(share).toHaveText('Share link')
+    await share.tap()
+    await expect.poll(async () => (await deviceLog(page)).shared).toHaveLength(1)
+    const [sent] = (await deviceLog(page)).shared
+    expect(sent!.title).toBe('Touch screen song')
+    expect(sent!.url).toMatch(/\/t\/[0-9a-f-]{36}$/)
+
+    // The library menu does the same (a new page load: the log starts empty again).
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Actions for Touch screen song' }).tap()
+    await page.getByRole('menuitem', { name: 'Share link' }).tap()
+    await expect.poll(async () => (await deviceLog(page)).shared).toEqual([sent])
   })
 })
