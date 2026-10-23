@@ -33,8 +33,13 @@ export type RepeatMode = 'off' | 'all' | 'one'
 export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
   & Partial<Pick<TrackSummary, 'genreId'>>
 
-/** The track being played: a library track or a shared one (public page). */
-export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced' | 'peaks'>
+/**
+ * The track being played: a library track or a shared one (public page).
+ * Every source provides these fields (TrackDetail and the shared tracks
+ * alike); the description is shown under the controls of the phones'
+ * full-screen view.
+ */
+export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced' | 'peaks' | 'description'>
 
 /** Where the player gets track data and streaming URLs from. */
 export interface TrackSource {

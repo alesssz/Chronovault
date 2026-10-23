@@ -10,7 +10,8 @@
  * installDeviceProbes): swipes on the player bar and pull-down on the full-screen view, the
  * Android back button closing the panel on top, and links shared through the share sheet.
  * Also the lock-screen media card (the browser's real Media Session) and the Cast button,
- * against a stand-in for a Chromecast on the network (see installCastDevice).
+ * against a stand-in for a Chromecast on the network (see installCastDevice), and the phones'
+ * full-screen view: the description under the controls, the lyrics in a view of their own.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
@@ -378,6 +379,84 @@ test.describe('touch screens', () => {
     await expect(castButton).toHaveAttribute('data-state', 'connected')
     await expect(castButton).toHaveAccessibleName('Casting: stop or change device')
     expect(await page.evaluate(() => (window as unknown as { __castPrompts: number[] }).__castPrompts.length)).toBe(1)
+  })
+
+  test('phone: the full-screen view shows the description; Lyrics opens the lyrics view', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await installDeviceProbes(page)
+    await signUpWithTrack(page)
+    const id = await firstTrackId(page)
+
+    // A track without lyrics or description: the view has neither, and no Lyrics button.
+    await page.getByTestId('track-title').tap()
+    await page.getByTestId('player-track-area').tap()
+    const expanded = page.getByTestId('player-expanded')
+    await expect(expanded).toBeVisible()
+    // On opening the view itself takes the focus, not its first button, whose tooltip
+    // ("Collapse player") used to open by itself over the cover.
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('player-expanded')
+    await expect(page.getByRole('tooltip')).toHaveCount(0)
+    await expect(expanded.getByTestId('player-lyrics-toggle')).toHaveCount(0)
+    await expect(expanded.getByTestId('player-description')).toHaveCount(0)
+
+    // Description and 30 synced lines (enough to scroll), then a reload: the saved queue
+    // brings the track back with its new data.
+    await page.evaluate(async (trackId) => {
+      const lyricsSynced = Array.from({ length: 30 }, (_, i) => ({ time: i * 2, text: `Sung line ${i + 1}` }))
+      const response = await fetch(`/api/tracks/${trackId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Written on a rainy night.',
+          lyrics: lyricsSynced.map(line => line.text).join('\n'),
+          lyricsSynced,
+        }),
+      })
+      if (!response.ok) throw new Error(`PATCH failed: ${response.status}`)
+    }, id)
+    await page.reload()
+    await page.getByTestId('player-track-area').tap()
+    await expect(expanded).toBeVisible()
+
+    // Normal view: the description under the controls, the lyrics not there.
+    await expect(expanded.getByTestId('player-description')).toContainText('Written on a rainy night.')
+    await expect(expanded.getByTestId('lyrics-synced')).toHaveCount(0)
+
+    // Lyrics: the lyrics view, with the controls still at hand.
+    const toggle = expanded.getByTestId('player-lyrics-toggle')
+    await toggle.tap()
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    const lyricsView = expanded.getByTestId('player-lyrics-view')
+    await expect(lyricsView.getByTestId('lyrics-synced')).toBeVisible()
+    await expect(lyricsView.getByRole('button', { name: /^(Play|Pause)$/ })).toBeVisible()
+    await expect(expanded.getByTestId('player-description')).toHaveCount(0)
+
+    // The lyrics scroll inside their own box; the view itself fits the screen.
+    const box = await lyricsView.getByTestId('lyrics-synced').evaluate((list) => {
+      const scroller = list.parentElement!
+      return { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight }
+    })
+    expect(box.scrollHeight).toBeGreaterThan(box.clientHeight)
+    const viewBox = (await lyricsView.boundingBox())!
+    expect(viewBox.y + viewBox.height).toBeLessThanOrEqual(page.viewportSize()!.height)
+
+    // The screen stays on while reading along with the music: not while paused (the reload
+    // brought the track back paused), yes once playing, and no longer after a pause.
+    expect((await deviceLog(page)).wakeLocks).toEqual([])
+    await lyricsView.getByRole('button', { name: 'Play' }).tap()
+    await expect.poll(async () => (await deviceLog(page)).wakeLocks).toEqual(['screen'])
+    await lyricsView.getByRole('button', { name: 'Pause' }).tap()
+    await expect.poll(async () => (await deviceLog(page)).wakeLocks).toEqual(['screen', 'release'])
+
+    // Remembered on the device: after a reload the full-screen view opens on the lyrics.
+    await page.reload()
+    await page.getByTestId('player-track-area').tap()
+    await expect(expanded.getByTestId('player-lyrics-view')).toBeVisible()
+
+    // Off again: back to the normal view.
+    await expanded.getByTestId('player-lyrics-toggle').tap()
+    await expect(expanded.getByTestId('player-lyrics-view')).toHaveCount(0)
+    await expect(expanded.getByTestId('player-description')).toBeVisible()
   })
 
   test('phone: share links open the share sheet', async ({ page }, testInfo) => {
