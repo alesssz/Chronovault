@@ -1,12 +1,13 @@
 -- =============================================================================
--- Playlist security tests (pgTAP): ownership, sharing by link, storage.
+-- Playlist security tests (pgTAP): ownership, sharing by link, storage,
+-- purposes (curated playlists and groups of versions).
 -- Run with:  make db-test   (or: pnpm test:db)
 -- Everything runs in a transaction that is rolled back: the DB stays clean.
 -- =============================================================================
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(24);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -49,6 +50,15 @@ select table_privs_are('public', 'playlists', 'anon', array[]::text[],
   'anonymous visitors cannot touch the playlists table');
 select table_privs_are('public', 'playlist_tracks', 'anon', array[]::text[],
   'anonymous visitors cannot touch the playlist_tracks table');
+
+-- -----------------------------------------------------------------------------
+-- Purposes: a playlist is a curated one unless created as a group of versions
+-- -----------------------------------------------------------------------------
+select results_eq(
+  $$ select purpose::text from public.playlists where user_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' order by title $$,
+  $$ values ('playlist'), ('playlist') $$,
+  'playlists created without a purpose are curated playlists'
+);
 
 -- -----------------------------------------------------------------------------
 -- User B
@@ -143,6 +153,12 @@ select results_eq(
 select is_empty(
   $$ select 1 from public.get_shared_playlist('c1111111-1111-4111-8111-111111111111') $$,
   'an anonymous visitor cannot open a private playlist'
+);
+
+select results_eq(
+  $$ select purpose::text from public.get_shared_playlist('c2222222-2222-4222-8222-222222222222') $$,
+  $$ values ('playlist') $$,
+  'a shared playlist says its purpose (the page words a group of versions differently)'
 );
 
 select is_empty(

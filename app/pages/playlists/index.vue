@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
  * Playlists page (client-rendered): a grid of cards (cover or mosaic,
- * title, visibility, track count) and "New playlist".
+ * title, visibility, track count) and "New playlist". Groups of versions
+ * made by "Share for feedback" are not here: they have the Versions page.
  */
 useSeoMeta({ title: 'Playlists · ChronoPlayer' })
 
+// The cached list of curated playlists, and the "New playlist" dialog.
 const { playlists, status, refresh, openCreateDialog } = usePlaylists()
 
 // Track edits and deletions elsewhere change counts and mosaics.
@@ -36,41 +38,9 @@ onMounted(() => void refresh())
     />
 
     <!-- Playlist cards -->
-    <ul
+    <PlaylistGrid
       v-else
-      class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-    >
-      <li
-        v-for="playlist in playlists"
-        :key="playlist.id"
-        data-testid="playlist-card"
-      >
-        <NuxtLink
-          :to="`/playlists/${playlist.id}`"
-          class="group block rounded-lg p-2 transition-colors hover:bg-elevated/60"
-        >
-          <PlaylistCover
-            :url="playlist.coverUrl"
-            :mosaic="playlist.mosaic"
-            :title="playlist.title"
-            rounded="rounded-lg"
-            class="w-full shadow-lg shadow-black/20"
-          />
-          <p class="mt-2 truncate font-medium">
-            {{ playlist.title }}
-          </p>
-          <p class="flex items-center gap-1.5 text-sm text-muted">
-            <UIcon
-              :name="VISIBILITY_INFO[playlist.visibility].icon"
-              :aria-label="VISIBILITY_INFO[playlist.visibility].label"
-              class="size-3.5 shrink-0"
-            />
-            <span class="truncate">
-              {{ pluralize(playlist.trackCount, 'track') }}<span class="hidden sm:inline"> · {{ formatTime(playlist.durationSeconds) }}</span>
-            </span>
-          </p>
-        </NuxtLink>
-      </li>
-    </ul>
+      :items="playlists"
+    />
   </UContainer>
 </template>

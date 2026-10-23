@@ -3,7 +3,7 @@
  * keys, blank values, clamping and moving an item inside an ordered list.
  */
 import { describe, expect, it } from 'vitest'
-import { foldCase, hasText, joinParts, pluralize, truncate } from '~~/shared/utils/text'
+import { capitalize, foldCase, hasText, joinParts, pluralize, truncate } from '~~/shared/utils/text'
 import { clamp } from '~~/shared/utils/numbers'
 import { moveItem } from '~~/shared/utils/arrays'
 
@@ -19,6 +19,17 @@ describe('pluralize', () => {
 
   it('takes an irregular plural', () => {
     expect(pluralize(3, 'child', 'children')).toBe('3 children')
+  })
+})
+
+describe('capitalize', () => {
+  it('upper-cases the first letter only', () => {
+    expect(capitalize('version')).toBe('Version')
+    expect(capitalize('private track')).toBe('Private track')
+  })
+
+  it('leaves an empty string alone', () => {
+    expect(capitalize('')).toBe('')
   })
 })
 

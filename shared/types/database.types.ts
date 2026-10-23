@@ -65,14 +65,14 @@ isOneToOne: false
                   ]
                 },"playlists": {
                   Row: {
-                    "cover_path": string | null,"created_at": string,"description": string | null,"id": string,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"]
+                    "cover_path": string | null,"created_at": string,"description": string | null,"id": string,"purpose": Database["public"]['Enums']["playlist_purpose"],"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
+                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"purpose"?: Database["public"]['Enums']["playlist_purpose"],"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
                   }
                   Update: {
-                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
+                    "cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"purpose"?: Database["public"]['Enums']["playlist_purpose"],"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"]
                   }
                   Relationships: [
                     
@@ -105,7 +105,7 @@ isOneToOne: false
           Functions: {
             "get_shared_playlist":
 { Args: { "p_playlist_id": string }; Returns: {
-              "cover_path": string,"description": string,"id": string,"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"]
+              "cover_path": string,"description": string,"id": string,"purpose": Database["public"]['Enums']["playlist_purpose"],"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"]
             }[]
                            },
 "get_shared_playlist_tracks":
@@ -129,7 +129,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "track_status": "draft"|"final","track_visibility": "private"|"unlisted"|"public"
+            "playlist_purpose": "playlist"|"versions","track_status": "draft"|"final","track_visibility": "private"|"unlisted"|"public"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -249,7 +249,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "track_status": ["draft", "final"],"track_visibility": ["private", "unlisted", "public"]
+            "playlist_purpose": ["playlist", "versions"],"track_status": ["draft", "final"],"track_visibility": ["private", "unlisted", "public"]
           }
         }
 } as const

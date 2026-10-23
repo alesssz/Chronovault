@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
-import { playlistCreateSchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
+import { playlistCreateSchema, playlistListQuerySchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
 import { analyticsQuerySchema } from '~~/shared/schemas/analytics'
 
 /** A valid edit form, with spaces and empty texts the schema must normalize. */
@@ -106,6 +106,23 @@ describe('playlist schemas', () => {
     expect(playlistCreateSchema.safeParse({ title: '  ' }).success).toBe(false)
     expect(playlistUpdateSchema.parse({ description: '' })).toEqual({ description: null })
     expect(playlistUpdateSchema.safeParse({}).success).toBe(false)
+  })
+
+  it('a playlist is created as a playlist or a group of versions, nothing else', () => {
+    expect(playlistCreateSchema.parse({ title: 'Rain', purpose: 'versions' }).purpose).toBe('versions')
+    expect(playlistCreateSchema.parse({ title: 'Rain' }).purpose).toBeUndefined()
+    expect(playlistCreateSchema.safeParse({ title: 'Rain', purpose: 'album' }).success).toBe(false)
+  })
+
+  it('the purpose cannot change after creation', () => {
+    // PATCH bodies ignore unknown keys: `purpose` never reaches the update.
+    expect(playlistUpdateSchema.parse({ title: 'Rain', purpose: 'versions' })).toEqual({ title: 'Rain' })
+  })
+
+  it('lists curated playlists unless the groups of versions are asked for', () => {
+    expect(playlistListQuerySchema.parse({}).purpose).toBe('playlist')
+    expect(playlistListQuerySchema.parse({ purpose: 'versions' }).purpose).toBe('versions')
+    expect(playlistListQuerySchema.safeParse({ purpose: 'album' }).success).toBe(false)
   })
 })
 

@@ -7,8 +7,8 @@
  *
  * "Select" turns on selection mode: tick tracks (e.g. the versions of a
  * song), then act on all of them at once: mark as final, add to a
- * playlist, "Share for feedback" (a new unlisted playlist whose link is
- * copied), delete.
+ * playlist, "Share for feedback" (a new unlisted group of versions, listed
+ * on the Versions page, whose link is copied), delete.
  */
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistsApi, tracksApi } from '~/services/api'
@@ -146,21 +146,24 @@ function stopSelecting() {
   selectedIds.value = []
 }
 
-// "Add to playlist" and "Share for feedback" of the selection.
-const { addToPlaylistMenu, remember } = usePlaylists()
-// Copies the feedback playlist's link.
+// "Add to playlist" of the selection.
+const { addToPlaylistMenu } = usePlaylists()
+// The Versions page's list, which "Share for feedback" adds to.
+const versionGroups = usePlaylistList('versions')
+// Copies the group's share link.
 const { copyShareLink } = useShareLink()
 
 /** "Add to playlist" menu of the selection: a new playlist, or an existing one. */
 const selectionPlaylistMenu = computed(() => addToPlaylistMenu(() => selectedIds.value))
 
-/** Creating the feedback playlist (spinner on the button). */
+/** Creating the group of versions (spinner on the button). */
 const sharing = useAsyncTask()
 
 /**
- * "Share for feedback": a new unlisted playlist with the selected versions,
- * named after them ("Night drive – versions"), and its link copied. Friends
- * open one link and hear every version in a row, drafts marked
+ * "Share for feedback": a new unlisted group of versions (a playlist whose
+ * purpose is 'versions', kept apart from the curated playlists) with the selected
+ * tracks, named after them ("Night drive – versions"), and its link copied.
+ * Friends open one link and hear every version in a row, drafts marked
  * "Work in progress".
  */
 async function shareForFeedback() {
@@ -169,14 +172,15 @@ async function shareForFeedback() {
   await sharing.run(async () => {
     const playlist = await playlistsApi.create({
       title: feedbackPlaylistTitle(chosen.map(t => t.title)),
+      purpose: 'versions',
       visibility: 'unlisted',
       trackIds: chosen.map(t => t.id),
     })
-    // The Playlists page and "Add to playlist" menus see it at once.
-    remember(playlist)
+    // The Versions page sees it at once.
+    versionGroups.remember(playlist)
     await copyShareLink(playlist.id, 'playlist')
     stopSelecting()
-  }, 'Could not create the playlist')
+  }, 'Could not create the group of versions')
 }
 
 /** The bulk delete confirmation is open. */

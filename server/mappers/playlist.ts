@@ -59,6 +59,7 @@ function signedMosaic(tracks: { cover_path: string | null }[], signed: SignedUrl
 export function toPlaylistSummary(row: PlaylistRow, tracks: PlaylistTrackStatsRow[]): PlaylistSummary {
   return {
     id: row.id,
+    purpose: row.purpose,
     title: row.title,
     description: row.description,
     visibility: row.visibility,
@@ -86,6 +87,7 @@ export function toPlaylistDetail(row: PlaylistRow, trackRows: TrackSummaryRow[])
 export function toPlaylistInsert(userId: string, input: PlaylistCreate): TablesInsert<'playlists'> {
   return {
     user_id: userId,
+    purpose: input.purpose ?? 'playlist',
     title: input.title,
     description: input.description ?? null,
     visibility: input.visibility ?? 'private',
@@ -124,6 +126,7 @@ export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: Signe
 export function toSharedPlaylist(row: SharedPlaylistRow, tracks: SharedPlaylistTrackRow[], signed: SignedUrls): SharedPlaylist {
   return {
     id: row.id,
+    purpose: row.purpose,
     title: row.title,
     description: row.description ?? null,
     // The database function never returns private playlists.

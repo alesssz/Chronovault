@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { TRACK_VISIBILITIES } from '../types/track'
+import { PLAYLIST_PURPOSES } from '../types/playlist'
 import { optionalText, patchSchemaOf } from './track'
 
 /**
@@ -32,9 +33,14 @@ export type PlaylistMetadataInput = z.input<typeof playlistMetadataSchema>
 /** Validated playlist metadata. */
 export type PlaylistMetadata = z.output<typeof playlistMetadataSchema>
 
-/** Body of POST /api/playlists: a title, and optionally the first tracks. */
+/**
+ * Body of POST /api/playlists: a title, and optionally the first tracks and
+ * the purpose ('playlist' when omitted; "Share for feedback" sends 'versions').
+ * The purpose is fixed at creation: PATCH cannot change it.
+ */
 export const playlistCreateSchema = playlistMetadataSchema.partial().extend({
   title: playlistMetadataSchema.shape.title,
+  purpose: z.enum(PLAYLIST_PURPOSES).optional(),
   trackIds: trackIds.optional(),
 })
 
@@ -50,6 +56,14 @@ export const playlistUpdateSchema = patchSchemaOf(playlistMetadataSchema)
 export type PlaylistUpdateInput = z.input<typeof playlistUpdateSchema>
 /** Validated PATCH body. */
 export type PlaylistUpdate = z.output<typeof playlistUpdateSchema>
+
+/** Query of GET /api/playlists: which purpose to list (default 'playlist'). */
+export const playlistListQuerySchema = z.object({
+  purpose: z.enum(PLAYLIST_PURPOSES).default('playlist'),
+})
+
+/** Validated query of GET /api/playlists. */
+export type PlaylistListQuery = z.output<typeof playlistListQuerySchema>
 
 /**
  * Body of PUT /api/playlists/:id/tracks (the whole list, in order: reorder

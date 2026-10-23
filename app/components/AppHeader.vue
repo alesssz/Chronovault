@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * Header of the signed-in app: logo, section links (Library, Playlists),
- * "Add" (upload), light/dark switch and the account menu (Statistics,
- * Storage, Sign out).
+ * Header of the signed-in app: logo, section links (Library, Playlists,
+ * Versions: the groups of versions shared for feedback), "Add" (upload),
+ * light/dark switch and the account menu (Statistics, Storage, Sign out).
  * On phones the logo shows only its icon and the section links only theirs.
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
@@ -33,6 +33,7 @@ const route = useRoute()
 const sections = [
   { label: 'Library', to: '/', icon: 'i-lucide-library', active: () => route.path === '/' || route.path.startsWith('/tracks') },
   { label: 'Playlists', to: '/playlists', icon: 'i-lucide-list-music', active: () => route.path.startsWith('/playlists') },
+  { label: 'Versions', to: '/versions', icon: 'i-lucide-layers', active: () => route.path.startsWith('/versions') },
 ]
 
 /** The Storage dialog (usage and clean-up of orphaned files). */

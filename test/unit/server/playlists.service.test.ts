@@ -1,6 +1,7 @@
 /**
  * Playlists service with mocked repositories: ordering, covers and mosaic, private-track count,
- * cover path checks and clean-up, appending and replacing tracks, 404s.
+ * lists and creation by purpose (playlists / groups of versions), cover path checks and clean-up,
+ * appending and replacing tracks, 404s.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaylistRow } from '~~/server/mappers/playlist'
@@ -51,7 +52,7 @@ const V = Date.parse(UPDATED_AT).toString(36)
 /** A private playlist row without a custom cover. */
 function playlistRow(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
   return {
-    id: PLAYLIST, user_id: USER, title: 'Night drive', description: null, visibility: 'private', cover_path: null,
+    id: PLAYLIST, user_id: USER, purpose: 'playlist', title: 'Night drive', description: null, visibility: 'private', cover_path: null,
     created_at: UPDATED_AT, updated_at: UPDATED_AT,
     ...overrides,
   }
@@ -111,10 +112,22 @@ describe('listPlaylists', () => {
       { ...playlistRow({ cover_path: `${USER}/playlists/${PLAYLIST}.webp` }), playlist_tracks: [{ position: 0, tracks: trackRow(T1) }] },
     ])
 
-    const [summary] = await listPlaylists(db, USER)
+    const [summary] = await listPlaylists(db, USER, 'playlist')
 
     expect(summary!.coverUrl).toBe(`/api/covers/playlists/${PLAYLIST}?v=${V}`)
     expect(summary!.mosaic).toEqual([`/api/covers/tracks/${T1}?v=${V}`])
+  })
+
+  it('lists one purpose only, and says which', async () => {
+    vi.mocked(playlistsRepo.listPlaylistRows).mockResolvedValue([
+      { ...playlistRow({ purpose: 'versions', visibility: 'unlisted' }), playlist_tracks: [{ position: 0, tracks: trackRow(T1) }] },
+    ])
+
+    const [group] = await listPlaylists(db, USER, 'versions')
+
+    // The purpose filter is the repository's query (one indexed column).
+    expect(playlistsRepo.listPlaylistRows).toHaveBeenCalledWith(db, USER, 'versions')
+    expect(group!.purpose).toBe('versions')
   })
 })
 
@@ -126,10 +139,22 @@ describe('createPlaylist', () => {
     const playlist = await createPlaylist(db, USER, { title: 'Night drive', trackIds: [T1] })
 
     expect(playlistsRepo.insertPlaylistRow).toHaveBeenCalledWith(db, expect.objectContaining({
-      user_id: USER, title: 'Night drive', visibility: 'private',
+      user_id: USER, purpose: 'playlist', title: 'Night drive', visibility: 'private',
     }))
     expect(playlistsRepo.setPlaylistTrackIds).toHaveBeenCalledWith(db, PLAYLIST, [T1])
     expect(playlist.trackCount).toBe(1)
+  })
+
+  it('creates a group of versions when asked ("Share for feedback")', async () => {
+    vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow({ purpose: 'versions', visibility: 'unlisted' }))
+    vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([trackRow(T1), trackRow(T2)], { purpose: 'versions', visibility: 'unlisted' }))
+
+    const group = await createPlaylist(db, USER, { title: 'Night drive – versions', purpose: 'versions', visibility: 'unlisted', trackIds: [T1, T2] })
+
+    expect(playlistsRepo.insertPlaylistRow).toHaveBeenCalledWith(db, expect.objectContaining({
+      purpose: 'versions', visibility: 'unlisted',
+    }))
+    expect(group.purpose).toBe('versions')
   })
 })
 

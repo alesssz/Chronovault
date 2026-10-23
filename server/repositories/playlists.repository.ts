@@ -1,4 +1,5 @@
 import type { TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
+import type { PlaylistPurpose } from '~~/shared/types/playlist'
 import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 import { TRACK_SUMMARY_COLUMNS, type TrackSummaryRow } from '../mappers/track'
@@ -35,13 +36,15 @@ export function orderedTracks<T>(entries: PlaylistEntry<T>[]): T[] {
   return [...entries].sort(byPosition).flatMap(e => (e.tracks ? [e.tracks] : []))
 }
 
-/** The user's playlists, newest first. */
-export async function listPlaylistRows(db: DbClient, userId: string): Promise<PlaylistListRow[]> {
+/** The user's playlists of one purpose (curated playlists or version groups), newest first. */
+export async function listPlaylistRows(db: DbClient, userId: string, purpose: PlaylistPurpose): Promise<PlaylistListRow[]> {
   const { data, error } = await db
     .from('playlists')
     // Track id and updated_at build the mosaic's cover addresses.
     .select('*, playlist_tracks(position, tracks(id, cover_path, duration_seconds, visibility, updated_at))')
     .eq('user_id', userId)
+    // Playlists page or Versions page: served by the (user_id, purpose, created_at) index.
+    .eq('purpose', purpose)
     .order('created_at', { ascending: false })
     .overrideTypes<PlaylistListRow[], { merge: false }>()
   if (error) throw toHttpError(error, 'playlists.list')
