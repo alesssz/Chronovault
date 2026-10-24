@@ -10,8 +10,9 @@
  * installDeviceProbes): swipes on the player bar and pull-down on the full-screen view, the
  * Android back button closing the panel on top, and links shared through the share sheet.
  * Also the lock-screen media card (the browser's real Media Session) and the Cast button,
- * against a stand-in for a Chromecast on the network (see installCastDevice), and the phones'
- * full-screen view: the description under the controls, the lyrics in a view of their own.
+ * against a stand-in for a Chromecast on the network (see installCastDevice) and with no
+ * device at all (always shown on touch screens), and the phones' full-screen view: the
+ * description under the controls, the lyrics in a view of their own.
  */
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
@@ -379,6 +380,25 @@ test.describe('touch screens', () => {
     await expect(castButton).toHaveAttribute('data-state', 'connected')
     await expect(castButton).toHaveAccessibleName('Casting: stop or change device')
     expect(await page.evaluate(() => (window as unknown as { __castPrompts: number[] }).__castPrompts.length)).toBe(1)
+  })
+
+  test('touch screens: the Cast button is always there, and explains when casting is not possible', async ({ page }, testInfo) => {
+    await signUpWithTrack(page)
+    await page.getByTestId('track-title').tap()
+
+    // Phones reach it in the full-screen view, tablets in the player bar.
+    let castButton = page.getByTestId('player-bar').getByTestId('player-cast')
+    if (testInfo.project.name === 'phone') {
+      await page.getByTestId('player-track-area').tap()
+      castButton = page.getByTestId('player-expanded').getByTestId('player-cast')
+    }
+    // No device on the network (a test browser finds none): still there, as in phone music apps.
+    await expect(castButton).toBeVisible()
+
+    // This headless browser has no device picker, so it refuses at once, like a browser
+    // that cannot cast (e.g. Opera on Android): a message says what to try instead.
+    await castButton.tap()
+    await expect(page.getByText('This browser cannot cast')).toBeVisible()
   })
 
   test('phone: the full-screen view shows the description; Lyrics opens the lyrics view', async ({ page }, testInfo) => {

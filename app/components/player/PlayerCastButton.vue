@@ -7,9 +7,16 @@ import { getAudioEngine } from '~/lib/audio-engine'
  * useRemotePlayback. Shown in the player bar (from tablet width) and in the
  * full-screen view's top bar (the phones' way to reach it).
  *
- * It only appears where it can do something: the browser supports casting
- * and a device can be offered. While casting the icon turns the primary
- * colour; pressing it again opens the browser's picker, where casting can be
+ * Where it shows:
+ * - on touch screens (phones, tablets) always, as in phone music apps: a tap
+ *   opens the browser's picker, which searches the network then; when it
+ *   finds nothing, or the browser cannot cast at all (e.g. Opera on Android,
+ *   or Firefox), a message says so and what to try;
+ * - with a mouse only when the browser reports a device (or cannot tell
+ *   until asked), as video sites do on a desktop, where most people have
+ *   nothing to cast to.
+ * While casting (or connecting) it shows everywhere, in the primary colour;
+ * pressing it again opens the browser's picker, where casting can be
  * stopped or moved to another device.
  *
  * The element cast is the app's single <audio> (lib/audio-engine), taken
@@ -21,8 +28,13 @@ onMounted(() => {
 })
 
 const { available, state, prompt } = useRemotePlayback(element)
-// "No devices found" / failure messages.
+// "No devices found" / "cannot cast" / failure messages.
 const toast = useToast()
+
+/** A touch screen (phone, tablet): the button is always there. */
+const touch = useMediaQuery('(pointer: coarse)')
+/** Shown: always on touch screens, otherwise when a device is around; and always while connected. */
+const visible = computed(() => touch.value || available.value || state.value !== 'disconnected')
 
 /** Accessible name and tooltip: what pressing it will do now. */
 const label = computed(() => {
@@ -42,6 +54,15 @@ async function cast() {
       color: 'warning',
     })
   }
+  else if (result === 'unsupported') {
+    toast.add({
+      title: 'This browser cannot cast',
+      description: 'To play on a TV or speaker, open ChronoPlayer in Chrome (Android) or Safari (iPhone, iPad).',
+      icon: 'i-lucide-cast',
+      color: 'warning',
+      duration: 8000,
+    })
+  }
   else if (result === 'failed') {
     toast.add({ title: 'Could not start casting', icon: 'i-lucide-cast', color: 'error' })
   }
@@ -49,9 +70,9 @@ async function cast() {
 </script>
 
 <template>
-  <!-- Hidden until a device can be offered; kept while connected, to stop casting. -->
+  <!-- Always on touch screens; with a mouse, hidden until a device can be offered; kept while connected, to stop casting. -->
   <IconButton
-    v-if="available || state !== 'disconnected'"
+    v-if="visible"
     icon="i-lucide-cast"
     :color="state === 'disconnected' ? 'neutral' : 'primary'"
     variant="ghost"

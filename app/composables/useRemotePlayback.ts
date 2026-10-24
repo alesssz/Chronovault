@@ -27,8 +27,20 @@ import type { MaybeRefOrGetter } from 'vue'
  *   change device while connected); must run from a click.
  */
 
-/** How prompt() ended, for the caller's feedback. */
-export type CastPromptResult = 'done' | 'cancelled' | 'no-devices' | 'failed'
+/**
+ * How prompt() ended, for the caller's feedback: 'unsupported' means this
+ * browser cannot cast at all (no API, or it refused without showing a
+ * picker), so the user should try another browser.
+ */
+export type CastPromptResult = 'done' | 'cancelled' | 'no-devices' | 'unsupported' | 'failed'
+
+/**
+ * A refusal this fast (ms) did not come from a person closing a picker: no
+ * picker was shown at all. Browsers built on Chromium without Google's
+ * casting service (e.g. Opera on Android) answer a tap on Cast this way, with
+ * the same error a closed picker gives (NotAllowedError).
+ */
+const INSTANT_REFUSAL_MS = 300
 
 export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | null | undefined>) {
   /** A device can be offered: show the Cast button. */
@@ -88,17 +100,25 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
    * (browsers refuse it otherwise).
    */
   async function prompt(): Promise<CastPromptResult> {
-    if (!watched) return 'failed'
+    // No Remote Playback API in this browser (e.g. Firefox).
+    if (!watched) return 'unsupported'
+    const startedAt = performance.now()
     try {
       await watched.prompt()
       return 'done'
     }
     catch (error) {
       const name = error instanceof DOMException ? error.name : ''
-      // The picker was closed without choosing anything.
-      if (name === 'NotAllowedError' || name === 'AbortError') return 'cancelled'
       // No TV or speaker on this network (or none that can play this kind of audio).
       if (name === 'NotFoundError') return 'no-devices'
+      // The browser says outright that it cannot cast.
+      if (name === 'NotSupportedError') return 'unsupported'
+      if (name === 'NotAllowedError' || name === 'AbortError') {
+        // Either the picker was closed without choosing anything (silence is right: the
+        // browser showed its own picker), or it never appeared, which is too quick to be a
+        // person's doing and means this browser cannot cast (see INSTANT_REFUSAL_MS).
+        return performance.now() - startedAt < INSTANT_REFUSAL_MS ? 'unsupported' : 'cancelled'
+      }
       return 'failed'
     }
   }
