@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tracksApi } from '~/services/api'
+import { castErrorText, loadGoogleCast, type GoogleCast } from '~/lib/google-cast'
 
 /**
  * TEMPORARY diagnostic page (`/cast-test`, linked from nowhere): why does
@@ -21,6 +22,16 @@ import { tracksApi } from '~/services/api'
  * (watchAvailability), how far the media has loaded (readyState), and the
  * answer to the last tap, with how long it took. "Copy results" puts it all
  * on the clipboard, to paste into a message.
+ *
+ * Results so far (Chrome on Android, TCL Google TV on, same Wi-Fi): no row
+ * ever saw a device; only the <video> rows opened Chrome's picker, which
+ * searched and found nothing, while Chrome's own "Cast…" menu lists the TV.
+ * So row F tries the other way, the Google Cast Web Sender SDK
+ * (lib/google-cast), which goes through the same route as that menu, with
+ * Google's default receiver (free, shows title and artwork): connect, then
+ * send the track (its streaming address, FLAC from R2 behind a redirect) or
+ * the static WAV, and read the device's player state in the log. The two
+ * sends tell a format or storage problem from a casting one.
  *
  * Remove the page and public/cast-test.wav once casting works.
  */
@@ -60,8 +71,8 @@ const reports = reactive<Record<Variant['id'], Report>>(Object.fromEntries(
 /** The browser's user agent, read after mount (the server has none, and both renders must agree). */
 const userAgent = ref('')
 
-/** The track used by A–C: the library's first one. */
-const track = ref<{ title: string, url: string } | null>(null)
+/** The track used by A–C and F: the library's first one. */
+const track = ref<{ title: string, artist: string, url: string, mimeType: string } | null>(null)
 /** Why the track could not be loaded, if it could not. */
 const trackError = ref<string | null>(null)
 
@@ -115,7 +126,8 @@ onMounted(async () => {
       trackError.value = 'The library is empty: upload a track to test A–C.'
       return
     }
-    track.value = { title: first.title, url: (await tracksApi.playback(first.id)).url }
+    const [detail, playback] = await Promise.all([tracksApi.get(first.id), tracksApi.playback(first.id)])
+    track.value = { title: first.title, artist: first.composers ?? '', url: playback.url, mimeType: detail.mimeType }
     // A: detached, exactly like the app's audio engine (new Audio(), never added to the page).
     const detached = new Audio()
     detached.preload = 'metadata'
@@ -125,7 +137,108 @@ onMounted(async () => {
   catch (error) {
     trackError.value = describe(error)
   }
+  void startGoogleCast()
 })
+
+// --- F. Google Cast Web Sender SDK ---------------------------------------------------------
+
+/** The SDK once loaded, or null (not yet, or not available in this browser). */
+const sdk = shallowRef<GoogleCast | null>(null)
+/** Loading state of the SDK, or why it is not available. */
+const sdkStatus = ref('loading…')
+/** The SDK's connection state: NO_DEVICES_AVAILABLE, NOT_CONNECTED, CONNECTING, CONNECTED. */
+const castState = ref('-')
+/** What happened in row F, oldest first, each line with the seconds since the page opened. */
+const sdkLog = ref<string[]>([])
+
+/** Adds a line to row F's log. */
+function log(line: string) {
+  sdkLog.value = [...sdkLog.value, `${(performance.now() / 1000).toFixed(1)} s · ${line}`]
+}
+
+/** Loads the SDK and sets it up with Google's default receiver. */
+async function startGoogleCast() {
+  const { cast, reason } = await loadGoogleCast()
+  if (!cast) {
+    sdkStatus.value = `not available: ${reason}`
+    return
+  }
+  cast.context.setOptions({ receiverApplicationId: cast.DEFAULT_MEDIA_RECEIVER_APP_ID, autoJoinPolicy: cast.ORIGIN_SCOPED })
+  castState.value = cast.context.getCastState()
+  cast.context.addEventListener(cast.CastContextEventType.CAST_STATE_CHANGED, (event) => {
+    castState.value = event.castState ?? '-'
+    log(`cast state: ${castState.value}`)
+  })
+  cast.context.addEventListener(cast.CastContextEventType.SESSION_STATE_CHANGED, (event) => {
+    log(`session state: ${event.sessionState ?? '-'}`)
+  })
+  sdk.value = cast
+  sdkStatus.value = 'ready (default receiver)'
+}
+
+/** "Connect": opens Google Cast's device picker (from the click). */
+async function connect() {
+  const cast = sdk.value
+  if (!cast) return log('connect: the SDK is not available')
+  const startedAt = performance.now()
+  try {
+    await cast.context.requestSession()
+    const device = cast.context.getCurrentSession()?.getCastDevice().friendlyName ?? '?'
+    log(`connected to "${device}" (${Math.round(performance.now() - startedAt)} ms)`)
+  }
+  catch (error) {
+    log(`connect refused: ${castErrorText(error)} (${Math.round(performance.now() - startedAt)} ms)`)
+  }
+}
+
+/**
+ * "Play … on TV": sends the track or the static WAV to the connected device,
+ * with title, artist and the app icon, then logs the device's player state
+ * for 20 seconds (BUFFERING → PLAYING, or IDLE with a reason such as ERROR).
+ */
+async function sendToTv(what: 'track' | 'static') {
+  const cast = sdk.value
+  const session = cast?.context.getCurrentSession()
+  if (!cast || !session) return log('send: connect to a TV first')
+  if (what === 'track' && !track.value) return log('send: no track loaded')
+
+  // Absolute addresses: the TV fetches them itself.
+  const url = new URL(what === 'track' ? track.value!.url : STATIC_URL, window.location.origin).href
+  const contentType = what === 'track' ? track.value!.mimeType : 'audio/wav'
+  const media = new cast.MediaInfo(url, contentType)
+  media.contentUrl = url
+  media.streamType = 'BUFFERED'
+  const metadata = new cast.MusicTrackMediaMetadata()
+  metadata.title = what === 'track' ? track.value!.title : 'ChronoPlayer cast test (WAV)'
+  metadata.artist = what === 'track' ? track.value!.artist : 'ChronoPlayer'
+  metadata.images = [new cast.Image(new URL('/pwa-512x512.png', window.location.origin).href)]
+  media.metadata = metadata
+
+  log(`send ${what}: ${contentType}`)
+  try {
+    await session.loadMedia(new cast.LoadRequest(media))
+    log(`send ${what}: accepted by the TV`)
+  }
+  catch (error) {
+    log(`send ${what}: refused: ${castErrorText(error)}`)
+    return
+  }
+  // The device's player state, logged when it changes, for 20 s.
+  let last = ''
+  for (let second = 0; second < 20; second++) {
+    const state = session.getMediaSession()
+    const now = state ? `${state.playerState}${state.idleReason ? ` (${state.idleReason})` : ''}` : 'no media session'
+    if (now !== last) log(`TV player: ${now}`)
+    last = now
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+}
+
+/** "Stop": ends the session and the playback on the TV. */
+function stopCasting() {
+  sdk.value?.context.endCurrentSession(true)
+  log('stop')
+}
 
 /** Taps a variant's Cast button: asks the browser for its device picker and records the answer. */
 async function cast(variant: Variant) {
@@ -154,6 +267,8 @@ const summary = computed(() => [
   `User agent: ${userAgent.value}`,
   `Track: ${track.value?.title ?? trackError.value ?? 'loading'}`,
   ...VARIANTS.map(v => `${v.id}. ${v.label} | ${reports[v.id].availability} | ${reports[v.id].readyState} | ${reports[v.id].answer}`),
+  `F. Google Cast SDK | ${sdkStatus.value} | ${castState.value}`,
+  ...sdkLog.value.map(line => `   ${line}`),
 ].join('\n'))
 
 /** "Copy results": the summary on the clipboard. */
@@ -172,7 +287,8 @@ async function copyResults() {
       </h1>
       <p class="mt-1 text-sm text-muted">
         Tap Cast on each row and note which ones open Chrome's device picker. If a row refuses,
-        press play on its player first (B–E have controls), then Cast again. Then "Copy results".
+        press play on its player first (B–E have controls), then Cast again. In row F, connect
+        to the TV, then play the track (or the test WAV). Then "Copy results".
       </p>
       <p
         v-if="trackError"
@@ -237,6 +353,73 @@ async function copyResults() {
         />
       </li>
     </ul>
+
+    <!--
+      F: the Google Cast SDK, the route of Chrome's own "Cast…" menu. Connect first (Google's
+      picker), then send the track or the static WAV; the log shows what the TV answers.
+    -->
+    <div
+      class="space-y-3 rounded-lg border border-default p-3"
+      data-testid="cast-test-F"
+    >
+      <p class="font-semibold">
+        F. Google Cast SDK (as Chrome's "Cast…" menu)
+      </p>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-3 text-sm">
+        <dt class="text-muted">
+          SDK
+        </dt>
+        <dd>{{ sdkStatus }}</dd>
+        <dt class="text-muted">
+          State
+        </dt>
+        <dd>{{ castState }}</dd>
+      </dl>
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          icon="i-lucide-cast"
+          label="1. Connect to a TV"
+          size="sm"
+          data-testid="cast-test-F-connect"
+          @click="connect"
+        />
+        <UButton
+          icon="i-lucide-music"
+          label="2. Play the track on the TV"
+          size="sm"
+          color="neutral"
+          variant="subtle"
+          @click="sendToTv('track')"
+        />
+        <UButton
+          icon="i-lucide-audio-waveform"
+          label="Or: play the test WAV"
+          size="sm"
+          color="neutral"
+          variant="subtle"
+          @click="sendToTv('static')"
+        />
+        <UButton
+          icon="i-lucide-square"
+          label="Stop"
+          size="sm"
+          color="neutral"
+          variant="ghost"
+          @click="stopCasting"
+        />
+      </div>
+      <ol
+        v-if="sdkLog.length"
+        class="space-y-0.5 font-mono text-xs text-muted"
+      >
+        <li
+          v-for="(line, i) in sdkLog"
+          :key="i"
+        >
+          {{ line }}
+        </li>
+      </ol>
+    </div>
 
     <!-- The results as text, also copyable, to paste into a message -->
     <div class="space-y-2">
