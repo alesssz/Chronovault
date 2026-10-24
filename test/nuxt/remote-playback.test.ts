@@ -2,10 +2,12 @@
  * useRemotePlayback (casting): the button shows when the browser reports a
  * device, or cannot tell until asked; it stays hidden without the API or
  * when remote playback is refused; the connection state follows the
- * browser's events; prompt() maps the picker's outcomes. The browser's
- * RemotePlayback object is replaced by a fake.
+ * browser's events; prompt() maps the picker's outcomes, telling a picker
+ * closed by the user from a browser that cannot cast (no API, or a refusal
+ * too quick to be a person's). The browser's RemotePlayback object is
+ * replaced by a fake.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { useRemotePlayback } from '~/composables/useRemotePlayback'
 
@@ -17,6 +19,10 @@ class FakeRemote extends EventTarget {
   cancelled: number[] = []
   /** What prompt() does: resolve, or reject with this error name. */
   promptError: string | null = null
+  /** How long the picker stays open before prompt() settles (ms of the fake clock). */
+  promptTakes = 2000
+  /** Moves the fake clock (see the performance.now() spy in the tests). */
+  advance: (ms: number) => void = () => {}
 
   constructor(private watchError: string | null = null) {
     super()
@@ -34,6 +40,8 @@ class FakeRemote extends EventTarget {
   }
 
   prompt() {
+    // The user takes a while in the picker (or the browser refuses at once, promptTakes 0).
+    this.advance(this.promptTakes)
     return this.promptError ? Promise.reject(new DOMException('', this.promptError)) : Promise.resolve()
   }
 
@@ -56,6 +64,10 @@ function setUp(remote: FakeRemote | undefined) {
 const settle = () => new Promise(resolve => setTimeout(resolve))
 
 describe('useRemotePlayback', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('shows the button when the browser reports a device, and hides it when it goes away', async () => {
     const remote = new FakeRemote()
     const { cast } = setUp(remote)
@@ -78,9 +90,10 @@ describe('useRemotePlayback', () => {
     await settle()
     expect(refused.cast.available.value).toBe(false)
 
+    // No API at all (e.g. Firefox): the button may still show on a phone, and says so when tapped.
     const missing = setUp(undefined)
     expect(missing.cast.available.value).toBe(false)
-    expect(await missing.cast.prompt()).toBe('failed')
+    expect(await missing.cast.prompt()).toBe('unsupported')
   })
 
   it('follows the connection state', () => {
@@ -96,16 +109,38 @@ describe('useRemotePlayback', () => {
   })
 
   it('reports how the device picker ended', async () => {
+    let clock = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => clock)
     const remote = new FakeRemote()
+    remote.advance = (ms) => {
+      clock += ms
+    }
     const { cast } = setUp(remote)
 
     expect(await cast.prompt()).toBe('done')
+    // Closed by the user after looking at it: nothing to say.
     remote.promptError = 'NotAllowedError'
     expect(await cast.prompt()).toBe('cancelled')
     remote.promptError = 'NotFoundError'
     expect(await cast.prompt()).toBe('no-devices')
+    remote.promptError = 'NotSupportedError'
+    expect(await cast.prompt()).toBe('unsupported')
     remote.promptError = 'OperationError'
     expect(await cast.prompt()).toBe('failed')
+  })
+
+  it('takes an instant refusal for a browser that cannot cast (no picker was shown)', async () => {
+    let clock = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => clock)
+    const remote = new FakeRemote()
+    remote.advance = (ms) => {
+      clock += ms
+    }
+    remote.promptTakes = 5
+    const { cast } = setUp(remote)
+
+    remote.promptError = 'NotAllowedError'
+    expect(await cast.prompt()).toBe('unsupported')
   })
 
   it('stops watching when the component goes away', async () => {

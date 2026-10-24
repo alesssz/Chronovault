@@ -9,13 +9,17 @@
  *   on two rows, the times and the waveform above the transport controls
  *   (shuffle, stop, previous, play, next, repeat), the same order as the
  *   full-screen view, and like the phones' progress line on top; on the
- *   right the volume, Cast (only when a TV or speaker can be offered, see
- *   PlayerCastButton), Up next, expand and close. From `md` the bar is also
+ *   right the volume, Cast (always on touch screens, otherwise only when a
+ *   TV or speaker can be offered, see PlayerCastButton), Up next, expand and
+ *   close. From `md` the bar is also
  *   taller (`--player-bar-height`, see main.css), so the two rows have room
  *   around them;
  * - tablets (`md` to `lg`): the volume is a single speaker button opening a
  *   small popover with the slider (no room for an inline one); from `lg`
- *   the slider sits inline.
+ *   the slider sits inline. The Expand button is left out there too: Cast
+ *   is always shown on touch screens, and a fifth icon squeezed the title
+ *   to a few letters again, while the title area (tap, or swipe up) already
+ *   opens the full-screen view. From `lg` there is room for both.
  *
  * From `lg` the side columns share the room left over by the middle one at
  * a 1:2 ratio (`flex-1` / `flex-[2]`, all from a zero basis), so the
@@ -166,7 +170,7 @@ const track = computed(() => player.displayTrack)
         <PlayerControls />
       </div>
 
-      <!-- Right column (md+): volume (a popover button on tablets, inline from lg), then Cast (when a device is around), Up next, expand and close -->
+      <!-- Right column (md+): volume (a popover button on tablets, inline from lg), then Cast (always on touch screens, otherwise when a device is around), Up next, expand (from lg) and close -->
       <div class="hidden flex-none items-center justify-end gap-3 md:flex lg:flex-1 lg:basis-0">
         <PlayerVolume class="hidden lg:flex" />
         <div class="flex shrink-0 items-center">
@@ -191,6 +195,7 @@ const track = computed(() => player.displayTrack)
             color="neutral"
             variant="ghost"
             label="Expand player"
+            class="hidden lg:inline-flex"
             data-testid="player-expand"
             @click="player.setExpanded(true)"
           />
