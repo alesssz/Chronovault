@@ -39,6 +39,7 @@ const COVER = `${USER}/${TRACK}.webp`
 function fakeAudioStorage() {
   return {
     presign: vi.fn(async (method: string, key: string) => `https://r2.test/${key}?method=${method}`),
+    streamUrl: vi.fn(async (key: string) => `/api/stream?k=${key}`),
     head: vi.fn(async () => ({ size: 10, contentType: 'audio/flac' }) as { size: number, contentType: string | null } | null),
     remove: vi.fn(async () => {}),
   }
@@ -194,14 +195,14 @@ describe('deleteTrack', () => {
 })
 
 describe('getPlaybackSource', () => {
-  it('returns a presigned streaming URL with its expiry', async () => {
+  it('returns the streaming address with its expiry', async () => {
     vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(AUDIO)
     const before = Date.now()
 
     const source = await getPlaybackSource(db, storage(), USER, TRACK)
 
-    expect(audio.presign).toHaveBeenCalledWith('GET', AUDIO, storageRepo.SIGNED_URL_TTL)
-    expect(source.url).toBe(`https://r2.test/${AUDIO}?method=GET`)
+    expect(audio.streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)
+    expect(source.url).toBe(`/api/stream?k=${AUDIO}`)
     expect(new Date(source.expiresAt).getTime()).toBeGreaterThanOrEqual(before + storageRepo.SIGNED_URL_TTL * 1000)
   })
 

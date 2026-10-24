@@ -81,6 +81,60 @@ export class AudioStorage {
     return signed.url
   }
 
+  // --- The app's own streaming address (/api/stream) ------------------------------------
+  //
+  // Why not hand out the presigned GET itself: before offering to cast, Chrome on
+  // Android checks the media address with a HEAD request, and a presigned URL only
+  // answers the method it was signed for, so the HEAD got a 403 and Chrome closed
+  // its device picker at once ("The prompt was dismissed"). The app's address
+  // answers HEAD itself and redirects GET to a presigned URL (server/api/stream.ts).
+  // It carries its own signature: a cast device has no session, so the address
+  // alone must say which file it may play, and until when.
+
+  /** HMAC key of the streaming addresses, derived once from the storage secret (see streamKey). */
+  private streamKeyPromise: Promise<CryptoKey> | null = null
+
+  /**
+   * The app's streaming address of a file, valid for `expiresSeconds`:
+   * `/api/stream?k=<key>&e=<expiry, unix seconds>&s=<signature>`. Relative:
+   * the player resolves it against the site, and a cast device gets the
+   * absolute form (the element's `currentSrc`).
+   */
+  async streamUrl(key: string, expiresSeconds: number): Promise<string> {
+    const expires = Math.floor(Date.now() / 1000) + expiresSeconds
+    const signature = base64Url(await crypto.subtle.sign('HMAC', await this.streamKey(), streamPayload(key, expires)))
+    return `/api/stream?${new URLSearchParams({ k: key, e: String(expires), s: signature })}`
+  }
+
+  /**
+   * Whether a streaming address's parts are genuine and not expired. The
+   * signature is checked by Web Crypto (constant time), so a forged one
+   * reveals nothing; a changed key or expiry no longer matches it.
+   */
+  async verifyStream(key: string, expires: string, signature: string): Promise<boolean> {
+    if (!/^\d{1,12}$/.test(expires) || Number(expires) * 1000 < Date.now()) return false
+    const bytes = fromBase64Url(signature)
+    if (!bytes) return false
+    return crypto.subtle.verify('HMAC', await this.streamKey(), bytes, streamPayload(key, Number(expires)))
+  }
+
+  /**
+   * HMAC-SHA-256 key for the streaming addresses, from the storage secret
+   * with a fixed prefix (so it is never the storage key itself). No extra
+   * setting to deploy; rotating the storage secret just ends the addresses
+   * already handed out, which only live 6 hours anyway.
+   */
+  private streamKey(): Promise<CryptoKey> {
+    this.streamKeyPromise ??= crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(`chronoplayer-stream:${this.config.secretAccessKey}`),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign', 'verify'],
+    )
+    return this.streamKeyPromise
+  }
+
   /**
    * Size and type of a stored object, or null when it does not exist.
    * Used after a direct upload to check that the file is there and has the
@@ -152,6 +206,24 @@ export class AudioStorage {
     const signed = await this.client.sign(this.objectUrl(key), { method })
     return this.fetchImpl(signed)
   }
+}
+
+// --- Streaming address helpers ----------------------------------------------------------
+
+/** What a streaming address signs: the file and the expiry, on one line (keys hold no newline). */
+function streamPayload(key: string, expires: number): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(`${key}\n${expires}`)
+}
+
+/** URL-safe Base64 without padding (the signature travels in a query string). */
+function base64Url(bytes: ArrayBuffer): string {
+  return Buffer.from(bytes).toString('base64url')
+}
+
+/** Bytes of a URL-safe Base64 string, or null when it is not one. */
+function fromBase64Url(text: string): Uint8Array<ArrayBuffer> | null {
+  if (!/^[\w-]+$/.test(text)) return null
+  return new Uint8Array(Buffer.from(text, 'base64url'))
 }
 
 // --- ListObjectsV2 XML ------------------------------------------------------------------

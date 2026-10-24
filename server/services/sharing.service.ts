@@ -8,7 +8,7 @@ import { mosaicPaths, toSharedPlaylist, type SignedUrls } from '../mappers/playl
 import type { AudioStorage } from '../repositories/audio-storage'
 import { findSharedPlaylistRow, findSharedTrackRow, listSharedPlaylistTrackRows } from '../repositories/sharing.repository'
 import * as storageRepo from '../repositories/storage.repository'
-import { presignPlayback } from './playback'
+import { playbackSource } from './playback'
 
 /**
  * Public sharing: what anyone with the link of an 'unlisted' or 'public'
@@ -26,11 +26,11 @@ export async function getSharedTrack(db: DbClient, id: string): Promise<SharedTr
   return toSharedTrack(row, await signCover(db, row.cover_path))
 }
 
-/** Streaming URL of an unlisted/public track (presigned GET, 6 h). */
+/** Streaming address of an unlisted/public track (6 h, see playbackSource). */
 export async function getSharedPlaybackSource(db: DbClient, audio: AudioStorage, id: string): Promise<PlaybackSource> {
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
-  return presignPlayback(audio, row.audio_path)
+  return playbackSource(audio, row.audio_path)
 }
 
 /** Fresh signed URL of the cover: social previews link to a stable address that redirects here. */
@@ -66,7 +66,7 @@ export async function getSharedPlaylistPlaybackSource(
   // Only a track listed by the shared playlist can be signed through it.
   const track = (await listSharedPlaylistTrackRows(db, playlistId)).find(t => t.id === trackId)
   if (!track) throw notFound()
-  return presignPlayback(audio, track.audio_path)
+  return playbackSource(audio, track.audio_path)
 }
 
 /** Fresh signed URL of the playlist's cover: the custom one, otherwise the first track cover. */

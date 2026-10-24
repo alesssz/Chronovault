@@ -1,11 +1,11 @@
 /**
- * Storage steps shared by the services: presigned playback URLs and cover file removal.
+ * Storage steps shared by the services: streaming addresses and cover file removal.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DbClient } from '~~/server/utils/auth'
 import type { AudioStorage } from '~~/server/repositories/audio-storage'
 import * as storageRepo from '~~/server/repositories/storage.repository'
-import { presignPlayback, removeCoverFiles } from '~~/server/services/playback'
+import { playbackSource, removeCoverFiles } from '~~/server/services/playback'
 
 vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
   const original = await importOriginal<typeof storageRepo>()
@@ -23,18 +23,18 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('presignPlayback', () => {
-  it('signs a GET for SIGNED_URL_TTL and reports when it expires', async () => {
+describe('playbackSource', () => {
+  it('hands out the streaming address for SIGNED_URL_TTL and reports when it expires', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-22T10:00:00Z'))
-    const presign = vi.fn(async () => 'https://r2.test/signed')
-    const audio = { presign } as unknown as AudioStorage
+    const streamUrl = vi.fn(async () => '/api/stream?k=user%2Ftrack.flac&e=1&s=sig')
+    const audio = { streamUrl } as unknown as AudioStorage
 
-    const source = await presignPlayback(audio, 'user/track.flac')
+    const source = await playbackSource(audio, 'user/track.flac')
 
-    expect(presign).toHaveBeenCalledWith('GET', 'user/track.flac', storageRepo.SIGNED_URL_TTL)
+    expect(streamUrl).toHaveBeenCalledWith('user/track.flac', storageRepo.SIGNED_URL_TTL)
     expect(source).toEqual({
-      url: 'https://r2.test/signed',
+      url: '/api/stream?k=user%2Ftrack.flac&e=1&s=sig',
       expiresAt: new Date(Date.parse('2026-10-22T10:00:00Z') + storageRepo.SIGNED_URL_TTL * 1000).toISOString(),
     })
   })
