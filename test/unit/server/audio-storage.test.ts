@@ -134,7 +134,11 @@ describe('AudioStorage streaming addresses', () => {
 
     expect(await storage.verifyStream('user-2/track.flac', e, s)).toBe(false)
     expect(await storage.verifyStream(k, String(Number(e) + 3600), s)).toBe(false)
-    expect(await storage.verifyStream(k, e, `${s.slice(0, -1)}${s.endsWith('A') ? 'B' : 'A'}`)).toBe(false)
+    // A forged signature: its first character changed. Not the last one: in a 32-byte
+    // signature the last base64url character carries only 4 bits, its other 2 are padding
+    // the decoder ignores, so swapping e.g. A and B there gives the very same bytes (the
+    // same, valid signature), and the test failed on 1 run in 16.
+    expect(await storage.verifyStream(k, e, `${s.startsWith('A') ? 'B' : 'A'}${s.slice(1)}`)).toBe(false)
     expect(await storage.verifyStream(k, e, 'not base64!')).toBe(false)
     expect(await storage.verifyStream(k, 'soon', s)).toBe(false)
     // Signed with the storage secret: another deployment's addresses do not work here.
