@@ -18,7 +18,9 @@ import { getErrorMessage } from '~/utils/errors'
  * Both purposes work the same way; a group of versions only words things
  * differently ("versions", "group"), lets each version be marked final
  * or draft from its menu, since picking one is what the group is for, and
- * shows the friends' feedback (votes, plays, notes: PlaylistVersionFeedback).
+ * shows the friends' feedback (votes, plays, notes: PlaylistVersionFeedback),
+ * the new ones marked; leaving the page records the visit, so they stop
+ * being new (see "New feedback" below).
  * Opened under the other purpose's address (e.g. an old /playlists/:id link of
  * a group), the page moves to the right one.
  */
@@ -213,6 +215,27 @@ async function loadFeedback() {
   }
 }
 onMounted(loadFeedback)
+
+// --- New feedback: seen when the owner leaves the group ---------------------------------
+// Opening the group drops its badge and its share of the header's dot at once; the
+// server learns of the visit only when the owner leaves (page closed, hidden or left
+// for another one), so the comments that were new keep their "New" mark for the whole
+// visit, even when the feedback reloads. The visit covers what was on screen: the group
+// is seen up to when its feedback was last read (`asOf`), so a vote that arrived while
+// the owner looked at an older copy stays new. Groups only: playlists get no votes.
+const unseenFeedback = isVersions ? useUnseenFeedback() : null
+onMounted(() => unseenFeedback?.clearLocally(props.id))
+/** Records the visit (idempotent: hiding the page and then leaving it sends it twice, harmlessly). */
+function markFeedbackSeen() {
+  // No feedback on screen (not loaded, or failed): nothing was seen.
+  if (feedback.value) void unseenFeedback?.markSeen(props.id, feedback.value.asOf)
+}
+onBeforeUnmount(markFeedbackSeen)
+// Hidden (another tab or app, the phone locked) or closed: the visit counts as done.
+useEventListener(document, 'visibilitychange', () => {
+  if (document.visibilityState === 'hidden') markFeedbackSeen()
+})
+useEventListener(window, 'pagehide', markFeedbackSeen)
 
 /** A version's votes and plays, for the line under its title (null: no feedback loaded). */
 function tallyOf(track: TrackSummary): VersionTally | null {

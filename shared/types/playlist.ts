@@ -76,6 +76,8 @@ export interface VersionComment {
   comment: string | null
   /** When the pick was made or last changed (ISO). */
   updatedAt: string
+  /** Made or changed since the owner's last visit to the group ("New" badge). */
+  isNew: boolean
 }
 
 /** Response of GET /api/playlists/:id/feedback: the feedback on a group of versions. */
@@ -90,6 +92,27 @@ export interface VersionFeedback {
   versions: VersionTally[]
   /** Picks with a name or a comment, most recent first. */
   comments: VersionComment[]
+  /** Votes cast or changed since the owner's last visit to the group (counted votes only). */
+  unseen: number
+  /**
+   * When the server read this feedback (ISO). Leaving the page marks the
+   * group seen up to this instant, not up to "now": a vote that arrived
+   * while the owner was looking at an older copy stays new.
+   */
+  asOf: string
+}
+
+/**
+ * Response of GET /api/feedback/unseen: feedback the owner has not seen yet,
+ * for the dot on "Versions" and the badges on the groups' cards. "Unseen"
+ * means a vote cast or changed (comment included) after the owner's last
+ * visit to that group's page.
+ */
+export interface UnseenFeedback {
+  /** Unseen votes over every group (0: no dot). */
+  total: number
+  /** Unseen votes per group id; groups with none are left out. */
+  groups: Record<string, number>
 }
 
 /** A visitor's own pick in a group of versions. */

@@ -4,6 +4,11 @@
  * Versions: the groups of versions shared for feedback), "Add" (upload),
  * light/dark switch and the account menu (Statistics, Storage, Sign out).
  * On phones the logo shows only its icon and the section links only theirs.
+ *
+ * A dot on "Versions" says that friends voted or commented on a group since
+ * the owner's last visit to it (useUnseenFeedback). It is checked again
+ * whenever the app comes back to the screen, since votes arrive while the
+ * owner is elsewhere.
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
 
@@ -27,13 +32,24 @@ async function logout() {
   await navigateTo('/login')
 }
 
+// New votes and comments on the groups of versions (the dot on "Versions").
+const { unseen, refresh: refreshUnseen } = useUnseenFeedback()
+// Back on screen (another app, another tab, the phone unlocked): friends may have voted meanwhile.
+const visibility = useDocumentVisibility()
+watch(visibility, (state) => {
+  if (state === 'visible') void refreshUnseen()
+})
+
 // Which section link is active.
 const route = useRoute()
-/** Section links; `active` also covers sub-pages (a track's edit page belongs to Library). */
+/**
+ * Section links; `active` also covers sub-pages (a track's edit page belongs
+ * to Library); `dot` marks a section with something new in it.
+ */
 const sections = [
-  { label: 'Library', to: '/', icon: 'i-lucide-library', active: () => route.path === '/' || route.path.startsWith('/tracks') },
-  { label: 'Playlists', to: '/playlists', icon: 'i-lucide-list-music', active: () => route.path.startsWith('/playlists') },
-  { label: 'Versions', to: '/versions', icon: 'i-lucide-layers', active: () => route.path.startsWith('/versions') },
+  { label: 'Library', to: '/', icon: 'i-lucide-library', active: () => route.path === '/' || route.path.startsWith('/tracks'), dot: () => false },
+  { label: 'Playlists', to: '/playlists', icon: 'i-lucide-list-music', active: () => route.path.startsWith('/playlists'), dot: () => false },
+  { label: 'Versions', to: '/versions', icon: 'i-lucide-layers', active: () => route.path.startsWith('/versions'), dot: () => unseen.value.total > 0 },
 ]
 
 /** The Storage dialog (usage and clean-up of orphaned files). */
@@ -66,19 +82,27 @@ const menu = computed<DropdownMenuItem[][]>(() => [
           class="flex items-center gap-1"
           aria-label="Sections"
         >
+          <!-- One link per section; the name shows from `sm`, the icon alone on phones -->
           <UButton
             v-for="link in sections"
             :key="link.to"
             :to="link.to"
             :icon="link.icon"
-            :aria-label="link.label"
+            :aria-label="link.dot() ? `${link.label}, new feedback` : link.label"
             color="neutral"
             variant="ghost"
             active-color="primary"
             active-variant="soft"
             :active="link.active()"
+            class="relative"
           >
             <span class="hidden sm:inline">{{ link.label }}</span>
+            <!-- Something new in the section: a dot on the top right corner (on the icon, on phones) -->
+            <span
+              v-if="link.dot()"
+              class="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-default"
+              :data-testid="`section-dot-${link.label.toLowerCase()}`"
+            />
           </UButton>
         </nav>
       </div>

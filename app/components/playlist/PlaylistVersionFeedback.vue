@@ -6,9 +6,11 @@ import type { TrackSummary } from '~~/shared/types/track'
  * Feedback on a group of versions (owner's Versions page, in
  * PlaylistEditor): what the friends who got the link think.
  *
- * Top to bottom: whether voting is open (it closes when a version is marked
- * final), the totals (votes, listeners), one row per version with its votes
- * as a bar and its plays, and the notes left with the picks.
+ * Top to bottom: the totals (votes, listeners), how many votes came since
+ * the owner's last visit, whether voting is open (it closes when a version
+ * is marked final), one row per version with its votes as a bar and its
+ * plays, and the notes left with the picks, "New" on those left or changed
+ * since that visit.
  *
  * The bars are one series (votes), one color, all on the same scale (the
  * most voted version fills the row); the numbers are always written next
@@ -58,6 +60,19 @@ const dateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric
         {{ pluralize(feedback.votes, 'vote') }} · {{ pluralize(feedback.listeners, 'listener') }}
       </p>
     </div>
+
+    <!-- What changed since the owner's last visit (votes cast or changed, comments included) -->
+    <p
+      v-if="feedback.unseen"
+      class="flex items-center gap-2 text-sm font-medium text-primary"
+      data-testid="version-feedback-unseen"
+    >
+      <UIcon
+        name="i-lucide-sparkles"
+        class="size-4 shrink-0"
+      />
+      {{ pluralize(feedback.unseen, 'new vote') }} since your last visit
+    </p>
 
     <!-- Voting open, or closed by the chosen version -->
     <p
@@ -119,9 +134,19 @@ const dateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric
           class="py-2"
           data-testid="version-feedback-comment"
         >
-          <p class="text-xs text-muted">
+          <p class="flex flex-wrap items-center gap-x-1 text-xs text-muted">
             <span class="font-medium text-default">{{ note.name || 'Someone' }}</span>
             picked {{ titleOf(note.trackId) }} · {{ dateFormat.format(new Date(note.updatedAt)) }}
+            <!-- Left or changed since the owner's last visit -->
+            <UBadge
+              v-if="note.isNew"
+              label="New"
+              color="primary"
+              variant="subtle"
+              size="sm"
+              class="ml-1"
+              data-testid="version-feedback-comment-new"
+            />
           </p>
           <p
             v-if="note.comment"

@@ -9,9 +9,14 @@ useSeoMeta({ title: 'Versions · ChronoPlayer' })
 
 // The cached list of groups (shared with the group pages and "Share for feedback").
 const { items: groups, status, refresh } = usePlaylistList('versions')
+// Votes and comments since the owner's last visit to each group (the cards' "new" badges).
+const { unseen, refresh: refreshUnseen } = useUnseenFeedback()
 
-// Track edits and deletions elsewhere change counts and mosaics.
-onMounted(() => void refresh())
+// Track edits and deletions elsewhere change counts and mosaics; friends may have voted.
+onMounted(() => {
+  void refresh()
+  void refreshUnseen()
+})
 </script>
 
 <template>
@@ -22,7 +27,7 @@ onMounted(() => void refresh())
         Versions
       </h1>
       <p class="mt-1 text-sm text-muted">
-        Versions of a song shared together for feedback. Open a group to copy its link or mark the chosen one as final.
+        Versions of a song shared together for feedback. Open a group to see what your friends picked, copy its link or mark the chosen one as final.
       </p>
     </div>
 
@@ -37,10 +42,11 @@ onMounted(() => void refresh())
       data-testid="versions-empty"
     />
 
-    <!-- Group cards -->
+    <!-- Group cards, "N new" on those with feedback not seen yet -->
     <PlaylistGrid
       v-else
       :items="groups"
+      :unseen="unseen.groups"
     />
   </UContainer>
 </template>

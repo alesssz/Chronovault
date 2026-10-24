@@ -5,11 +5,15 @@ import type { PlaylistSummary } from '~~/shared/types/playlist'
  * Grid of playlist cards (Playlists page) or group cards (Versions page):
  * cover or mosaic, title, visibility icon, track count and duration. Each
  * card opens the item's page (/playlists/:id or /versions/:id, by its purpose).
+ * A group with feedback the owner has not seen yet gets a "new" badge on its
+ * cover (`unseen`).
  */
-defineProps<{
+withDefaults(defineProps<{
   /** The cards to show, in order (the lists come newest first from the API). */
   items: PlaylistSummary[]
-}>()
+  /** Unseen votes per item id (Versions page); items without any show no badge. */
+  unseen?: Record<string, number>
+}>(), { unseen: () => ({}) })
 </script>
 
 <template>
@@ -25,14 +29,25 @@ defineProps<{
         :to="playlistPath(playlist)"
         class="group block rounded-lg p-2 transition-colors hover:bg-elevated/60"
       >
-        <!-- Custom cover, or the mosaic of the first track covers -->
-        <PlaylistCover
-          :url="playlist.coverUrl"
-          :mosaic="playlist.mosaic"
-          :title="playlist.title"
-          rounded="rounded-lg"
-          class="w-full shadow-lg shadow-black/20"
-        />
+        <!-- Custom cover, or the mosaic of the first track covers; "N new" on top when friends voted -->
+        <div class="relative">
+          <PlaylistCover
+            :url="playlist.coverUrl"
+            :mosaic="playlist.mosaic"
+            :title="playlist.title"
+            rounded="rounded-lg"
+            class="w-full shadow-lg shadow-black/20"
+          />
+          <UBadge
+            v-if="unseen[playlist.id]"
+            :label="`${unseen[playlist.id]} new`"
+            color="primary"
+            variant="solid"
+            size="sm"
+            class="absolute top-2 right-2 shadow"
+            data-testid="playlist-card-new"
+          />
+        </div>
         <!-- Title -->
         <p class="mt-2 truncate font-medium">
           {{ playlist.title }}

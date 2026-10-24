@@ -1,10 +1,12 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
-import type { PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, VersionFeedback, VersionVoteState } from '~~/shared/types/playlist'
+import type {
+  PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, UnseenFeedback, VersionFeedback, VersionVoteState,
+} from '~~/shared/types/playlist'
 import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas/playlist'
 import type { StorageCleanupResult, StorageReport } from '~~/shared/types/storage'
 import type { AnalyticsPeriod, AnalyticsReport, PlaysReport } from '~~/shared/types/analytics'
-import type { PlayRecordInput, VersionVoteInput } from '~~/shared/schemas/feedback'
+import type { FeedbackSeenInput, PlayRecordInput, VersionVoteInput } from '~~/shared/schemas/feedback'
 
 /**
  * Typed client for the server API. The only place where the frontend
@@ -37,6 +39,15 @@ export const playlistsApi = {
   /** Replaces the tracks, in order (reorder and remove). */
   /** Votes, plays and comments of a group of versions (Versions page). */
   feedback: (id: string) => $fetch<VersionFeedback>(`/api/playlists/${id}/feedback`),
+  /** Feedback that came after the owner's last visit to each group (dot on "Versions", card badges). */
+  unseenFeedback: () => $fetch<UnseenFeedback>('/api/feedback/unseen'),
+  /**
+   * Records the owner's visit to a group (sent when leaving its page), seen
+   * up to `at` (the `asOf` of the feedback on screen). `keepalive`: the
+   * request is completed even if the page is closing.
+   */
+  markFeedbackSeen: (id: string, at: string) =>
+    $fetch<null>(`/api/playlists/${id}/feedback/seen`, { method: 'POST', body: { at } satisfies FeedbackSeenInput, keepalive: true }),
   setTracks: (id: string, trackIds: string[]) =>
     $fetch<PlaylistDetail>(`/api/playlists/${id}/tracks`, { method: 'PUT', body: { trackIds } }),
   /** Appends tracks; those already in the playlist are skipped. */
