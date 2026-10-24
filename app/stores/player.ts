@@ -54,9 +54,18 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** The play queue and its order. */
   const playQueue = createPlayQueue()
+  // The queue state the rules below read most, under short names (they are the same refs).
   const { queue, index, originalOrder } = playQueue
   /** The loaded track and the audio engine. */
-  const playback = createPlayback({ source: () => source, reload: () => loadIndex(index.value, true), onEnded })
+  const playback = createPlayback({
+    // A getter, not a value: `source` changes when a public page takes the player over.
+    source: () => source,
+    // Resuming after an error loads the current queue track again: only the store knows which it is.
+    reload: () => loadIndex(index.value, true),
+    // Repeat, next track or stop: the store's call (see onEnded below).
+    onEnded,
+  })
+  // Play/pause, which several commands below fall back to (the same function, under a short name).
   const { togglePlay } = playback
   const { current, status, currentTime, isActive } = playback
 
@@ -287,11 +296,15 @@ export const usePlayerStore = defineStore('player', () => {
     else playQueue.drop(id)
   }
 
+  // One flat API whatever part holds the state. The parts' refs are returned
+  // as they are (not copied), so Pinia sees them as the store's state and
+  // components read and watch them like before the split.
   return {
     // state
     queue, index, current, status, currentTime, originalOrder, expanded, queueOpen, sourceKey,
     buffering: playback.buffering, duration: playback.duration, muted: playback.muted,
     playbackRate: playback.playbackRate, error: playback.error,
+    // Read from this browser's storage: kept out of server-rendered state (see shuffle and repeat above).
     volume: skipHydrate(playback.volume), shuffle: skipHydrate(shuffle), repeat: skipHydrate(repeat),
     // derived
     isActive, displayTrack, hasNext, hasPrevious, queueEditable,
