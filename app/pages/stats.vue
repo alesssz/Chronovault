@@ -1,35 +1,95 @@
 <script setup lang="ts">
 /**
- * Statistics page (client-rendered, account menu → Statistics): visits to
- * the user's share pages over the last 7 or 30 days.
+ * Statistics page (client-rendered, account menu → Statistics): what
+ * happened to the user's share links over the last 7 or 30 days.
  *
- * Top to bottom: period switch; a banner saying where the numbers come
- * from (demo data outside Vercel is flagged loudly); totals; views per day;
- * the shared tracks and playlists with their visits; where visitors come
- * from (referrer), their country and device.
+ * Two sources, side by side:
+ * - **views**: openings of the share pages, from Vercel Web Analytics, with
+ *   where visitors came from, their country and device (GET /api/analytics,
+ *   server/services/analytics.service.ts). Only Vercel has them: locally
+ *   the numbers are demo data, flagged loudly;
+ * - **plays**: what visitors really listened to, counted by the app itself
+ *   (GET /api/analytics/plays, server/services/plays.service.ts): real
+ *   everywhere. The user's own plays are shown apart, never in the totals.
  *
- * Data: GET /api/analytics (server/services/analytics.service.ts).
+ * Top to bottom: period switch; a banner saying where the views come from;
+ * totals; views and plays per day (one chart each: different scales);
+ * the shared tracks and playlists with their views and plays; referrers,
+ * countries and devices.
  */
-import { ANALYTICS_PERIODS, type AnalyticsPeriod } from '~~/shared/types/analytics'
+import { ANALYTICS_PERIODS, type AnalyticsItem, type AnalyticsPeriod, type PlaysItem } from '~~/shared/types/analytics'
 import { analyticsApi } from '~/services/api'
 
 useSeoMeta({ title: 'Statistics · ChronoPlayer' })
 
-/** Selected period; changing it reloads the report. */
+/** Selected period; changing it reloads both reports. */
 const days = ref<AnalyticsPeriod>(30)
 const { data: report, status, error } = useAsyncData('analytics', () => analyticsApi.report(days.value), {
   watch: [days],
 })
+const { data: plays, status: playsStatus, error: playsError } = useAsyncData('plays', () => analyticsApi.plays(days.value), {
+  watch: [days],
+})
+
+/** Vercel's numbers can be shown (real or demo; not when unconfigured). */
+const hasViews = computed(() => !!report.value && report.value.source !== 'unconfigured')
+/** Either report is loading (the page dims while a new period loads). */
+const loading = computed(() => status.value === 'pending' || playsStatus.value === 'pending')
 
 /** Number of pages (tracks and playlists) with at least one view in the period. */
 const visitedPages = computed(() => report.value?.items.filter(i => i.pageviews > 0).length ?? 0)
 
-/** Totals shown as tiles. */
+/** Totals shown as tiles: views (when Vercel's numbers exist), then plays. */
 const tiles = computed(() => [
-  { label: 'Views', value: report.value?.totals.pageviews ?? 0, testid: 'stats-views' },
-  { label: 'Visitors', value: report.value?.totals.visitors ?? 0, testid: 'stats-visitors' },
-  { label: 'Pages visited', value: visitedPages.value, testid: 'stats-pages' },
+  ...(hasViews.value
+    ? [
+        { label: 'Views', value: report.value!.totals.pageviews, testid: 'stats-views' },
+        { label: 'Visitors', value: report.value!.totals.visitors, testid: 'stats-visitors' },
+        { label: 'Pages visited', value: visitedPages.value, testid: 'stats-pages' },
+      ]
+    : []),
+  { label: 'Plays', value: plays.value?.totals.plays ?? 0, testid: 'stats-plays' },
+  { label: 'Listeners', value: plays.value?.totals.listeners ?? 0, testid: 'stats-listeners' },
+  { label: 'Your own plays', value: plays.value?.ownPlays ?? 0, testid: 'stats-own-plays' },
 ])
+
+/** Views per day, for the chart (visitors in the tooltip). */
+const viewsDaily = computed(() => (report.value?.daily ?? []).map(day => ({
+  date: day.date, value: day.pageviews, detail: pluralize(day.visitors, 'visitor'),
+})))
+/** Visitors' plays per day, for the chart. */
+const playsDaily = computed(() => (plays.value?.daily ?? []).map(day => ({ date: day.date, value: day.plays })))
+
+/**
+ * A share page with its views (null when Vercel has no numbers for it) and
+ * its visitors' plays.
+ */
+type PageRow = Omit<AnalyticsItem, 'pageviews' | 'visitors'>
+  & { pageviews: number | null, visitors: number | null, plays: number, completed: number }
+
+/**
+ * The shared pages of both reports, joined on their path: Vercel's list
+ * (every shared page, visited or not) plus any page visitors played
+ * without Vercel knowing it (unconfigured, ad blockers). Most viewed first,
+ * then most played.
+ */
+const pages = computed<PageRow[]>(() => {
+  // One row per page path, filled by both reports.
+  const byPath = new Map<string, PageRow>()
+  for (const item of hasViews.value ? report.value!.items : []) byPath.set(item.path, { ...item, plays: 0, completed: 0 })
+  for (const item of plays.value?.items ?? []) {
+    const row = byPath.get(item.path)
+    if (row) Object.assign(row, { plays: item.plays, completed: item.completed })
+    else byPath.set(item.path, { ...pageOf(item), pageviews: null, visitors: null, plays: item.plays, completed: item.completed })
+  }
+  return [...byPath.values()].sort((a, b) =>
+    (b.pageviews ?? 0) - (a.pageviews ?? 0) || b.plays - a.plays || a.title.localeCompare(b.title))
+})
+
+/** The identity fields of a plays item (what PageRow shares with AnalyticsItem). */
+function pageOf({ kind, id, title, visibility, coverUrl, path }: PlaysItem) {
+  return { kind, id, title, visibility, coverUrl, path }
+}
 
 /** "Oct 1 – Oct 30" for the period subtitle (UTC days, as the server counts them). */
 // UTC, like the server's days.
@@ -89,7 +149,7 @@ function isPrivateNow(visibility: string): boolean {
           Statistics
         </h1>
         <p class="mt-1 text-sm text-muted">
-          Visits to your share links<span v-if="periodLabel"> · {{ periodLabel }}</span>
+          Visits and plays of your share links<span v-if="periodLabel"> · {{ periodLabel }}</span>
         </p>
       </div>
       <UFieldGroup>
@@ -122,24 +182,24 @@ function isPrivateNow(visibility: string): boolean {
       color="info"
       variant="subtle"
       icon="i-lucide-settings"
-      title="Statistics are not configured"
+      title="Page views are not configured"
       description="Enable Web Analytics on the Vercel project, then set NUXT_ANALYTICS_TOKEN and NUXT_ANALYTICS_PROJECT_ID (and NUXT_ANALYTICS_TEAM_ID for a team project) in its environment variables and redeploy. See the README, section 13.6."
       class="mb-6"
       data-testid="stats-unconfigured"
     />
     <UAlert
-      v-if="error"
+      v-if="error || playsError"
       color="error"
       variant="subtle"
       icon="i-lucide-circle-alert"
       title="Statistics could not be loaded"
-      :description="getErrorMessage(error)"
+      :description="getErrorMessage(error || playsError)"
       class="mb-6"
     />
 
     <!-- First load -->
     <div
-      v-if="!report && status === 'pending'"
+      v-if="!report && !plays && loading"
       class="flex justify-center py-16"
     >
       <UIcon
@@ -149,11 +209,11 @@ function isPrivateNow(visibility: string): boolean {
     </div>
 
     <div
-      v-else-if="report && report.source !== 'unconfigured'"
+      v-else-if="report || plays"
       class="space-y-6"
-      :class="{ 'opacity-60 transition-opacity': status === 'pending' }"
+      :class="{ 'opacity-60 transition-opacity': loading }"
     >
-      <!-- Totals -->
+      <!-- Totals: views (Vercel), then plays (the app's own count) -->
       <div class="grid grid-cols-3 gap-3 sm:gap-4">
         <UCard
           v-for="tile in tiles"
@@ -173,13 +233,37 @@ function isPrivateNow(visibility: string): boolean {
         </UCard>
       </div>
 
-      <!-- Views per day -->
-      <UCard :ui="{ body: 'sm:p-5' }">
-        <h2 class="mb-4 text-sm font-medium text-muted">
-          Views per day
-        </h2>
-        <StatsDailyChart :daily="report.daily" />
-      </UCard>
+      <!-- Views and plays per day: one chart each (different scales, never one shared axis) -->
+      <div class="grid gap-4 lg:grid-cols-2">
+        <UCard
+          v-if="hasViews"
+          :ui="{ body: 'sm:p-5' }"
+        >
+          <h2 class="mb-4 text-sm font-medium text-muted">
+            Views per day
+          </h2>
+          <StatsDailyChart
+            :daily="viewsDaily"
+            noun="view"
+            caption="Page views per day"
+            testid="stats-views-chart"
+          />
+        </UCard>
+        <UCard
+          v-if="plays"
+          :ui="{ body: 'sm:p-5' }"
+        >
+          <h2 class="mb-4 text-sm font-medium text-muted">
+            Plays per day
+          </h2>
+          <StatsDailyChart
+            :daily="playsDaily"
+            noun="play"
+            caption="Visitors' plays per day"
+            testid="stats-plays-chart"
+          />
+        </UCard>
+      </div>
 
       <!-- Shared tracks and playlists -->
       <UCard :ui="{ body: 'p-0 sm:p-0' }">
@@ -187,10 +271,10 @@ function isPrivateNow(visibility: string): boolean {
           Shared pages
         </h2>
         <UEmpty
-          v-if="!report.items.length"
+          v-if="!pages.length"
           icon="i-lucide-link"
           title="Nothing shared yet"
-          description="Make a track or a playlist Unlisted or Public and send its link: its visits will show up here."
+          description="Make a track or a playlist Unlisted or Public and send its link: its visits and plays will show up here."
           class="py-10"
         />
         <ul
@@ -198,7 +282,7 @@ function isPrivateNow(visibility: string): boolean {
           class="divide-y divide-default"
         >
           <li
-            v-for="item in report.items"
+            v-for="item in pages"
             :key="item.path"
             class="flex items-center gap-3 px-4 py-2.5 sm:px-5"
             data-testid="stats-item"
@@ -229,18 +313,35 @@ function isPrivateNow(visibility: string): boolean {
                 />
               </p>
             </div>
-            <div class="text-right text-sm tabular-nums">
+            <!-- Views and visitors (when Vercel has them) -->
+            <div
+              v-if="item.pageviews !== null"
+              class="text-right text-sm tabular-nums"
+            >
               <p>{{ number.format(item.pageviews) }} <span class="text-muted">views</span></p>
               <p class="text-xs text-muted">
-                {{ number.format(item.visitors) }} visitors
+                {{ number.format(item.visitors ?? 0) }} visitors
+              </p>
+            </div>
+            <!-- Visitors' plays, and how many to the end -->
+            <div
+              class="w-20 text-right text-sm tabular-nums"
+              data-testid="stats-item-plays"
+            >
+              <p>{{ number.format(item.plays) }} <span class="text-muted">{{ item.plays === 1 ? 'play' : 'plays' }}</span></p>
+              <p class="text-xs text-muted">
+                {{ number.format(item.completed) }} to the end
               </p>
             </div>
           </li>
         </ul>
       </UCard>
 
-      <!-- Where visitors come from, their country and device -->
-      <div class="grid gap-4 md:grid-cols-3">
+      <!-- Where visitors come from, their country and device (Vercel only; `report &&` narrows the type) -->
+      <div
+        v-if="report && hasViews"
+        class="grid gap-4 md:grid-cols-3"
+      >
         <StatsBreakdown
           title="Referrers"
           :rows="report.referrers"
@@ -261,7 +362,7 @@ function isPrivateNow(visibility: string): boolean {
 
       <!-- What is (not) counted -->
       <p class="text-xs text-dimmed">
-        Counted: openings of your /t/ and /p/ pages by visitors who are not signed in, from Vercel Web Analytics (no cookies, nobody identified). Plays are not counted. Data can take a few minutes to appear.
+        Views: openings of your /t/ and /p/ pages by visitors who are not signed in, from Vercel Web Analytics (no cookies, nobody identified); data can take a few minutes to appear. Plays: counted by ChronoPlayer when a visitor listens for 30 seconds (or half a shorter track), once a day per listener; "to the end" means 90% of the track. A listener is a browser, identified only by a random id. Your own plays are counted apart.
       </p>
     </div>
   </UContainer>

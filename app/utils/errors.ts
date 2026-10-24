@@ -15,3 +15,15 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
   if (typeof error === 'string' && error) return error
   return fallback
 }
+
+/**
+ * HTTP status of a failed API call ($fetch errors carry it as `statusCode`
+ * and `status`), or undefined for anything else (network, browser errors).
+ * Lets a caller react to one status, e.g. 409 "voting is closed".
+ */
+export function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const { statusCode, status } = error as { statusCode?: unknown, status?: unknown }
+  if (typeof statusCode === 'number') return statusCode
+  return typeof status === 'number' ? status : undefined
+}

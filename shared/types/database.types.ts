@@ -77,6 +77,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"plays": {
+                  Row: {
+                    "completed": boolean,"created_at": string,"id": number,"listener": Database["public"]['Enums']["listener_kind"],"listener_id": string,"owner_id": string,"played_on": string,"playlist_id": string | null,"track_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "completed"?: boolean,"created_at"?: string,"id"?: never,"listener": Database["public"]['Enums']["listener_kind"],"listener_id": string,"owner_id": string,"played_on"?: string,"playlist_id"?: string | null,"track_id": string
+                  }
+                  Update: {
+                    "completed"?: boolean,"created_at"?: string,"id"?: never,"listener"?: Database["public"]['Enums']["listener_kind"],"listener_id"?: string,"owner_id"?: string,"played_on"?: string,"playlist_id"?: string | null,"track_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "plays_track_id_fkey"
+      columns: ["track_id"]
+isOneToOne: false
+      referencedRelation: "tracks"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"tracks": {
                   Row: {
                     "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"status": Database["public"]['Enums']["track_status"],"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
@@ -97,13 +117,45 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"version_votes": {
+                  Row: {
+                    "comment": string | null,"created_at": string,"name": string | null,"playlist_id": string,"track_id": string,"updated_at": string,"voter_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "comment"?: string | null,"created_at"?: string,"name"?: string | null,"playlist_id": string,"track_id": string,"updated_at"?: string,"voter_id": string
+                  }
+                  Update: {
+                    "comment"?: string | null,"created_at"?: string,"name"?: string | null,"playlist_id"?: string,"track_id"?: string,"updated_at"?: string,"voter_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "version_votes_playlist_id_fkey"
+      columns: ["playlist_id"]
+isOneToOne: false
+      referencedRelation: "playlists"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "version_votes_track_id_fkey"
+      columns: ["track_id"]
+isOneToOne: false
+      referencedRelation: "tracks"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Views: {
             [_ in never]: never
           }
           Functions: {
-            "get_shared_playlist":
+            "cast_version_vote":
+{ Args: { "p_comment": string,"p_name": string,"p_playlist_id": string,"p_track_id": string,"p_voter_id": string }; Returns: undefined
+                           },
+"check_version_voting":
+{ Args: { "p_playlist_id": string,"p_voter_id": string }; Returns: undefined
+                           },
+"get_shared_playlist":
 { Args: { "p_playlist_id": string }; Returns: {
               "cover_path": string,"description": string,"id": string,"purpose": Database["public"]['Enums']["playlist_purpose"],"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"]
             }[]
@@ -118,18 +170,29 @@ isOneToOne: false
               "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"status": Database["public"]['Enums']["track_status"],"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
             }[]
                            },
-"is_shared_track_file":
-{ Args: { "p_bucket": string,"p_path": string }; Returns: boolean
+"get_version_vote":
+{ Args: { "p_playlist_id": string,"p_voter_id": string }; Returns: {
+              "comment": string,"is_owner": boolean,"name": string,"open": boolean,"track_id": string
+            }[]
                            },
-"owns_playlist":
-{ Args: { "p_playlist_id": string }; Returns: boolean
+"record_play":
+{ Args: { "p_completed": boolean,"p_listener_id": string,"p_playlist_id": string,"p_track_id": string }; Returns: undefined
                            },
 "set_playlist_tracks":
 { Args: { "p_playlist_id": string,"p_track_ids": (string)[] }; Returns: undefined
+                           },
+"shared_group_owner":
+{ Args: { "p_playlist_id": string }; Returns: string
+                           },
+"version_voting_open":
+{ Args: { "p_playlist_id": string }; Returns: boolean
+                           },
+"withdraw_version_vote":
+{ Args: { "p_playlist_id": string,"p_voter_id": string }; Returns: undefined
                            }
           }
           Enums: {
-            "playlist_purpose": "playlist"|"versions","track_status": "draft"|"final","track_visibility": "private"|"unlisted"|"public"
+            "listener_kind": "visitor"|"owner","playlist_purpose": "playlist"|"versions","track_status": "draft"|"final","track_visibility": "private"|"unlisted"|"public"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -249,7 +312,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "playlist_purpose": ["playlist", "versions"],"track_status": ["draft", "final"],"track_visibility": ["private", "unlisted", "public"]
+            "listener_kind": ["visitor", "owner"],"playlist_purpose": ["playlist", "versions"],"track_status": ["draft", "final"],"track_visibility": ["private", "unlisted", "public"]
           }
         }
 } as const

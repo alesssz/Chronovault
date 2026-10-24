@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
 import { playlistCreateSchema, playlistListQuerySchema, playlistTracksSchema, playlistUpdateSchema } from '~~/shared/schemas/playlist'
 import { analyticsQuerySchema } from '~~/shared/schemas/analytics'
+import { playRecordSchema, versionVoteSchema, voterQuerySchema } from '~~/shared/schemas/feedback'
 
 /** A valid edit form, with spaces and empty texts the schema must normalize. */
 const validMetadata = {
@@ -134,5 +135,40 @@ describe('analyticsQuerySchema', () => {
 
   it('rejects any other period', () => {
     expect(analyticsQuerySchema.safeParse({ days: '90' }).success).toBe(false)
+  })
+})
+
+describe('feedback schemas', () => {
+  // Ids of a track, a playlist and a browser.
+  const TRACK = '11111111-1111-4111-8111-111111111111'
+  const LIST = '22222222-2222-4222-8222-222222222222'
+  const BROWSER = '33333333-3333-4333-8333-333333333333'
+
+  it('a play: no playlist and not completed unless said', () => {
+    expect(playRecordSchema.parse({ trackId: TRACK, listenerId: BROWSER }))
+      .toEqual({ trackId: TRACK, playlistId: null, listenerId: BROWSER, completed: false })
+    expect(playRecordSchema.parse({ trackId: TRACK, playlistId: LIST, listenerId: BROWSER, completed: true }).playlistId).toBe(LIST)
+  })
+
+  it('a play needs real ids', () => {
+    expect(playRecordSchema.safeParse({ trackId: 'nope', listenerId: BROWSER }).success).toBe(false)
+    expect(playRecordSchema.safeParse({ trackId: TRACK }).success).toBe(false)
+  })
+
+  it('a vote: name and comment optional, trimmed, empty ones become null', () => {
+    expect(versionVoteSchema.parse({ voterId: BROWSER, trackId: TRACK }))
+      .toEqual({ voterId: BROWSER, trackId: TRACK, name: null, comment: null })
+    expect(versionVoteSchema.parse({ voterId: BROWSER, trackId: TRACK, name: '  Ada ', comment: '' }))
+      .toMatchObject({ name: 'Ada', comment: null })
+  })
+
+  it('a vote refuses a name or comment over the limits', () => {
+    expect(versionVoteSchema.safeParse({ voterId: BROWSER, trackId: TRACK, name: 'x'.repeat(61) }).success).toBe(false)
+    expect(versionVoteSchema.safeParse({ voterId: BROWSER, trackId: TRACK, comment: 'x'.repeat(1001) }).success).toBe(false)
+  })
+
+  it('whose vote: a browser id', () => {
+    expect(voterQuerySchema.safeParse({ voter: BROWSER }).success).toBe(true)
+    expect(voterQuerySchema.safeParse({ voter: 'me' }).success).toBe(false)
   })
 })

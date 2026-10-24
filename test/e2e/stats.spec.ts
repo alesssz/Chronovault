@@ -22,13 +22,18 @@ test.describe('statistics', () => {
     // --- Demo data, said loudly, around the user's real track ---
     await expect(page.getByTestId('stats-demo-banner')).toContainText('Demo data')
     await expect(page.getByTestId('stats-item').filter({ hasText: title })).toBeVisible()
-    await expect(page.getByTestId('stats-day-bar')).toHaveCount(30)
+    // One chart for views, one for plays: 30 days each.
+    await expect(page.getByTestId('stats-views-chart').getByTestId('stats-day-bar')).toHaveCount(30)
+    await expect(page.getByTestId('stats-plays-chart').getByTestId('stats-day-bar')).toHaveCount(30)
+    // Plays are the app's own count, real even here: nobody listened yet.
+    await expect(page.getByTestId('stats-plays')).toHaveText('0')
     // Not on Vercel: the analytics script (served only by Vercel) is not even loaded.
     await expect(page.locator('script[src*="/_vercel/insights"]')).toHaveCount(0)
 
     // --- The period switch reloads the report ---
     await page.getByTestId('stats-period-7').click()
-    await expect(page.getByTestId('stats-day-bar')).toHaveCount(7)
+    await expect(page.getByTestId('stats-views-chart').getByTestId('stats-day-bar')).toHaveCount(7)
+    await expect(page.getByTestId('stats-plays-chart').getByTestId('stats-day-bar')).toHaveCount(7)
     await expect(page.getByTestId('stats-period-7')).toHaveAttribute('aria-pressed', 'true')
 
     // --- The API: validated query, sign-in required ---
@@ -36,10 +41,14 @@ test.describe('statistics', () => {
     const report = await (await page.request.get('/api/analytics?days=7')).json() as { source: string, daily: unknown[] }
     expect(report.source).toBe('demo')
     expect(report.daily).toHaveLength(7)
+    const plays = await (await page.request.get('/api/analytics/plays?days=7')).json() as { daily: unknown[], ownPlays: number }
+    expect(plays.daily).toHaveLength(7)
+    expect(plays.ownPlays).toBe(0)
 
     const visitorContext = await browser.newContext()
     try {
       expect((await visitorContext.request.get(`${test.info().project.use.baseURL}/api/analytics`)).status()).toBe(401)
+      expect((await visitorContext.request.get(`${test.info().project.use.baseURL}/api/analytics/plays`)).status()).toBe(401)
     }
     finally {
       await visitorContext.close()

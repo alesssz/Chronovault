@@ -7,7 +7,11 @@ import { sharedApi } from '~/services/api'
  * playlist shares its content) and shows the lyrics and description of the
  * track being played. Server-rendered for link previews.
  * A group of versions (purpose 'versions', made by "Share for feedback") is the
- * same page, introduced as versions of one song to choose from.
+ * same page, introduced as versions of one song to choose from: each version
+ * gets a heart to pick it, and a panel under the list holds the pick's
+ * optional name and comment, or says that voting is closed and which version
+ * was chosen (useVersionVote, ShareVersionVote). Plays heard here are counted
+ * by the app-wide play counter (plugins/play-counter.client.ts).
  */
 definePageMeta({ layout: 'public' })
 
@@ -101,6 +105,15 @@ function togglePlay() {
 function onLyricSeek(seconds: number) {
   if (isHere.value) player.seek(seconds)
 }
+
+// --- Votes (groups of versions) -----------------------------------------------------
+/** This browser's pick, the heart next to each version and the vote panel (groups only). */
+const vote = useVersionVote(id, () => isVersions.value)
+
+/** The version is this browser's pick (filled heart). */
+function isPicked(trackId: string) {
+  return vote.state.value?.pick?.trackId === trackId
+}
 </script>
 
 <template>
@@ -155,7 +168,7 @@ function onLyricSeek(seconds: number) {
           @toggle="togglePlay"
         />
 
-        <!-- The tracks: click to play (or toggle the active one) -->
+        <!-- The tracks: click to play (or toggle the active one); in a group, a heart to pick one -->
         <ol
           v-if="playlist.tracks.length"
           class="divide-y divide-default rounded-xl border border-default"
@@ -164,12 +177,13 @@ function onLyricSeek(seconds: number) {
           <li
             v-for="(track, index) in playlist.tracks"
             :key="track.id"
+            class="flex items-center"
+            :class="{ 'bg-primary/5': isActive(track.id) }"
             data-testid="shared-playlist-track"
           >
             <button
               type="button"
-              class="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-elevated/50"
-              :class="{ 'bg-primary/5': isActive(track.id) }"
+              class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-elevated/50"
               :aria-current="isActive(track.id) ? 'true' : undefined"
               @click="isActive(track.id) ? player.togglePlay() : playAt(index)"
             >
@@ -203,13 +217,45 @@ function onLyricSeek(seconds: number) {
                     title="Work in progress"
                     data-testid="shared-track-wip"
                   />
+                  <!-- In a group, the version the owner chose (voting is then closed) -->
+                  <UBadge
+                    v-else-if="isVersions"
+                    label="Chosen"
+                    color="success"
+                    variant="subtle"
+                    size="sm"
+                    class="shrink-0"
+                    data-testid="shared-track-chosen"
+                  />
                 </span>
                 <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
               </span>
               <span class="text-sm tabular-nums text-muted">{{ formatTime(track.durationSeconds) }}</span>
             </button>
+            <!-- Pick this version (again: take the pick back); only while voting is open, never for the owner -->
+            <IconButton
+              v-if="vote.canVote.value"
+              icon="i-lucide-heart"
+              :label="isPicked(track.id) ? `Take back your pick of ${track.title}` : `Pick ${track.title}`"
+              :color="isPicked(track.id) ? 'primary' : 'neutral'"
+              :variant="isPicked(track.id) ? 'solid' : 'ghost'"
+              :disabled="vote.busy.value"
+              class="mr-2 shrink-0"
+              :aria-pressed="isPicked(track.id)"
+              data-testid="version-pick"
+              @click="vote.toggle(track.id)"
+            />
           </li>
         </ol>
+
+        <!-- Groups: what to do, the pick and its note, or the outcome -->
+        <ShareVersionVote
+          v-if="isVersions && playlist.tracks.length"
+          :state="vote.state.value"
+          :tracks="playlist.tracks"
+          :busy="vote.busy.value"
+          @save="vote.saveNote"
+        />
 
         <UEmpty
           v-else

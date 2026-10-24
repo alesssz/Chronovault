@@ -80,8 +80,8 @@ export async function getAnalyticsReport(
   return { source: 'vercel', ...base, ...await vercelNumbers(source.client, targets, period) }
 }
 
-/** Every track and playlist of the user, with its public page path. */
-async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarget[]> {
+/** Every track and playlist of the user, with its public page path (also used by plays.service.ts). */
+export async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarget[]> {
   const [tracks, playlists] = await Promise.all([
     tracksRepo.listTrackLabels(db, userId),
     playlistsRepo.listPlaylistLabels(db, userId),

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, FormSubmitEvent } from '@nuxt/ui'
-import type { PlaylistDetail, PlaylistPurpose } from '~~/shared/types/playlist'
+import type { PlaylistDetail, PlaylistPurpose, VersionFeedback, VersionTally } from '~~/shared/types/playlist'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistMetadataSchema, type PlaylistMetadata, type PlaylistMetadataInput } from '~~/shared/schemas/playlist'
 import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
@@ -16,8 +16,9 @@ import { getErrorMessage } from '~/utils/errors'
  * Track list changes save immediately; the details form saves with "Save".
  *
  * Both purposes work the same way; a group of versions only words things
- * differently ("versions", "group") and lets each version be marked final
- * or draft from its menu, since picking one is what the group is for.
+ * differently ("versions", "group"), lets each version be marked final
+ * or draft from its menu, since picking one is what the group is for, and
+ * shows the friends' feedback (votes, plays, notes: PlaylistVersionFeedback).
  * Opened under the other purpose's address (e.g. an old /playlists/:id link of
  * a group), the page moves to the right one.
  */
@@ -131,6 +132,8 @@ async function saveTracks(next: TrackSummary[], failureTitle: string) {
   savingOrder.value = true
   try {
     applyServerPlaylist(await playlistsApi.setTracks(props.id, next.map(t => t.id)))
+    // A removed version takes its votes and plays out of the feedback.
+    void loadFeedback()
   }
   catch (err) {
     tracks.value = [...previous]
@@ -165,6 +168,8 @@ async function setStatus(track: TrackSummary, status: TrackStatus) {
     tracks.value = tracks.value.map(withStatus)
     playlist.value = { ...playlist.value!, tracks: playlist.value!.tracks.map(withStatus) }
     toast.add({ title: `Marked as ${status}`, icon: 'i-lucide-check', color: 'success' })
+    // A final version closes the voting (a draft again reopens it).
+    void loadFeedback()
   }
   catch (err) {
     toast.add({ title: 'Status not changed', description: getErrorMessage(err), color: 'error' })
@@ -191,6 +196,27 @@ function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
     ],
     [{ label: `Remove from ${info.noun}`, icon: 'i-lucide-list-x', color: 'error', onSelect: () => removeTrack(track) }],
   ]
+}
+
+// --- Feedback (groups of versions) ---------------------------------------------------
+/** Votes, visitors' plays and notes of the group; null for a playlist, or until loaded. */
+const feedback = ref<VersionFeedback | null>(null)
+
+/** (Re)loads the feedback of a group; a failure just leaves the panel out. */
+async function loadFeedback() {
+  if (!isVersions) return
+  try {
+    feedback.value = await playlistsApi.feedback(props.id)
+  }
+  catch {
+    feedback.value = null
+  }
+}
+onMounted(loadFeedback)
+
+/** A version's votes and plays, for the line under its title (null: no feedback loaded). */
+function tallyOf(track: TrackSummary): VersionTally | null {
+  return feedback.value?.versions.find(v => v.trackId === track.id) ?? null
 }
 
 // Drag and drop (mouse and touch) through the handle of each row; the new order saves at once.
@@ -484,6 +510,25 @@ async function onDelete() {
                   />
                 </span>
                 <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
+                <!-- Groups: the friends' votes and plays of this version -->
+                <span
+                  v-if="tallyOf(track)"
+                  class="flex items-center gap-3 text-xs tabular-nums text-muted"
+                  data-testid="version-tally"
+                >
+                  <span class="flex items-center gap-1">
+                    <UIcon
+                      name="i-lucide-heart"
+                      class="size-3"
+                    />{{ pluralize(tallyOf(track)!.votes, 'vote') }}
+                  </span>
+                  <span class="flex items-center gap-1">
+                    <UIcon
+                      name="i-lucide-headphones"
+                      class="size-3"
+                    />{{ pluralize(tallyOf(track)!.plays, 'play') }}, {{ tallyOf(track)!.completed }} to the end
+                  </span>
+                </span>
               </button>
               <!-- Duration (hidden on phones) -->
               <span class="hidden text-sm tabular-nums text-muted sm:block">
@@ -504,6 +549,13 @@ async function onDelete() {
             </li>
           </ol>
         </section>
+
+        <!-- Groups: what the friends who got the link think -->
+        <PlaylistVersionFeedback
+          v-if="feedback && tracks.length"
+          :feedback="feedback"
+          :tracks="tracks"
+        />
       </div>
     </div>
 

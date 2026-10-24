@@ -59,6 +59,51 @@ export interface AnalyticsBreakdownRow {
   pageviews: number
 }
 
+// --- Plays ---------------------------------------------------------------------------
+// Counted by the app itself (table `plays`), not by Vercel: real numbers
+// everywhere, local development included. A play is a real listen (30 s,
+// or half of a shorter track), counted once per listener, track, context and
+// day; "completed" means listened to 90%.
+
+/** Visitors' plays: how many, how many to the end, and by how many different listeners. */
+export interface PlaysCount {
+  plays: number
+  completed: number
+  /** Different visitors' browsers (one person on two devices counts twice). */
+  listeners: number
+}
+
+/** Visitors' plays of one day of the period (UTC). */
+export interface PlaysDay {
+  /** `YYYY-MM-DD`. */
+  date: string
+  plays: number
+}
+
+/**
+ * The visitors' plays of a share page: on a track's own page (/t/<id>), or
+ * through a shared playlist or group (/p/<id>, its tracks together). Same
+ * identity fields as AnalyticsItem (`path` is the key the Statistics page
+ * joins them on), so the list works even without Vercel's numbers.
+ */
+export interface PlaysItem extends Omit<AnalyticsItem, keyof AnalyticsCount>, PlaysCount {}
+
+/** Response of GET /api/analytics/plays. */
+export interface PlaysReport {
+  days: AnalyticsPeriod
+  /** First and last day of the period, `YYYY-MM-DD` (UTC, both included). */
+  since: string
+  until: string
+  /** Visitors only: the owner's own plays never count here. */
+  totals: PlaysCount
+  /** The owner's own plays (library, own share pages), shown apart. */
+  ownPlays: number
+  /** Every day of the period, oldest first (days without plays included, as zero). */
+  daily: PlaysDay[]
+  /** Share pages with visitors' plays in the period, most played first. */
+  items: PlaysItem[]
+}
+
 /** Response of GET /api/analytics. */
 export interface AnalyticsReport {
   source: AnalyticsSource
