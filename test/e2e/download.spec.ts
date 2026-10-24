@@ -87,8 +87,9 @@ test.describe('download with tags', () => {
     expect(await page.evaluate(() => (window as unknown as { progressToastSeen: boolean }).progressToastSeen)).toBe(false)
 
     // --- Download (slow: the progress toast shows, neutral, then goes away) ---
-    // Hold the audio file response back for 1.5 s (the local storage plays R2).
-    await page.route('**/storage/v1/s3/**', async (route) => {
+    // Hold the audio file back for 1.5 s. The app's streaming address is held, not the storage
+    // URL it redirects to: Playwright only intercepts the first request of a redirect chain.
+    await page.route('**/api/stream?**', async (route) => {
       await new Promise(resolve => setTimeout(resolve, 1500))
       await route.continue()
     })
@@ -98,6 +99,6 @@ test.describe('download with tags', () => {
     await expect(progress).toBeVisible()
     await slowDownload
     await expect(progress).toBeHidden()
-    await page.unroute('**/storage/v1/s3/**')
+    await page.unroute('**/api/stream?**')
   })
 })

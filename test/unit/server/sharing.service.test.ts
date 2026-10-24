@@ -43,13 +43,13 @@ function makeRow(overrides: Partial<SharedTrackRow> = {}): SharedTrackRow {
   }
 }
 
-const presign = vi.fn(async (method: string, key: string) => `https://r2.test/${key}?method=${method}`)
-/** Fake R2 client: presigned URLs are predictable strings. */
-const audio = { presign } as unknown as AudioStorage
+const streamUrl = vi.fn(async (key: string) => `/api/stream?k=${key}`)
+/** Fake R2 client: streaming addresses are predictable strings. */
+const audio = { streamUrl } as unknown as AudioStorage
 
 beforeEach(() => {
   vi.resetAllMocks()
-  presign.mockImplementation(async (method: string, key: string) => `https://r2.test/${key}?method=${method}`)
+  streamUrl.mockImplementation(async (key: string) => `/api/stream?k=${key}`)
   vi.mocked(storageRepo.createSignedUrl).mockResolvedValue('https://signed/cover')
   vi.mocked(storageRepo.createSignedUrls).mockImplementation(async (_db, _bucket, paths) =>
     new Map(paths.map(p => [p, `https://signed/${p}`])))
@@ -78,20 +78,20 @@ describe('getSharedTrack', () => {
 })
 
 describe('getSharedPlaybackSource', () => {
-  it('presigns a GET of the audio file for six hours', async () => {
+  it('hands out a streaming address of the audio file for six hours', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(makeRow())
 
     const source = await getSharedPlaybackSource(db, audio, TRACK)
 
-    expect(presign).toHaveBeenCalledWith('GET', AUDIO, storageRepo.SIGNED_URL_TTL)
-    expect(source.url).toBe(`https://r2.test/${AUDIO}?method=GET`)
+    expect(streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)
+    expect(source.url).toBe(`/api/stream?k=${AUDIO}`)
     expect(Date.parse(source.expiresAt)).toBeGreaterThan(Date.now())
   })
 
   it('never signs anything for a missing or private track', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(null)
     await expect(getSharedPlaybackSource(db, audio, TRACK)).rejects.toMatchObject({ statusCode: 404 })
-    expect(presign).not.toHaveBeenCalled()
+    expect(streamUrl).not.toHaveBeenCalled()
   })
 })
 
@@ -156,11 +156,11 @@ describe('shared playlists', () => {
     vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
 
     const source = await getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, PRIVATE)
-    expect(source.url).toBe(`https://r2.test/${USER}/${PRIVATE}.flac?method=GET`)
+    expect(source.url).toBe(`/api/stream?k=${USER}/${PRIVATE}.flac`)
 
     await expect(getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, '55555555-5555-4555-8555-555555555555'))
       .rejects.toMatchObject({ statusCode: 404 })
-    expect(presign).toHaveBeenCalledTimes(1)
+    expect(streamUrl).toHaveBeenCalledTimes(1)
   })
 
   it('uses the first track cover for link previews when there is no custom cover', async () => {

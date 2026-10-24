@@ -1,7 +1,8 @@
 /**
- * AudioStorage (R2 client): object URLs, presigned URLs, HEAD and best-effort DELETE, with a fake fetch.
+ * AudioStorage (R2 client): object URLs, presigned URLs, HEAD and best-effort DELETE, with a fake fetch;
+ * and the app's own streaming addresses (signed with the storage secret, checked by /api/stream).
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AudioStorage } from '~~/server/repositories/audio-storage'
 
 /** A fake R2 configuration (nothing is ever sent to it: fetch is mocked). */
@@ -89,5 +90,54 @@ describe('AudioStorage', () => {
   it('fails loudly when listing is refused (the clean-up must not guess)', async () => {
     const storage = new AudioStorage(config, vi.fn().mockResolvedValue(new Response(null, { status: 403 })))
     await expect(storage.list('user-1/')).rejects.toThrow('LIST failed (403)')
+  })
+})
+
+describe('AudioStorage streaming addresses', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** The k, e and s query parameters of a streaming address. */
+  function parts(url: string) {
+    const query = new URL(url, 'https://app.test').searchParams
+    return { k: query.get('k')!, e: query.get('e')!, s: query.get('s')! }
+  }
+
+  it('builds a relative /api/stream address with the key, the expiry and a signature', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-24T10:00:00Z'))
+    const url = await new AudioStorage(config).streamUrl('user-1/track 1.flac', 3600)
+
+    expect(url.startsWith('/api/stream?')).toBe(true)
+    const { k, e, s } = parts(url)
+    expect(k).toBe('user-1/track 1.flac')
+    expect(Number(e)).toBe(Date.parse('2026-10-24T11:00:00Z') / 1000)
+    // HMAC-SHA-256 in URL-safe Base64: 43 characters, no padding.
+    expect(s).toMatch(/^[\w-]{43}$/)
+  })
+
+  it('accepts its own addresses until they expire', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-24T10:00:00Z'))
+    const storage = new AudioStorage(config)
+    const { k, e, s } = parts(await storage.streamUrl('user-1/track.flac', 3600))
+
+    expect(await storage.verifyStream(k, e, s)).toBe(true)
+    vi.setSystemTime(new Date('2026-10-24T11:00:01Z'))
+    expect(await storage.verifyStream(k, e, s)).toBe(false)
+  })
+
+  it('refuses a changed file, a later expiry, a forged signature or another secret', async () => {
+    const storage = new AudioStorage(config)
+    const { k, e, s } = parts(await storage.streamUrl('user-1/track.flac', 3600))
+
+    expect(await storage.verifyStream('user-2/track.flac', e, s)).toBe(false)
+    expect(await storage.verifyStream(k, String(Number(e) + 3600), s)).toBe(false)
+    expect(await storage.verifyStream(k, e, `${s.slice(0, -1)}${s.endsWith('A') ? 'B' : 'A'}`)).toBe(false)
+    expect(await storage.verifyStream(k, e, 'not base64!')).toBe(false)
+    expect(await storage.verifyStream(k, 'soon', s)).toBe(false)
+    // Signed with the storage secret: another deployment's addresses do not work here.
+    expect(await new AudioStorage({ ...config, secretAccessKey: 'other' }).verifyStream(k, e, s)).toBe(false)
   })
 })

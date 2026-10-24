@@ -7,7 +7,7 @@ import { badRequest, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
 import type { AudioStorage } from '../repositories/audio-storage'
 import * as tracksRepo from '../repositories/tracks.repository'
-import { expiresIn, presignPlayback, removeCoverFiles } from './playback'
+import { expiresIn, playbackSource, removeCoverFiles } from './playback'
 
 /**
  * Track business logic. Knows nothing about HTTP or Nuxt: it receives an
@@ -131,7 +131,7 @@ export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: str
   ])
 }
 
-/** Time-limited streaming URL (presigned GET, 6 h) of one of the user's tracks. */
+/** Time-limited streaming address (6 h, see playbackSource) of one of the user's tracks. */
 export async function getPlaybackSource(
   db: DbClient,
   audio: AudioStorage,
@@ -140,7 +140,7 @@ export async function getPlaybackSource(
 ): Promise<PlaybackSource> {
   const audioPath = await tracksRepo.findTrackAudioPath(db, userId, id)
   if (!audioPath) throw notFound()
-  return presignPlayback(audio, audioPath)
+  return playbackSource(audio, audioPath)
 }
 
 /** 400 unless `path` is `<userId>/<trackId>.<ext>`: rejects paths a client could forge. */

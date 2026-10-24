@@ -5,8 +5,9 @@ import type { AudioStorage } from '../repositories/audio-storage'
 import * as storageRepo from '../repositories/storage.repository'
 
 /**
- * Small storage steps shared by the services: signing audio for playback
- * (owner's library and public pages alike) and removing cover files.
+ * Small storage steps shared by the services: the streaming address of an
+ * audio file (owner's library and public pages alike) and removing cover
+ * files.
  */
 
 /** ISO timestamp `seconds` from now (expiry of a presigned URL). */
@@ -15,12 +16,18 @@ export function expiresIn(seconds: number): string {
 }
 
 /**
- * Streaming URL of an audio file: a presigned GET on the audio storage,
- * valid for SIGNED_URL_TTL (6 h), with its expiry so the player can refresh it.
+ * Streaming address of an audio file, valid for SIGNED_URL_TTL (6 h), with
+ * its expiry so the player can refresh it.
+ *
+ * It is the app's own address (`/api/stream?…`, see AudioStorage.streamUrl
+ * and server/api/stream.ts), not a presigned storage URL: it answers the
+ * HEAD request Chrome sends before casting (a presigned GET refuses it) and
+ * redirects the actual download to a presigned GET, so the audio still comes
+ * straight from the storage.
  */
-export async function presignPlayback(audio: AudioStorage, audioPath: string): Promise<PlaybackSource> {
+export async function playbackSource(audio: AudioStorage, audioPath: string): Promise<PlaybackSource> {
   return {
-    url: await audio.presign('GET', audioPath, storageRepo.SIGNED_URL_TTL),
+    url: await audio.streamUrl(audioPath, storageRepo.SIGNED_URL_TTL),
     expiresAt: expiresIn(storageRepo.SIGNED_URL_TTL),
   }
 }
