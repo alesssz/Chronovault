@@ -24,7 +24,11 @@ import type { MaybeRefOrGetter } from 'vue'
  * - `state`: 'disconnected', 'connecting' or 'connected', as the browser
  *   reports it;
  * - `prompt()`: opens the browser's device picker (also the way to stop or
- *   change device while connected); must run from a click.
+ *   change device while connected); must run from a click. Besides the
+ *   outcome it returns the browser's own answer when it refused (`detail`):
+ *   casting cannot be tried from a test browser, so on a real phone that
+ *   text is what tells why it failed (shown in the message under the
+ *   button).
  */
 
 /**
@@ -33,6 +37,17 @@ import type { MaybeRefOrGetter } from 'vue'
  * picker), so the user should try another browser.
  */
 export type CastPromptResult = 'done' | 'cancelled' | 'no-devices' | 'unsupported' | 'failed'
+
+/** What prompt() returns: the outcome, and the browser's own answer when it refused. */
+export interface CastPromptOutcome {
+  result: CastPromptResult
+  /**
+   * The browser's refusal as it gave it, with how quickly it came, e.g.
+   * "NotSupportedError: The currentSrc is not compatible with remote
+   * playback (12 ms)"; null when it did not refuse.
+   */
+  detail: string | null
+}
 
 /**
  * A refusal this fast (ms) did not come from a person closing a picker: no
@@ -99,27 +114,31 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
    * connected, stop casting or switch device. Must be called from a click
    * (browsers refuse it otherwise).
    */
-  async function prompt(): Promise<CastPromptResult> {
+  async function prompt(): Promise<CastPromptOutcome> {
     // No Remote Playback API in this browser (e.g. Firefox).
-    if (!watched) return 'unsupported'
+    if (!watched) return { result: 'unsupported', detail: 'no Remote Playback API' }
     const startedAt = performance.now()
     try {
       await watched.prompt()
-      return 'done'
+      return { result: 'done', detail: null }
     }
     catch (error) {
+      const elapsed = performance.now() - startedAt
       const name = error instanceof DOMException ? error.name : ''
+      const message = error instanceof Error ? error.message : String(error)
+      // "Name: message (N ms)": what the browser said, and whether it showed anything first.
+      const detail = `${name || 'Error'}${message ? `: ${message}` : ''} (${Math.round(elapsed)} ms)`
       // No TV or speaker on this network (or none that can play this kind of audio).
-      if (name === 'NotFoundError') return 'no-devices'
-      // The browser says outright that it cannot cast.
-      if (name === 'NotSupportedError') return 'unsupported'
+      if (name === 'NotFoundError') return { result: 'no-devices', detail }
+      // The browser says outright that it cannot cast (this audio, or at all).
+      if (name === 'NotSupportedError') return { result: 'unsupported', detail }
       if (name === 'NotAllowedError' || name === 'AbortError') {
         // Either the picker was closed without choosing anything (silence is right: the
         // browser showed its own picker), or it never appeared, which is too quick to be a
         // person's doing and means this browser cannot cast (see INSTANT_REFUSAL_MS).
-        return performance.now() - startedAt < INSTANT_REFUSAL_MS ? 'unsupported' : 'cancelled'
+        return { result: elapsed < INSTANT_REFUSAL_MS ? 'unsupported' : 'cancelled', detail }
       }
-      return 'failed'
+      return { result: 'failed', detail }
     }
   }
 
