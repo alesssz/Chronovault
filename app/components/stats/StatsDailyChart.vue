@@ -1,20 +1,36 @@
 <script setup lang="ts">
 /**
- * Column chart of page views per day (Statistics page).
+ * Column chart of one number per day (Statistics page: page views, plays).
  *
  * One series, one color (the primary hue): no legend, the card title names
- * it. Columns are capped at 24 px and grow from one baseline with rounded
- * tops; three recessive gridlines give the scale (0, half, a rounded top).
- * Each day's whole column height is its hover/focus target and shows the
- * date, views and visitors in a tooltip (almost no delay: sweeping across
- * the columns should read them one after another); a screen-reader table
- * carries the same numbers.
+ * it. Two measures of different scale (views and plays) get a chart each,
+ * never two series on one axis. Columns are capped at 24 px and grow from
+ * one baseline with rounded tops; three recessive gridlines give the scale
+ * (0, half, a rounded top). Each day's whole column height is its
+ * hover/focus target and shows the date, the value and its detail in a
+ * tooltip (almost no delay: sweeping across the columns should read them
+ * one after another); a screen-reader table carries the same numbers.
  */
-import type { AnalyticsDay } from '~~/shared/types/analytics'
 
-// The days to draw, oldest first (every day of the period, zeros included).
+/** One day of the chart (the page maps its own day rows to this shape). */
+interface ChartDay {
+  /** `YYYY-MM-DD` (UTC). */
+  date: string
+  /** The number the column shows. */
+  value: number
+  /** Extra text after the value in the tooltip and the table, e.g. "2 visitors". */
+  detail?: string
+}
+
 const props = defineProps<{
-  daily: AnalyticsDay[]
+  /** The days to draw, oldest first (every day of the period, zeros included). */
+  daily: ChartDay[]
+  /** What the value counts, singular ("view", "play"): "3 views" in the tooltip. */
+  noun: string
+  /** Caption of the screen-reader table, e.g. "Page views per day". */
+  caption: string
+  /** Test id of the chart (two charts share the page). */
+  testid: string
 }>()
 
 /**
@@ -23,7 +39,7 @@ const props = defineProps<{
  * too (never "2.5 views"); at least 2.
  */
 const scaleMax = computed(() => {
-  const max = Math.max(1, ...props.daily.map(d => d.pageviews))
+  const max = Math.max(1, ...props.daily.map(d => d.value))
   // Power of ten of the highest value (e.g. 10 for 17, 100 for 150).
   const magnitude = 10 ** Math.floor(Math.log10(max))
   return [2, 4, 6, 10].map(m => m * magnitude).find(n => n >= max)!
@@ -33,9 +49,9 @@ const scaleMax = computed(() => {
 const gridlines = computed(() => [scaleMax.value, scaleMax.value / 2, 0])
 
 /** Column height as a percentage of the plot (a day with views gets at least a visible sliver). */
-function heightOf(day: AnalyticsDay): string {
-  if (!day.pageviews) return '0%'
-  return `${Math.max(2, (day.pageviews / scaleMax.value) * 100)}%`
+function heightOf(day: ChartDay): string {
+  if (!day.value) return '0%'
+  return `${Math.max(2, (day.value / scaleMax.value) * 100)}%`
 }
 
 /** Short date for the axis and the tooltip, e.g. "Oct 21". */
@@ -52,9 +68,14 @@ const axisDates = computed(() => {
   return [days[0]!, days[Math.floor((days.length - 1) / 2)]!, days.at(-1)!].map(d => shortDate(d.date))
 })
 
-/** Tooltip text of a day. */
-function describe(day: AnalyticsDay): string {
-  return `${shortDate(day.date)}: ${pluralize(day.pageviews, 'view')}, ${pluralize(day.visitors, 'visitor')}`
+/** The day's value with its noun, e.g. "3 views". */
+function amount(day: ChartDay): string {
+  return pluralize(day.value, props.noun)
+}
+
+/** Tooltip text of a day: "Oct 21: 3 views, 2 visitors". */
+function describe(day: ChartDay): string {
+  return [`${shortDate(day.date)}: ${amount(day)}`, day.detail].filter(Boolean).join(', ')
 }
 
 /** Gridline labels: compact from 1,000 up (1K, 2.5K). */
@@ -91,7 +112,7 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact' })
 
         <div
           class="absolute inset-0 flex items-end"
-          data-testid="stats-daily-chart"
+          :data-testid="testid"
           aria-hidden="true"
         >
           <!-- The whole column is the hover target; the bar inside is the mark. -->
@@ -127,17 +148,14 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact' })
 
     <!-- The same numbers for screen readers -->
     <table class="sr-only">
-      <caption>Page views per day</caption>
+      <caption>{{ caption }}</caption>
       <thead>
         <tr>
           <th scope="col">
             Day
           </th>
           <th scope="col">
-            Views
-          </th>
-          <th scope="col">
-            Visitors
+            Count
           </th>
         </tr>
       </thead>
@@ -147,8 +165,7 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact' })
           :key="day.date"
         >
           <td>{{ shortDate(day.date) }}</td>
-          <td>{{ day.pageviews }}</td>
-          <td>{{ day.visitors }}</td>
+          <td>{{ [amount(day), day.detail].filter(Boolean).join(', ') }}</td>
         </tr>
       </tbody>
     </table>

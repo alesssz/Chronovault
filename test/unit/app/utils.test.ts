@@ -1,9 +1,9 @@
 /**
- * Small browser-side helpers: cover crop geometry (automatic and crop editor) and error messages.
+ * Small browser-side helpers: cover crop geometry (automatic and crop editor), error messages and statuses.
  */
 import { describe, expect, it } from 'vitest'
 import { MAX_CROP_ZOOM, centerSquareCrop, clampCropView, cropRectOf, cropSide, initialCropView } from '~/lib/image'
-import { getErrorMessage } from '~/utils/errors'
+import { getErrorMessage, getErrorStatus } from '~/utils/errors'
 
 describe('centerSquareCrop', () => {
   it('center-crops landscape images', () => {
@@ -63,5 +63,18 @@ describe('crop editor geometry', () => {
   it('works for portrait images too', () => {
     // 600×900: the square is 600 wide and can only move vertically.
     expect(cropRectOf({ zoom: 1, cx: 300, cy: 900 }, 600, 900)).toEqual({ x: 0, y: 300, size: 600 })
+  })
+})
+
+describe('getErrorStatus', () => {
+  it('reads the status of an API error', () => {
+    expect(getErrorStatus({ statusCode: 409, status: 409 })).toBe(409)
+    expect(getErrorStatus({ status: 404 })).toBe(404)
+  })
+
+  it('is undefined for anything else', () => {
+    expect(getErrorStatus(new Error('offline'))).toBeUndefined()
+    expect(getErrorStatus('nope')).toBeUndefined()
+    expect(getErrorStatus(null)).toBeUndefined()
   })
 })

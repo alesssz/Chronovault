@@ -45,11 +45,11 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 | **Full-screen player** | Large cover, waveform, controls and **synced lyrics**: the active line is highlighted, the text scrolls by itself, clicking a line seeks there. Section headers (`[Verse 1]`, `[Chorus]`) are shown as titles. On touch screens, **pull it down to close** it. On phones the lyrics have **a view of their own**: the normal view shows cover, info, waveform, controls and the track's **description**; the **Lyrics** button of its top bar swaps them for a small cover and title, the lyrics filling the screen (bigger, scrolling in their own box) and the waveform with previous / play / next at the bottom; while it plays there, the **screen stays on**. The choice is remembered on the device. |
 | **Editor** | Title, composers, album, year, genre (built-in, or custom ones created on the fly), description, Suno prompt, mastered yes/no, draft/final version, visibility (private / unlisted / public), cover (you choose the square in a crop editor — drag, zoom with wheel/pinch/slider — then it is converted to WebP), lyrics with section headers. |
 | **Lyrics sync** | "Tap to sync": while the track plays, press <kbd>Space</kbd> (or tap **Stamp line**) at the start of each line; on phones Stamp line and Undo stay pinned above the player bar, each tap gives a short **vibration** (Android), and the **screen stays on** while syncing. Playback at 0.5× / 0.75× with the pitch preserved, a zoomable detailed waveform with a **draggable marker per line**, replay of the selected line (<kbd>R</kbd>), ±0.05 s nudges (<kbd>←</kbd> <kbd>→</kbd>), undo (<kbd>↑</kbd>), **LRC** import (paste or open an `.lrc` file) and export (copy or download `.lrc`). All manual: no automatic alignment. |
-| **Draft versions** | New uploads are **drafts** (e.g. one of several Suno versions of a song); the chosen one is marked **final** (track menu, edit page, or several at once). Select 2-3 drafts → **Share for feedback** creates an unlisted **group of versions** ("Night drive – versions") and copies its link: friends hear every version in a row, marked **Work in progress**. Groups have their own **Versions** page, apart from the playlists: open one to copy its link again or mark the chosen version final. Then delete the others in one go ([7.17](#717-draft-versions-and-feedback)). |
+| **Draft versions** | New uploads are **drafts** (e.g. one of several Suno versions of a song); the chosen one is marked **final** (track menu, edit page, or several at once). Select 2-3 drafts → **Share for feedback** creates an unlisted **group of versions** ("Night drive – versions") and copies its link: friends hear every version in a row, marked **Work in progress**. Friends **pick their favourite** with a heart, optionally with their name and a comment, no account needed. Groups have their own **Versions** page, apart from the playlists: open one to see the **votes, plays and comments** per version, copy its link again or mark the chosen version final, which **closes the voting**. Then delete the others in one go ([7.17](#717-draft-versions-and-feedback)). |
 | **Playlists** | Ordered lists of your tracks (groups of versions are on the Versions page instead). Create them from the Playlists page or from a track's menu ("Add to playlist" → "New playlist…"), reorder by dragging (mouse or touch) or with Move up/down, remove tracks, play them in sequence. Cover: an automatic 2×2 mosaic of the first tracks' covers, or an image you upload. |
 | **Download** | "Download" in the track menus and on the edit page saves the audio file **with its metadata written in**: title, composers (as artist and composer), album, year, genre, description (as comment), lyrics, **synced lyrics** and cover. FLAC and MP3 get every field; WAV the text fields; other formats are saved as stored. The audio itself is untouched, and the Suno prompt and mastering status are never written. |
 | **Sharing** | Unlisted and public **tracks** get a public page, `/t/<track id>`: cover, title, composers, album, year, genre, description, lyrics and a player. Shared **playlists** get `/p/<playlist id>`: the track list, sequential playback, and the lyrics and description of the track being played. No account needed to open them. "Copy share link" in the menus and on the edit pages; on phones and tablets it is **"Share link"** and opens the device's share sheet (WhatsApp, Telegram, mail…). The Suno prompt and the mastering status are **never** shared. **Sharing a playlist shares all its tracks, private ones included** (only inside the playlist; the editor warns about them). Link previews in chat apps and social networks show the title and the cover. |
-| **Statistics** | Account menu → Statistics: how many times your **share links** (`/t/…`, `/p/…`) were opened in the last 7 or 30 days, per day and per track or playlist, with where visitors came from (WhatsApp, Instagram…), their country and device. Real data from **Vercel Web Analytics** on the deployed site; locally, clearly flagged **demo data** ([7.16](#716-statistics)). |
+| **Statistics** | Account menu → Statistics: how many times your **share links** (`/t/…`, `/p/…`) were opened in the last 7 or 30 days, per day and per track or playlist, with where visitors came from (WhatsApp, Instagram…), their country and device: real data from **Vercel Web Analytics** on the deployed site, clearly flagged **demo data** locally. Next to them, how many times visitors really **listened** (30 seconds, or half a shorter track) and how many **to the end**, counted by the app itself, so real everywhere; **your own plays** are shown apart and never inflate the numbers ([7.16](#716-statistics)). |
 | **Storage** | Account menu → Storage: how much audio and how many covers you store, and the **orphaned files** left by interrupted uploads, which can be deleted in one click (files younger than 24 hours are kept: an upload may still be in progress). |
 | **Interface** | Responsive from phones to desktop, light and dark theme, checked by end-to-end tests at phone and tablet size. Slightly smaller text on phones (17 px instead of 20 px), so lists, filters and headers fit; there the track editor's Play, Download and Save are icons, leaving the row to the title. On touch screens the play button on track covers is always shown (there is no hover to reveal it). The **Android back button** closes the panel or dialog on top (full-screen player, Up next, dialogs) instead of leaving the page or the installed app. **Every icon-only button shows its name in a tooltip** on hover or keyboard focus (the same words screen readers announce); the drag grips say "Drag to reorder". |
 | **PWA** | Installable on phones and desktop (manifest, icons, service worker for static assets). |
@@ -325,16 +325,18 @@ ChronoPlayer/
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog,
-│   │   │                             #   PlaylistEditor (owner page of both purposes), PlaylistGrid (cards)
-│   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer, ShareUnavailable (public pages)
-│   │   ├── stats/                    # StatsDailyChart (views per day), StatsBreakdown (referrers, countries, devices)
+│   │   │                             #   PlaylistEditor (owner page of both purposes), PlaylistGrid (cards),
+│   │   │                             #   PlaylistVersionFeedback (a group's votes, plays and comments)
+│   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer, ShareUnavailable,
+│   │   │                             #   ShareVersionVote (a group's vote panel) (public pages)
+│   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
 │   │                                 #   useAsyncTask, useEditForm, useCoverEditor, useCoverStorage, useSortableList,
 │   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),
 │   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
-│   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5)
+│   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17)
 │   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages)
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
@@ -347,6 +349,8 @@ ChronoPlayer/
 │   │   ├── player/                   #   the player store's parts (7.5): queue.ts (queue and order) · playback.ts
 │   │   │                             #   (loaded track, engine, expired URLs) · sources.ts · settings.ts · types.ts
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
+│   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
+│   │   ├── listener-id.ts            #   this browser's random id, for plays and votes
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
 │   │   ├── haptics.ts                #   short vibrations as touch feedback (Android)
@@ -362,33 +366,35 @@ ChronoPlayer/
 │   │   ├── playlists/[id].vue        # Playlist editor (PlaylistEditor)
 │   │   ├── versions/index.vue        # Versions (groups made by "Share for feedback")
 │   │   ├── versions/[id].vue         # Group of versions (PlaylistEditor)
-│   │   ├── stats.vue                 # Statistics (visits to the share links)
+│   │   ├── stats.vue                 # Statistics (visits and plays of the share links)
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
 │   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
+│   │                                 #   · play-counter.client.ts (reports plays, 7.16)
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: puts together the parts in lib/player/ behind one API
 │   └── utils/                        # errors (human-readable messages) · clipboard · visibility (labels, icons) · playlist-purpose
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
 │   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers · analytics (+ analytics-demo)
+│   │                                 #   · plays (Statistics) · feedback (plays and votes)
 │   │                                 #   · playback (streaming addresses, cover file removal)
-│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2, signed streaming addresses) · web-analytics (Vercel API) · keepalive
+│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2, signed streaming addresses) · web-analytics (Vercel API) · keepalive · feedback (plays, votes)
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
 │   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
 ├── shared/                           # Pure code used by client and server
-│   ├── schemas/                      # track.ts · playlist.ts · analytics.ts (Zod)
+│   ├── schemas/                      # track.ts · playlist.ts · analytics.ts · feedback.ts (Zod)
 │   ├── types/                        # track.ts · playlist.ts · storage.ts · analytics.ts · database.types.ts (generated)
 │   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time · text · numbers · arrays
 ├── supabase/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
 │   ├── migrations/                   # Versioned schema (section 8.2)
 │   ├── seed.sql                      # Local demo user
-│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql
+│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, streaming, keepalive, responsive (phone + tablet)
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, streaming, keepalive, responsive (phone + tablet)
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
@@ -855,7 +861,7 @@ sequenceDiagram
 
 - `@vercel/analytics` loads Vercel's script from `/_vercel/insights`, which exists only on Vercel deployments: the plugin runs only when `public.webAnalytics` is true, i.e. the build ran on Vercel (`VERCEL=1`).
 - Its `beforeSend` hook drops every event except the **share pages** (`/t/<id>`, `/p/<id>`, `lib/web-analytics.ts`) and every visit by a **signed-in** user: the owner opening their own link does not count, and private app pages do not use up the plan's allowance.
-- No cookies; Vercel counts unique visitors with a hash that changes every day. **Plays are not counted**: custom events (such as "play") are not part of Vercel's Hobby plan.
+- No cookies; Vercel counts unique visitors with a hash that changes every day. Vercel cannot count plays (custom events are not part of its Hobby plan): the app counts them itself, see **Plays** below.
 
 **Reading** (`GET /api/analytics?days=7|30`, `analytics.service.ts`):
 
@@ -884,6 +890,14 @@ sequenceDiagram
 
 - The page lists every shared item (even without visits) and every item visited in the period; "Private now" marks a page no longer shared.
 
+**Plays** are counted by the app itself (table `plays`), so they are real everywhere, local development included, and visitors with an ad blocker count too:
+
+- **When:** `plugins/play-counter.client.ts` follows the player's position and asks `lib/play-tracker.ts` how much has really been listened to: only the position moving forward a little at a time while playing at normal speed. A seek, a pause or the slowed-down playback of the lyrics sync editor adds nothing. A **play** is 30 seconds, or half of a shorter track; it is **completed** at 90%. The plugin then sends `POST /api/plays` (again with `completed` at 90%); a failed report is simply lost.
+- **Where:** every player counts. On the share pages the context is the track's own page or the shared playlist the track is heard through (`playlistId`); in the library the plays are the owner's own.
+- **Who:** `record_play` (SQL, `security definer`) recognises the **owner by the session**, never by what the browser says, and stores their plays as `owner` plays, shown apart ("Your own plays"). Anyone else is a `visitor`, identified only by a random id kept in their browser (`lib/listener-id.ts`, also used for votes): one play per listener, track, context and UTC day (replaying the same day only marks the play completed). The function accepts a play only where the caller can listen: a non-private track on its own page, a track inside a non-private playlist through that playlist, or the caller's own track; anything else answers like a missing track (`404`).
+- **Reading** (`GET /api/analytics/plays?days=7|30`, `plays.service.ts`): the period's plays of the user's tracks (RLS: owner only, read 1000 rows at a time since PostgREST cuts longer results), summed in total, per day and per share page (`/t/<id>` or `/p/<id>`, the same key as Vercel's items, so the page joins both lists). Plays heard through a playlist deleted since still count in the totals.
+- **The page** shows both: tiles (views, visitors, pages visited · plays, listeners, your own plays), **one chart each** for views and plays per day (different scales, never one shared axis: `StatsDailyChart` takes any one number per day), and every shared page with its views and its plays (how many to the end). Without Vercel's numbers (`unconfigured`), the plays are still there.
+
 ### 7.17 Draft versions and feedback
 
 A track is a **draft** (a work in progress) or **final** (`tracks.status`, enum `track_status`). New uploads start as drafts (the column default); tracks that existed before the feature became final.
@@ -892,8 +906,9 @@ A track is a **draft** (a work in progress) or **final** (`tracks.status`, enum 
 flowchart LR
   Upload["Upload 2-3 Suno versions<br/>(drafts)"] --> Select["Library → Select<br/>tick the versions"]
   Select --> Share["Share for feedback<br/>unlisted group of versions + link copied"]
-  Share --> Friends["Friends open /p/…<br/>versions marked WIP"]
-  Friends --> Final["Mark the chosen one final<br/>(Versions page, menu, editor or selection)"]
+  Share --> Friends["Friends open /p/…<br/>listen (plays counted) and pick one ♥"]
+  Friends --> Feedback["Versions page<br/>votes, plays, comments"]
+  Feedback --> Final["Mark the chosen one final<br/>(voting closes)"]
   Final --> Delete["Filter Drafts → Select all → Delete"]
 ```
 
@@ -903,7 +918,10 @@ flowchart LR
 - **Groups of versions are playlists with another purpose** (`playlists.purpose`, enum `playlist_purpose`): same tables, RLS, share links, storage rules and editor, so nothing about sharing had to be written twice. Only where they appear differs: `GET /api/playlists?purpose=versions` feeds the **Versions** page (`pages/versions/`), while the Playlists page and every "Add to playlist" menu ask for `purpose=playlist` (the default). The purpose is set at creation and never changes. Each purpose has its own cached list (`usePlaylistList(purpose)`); an old `/playlists/:id` link of a group moves to `/versions/:id`.
 - **The group's page** (`PlaylistEditor` with `purpose="versions"`) is the playlist editor worded for versions, with a **Final** badge on the chosen one and "Mark as final / draft" in each version's menu. The public page says "Versions · 3 versions" instead of "Playlist · 3 tracks" and, without a description, asks the listener to pick a favourite.
 - **Share pages:** `get_shared_track` and `get_shared_playlist_tracks` return the status; drafts show **Work in progress** on `/t/…`, and **WIP** in the list and "Work in progress" in the now-playing header on `/p/…`.
-- **Statistics** count a group's link like any playlist link (`/p/…`).
+- **Votes** (table `version_votes`): on a group's public page each version has a **heart**; a friend picks one (tapping it again takes the pick back) and can add a **name** and a **comment** for the owner. One pick per browser and group (the random id of `lib/listener-id.ts`), changeable at will. Nobody sees anyone else's pick; the owner opening their own group gets a note instead of the hearts (the API refuses an owner's vote with `403`). Everything goes through `cast_version_vote`, `withdraw_version_vote` and `get_version_vote` (SQL, `security definer`): the group must be shared and the version must belong to it.
+- **Voting closes** as soon as a version of the group is **final** (`409` from then on, and the public page shows which one was chosen, with a **Chosen** badge); marking it draft again reopens it. A pick of a version since removed from the group stops counting.
+- **Feedback on the Versions page** (`GET /api/playlists/:id/feedback`, `PlaylistVersionFeedback.vue`): whether voting is open, votes and listeners in total, one row per version with its votes as a bar and its plays heard through the group's link (visitors only), and the picks that came with a name or a comment, most recent first. Each version's row in the list also shows its votes and plays. Marking a version final or removing one reloads it.
+- **Statistics** count a group's link like any playlist link (`/p/…`), its plays included.
 - **Bulk delete:** one `DELETE` per ticked track, in parallel, after one confirmation listing them; tracks that fail stay selected for a retry.
 
 ---
@@ -920,6 +938,9 @@ erDiagram
   AUTH_USERS ||--o{ PLAYLISTS : owns
   PLAYLISTS ||--o{ PLAYLIST_TRACKS : contains
   TRACKS ||--o{ PLAYLIST_TRACKS : "appears in"
+  TRACKS ||--o{ PLAYS : "is played"
+  PLAYLISTS ||--o{ VERSION_VOTES : "collects"
+  TRACKS ||--o{ VERSION_VOTES : "is picked"
 
   TRACKS {
     uuid id PK
@@ -968,9 +989,27 @@ erDiagram
     uuid track_id PK, FK "cascade"
     integer position
   }
+  PLAYS {
+    bigint id PK
+    uuid owner_id FK "the track's owner"
+    uuid track_id FK "cascade"
+    uuid playlist_id "heard through it; no FK: kept after a deletion"
+    enum listener "visitor | owner"
+    uuid listener_id "browser id, or the owner's user id"
+    date played_on "UTC; one row per track, context, listener, day"
+    boolean completed "90% listened"
+  }
+  VERSION_VOTES {
+    uuid playlist_id PK, FK "cascade"
+    uuid voter_id PK "browser id"
+    uuid track_id FK "the version picked, cascade"
+    text name "optional, 1-60"
+    text comment "optional, 1-1000"
+    timestamptz updated_at "trigger"
+  }
 ```
 
-Constraints worth knowing: file paths must start with the owner's id; the owner of a track or playlist can never change (trigger); a track appears at most once per playlist; deleting a user deletes everything they own.
+Constraints worth knowing: file paths must start with the owner's id; the owner of a track or playlist can never change (trigger); a track appears at most once per playlist; a listener counts once per track, context and day; a browser has one vote per group; deleting a user deletes everything they own.
 
 ### 8.2 Migrations
 
@@ -986,6 +1025,8 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261022000000_playlists.sql` | `playlists`, `playlist_tracks`, their RLS; `set_playlist_tracks`; `get_shared_playlist(_tracks)`; storage sharing extended to playlists |
 | `20261023000000_track_status.sql` | `tracks.status` (`draft` / `final`: existing tracks final, new ones draft); the sharing functions return it |
 | `20261024000000_playlist_purpose.sql` | `playlists.purpose` (`playlist` / `versions`; existing unlisted "… – versions" playlists become groups); index by purpose; `get_shared_playlist` returns it |
+| `20261024120000_plays_and_votes.sql` | `plays` and `version_votes`, readable by the owner only; `record_play`, `cast_version_vote`, `withdraw_version_vote`, `get_version_vote` and their internal helpers (revoked from `anon` and `authenticated` explicitly) |
+| `20261024130000_private_helpers.sql` | Internal functions out of the API: the policy helpers `is_shared_track_file` and `owns_playlist` move to the unexposed `private` schema (`set_playlist_tracks` recreated to call the latter there), `set_playlist_tracks` for signed-in users only, the trigger functions callable by nobody |
 
 ### 8.3 Database functions
 
@@ -994,12 +1035,22 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `get_shared_track(id)` | definer | Shareable fields of a non-private track (nothing for private ones) |
 | `get_shared_playlist(id)` | definer | A non-private playlist's title, description, cover, visibility, purpose |
 | `get_shared_playlist_tracks(id)` | definer | Shareable fields of every track of a non-private playlist, in order (private tracks included) |
-| `is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
-| `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction (RLS applies) |
-| `owns_playlist(id)` | invoker | RLS helper for `playlist_tracks` |
-| `set_updated_at()` · `prevent_owner_change()` | trigger | Timestamps · immutable owner |
+| `private.is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
+| `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction (RLS applies); signed-in users only |
+| `private.owns_playlist(id)` | invoker | RLS helper for `playlist_tracks` and `version_votes` |
+| `record_play(track, playlist, listener, completed)` | definer | Counts a play where the caller can listen (shared track page, shared playlist containing it, own track); the owner, recognised by the session, gets `owner` plays |
+| `cast_version_vote(group, track, voter, name, comment)` · `withdraw_version_vote(group, voter)` | definer | A visitor's pick in a shared group of versions: the version must belong to it; `403` for the owner, `409` once a version is final |
+| `get_version_vote(group, voter)` | definer | Voting open, whether the caller owns the group, and this browser's own pick (never anyone else's) |
+| `shared_group_owner(id)` · `version_voting_open(id)` · `check_version_voting(id, voter)` | definer, internal | Helpers of the vote functions; not callable through the API |
+| `set_updated_at()` · `prevent_owner_change()` | trigger | Timestamps · immutable owner (no role may call them directly) |
 
-*Security definer* functions bypass RLS, so each one filters on visibility itself and selects explicit columns; all have an empty `search_path`.
+*Security definer* functions bypass RLS, so each one filters on visibility itself and selects explicit columns; all have an empty `search_path`. **What the API offers.** Every function of the `public` schema the caller may execute is callable through the Data API (`POST /rest/v1/rpc/<name>`), and Supabase's default privileges grant `execute` on new functions there to `anon` and `authenticated` explicitly, so `revoke … from public` alone does not hide one. The rules:
+
+- a function meant for the API stays in `public`, granted to the roles that need it (`get_shared_*`, plays, votes: both roles; `set_playlist_tracks`: `authenticated`);
+- an internal helper of other functions stays in `public` but is revoked from `anon` and `authenticated` by name (the vote helpers): the definer functions that call it run as its owner;
+- a **helper of policies** cannot be revoked, since the policies run as the requesting role and need `execute`: it lives in the **`private` schema**, which the API does not expose (`[api] schemas` in `supabase/config.toml`, the same default on Supabase Cloud), with `usage` granted to the roles whose policies call it. Policies refer to a function by its identity, so moving one keeps them working; function bodies refer to it by name and must be updated.
+
+`function_privileges.test.sql` lists exactly what each role may call in `public`: a new function exposed by mistake fails the tests.
 
 ### 8.4 Storage
 
@@ -1015,8 +1066,9 @@ Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-e
 
 - A user reads, changes and deletes only their own tracks, genres and playlists. Nobody can create items for someone else or change an item's owner.
 - Playlists can only contain the owner's own tracks.
-- Anonymous visitors cannot read any table; they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner.
+- Anonymous visitors cannot read any table; through the API they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner, and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
 - A private track inside a shared playlist is reachable only through that playlist.
+- Plays and votes are written only through their functions, only where the caller can listen or vote; the owner's plays are kept apart by the session, and only the owner reads plays and votes. A visitor sees their own pick, never anyone else's.
 - Files can be uploaded only into one's own folder, and read only when they are one's own or belong to shared items.
 - Every bucket is private: files are reachable only through expiring signed URLs. The R2 keys exist only on the server.
 - The public Supabase key (`SUPABASE_KEY`) can live in the browser: protection comes from the policies, not from hiding the key. The service key is never used.
@@ -1026,7 +1078,7 @@ Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-e
 
 ## 9. API reference
 
-All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues`; an item that is missing, private or someone else's is always `404`. Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
+All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues`; an item that is missing, private or someone else's is always `404`. Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
 **Tracks and genres**
 
@@ -1066,12 +1118,14 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `DELETE` | `/api/playlists/:id` | | `204` (tracks stay in the library) |
 | `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list) | `PlaylistDetail` |
 | `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail` |
+| `GET` | `/api/playlists/:id/feedback` | | `VersionFeedback`: voting open, votes and plays per version, comments; `404` unless a group of versions |
 
 **Statistics**
 
 | Method | Path | Response |
 |---|---|---|
 | `GET` | `/api/analytics?days=7` or `?days=30` | `AnalyticsReport`: totals, per day, per item, referrers, countries, devices (default 30 days; `400` for other values; `502` when Vercel Analytics fails) |
+| `GET` | `/api/analytics/plays?days=7` or `?days=30` | `PlaysReport`: visitors' plays in total, per day and per share page, and the user's own plays apart |
 
 **Public (no sign-in)**
 
@@ -1084,6 +1138,8 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/shared/playlists/:id/tracks/:trackId/playback` | `PlaybackSource`, only for tracks of that playlist |
 | `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `403` unless signed by the server and unexpired ([7.7](#77-expired-streaming-urls)) |
 | `GET` | `/api/shared/playlists/:id/cover` | `302` to the custom cover, or the first track cover |
+| `POST` | `/api/plays` | Body `{ trackId, playlistId?, listenerId, completed? }` → `204`; `404` where the caller cannot listen to that track |
+| `GET` · `PUT` · `DELETE` | `/api/shared/playlists/:id/vote` | `VersionVoteState` (voting open, owner or not, this browser's pick): `GET` and `DELETE` take `?voter=<browser id>`, `PUT` takes `{ voterId, trackId, name?, comment? }`; `403` for the owner, `404` unless a shared group (or a version of it), `409` once a version is final |
 
 ---
 
@@ -1301,11 +1357,11 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, shared helpers (plurals, labels, clamping, list moves, byte arrays), cover crop geometry, Zod schemas (incl. playlist purpose: set at creation only, `playlist` by default), mappers (incl. cover addresses and the shared-track fields common to both public pages); presigned playback URLs and cover removal; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data) with mocked repositories; the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources, shuffle and repeat in every mode, settings kept across server-rendered pages), the **volume-support probe** (iOS ignores the volume set from JavaScript), the **streaming addresses** (built with the key and expiry, accepted until they expire, refused when the file, the expiry, the signature or the secret differ), **haptics** (pattern passed on, silent without the Vibration API or when refused), the **media card** (cover or app icon, "ChronoPlayer" for a missing artist or album, absolute artwork addresses) and the **play-order rules of shuffle** (`queue-order.ts`, seeded random); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, shared helpers (plurals, labels, clamping, list moves, byte arrays), cover crop geometry, Zod schemas (incl. playlist purpose: set at creation only, `playlist` by default), mappers (incl. cover addresses and the shared-track fields common to both public pages); presigned playback URLs and cover removal; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data, plays per day and page with own plays apart, votes and plays tallied per version) with mocked repositories; **when listening becomes a play** (`play-tracker.ts`: 30 s or half, completed at 90%, seeks, pauses and slowed-down playback not counted) and the **listener id** (kept, replaced when corrupted, one per page without storage); the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (queue and queue editing, races, expired URLs, shared sources, shuffle and repeat in every mode, settings kept across server-rendered pages), the **volume-support probe** (iOS ignores the volume set from JavaScript), the **streaming addresses** (built with the key and expiry, accepted until they expire, refused when the file, the expiry, the signature or the secret differ), **haptics** (pattern passed on, silent without the Vibration API or when refused), the **media card** (cover or app icon, "ChronoPlayer" for a missing artist or album, absolute artwork addresses) and the **play-order rules of shuffle** (`queue-order.ts`, seeded random); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `useRemotePlayback` with a fake RemotePlayback (available when a device is reported or the browser can only look when asked, not without the API or when refused, connection state, picker outcomes including an instant refusal taken for a browser that cannot cast, the browser's own answer passed on with how fast it came, watch cancelled on unmount and on a new element), `useCloseOnBack` with a fake CloseWatcher (back closes, closing another way drops the watcher, a refused close re-arms it, Esc is left to Nuxt UI, nothing without the API), `LyricsView`, `TrackCover`, `TrackList` (incl. draft badge and selection mode), `PlaylistCover`, `IconButton` (its label names the button, the rest reaches `UButton`, no visible text) |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message. **`doctor`**: Node version ranges, the pinned pnpm, Playwright's browser folder per OS, the macOS/Windows fixes |
-| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed, draft/final status and playlist purpose returned), new tracks start as drafts, playlists (curated by default), storage policies — 57 tests |
-| End-to-end | Playwright (Chromium; desktop, phone and tablet projects) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear; shuffle reorders Up next and puts it back, repeat one restarts the track; tooltips on icon-only buttons, a menu trigger still opening its menu; the bar's waveform keeps a real width at tablet size) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **synced lyrics transfer** (LRC opened from a file, copied and downloaded; a downloaded FLAC uploaded into another account brings its sync back); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API); **draft versions** (uploads are drafts, two versions shared for feedback and seen as WIP by a visitor, the group on the Versions page and not among the playlists, one marked final from the group, the version filter, the other drafts deleted in one go); **streaming address** (`streaming.spec.ts`: HEAD answered with the stored file's type and size, GET redirected to the storage with range requests, forged or altered addresses refused); **touch screens** (`responsive.spec.ts`, run by its own `phone` and `tablet` projects: no page scrolls sideways, the base text is 17 px on phones and 20 px on tablets, the track editor's title keeps a real width on phones, covers show their play button without a hover, the tablet player bar keeps a readable title and opens the volume in a popover, Stamp line stays pinned above the player bar on phones; on phones also, with real touch events sent through the DevTools protocol, a real CloseWatcher and recorders for vibration, wake lock and share sheet: swipes change track and open the player, a pull-down closes it and the view fits a long title, back closes Up next before the full-screen view, the screen stays on while syncing and is released on leaving the tab, stamp and undo vibrate, share links open the share sheet, the lock-screen card read from the browser's real Media Session shows the title and the app, and the Cast button, against a stand-in for a Chromecast, opens the picker and shows the connection, and with no device at all the button is still there on phones and tablets and explains, when tapped, that casting is not available here, with the browser's answer; the phones' full-screen view shows the description under the controls and no Lyrics button for a track without lyrics, and the Lyrics button opens the lyrics view, with the lyrics scrolling in their own box, the controls on screen, the screen kept on only while it plays, and the choice kept across a reload; opening the view focuses the view itself, with no tooltip showing) |
+| Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed, draft/final status and playlist purpose returned), new tracks start as drafts, playlists (curated by default), storage policies; **plays and votes** (where a play may be recorded, own plays kept apart, once a day per listener, votes only on shared groups and never by the owner, closed once a version is final, readable by the owner only, internal helpers not callable); **function privileges** (exactly which functions `anon` and `authenticated` may call, policy helpers out of the API schema and still working) — 107 tests |
+| End-to-end | Playwright (Chromium; desktop, phone and tablet projects) | `test/e2e/` | Sign-in/up/out and protected pages; real upload of a 24-bit WAV that must come back from storage as a FLAC with exactly the original samples; float WAV kept; playback, editing, cover, LRC, sync tools, full-screen view, deletion; **track sharing** (no account needed, nothing private leaks, `404` once private); **playlists** (create, add, reorder and reload, play all, share, private tracks only inside the playlist); **queue** (add, play next, move, remove, play now, clear; shuffle reorders Up next and puts it back, repeat one restarts the track; tooltips on icon-only buttons, a menu trigger still opening its menu; the bar's waveform keeps a real width at tablet size) and **saved queue** (a reload resumes track, position and queue; closing the player forgets it); **storage clean-up** (an interrupted upload is found and deleted, the real track keeps its file); **cover cropping** (the stored WebP holds exactly the chosen square, checked on its pixels); **download** (the saved FLAC carries title, artist, album, year, genre, comment, lyrics and cover, never the Suno prompt); **synced lyrics transfer** (LRC opened from a file, copied and downloaded; a downloaded FLAC uploaded into another account brings its sync back); **cover cache** (stable address across reloads, one-year private cache header, new address for a new cover, `401`/`404` for anyone but the owner); **statistics** (demo data flagged outside Vercel, built around the user's track, no analytics script loaded, period switch, `400`/`401` from the API); **draft versions** (uploads are drafts, two versions shared for feedback and seen as WIP by a visitor, the group on the Versions page and not among the playlists, one marked final from the group, the version filter, the other drafts deleted in one go); **listeners' feedback** (`feedback.spec.ts`: a friend listens to a version to the end and picks another with a name and a note, kept across a reload; the owner gets a note instead of hearts and a `403` for a vote; the Versions page shows votes, plays and the note; marking a version final closes the voting for the friend, with the chosen one shown; plays of a private track outside its group refused; Statistics count the friend's play and none of the owner's); **streaming address** (`streaming.spec.ts`: HEAD answered with the stored file's type and size, GET redirected to the storage with range requests, forged or altered addresses refused); **touch screens** (`responsive.spec.ts`, run by its own `phone` and `tablet` projects: no page scrolls sideways, the base text is 17 px on phones and 20 px on tablets, the track editor's title keeps a real width on phones, covers show their play button without a hover, the tablet player bar keeps a readable title and opens the volume in a popover, Stamp line stays pinned above the player bar on phones; on phones also, with real touch events sent through the DevTools protocol, a real CloseWatcher and recorders for vibration, wake lock and share sheet: swipes change track and open the player, a pull-down closes it and the view fits a long title, back closes Up next before the full-screen view, the screen stays on while syncing and is released on leaving the tab, stamp and undo vibrate, share links open the share sheet, the lock-screen card read from the browser's real Media Session shows the title and the app, and the Cast button, against a stand-in for a Chromecast, opens the picker and shows the connection, and with no device at all the button is still there on phones and tablets and explains, when tapped, that casting is not available here, with the browser's answer; the phones' full-screen view shows the description under the controls and no Lyrics button for a track without lyrics, and the Lyrics button opens the lyrics view, with the lyrics scrolling in their own box, the controls on screen, the screen kept on only while it plays, and the choice kept across a reload; opening the view focuses the view itself, with no tooltip showing) |
 
 ```bash
 make test                 # unit + components (seconds)
@@ -1465,7 +1521,8 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 - **No offline mode** (downloading tracks for listening without a connection).
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
 - **Revoked links:** an audio URL already handed out stays valid until it expires (up to 6 hours).
-- **Statistics count page openings, not plays** (custom events are not on Vercel's Hobby plan), keep one month of data, and miss visitors with an ad blocker. Real numbers exist only on the Vercel deployment.
+- **Page views come from Vercel** only: one month of data, visitors with an ad blocker missed, real numbers only on the Vercel deployment. Plays are the app's own count and have none of these limits.
+- **Listeners and voters are browsers, not people:** one person on two devices counts twice, and clearing the site's data (or a private window) gives a new id, so a determined friend could vote twice. Fine among friends; not a secure ballot.
 - **Casting sends the audio only** ([7.5](#75-playback)): the Remote Playback API hands the device an audio address and no track data, so a Chromecast / Google TV is not expected to show cover, track info or lyrics (not yet checked on a device), and the queue moves on only while the phone's page is alive (the phone's `<audio>` element drives the cast). Devices without Google Cast or AirPlay (most Samsung and LG TVs, DLNA speakers) cannot be reached from a web app at all.
 
 ### 15.2 Next steps

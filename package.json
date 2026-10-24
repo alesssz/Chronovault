@@ -81,7 +81,7 @@
     "@wasm-audio-decoders/flac": "^0.2.11",
     "eslint": "^10.13.0",
     "happy-dom": "^21.0.4",
-    "supabase": "^2.121.0",
+    "supabase": "^2.122.0",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"

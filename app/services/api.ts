@@ -1,9 +1,10 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
-import type { PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist } from '~~/shared/types/playlist'
+import type { PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, VersionFeedback, VersionVoteState } from '~~/shared/types/playlist'
 import type { PlaylistCreateInput, PlaylistUpdateInput } from '~~/shared/schemas/playlist'
 import type { StorageCleanupResult, StorageReport } from '~~/shared/types/storage'
-import type { AnalyticsPeriod, AnalyticsReport } from '~~/shared/types/analytics'
+import type { AnalyticsPeriod, AnalyticsReport, PlaysReport } from '~~/shared/types/analytics'
+import type { PlayRecordInput, VersionVoteInput } from '~~/shared/schemas/feedback'
 
 /**
  * Typed client for the server API. The only place where the frontend
@@ -34,6 +35,8 @@ export const playlistsApi = {
   update: (id: string, body: PlaylistUpdateInput) => $fetch<PlaylistDetail>(`/api/playlists/${id}`, { method: 'PATCH', body }),
   remove: (id: string) => $fetch<null>(`/api/playlists/${id}`, { method: 'DELETE' }),
   /** Replaces the tracks, in order (reorder and remove). */
+  /** Votes, plays and comments of a group of versions (Versions page). */
+  feedback: (id: string) => $fetch<VersionFeedback>(`/api/playlists/${id}/feedback`),
   setTracks: (id: string, trackIds: string[]) =>
     $fetch<PlaylistDetail>(`/api/playlists/${id}/tracks`, { method: 'PUT', body: { trackIds } }),
   /** Appends tracks; those already in the playlist are skipped. */
@@ -48,6 +51,20 @@ export const sharedApi = {
   playlist: (id: string) => $fetch<SharedPlaylist>(`/api/shared/playlists/${id}`),
   playlistTrackPlayback: (playlistId: string, trackId: string) =>
     $fetch<PlaybackSource>(`/api/shared/playlists/${playlistId}/tracks/${trackId}/playback`),
+  /** A group's vote state for this browser (`voter`: app/lib/listener-id.ts). */
+  voteState: (playlistId: string, voter: string) =>
+    $fetch<VersionVoteState>(`/api/shared/playlists/${playlistId}/vote`, { query: { voter } }),
+  /** Picks (or changes) this browser's preferred version, with an optional name and comment. */
+  vote: (playlistId: string, body: VersionVoteInput) =>
+    $fetch<VersionVoteState>(`/api/shared/playlists/${playlistId}/vote`, { method: 'PUT', body }),
+  /** Takes this browser's pick back. */
+  withdrawVote: (playlistId: string, voter: string) =>
+    $fetch<VersionVoteState>(`/api/shared/playlists/${playlistId}/vote`, { method: 'DELETE', query: { voter } }),
+}
+
+/** Plays counted by the player (share pages and the library; no sign-in needed). */
+export const playsApi = {
+  record: (body: PlayRecordInput) => $fetch<null>('/api/plays', { method: 'POST', body }),
 }
 
 /** Storage usage and clean-up of orphaned files (sign-in required). */
@@ -59,6 +76,8 @@ export const storageApi = {
 /** Visits to the user's share pages, Statistics page (sign-in required). */
 export const analyticsApi = {
   report: (days: AnalyticsPeriod) => $fetch<AnalyticsReport>('/api/analytics', { query: { days } }),
+  /** Plays of the user's tracks (counted by the app itself, not by Vercel). */
+  plays: (days: AnalyticsPeriod) => $fetch<PlaysReport>('/api/analytics/plays', { query: { days } }),
 }
 
 /** Built-in and custom genres (sign-in required). */

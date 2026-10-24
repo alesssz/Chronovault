@@ -30,8 +30,10 @@ export function toHttpError(error: DbError, context: string) {
     '22P02': { statusCode: 400, message: 'Invalid data' },
     // insufficient_privilege: an RLS policy refused the row
     '42501': { statusCode: 403, message: 'Operation not allowed' },
-    // no_data_found, raised by our own functions (set_playlist_tracks)
+    // no_data_found, raised by our own functions (set_playlist_tracks, record_play, votes)
     'P0002': { statusCode: 404, message: 'Item not found' },
+    // object_not_in_prerequisite_state, raised by the vote functions once a version is final
+    '55000': { statusCode: 409, message: 'Voting is closed' },
     // PostgREST: `.single()` found no row
     'PGRST116': { statusCode: 404, message: 'Item not found' },
   }

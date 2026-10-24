@@ -54,6 +54,64 @@ export interface PlaylistDetail extends PlaylistSummary {
   privateTrackCount: number
 }
 
+// --- Feedback on a group of versions ------------------------------------------------
+// Visitors of a shared group pick the version they prefer (table
+// `version_votes`); the owner sees the votes next to the plays heard through
+// the group. Voting closes once a version of the group is marked final.
+
+/** One version of a group, with its feedback (owner's Versions page). */
+export interface VersionTally {
+  trackId: string
+  /** Visitors who picked this version. */
+  votes: number
+  /** Visitors' plays heard through the group (see PlaysCount). */
+  plays: number
+  completed: number
+}
+
+/** A pick that came with a name or a comment (owner's Versions page). */
+export interface VersionComment {
+  trackId: string
+  name: string | null
+  comment: string | null
+  /** When the pick was made or last changed (ISO). */
+  updatedAt: string
+}
+
+/** Response of GET /api/playlists/:id/feedback: the feedback on a group of versions. */
+export interface VersionFeedback {
+  /** Voting is open: no version of the group is marked final yet. */
+  open: boolean
+  /** Votes counted (picks of versions still in the group). */
+  votes: number
+  /** Different visitors who listened through the group's link. */
+  listeners: number
+  /** Every version of the group, in the group's order. */
+  versions: VersionTally[]
+  /** Picks with a name or a comment, most recent first. */
+  comments: VersionComment[]
+}
+
+/** A visitor's own pick in a group of versions. */
+export interface VersionPick {
+  trackId: string
+  name: string | null
+  comment: string | null
+}
+
+/**
+ * Response of GET /api/shared/playlists/:id/vote: what the public page of a
+ * group needs for its vote buttons. Nobody else's pick is ever included.
+ */
+export interface VersionVoteState {
+  /** Voting is open (no version is final yet). */
+  open: boolean
+  /** The signed-in viewer owns the group: they choose, friends vote (the page shows a note). */
+  isOwner: boolean
+  /** This browser's current pick, or null. */
+  pick: VersionPick | null
+}
+
 /**
  * What anyone with the link sees of an 'unlisted' or 'public' playlist.
  * Sharing a playlist shares all its tracks, private ones included, but
