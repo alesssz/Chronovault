@@ -373,7 +373,7 @@ ChronoPlayer/
 │   ├── api/                          # HTTP routes (see section 9)
 │   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers · analytics (+ analytics-demo)
 │   │                                 #   · playback (streaming addresses, cover file removal)
-│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2, signed streaming addresses) · web-analytics (Vercel API)
+│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2, signed streaming addresses) · web-analytics (Vercel API) · keepalive
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
 │   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
 ├── shared/                           # Pure code used by client and server
@@ -388,7 +388,7 @@ ChronoPlayer/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, streaming, responsive (phone + tablet)
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, streaming, keepalive, responsive (phone + tablet)
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
@@ -1026,13 +1026,14 @@ Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-e
 
 ## 9. API reference
 
-All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues`; an item that is missing, private or someone else's is always `404`. Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
+All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues`; an item that is missing, private or someone else's is always `404`. Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
 **Tracks and genres**
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | `GET` | `/api/health` | | `{ status, time }` (public) |
+| `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](#137-keeping-supabase-awake)) |
 | `GET` | `/api/tracks` | | `TrackSummary[]`, newest first |
 | `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour) |
 | `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail` |
@@ -1394,6 +1395,15 @@ Optional. Without it the app works as usual and the Statistics page explains wha
 
 On the Hobby plan Web Analytics includes 50,000 events a month and keeps one month of data (hence the 7/30-day periods); only share pages are counted, so the allowance goes a long way.
 
+### 13.7 Keeping Supabase awake
+
+Supabase **pauses a Free-plan project after a week without database activity** ([Supabase: Project Pausing](https://supabase.com/docs/guides/platform/project-pausing)): sign-in, the library and the share links stop working (the audio stays on R2, but nobody can get its addresses) until the project is restored by hand. A week of holidays without opening the app, and no visitors on the share links, would be enough.
+
+Nothing to set up: `vercel.json` declares a **Vercel Cron** job that calls `GET /api/keepalive` every day at 06:00 UTC (the Hobby plan allows daily jobs, run at some point within that hour). The route reads one built-in genre as the anonymous role, which is real database activity; `/api/health` would not do, since it never reaches the database. The route needs no secret: anyone holding the public Supabase key can already read the built-in genres straight from Supabase.
+
+- **Check it:** Vercel → the project → **Settings → Cron Jobs** lists the job, with *Run* to try it at once and a link to its logs. Cron jobs run on the production deployment only.
+- **If Supabase pauses the project anyway** (an email warns about a week before, and another confirms the pause): Supabase dashboard → the project → *Restore*. Then check the Cron Jobs page: a failing job (500 in its logs) means the database was not reached.
+
 ---
 
 ## 14. Development conventions
@@ -1450,6 +1460,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 
 - **The queue is per device:** it is saved in the browser, not in the account.
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
+- **The Supabase project stays awake only through a daily job** on Vercel ([13.7](#137-keeping-supabase-awake)): a deployment elsewhere (Docker on a server) has no cron, and needs its own daily call to `/api/keepalive`.
 - **No library pagination:** everything loads at once, fine up to a few hundred tracks.
 - **No offline mode** (downloading tracks for listening without a connection).
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
