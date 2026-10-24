@@ -344,6 +344,8 @@ ChronoPlayer/
 │   │   ├── image.ts                  #   crop geometry, square WebP covers
 │   │   ├── queue-storage.ts          #   saved play queue (localStorage)
 │   │   ├── queue-order.ts            #   shuffle rules: shuffle, unshuffle, new round
+│   │   ├── player/                   #   the player store's parts (7.5): queue.ts (queue and order) · playback.ts
+│   │   │                             #   (loaded track, engine, expired URLs) · sources.ts · settings.ts · types.ts
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
@@ -365,7 +367,7 @@ ChronoPlayer/
 │   │   └── p/[id].vue                # Public playlist page (SSR)
 │   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
-│   ├── stores/player.ts              # Player store: editable queue, sources, expired-URL recovery
+│   ├── stores/player.ts              # Player store: puts together the parts in lib/player/ behind one API
 │   └── utils/                        # errors (human-readable messages) · clipboard · visibility (labels, icons) · playlist-purpose
 ├── server/                           # Backend (Nitro)
 │   ├── api/                          # HTTP routes (see section 9)
@@ -563,7 +565,11 @@ sequenceDiagram
 ```
 
 - **The engine** (`app/lib/audio-engine.ts`) wraps one `<audio>` element created on first use, outside Vue. While playing it reports the time on every animation frame (`timeupdate` alone fires only ~4 times a second, too coarse for lyrics).
-- **The store** (`app/stores/player.ts`) holds the queue, the current track, status, time, volume, shuffle and repeat (saved in `localStorage`), speed and the full-screen flag. Every track change increments a token: responses of superseded loads (fast double clicks) are ignored.
+- **The store** (`app/stores/player.ts`) holds the queue, the current track, status, time, volume, shuffle and repeat (saved in `localStorage`), speed and the full-screen flag. Components see one store with one flat API, but the state lives in separate parts in `app/lib/player/`, which the store puts together:
+  - `queue.ts`, **the queue and its order**: the tracks, `index`, shuffle and the original order, the Up next edits. No audio: it only decides the order;
+  - `playback.ts`, **the loaded track**: the reactive mirror of the engine (status, time, duration, volume, speed) and its commands, with the expired-URL recovery ([7.7](#77-expired-streaming-urls)). It knows nothing of the queue: the store tells it what to load and hears from it when a track ends. Every load increments a token: responses of superseded loads (fast double clicks) are ignored;
+  - `sources.ts` (below) and `settings.ts` (volume, shuffle and repeat remembered on the device);
+  - the store itself keeps the rules that need several parts at once: which track comes next (next, previous, repeat), shuffle and repeat, the public pages' players, the full-screen and Up next flags. A remote engine for the TV page ([15.2](#152-next-steps)) would sit beside `playback.ts` without touching the queue.
 - **Track sources.** The store fetches data and URLs from a *source*: the library (signed-in API), a shared track or a shared playlist (public API). The same player, waveform and lyrics components therefore work on the public pages.
 - **Waveform** (`PlayerWaveform.vue`): wavesurfer.js draws the stored peaks on the engine's own `<audio>` element; clicking, dragging or ←/→ seek directly. Nothing is downloaded twice.
 - **The player bar** (`PlayerBar.vue`), always on screen while something is loaded:
@@ -607,7 +613,7 @@ In practice: **Chrome** on Android is the one to try for a Chromecast or Google 
 
 ### 7.6 Editable queue
 
-The queue lives in the player store (`app/stores/player.ts`): the tracks already played, the current one (`index`) and the upcoming ones. Playing a track from a list makes that list the queue; from then on it can be edited.
+The queue lives in the player store (`app/stores/player.ts`, its queue part in `app/lib/player/queue.ts`): the tracks already played, the current one (`index`) and the upcoming ones. Playing a track from a list makes that list the queue; from then on it can be edited.
 
 | Action | Where | Effect |
 |---|---|---|

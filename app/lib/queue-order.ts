@@ -1,5 +1,5 @@
 /**
- * Play-order rules of shuffle, used by the player store (app/stores/player.ts).
+ * Play-order rules of shuffle, used by the player's queue (app/lib/player/queue.ts).
  *
  * A queue is played tracks, the current one at `index`, then the upcoming
  * ones; only the upcoming part is ever reordered. Pure functions: randomness
