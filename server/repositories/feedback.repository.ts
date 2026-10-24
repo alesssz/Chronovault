@@ -5,20 +5,27 @@ import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 
 /**
- * Access to the listeners' feedback: the `plays` and `version_votes` tables.
+ * Access to the listeners' feedback: the `plays` and `version_votes`
+ * tables, and `feedback_seen`, the owner's last visit to each group (what
+ * makes feedback "new").
  *
- * Writes go through the record_play and *_version_vote database functions
- * (`security definer`): they check that the track or group is really shared
- * (or the caller's own), recognise the owner by the session, and close the
- * vote once a version is final. That logic lives in SQL
- * (supabase/migrations/…_plays_and_votes.sql) and is covered by the pgTAP
- * tests, not in this file. Reads are the owner's, through RLS.
+ * Writes to plays and votes go through the record_play and *_version_vote
+ * database functions (`security definer`): they check that the track or
+ * group is really shared (or the caller's own), recognise the owner by the
+ * session, and close the vote once a version is final. That logic lives in
+ * SQL (supabase/migrations/…_plays_and_votes.sql) and is covered by the
+ * pgTAP tests, not in this file. Reads, and the owner's visits, go straight
+ * to the tables under RLS (owner only).
  */
 
 /** A play as the Statistics and Versions pages need it. */
 export type PlayRow = Pick<Tables<'plays'>, 'track_id' | 'playlist_id' | 'listener' | 'listener_id' | 'completed' | 'played_on'>
 /** A vote as the Versions page needs it. */
 export type VoteRow = Pick<Tables<'version_votes'>, 'track_id' | 'name' | 'comment' | 'updated_at'>
+/** When a vote was cast or changed, and where: enough to count unseen feedback. */
+export type VoteTimeRow = Pick<Tables<'version_votes'>, 'playlist_id' | 'track_id' | 'updated_at'>
+/** The owner's last visit to a group (table `feedback_seen`). */
+export type SeenRow = Pick<Tables<'feedback_seen'>, 'playlist_id' | 'seen_at'>
 /** What get_version_vote() returns: the vote state of one visitor (the pick fields are null without a pick). */
 export interface VoteStateRow {
   open: boolean
@@ -133,4 +140,39 @@ export async function listVoteRows(db: DbClient, playlistId: string): Promise<Vo
     // (playlist_id, voter_id) is the key: within one group, voter_id is unique.
     .order('voter_id')
     .range(from, to), 'votes.list')
+}
+
+/** When and where every vote in the user's groups was cast or last changed (RLS: the owner's groups only). */
+export async function listVoteTimes(db: DbClient): Promise<VoteTimeRow[]> {
+  return readAllPages((from, to) => db
+    .from('version_votes')
+    .select('playlist_id, track_id, updated_at')
+    // (playlist_id, voter_id) is the key: a stable order for the pages.
+    .order('playlist_id')
+    .order('voter_id')
+    .range(from, to), 'votes.listTimes')
+}
+
+// --- The owner's visits (table feedback_seen) ----------------------------------------
+
+/** The owner's last visit to each of their groups that has one (RLS: own groups only). */
+export async function listSeenRows(db: DbClient): Promise<SeenRow[]> {
+  return readAllPages((from, to) => db
+    .from('feedback_seen')
+    .select('playlist_id, seen_at')
+    .order('playlist_id')
+    .range(from, to), 'feedbackSeen.list')
+}
+
+/** The owner's last visit to one group, or null when never recorded. */
+export async function findSeenAt(db: DbClient, playlistId: string): Promise<string | null> {
+  const { data, error } = await db.from('feedback_seen').select('seen_at').eq('playlist_id', playlistId).maybeSingle()
+  if (error) throw toHttpError(error, 'feedbackSeen.find')
+  return data?.seen_at ?? null
+}
+
+/** Records a visit to a group, seen up to `seenAt` (insert or move; RLS refuses someone else's group). */
+export async function markSeen(db: DbClient, playlistId: string, seenAt: string): Promise<void> {
+  const { error } = await db.from('feedback_seen').upsert({ playlist_id: playlistId, seen_at: seenAt })
+  if (error) throw toHttpError(error, 'feedbackSeen.mark')
 }

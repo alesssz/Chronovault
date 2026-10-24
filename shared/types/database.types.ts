@@ -23,7 +23,27 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "genres": {
+            "feedback_seen": {
+                  Row: {
+                    "playlist_id": string,"seen_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "playlist_id": string,"seen_at"?: string
+                  }
+                  Update: {
+                    "playlist_id"?: string,"seen_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "feedback_seen_playlist_id_fkey"
+      columns: ["playlist_id"]
+isOneToOne: true
+      referencedRelation: "playlists"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"genres": {
                   Row: {
                     "created_at": string,"id": string,"name": string,"user_id": string | null
                   }

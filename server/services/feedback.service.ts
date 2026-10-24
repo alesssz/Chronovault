@@ -1,15 +1,17 @@
 import type { PlayRecord, VersionVote } from '~~/shared/schemas/feedback'
-import type { VersionComment, VersionFeedback, VersionVoteState } from '~~/shared/types/playlist'
+import type { UnseenFeedback, VersionComment, VersionFeedback, VersionVoteState } from '~~/shared/types/playlist'
 import type { TrackStatus } from '~~/shared/types/track'
 import type { DbClient } from '../utils/auth'
 import { playlistNotFound } from '../utils/errors'
 import * as feedbackRepo from '../repositories/feedback.repository'
-import type { PlayRow, VoteRow, VoteStateRow } from '../repositories/feedback.repository'
-import { findPlaylistRow, orderedTracks } from '../repositories/playlists.repository'
+import type { PlayRow, SeenRow, VoteRow, VoteStateRow, VoteTimeRow } from '../repositories/feedback.repository'
+import { findPlaylistRow, findPlaylistTrackIds, listPlaylistRows, orderedTracks } from '../repositories/playlists.repository'
 
 /**
  * The listeners' feedback: plays reported by the player (share pages and
- * the owner's library), and the votes on shared groups of versions.
+ * the owner's library), the votes on shared groups of versions, and which
+ * of those votes the owner has not seen yet (cast or changed after their
+ * last visit to the group: the dot on "Versions", the "new" badges).
  *
  * Who may do what is decided in SQL (see feedback.repository.ts): a play or
  * a vote the caller is not entitled to answers 404 like a missing item, the
@@ -59,41 +61,54 @@ export function toVoteState(row: VoteStateRow): VersionVoteState {
 
 /**
  * The feedback on one of the user's groups of versions: votes and visitors'
- * plays per version, and the picks that came with a name or a comment.
- * 404 for a missing playlist, someone else's, or one that is not a group.
+ * plays per version, and the picks that came with a name or a comment, those
+ * made since the owner's last visit marked new. 404 for a missing playlist,
+ * someone else's, or one that is not a group.
  */
 export async function getVersionFeedback(db: DbClient, userId: string, playlistId: string): Promise<VersionFeedback> {
+  // Taken before reading: everything up to this instant is in what the owner will see.
+  const asOf = new Date().toISOString()
   const playlist = await findPlaylistRow(db, userId, playlistId)
   if (!playlist || playlist.purpose !== 'versions') throw playlistNotFound()
-  const [plays, votes] = await Promise.all([
+  const [plays, votes, seenAt] = await Promise.all([
     feedbackRepo.listPlaylistPlayRows(db, userId, playlistId),
     feedbackRepo.listVoteRows(db, playlistId),
+    feedbackRepo.findSeenAt(db, playlistId),
   ])
-  return tallyFeedback(orderedTracks(playlist.playlist_tracks), plays, votes)
+  // Never visited since the feature: everything since the group was made is new.
+  const feedback = tallyFeedback(orderedTracks(playlist.playlist_tracks), plays, votes, seenAt ?? playlist.created_at)
+  return { ...feedback, asOf }
 }
 
 /**
  * Puts the feedback together (pure, for the tests): every version of the
  * group in the group's order, with its votes and plays. Votes and plays of
  * tracks no longer in the group are left out. Voting is open while no
- * version is final, the same rule as the SQL functions.
+ * version is final, the same rule as the SQL functions. Votes cast or
+ * changed after `since` (the owner's last visit) are new.
  */
 export function tallyFeedback(
   versions: { id: string, status: TrackStatus }[],
   plays: PlayRow[],
   votes: VoteRow[],
-): VersionFeedback {
+  since: string,
+): Omit<VersionFeedback, 'asOf'> {
   // The group's current versions: only their votes and plays count.
   const inGroup = new Set(versions.map(v => v.id))
   const counted = votes.filter(v => inGroup.has(v.track_id))
   const heard = plays.filter(p => inGroup.has(p.track_id))
+  // Postgres and JavaScript write timestamps differently: compare them as instants.
+  const sinceMs = Date.parse(since)
+  /** The vote was cast or changed after the owner's last visit. */
+  const isNew = (vote: VoteRow) => Date.parse(vote.updated_at) > sinceMs
   const comments: VersionComment[] = counted
     .filter(v => v.name || v.comment)
-    .map(v => ({ trackId: v.track_id, name: v.name, comment: v.comment, updatedAt: v.updated_at }))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map(v => ({ trackId: v.track_id, name: v.name, comment: v.comment, updatedAt: v.updated_at, isNew: isNew(v) }))
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
   return {
     open: !versions.some(v => v.status === 'final'),
     votes: counted.length,
+    unseen: counted.filter(isNew).length,
     listeners: new Set(heard.map(p => p.listener_id)).size,
     versions: versions.map(v => ({
       trackId: v.id,
@@ -103,4 +118,71 @@ export function tallyFeedback(
     })),
     comments,
   }
+}
+
+// --- Unseen feedback (the dot on "Versions") -------------------------------------------
+
+/**
+ * Feedback the owner has not seen yet, over all their groups: votes cast or
+ * changed after their last visit to each group (the group's creation when
+ * never visited). Votes for versions no longer in a group do not count.
+ */
+export async function getUnseenFeedback(db: DbClient, userId: string): Promise<UnseenFeedback> {
+  const [groups, votes, seen] = await Promise.all([
+    listPlaylistRows(db, userId, 'versions'),
+    feedbackRepo.listVoteTimes(db),
+    feedbackRepo.listSeenRows(db),
+  ])
+  return countUnseen(
+    groups.map(g => ({ id: g.id, createdAt: g.created_at, trackIds: orderedTracks(g.playlist_tracks).map(t => t.id) })),
+    votes,
+    seen,
+  )
+}
+
+/**
+ * Counts the unseen votes per group (pure, for the tests). A vote counts
+ * when its group is one of `groups`, its version is still in the group, and
+ * it was cast or changed after the group's last visit.
+ */
+export function countUnseen(
+  groups: { id: string, createdAt: string, trackIds: string[] }[],
+  votes: VoteTimeRow[],
+  seen: SeenRow[],
+): UnseenFeedback {
+  // Last visit per group, as instants.
+  const seenAt = new Map(seen.map(s => [s.playlist_id, Date.parse(s.seen_at)]))
+  // Unseen votes per group, filled below; groups without any stay out.
+  const unseen: Record<string, number> = {}
+  for (const group of groups) {
+    const since = seenAt.get(group.id) ?? Date.parse(group.createdAt)
+    const versions = new Set(group.trackIds)
+    const count = votes.filter(v => v.playlist_id === group.id && versions.has(v.track_id) && Date.parse(v.updated_at) > since).length
+    if (count) unseen[group.id] = count
+  }
+  return { total: Object.values(unseen).reduce((sum, n) => sum + n, 0), groups: unseen }
+}
+
+/**
+ * Records the owner's visit to one of their groups (when they leave its
+ * page): its feedback up to `at` (the copy they saw; now when left out) is
+ * no longer new. `at` is never taken beyond now, and a later visit already
+ * recorded (another device) is kept. 404 for a missing playlist or someone
+ * else's.
+ * @param now injectable for tests
+ */
+export async function markFeedbackSeen(
+  db: DbClient,
+  userId: string,
+  playlistId: string,
+  at?: string,
+  now = Date.now(),
+): Promise<void> {
+  if (!(await findPlaylistTrackIds(db, userId, playlistId))) throw playlistNotFound()
+  // Up to the copy the owner saw, but never in the future (a wrong clock must not hide votes to come).
+  const seenUntil = at ? Math.min(Date.parse(at), now) : now
+  const recorded = await feedbackRepo.findSeenAt(db, playlistId)
+  // Another device already recorded a later visit: keep it (going back would make old votes new again).
+  if (recorded && Date.parse(recorded) >= seenUntil) return
+  await feedbackRepo.markSeen(db, playlistId, new Date(seenUntil).toISOString())
 }

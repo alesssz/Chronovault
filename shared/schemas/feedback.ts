@@ -48,6 +48,19 @@ export type VersionVoteInput = z.input<typeof versionVoteSchema>
 /** Validated vote. */
 export type VersionVote = z.output<typeof versionVoteSchema>
 
+/**
+ * Body of POST /api/playlists/:id/feedback/seen: up to when the owner saw
+ * the group's feedback (the `asOf` of the copy on their screen); now when
+ * left out. The server never stores a time in the future, nor moves the
+ * last visit back.
+ */
+export const feedbackSeenSchema = z.object({
+  at: z.iso.datetime({ offset: true }).optional(),
+}).default({})
+
+/** Body a client sends to POST /api/playlists/:id/feedback/seen. */
+export type FeedbackSeenInput = z.input<typeof feedbackSeenSchema>
+
 /** Query of GET and DELETE /api/shared/playlists/:id/vote: whose pick. */
 export const voterQuerySchema = z.object({
   voter: z.uuid(),
