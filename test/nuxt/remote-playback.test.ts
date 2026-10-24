@@ -93,7 +93,7 @@ describe('useRemotePlayback', () => {
     // No API at all (e.g. Firefox): the button may still show on a phone, and says so when tapped.
     const missing = setUp(undefined)
     expect(missing.cast.available.value).toBe(false)
-    expect(await missing.cast.prompt()).toBe('unsupported')
+    expect(await missing.cast.prompt()).toEqual({ result: 'unsupported', detail: 'no Remote Playback API' })
   })
 
   it('follows the connection state', () => {
@@ -117,16 +117,16 @@ describe('useRemotePlayback', () => {
     }
     const { cast } = setUp(remote)
 
-    expect(await cast.prompt()).toBe('done')
+    expect((await cast.prompt()).result).toBe('done')
     // Closed by the user after looking at it: nothing to say.
     remote.promptError = 'NotAllowedError'
-    expect(await cast.prompt()).toBe('cancelled')
+    expect((await cast.prompt()).result).toBe('cancelled')
     remote.promptError = 'NotFoundError'
-    expect(await cast.prompt()).toBe('no-devices')
+    expect((await cast.prompt()).result).toBe('no-devices')
     remote.promptError = 'NotSupportedError'
-    expect(await cast.prompt()).toBe('unsupported')
+    expect((await cast.prompt()).result).toBe('unsupported')
     remote.promptError = 'OperationError'
-    expect(await cast.prompt()).toBe('failed')
+    expect((await cast.prompt()).result).toBe('failed')
   })
 
   it('takes an instant refusal for a browser that cannot cast (no picker was shown)', async () => {
@@ -140,7 +140,30 @@ describe('useRemotePlayback', () => {
     const { cast } = setUp(remote)
 
     remote.promptError = 'NotAllowedError'
-    expect(await cast.prompt()).toBe('unsupported')
+    expect((await cast.prompt()).result).toBe('unsupported')
+  })
+
+  it('passes on the answer the browser gave when it refused, with how quickly it came', async () => {
+    let clock = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => clock)
+    const remote = new FakeRemote()
+    remote.advance = (ms) => {
+      clock += ms
+    }
+    remote.promptTakes = 12
+    remote.prompt = function () {
+      this.advance(this.promptTakes)
+      return Promise.reject(new DOMException('The currentSrc is not compatible with remote playback', 'NotSupportedError'))
+    }
+    const { cast } = setUp(remote)
+
+    expect(await cast.prompt()).toEqual({
+      result: 'unsupported',
+      detail: 'NotSupportedError: The currentSrc is not compatible with remote playback (12 ms)',
+    })
+    // A cast that starts has nothing to report.
+    remote.prompt = () => Promise.resolve()
+    expect(await cast.prompt()).toEqual({ result: 'done', detail: null })
   })
 
   it('stops watching when the component goes away', async () => {

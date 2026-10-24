@@ -10,8 +10,8 @@ import { getAudioEngine } from '~/lib/audio-engine'
  * Where it shows:
  * - on touch screens (phones, tablets) always, as in phone music apps: a tap
  *   opens the browser's picker, which searches the network then; when it
- *   finds nothing, or the browser cannot cast at all (e.g. Opera on Android,
- *   or Firefox), a message says so and what to try;
+ *   finds nothing, or the browser refuses (e.g. Opera on Android, Firefox),
+ *   a message says so, with the browser's own answer;
  * - with a mouse only when the browser reports a device (or cannot tell
  *   until asked), as video sites do on a desktop, where most people have
  *   nothing to cast to.
@@ -43,9 +43,17 @@ const label = computed(() => {
   return 'Cast to a device'
 })
 
-/** Opens the device picker, and explains when it finds nothing or fails. */
+/**
+ * Opens the device picker, and explains when it finds nothing or fails.
+ * When the browser refuses, its own answer is shown too ("Browser's
+ * answer: …"): casting cannot be tried from a test browser, and on a real
+ * phone that text is what tells why (a source it will not cast, casting
+ * switched off in an installed app, a browser without it…).
+ */
 async function cast() {
-  const result = await prompt()
+  const { result, detail } = await prompt()
+  /** The browser's answer, appended to the explanation when there is one. */
+  const answer = detail ? ` Browser's answer: ${detail}.` : ''
   if (result === 'no-devices') {
     toast.add({
       title: 'No devices found',
@@ -55,16 +63,24 @@ async function cast() {
     })
   }
   else if (result === 'unsupported') {
+    // Not "this browser cannot cast": Chrome itself may refuse a particular audio or
+    // context (seen in Chrome's installed app), so the wording stays to what is known.
     toast.add({
-      title: 'This browser cannot cast',
-      description: 'To play on a TV or speaker, open ChronoPlayer in Chrome (Android) or Safari (iPhone, iPad).',
+      title: 'Casting is not available here',
+      description: `The browser did not offer to cast this audio. Chrome (Android) and Safari (iPhone, iPad) usually can.${answer}`,
       icon: 'i-lucide-cast',
       color: 'warning',
-      duration: 8000,
+      duration: 15000,
     })
   }
   else if (result === 'failed') {
-    toast.add({ title: 'Could not start casting', icon: 'i-lucide-cast', color: 'error' })
+    toast.add({
+      title: 'Could not start casting',
+      description: answer.trim() || undefined,
+      icon: 'i-lucide-cast',
+      color: 'error',
+      duration: 15000,
+    })
   }
 }
 </script>

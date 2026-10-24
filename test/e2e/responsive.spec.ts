@@ -396,9 +396,11 @@ test.describe('touch screens', () => {
     await expect(castButton).toBeVisible()
 
     // This headless browser has no device picker, so it refuses at once, like a browser
-    // that cannot cast (e.g. Opera on Android): a message says what to try instead.
+    // that cannot cast (e.g. Opera on Android): a message says so, with the browser's own
+    // answer (on a real phone, the clue to why).
     await castButton.tap()
-    await expect(page.getByText('This browser cannot cast')).toBeVisible()
+    await expect(page.getByText('Casting is not available here').first()).toBeVisible()
+    await expect(page.getByText(/Browser's answer: NotAllowedError/).first()).toBeVisible()
   })
 
   test('phone: the full-screen view shows the description; Lyrics opens the lyrics view', async ({ page }, testInfo) => {
