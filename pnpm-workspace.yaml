@@ -10,3 +10,14 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   vue-demi: true
+
+# Peer dependency ranges pnpm should accept although a package does not
+# declare them yet.
+# - @vercel/analytics 2.0.1 (the latest stable) declares vue-router ^4, while
+#   Nuxt 4 brings vue-router 5. The Nuxt entry we use (injectAnalytics) only
+#   calls Nuxt's router (useRouter, useRoute, afterEach), unchanged in 5, and
+#   Vercel's own 2.1 betas already accept "^4 || ^5". Remove this rule once a
+#   stable @vercel/analytics declares vue-router 5.
+peerDependencyRules:
+  allowedVersions:
+    '@vercel/analytics>vue-router': '5'

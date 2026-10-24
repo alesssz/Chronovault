@@ -1352,6 +1352,8 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 **Versions younger than a day are not installed.** pnpm 12 has a supply-chain protection on by default (`minimumReleaseAge`, 24 hours): a compromised release is usually found and pulled within hours, so pnpm waits. A new release (e.g. of the Supabase CLI, which announces itself in the terminal) is simply skipped by `pnpm update` until it is a day old. Asking for it by name (`pnpm add -D pkg@x.y.z`) installs it anyway, but pnpm then writes a `minimumReleaseAgeExclude` list into `pnpm-workspace.yaml`: do not commit it, wait a day instead.
 
+**Peer warnings accepted on purpose** (`peerDependencyRules` in `pnpm-workspace.yaml`, so `pnpm install` stays quiet): `@vercel/analytics` 2.0.1, the latest stable, declares `vue-router ^4`, while Nuxt 4 brings vue-router 5. The part the app uses (`injectAnalytics`) only calls Nuxt's router (`useRouter`, `useRoute`, `afterEach`), unchanged in 5, and Vercel's own 2.1 betas already accept `^4 || ^5`. When a stable `@vercel/analytics` declares vue-router 5, update it and remove the rule; `pnpm peers check` lists any other mismatch.
+
 **Major versions held back on purpose** (as of October 2026):
 
 | Package | Stays on | Why |
