@@ -33,6 +33,8 @@ export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album
  * The track being played: a library track or a shared one (public page).
  * Every source provides these fields (TrackDetail and the shared tracks
  * alike); the description is shown under the controls of the phones'
- * full-screen view.
+ * full-screen view. Shared tracks also carry their genre's name (`genre`):
+ * visitors cannot look a `genreId` up in the owner's genre list.
  */
 export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced' | 'peaks' | 'description'>
+  & { genre?: string | null }

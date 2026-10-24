@@ -116,7 +116,7 @@ function onLyricSeek(seconds: number) {
           </p>
         </div>
 
-        <!-- Play button, waveform, times and playback errors -->
+        <!-- Play button, waveform, times, volume, full screen and playback errors -->
         <SharePlayer
           :active="isLoaded"
           :duration="track.durationSeconds"

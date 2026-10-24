@@ -12,6 +12,7 @@ import type { TrackVisibility } from './track'
 
 /** Selectable periods, in days. Vercel's Hobby plan keeps one month of data. */
 export const ANALYTICS_PERIODS = [7, 30] as const
+/** One of the selectable periods (7 or 30 days). */
 export type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number]
 
 /**

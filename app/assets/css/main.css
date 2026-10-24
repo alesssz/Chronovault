@@ -72,3 +72,11 @@ html.player-expanded {
 .has-player {
   padding-bottom: calc(var(--player-bar-height) + env(safe-area-inset-bottom));
 }
+
+/*
+ * The same for the share pages' mini player (ShareMiniPlayer: a 4rem row
+ * plus its progress line), whenever their player is in use.
+ */
+.has-mini-player {
+  padding-bottom: calc(4rem + 2px + env(safe-area-inset-bottom));
+}

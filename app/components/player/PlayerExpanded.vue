@@ -27,14 +27,30 @@
  *   is open and the music plays, the screen stays on (Screen Wake Lock), so
  *   the phone does not dim and lock while someone follows the words.
  *
+ * Shared pages: the public layout mounts it too (`shared`), so visitors of a
+ * share link get the same view, opened from their page's player. There the
+ * owner's tools stay out: no "Edit track", and the genre comes with the
+ * shared track itself (the genre list is the signed-in owner's: asking for
+ * it would only fail). Up next, shuffle and repeat already hide themselves
+ * outside library playback (`queueEditable`).
+ *
  * Focus on opening: the modal moves the focus into the view, and by default
  * onto its first button, "Collapse player", whose tooltip then opened by
  * itself (tooltips open on focus) and covered the cover. The view's own
  * root takes the focus instead (`tabindex="-1"`, see onOpenAutoFocus): it is
  * still inside the dialog for keyboards and screen readers, on no button.
  */
+const props = withDefaults(defineProps<{
+  /** Mounted by a share page's layout: a visitor's view (see the file comment). */
+  shared?: boolean
+}>(), { shared: false })
+
+// The view only shows the store's state and calls its commands.
 const player = usePlayerStore()
-const { genreName } = useGenres()
+// The owner's genre names, for the meta line. Not on share pages: the list
+// needs a signed-in user (the request would answer 401, during server
+// rendering too), and shared tracks carry their genre's name instead.
+const genres = props.shared ? null : useGenres()
 
 /** The modal is bound to the store, so any component can open or close the view. */
 const open = computed({
@@ -115,10 +131,10 @@ useHead({ htmlAttrs: { class: computed(() => (open.value ? 'player-expanded' : '
 
 /** What the view shows (the queued summary while the full data loads). */
 const track = computed(() => player.displayTrack)
-/** "Album · Year · Genre" line (only the parts that are set). */
+/** "Album · Year · Genre" line (only the parts that are set; a shared track names its genre itself). */
 const meta = computed(() => {
   const t = player.current
-  return t ? joinParts([t.album, t.year, genreName(t.genreId)]) : ''
+  return t ? joinParts([t.album, t.year, t.genre ?? genres?.genreName(t.genreId) ?? null]) : ''
 })
 </script>
 
@@ -145,7 +161,7 @@ const meta = computed(() => {
         :style="viewStyle"
         data-testid="player-expanded"
       >
-        <!-- Top bar: collapse, title, Cast (when a device is around), Up next and edit buttons -->
+        <!-- Top bar: collapse, title, Cast (when a device is around), Up next and edit buttons (the last two: library only) -->
         <header class="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-2">
           <IconButton
             icon="i-lucide-chevron-down"
@@ -178,8 +194,9 @@ const meta = computed(() => {
               label="Up next"
               @click="player.setQueueOpen(true)"
             />
+            <!-- The owner's editor: never for a share page's visitors -->
             <IconButton
-              v-if="player.current"
+              v-if="player.current && !shared"
               :to="`/tracks/${player.current.id}/edit`"
               icon="i-lucide-pencil"
               color="neutral"

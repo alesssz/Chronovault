@@ -46,6 +46,7 @@ export function createPlayQueue() {
    * chosen track followed by all the others, shuffled.
    */
   function startList(track: QueueItem, list: readonly QueueItem[], shuffled: boolean): number {
+    // The new queue and the position to play, adjusted below.
     let items = [...list]
     let i = items.findIndex(t => t.id === track.id)
     if (i === -1) {

@@ -88,9 +88,13 @@ export class AudioEngine implements PlaybackEngine {
     })
     element.addEventListener('seeked', () => this.emitTime(true))
     // While the clock runs it already reports the time; timeupdate covers the rest
-    // (e.g. position changes while paused).
+    // (e.g. position changes while paused). With the page hidden (screen off, another
+    // tab, the app in the background) the browser stops drawing frames, so the clock
+    // stays scheduled but never ticks while the audio plays on: timeupdate (still
+    // ~4 times a second) takes over, or the position would freeze until the page shows
+    // again (plays not counted, "previous" from the lock screen misjudging the position).
     element.addEventListener('timeupdate', () => {
-      if (this.frame === null) this.emitTime()
+      if (this.frame === null || isPageHidden()) this.emitTime()
     })
     // Streams may report Infinity/NaN before the real duration is known.
     element.addEventListener('durationchange', () => {
@@ -211,6 +215,11 @@ export class AudioEngine implements PlaybackEngine {
     if (this.frame !== null) cancelAnimationFrame(this.frame)
     this.frame = null
   }
+}
+
+/** The page is not on screen: no animation frames are drawn (false where there is no document, e.g. tests). */
+function isPageHidden(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden'
 }
 
 /** The app-wide engine (one <audio> element for the whole session). */

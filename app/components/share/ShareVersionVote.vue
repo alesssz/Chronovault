@@ -36,7 +36,9 @@ const picked = computed(() => props.tracks.find(t => t.id === props.state?.pick?
 const chosen = computed(() => props.tracks.find(t => t.status === 'final') ?? null)
 
 // The note form, filled from the saved pick (and again whenever it changes).
+/** The voter's name, as typed. */
 const name = ref('')
+/** The voter's comment, as typed. */
 const comment = ref('')
 watch(() => props.state?.pick, (pick) => {
   name.value = pick?.name ?? ''

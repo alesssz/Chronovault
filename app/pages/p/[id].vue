@@ -160,11 +160,12 @@ function isPicked(trackId: string) {
           </p>
         </div>
 
-        <!-- Play button, waveform, times and playback errors -->
+        <!-- Play button, waveform, times, previous / next, volume, full screen and playback errors -->
         <SharePlayer
           v-if="playlist.tracks.length"
           :active="isHere"
           :duration="activeTrack?.durationSeconds ?? null"
+          navigation
           @toggle="togglePlay"
         />
 
@@ -257,10 +258,15 @@ function isPicked(trackId: string) {
           @save="vote.saveNote"
         />
 
+        <!--
+          No tracks. An explicit condition, not `v-else`: the vote panel above sits between
+          it and the list, and a `v-else` would pair with the panel's `v-if` instead.
+        -->
         <UEmpty
-          v-else
+          v-if="!playlist.tracks.length"
           icon="i-lucide-list-music"
           title="This playlist is empty"
+          data-testid="shared-playlist-empty"
         />
       </section>
 

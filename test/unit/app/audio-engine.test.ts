@@ -1,8 +1,9 @@
 /**
- * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate;
- * plus the volume-support probe (iOS ignores the volume set from JavaScript).
+ * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate,
+ * the position still reported with the page hidden (screen off: no animation frames); plus the
+ * volume-support probe (iOS ignores the volume set from JavaScript).
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AudioEngine, canSetVolume } from '~/lib/audio-engine'
 
 /** Just enough of an HTMLAudioElement for the engine's setters. */
@@ -28,6 +29,59 @@ describe('AudioEngine.setPlaybackRate', () => {
     expect(element.preservesPitch).toBe(true)
     // Loading a new source resets playbackRate to defaultPlaybackRate.
     expect(element.defaultPlaybackRate).toBe(0.75)
+  })
+})
+
+/**
+ * A fake element that keeps its listeners, so tests can fire its events, and plays at a
+ * position the test sets.
+ */
+function playableElement() {
+  const listeners = new Map<string, () => void>()
+  return {
+    preload: '',
+    currentTime: 0,
+    addEventListener: (event: string, listener: () => void) => void listeners.set(event, listener),
+    /** Fires one of the element's events, as the browser would. */
+    fire: (event: string) => listeners.get(event)?.(),
+  }
+}
+
+describe('AudioEngine time reports', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** An engine playing on `element`, its per-frame clock scheduled but never ticking (as when hidden). */
+  function playingEngine(element: ReturnType<typeof playableElement>) {
+    // Frames are scheduled, never drawn: exactly a hidden page.
+    vi.stubGlobal('requestAnimationFrame', () => 1)
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+    const engine = new AudioEngine(element as unknown as HTMLAudioElement)
+    const times: number[] = []
+    engine.on('time', t => void times.push(t))
+    element.fire('play')
+    return times
+  }
+
+  it('leaves the position to the per-frame clock while the page shows', () => {
+    vi.stubGlobal('document', { visibilityState: 'visible' })
+    const element = playableElement()
+    const times = playingEngine(element)
+    element.currentTime = 12
+    element.fire('timeupdate')
+    expect(times).toEqual([])
+  })
+
+  it('keeps reporting the position from timeupdate with the page hidden (screen off)', () => {
+    vi.stubGlobal('document', { visibilityState: 'hidden' })
+    const element = playableElement()
+    const times = playingEngine(element)
+    element.currentTime = 12
+    element.fire('timeupdate')
+    element.currentTime = 12.25
+    element.fire('timeupdate')
+    expect(times).toEqual([12, 12.25])
   })
 })
 
