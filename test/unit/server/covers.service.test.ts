@@ -16,6 +16,7 @@ vi.mock('~~/server/repositories/storage.repository', () => ({ downloadObject: vi
 
 // The repositories are mocked: the client is never used.
 const db = {} as DbClient
+// Fixed ids: the user, a track and a playlist, and the track's cover path.
 const USER = '11111111-1111-4111-8111-111111111111'
 const TRACK = '22222222-2222-4222-8222-222222222222'
 const PLAYLIST = '33333333-3333-4333-8333-333333333333'
@@ -27,6 +28,7 @@ beforeEach(() => {
 
 describe('cover addresses', () => {
   it('stay the same for the same updated_at and change when it changes', () => {
+    // The address for one updated_at (written two ways below: same instant, same address).
     const a = trackCoverUrl(TRACK, '2026-10-20T10:00:00Z')
     expect(a).toBe(trackCoverUrl(TRACK, '2026-10-20T10:00:00.000Z'))
     expect(a).not.toBe(trackCoverUrl(TRACK, '2026-10-20T10:00:01Z'))
@@ -47,6 +49,7 @@ describe('getTrackCover', () => {
     vi.mocked(tracksRepo.findTrackCoverPath).mockResolvedValue(COVER)
     vi.mocked(storageRepo.downloadObject).mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' }))
 
+    // The cover, read through the mocked repositories.
     const cover = await getTrackCover(db, USER, TRACK)
 
     expect(tracksRepo.findTrackCoverPath).toHaveBeenCalledWith(db, USER, TRACK)
@@ -76,6 +79,7 @@ describe('getTrackCover', () => {
 
 describe('getPlaylistCover', () => {
   it('reads the playlist\'s custom cover', async () => {
+    // The playlist's custom cover path.
     const path = `${USER}/playlists/${PLAYLIST}.webp`
     vi.mocked(playlistsRepo.findPlaylistCoverPath).mockResolvedValue(path)
     vi.mocked(storageRepo.downloadObject).mockResolvedValue(new Blob([new Uint8Array([9])], { type: 'image/webp' }))

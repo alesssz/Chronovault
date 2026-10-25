@@ -15,7 +15,9 @@ import { listTargets, periodOf, type AnalyticsPeriodDays, type AnalyticsTarget }
 
 /** The plays report for the last `days` days (`today` injectable for tests). */
 export async function getPlaysReport(db: DbClient, userId: string, days: AnalyticsPeriod, today = new Date()): Promise<PlaysReport> {
+  // The period's days (UTC), today included.
   const period = periodOf(days, today)
+  // The period's plays and every share page of the user, read together.
   const [rows, targets] = await Promise.all([listPlayRows(db, userId, period.since), listTargets(db, userId)])
   return { days, since: period.since, until: period.until, ...summarizePlays(rows, targets, period) }
 }
@@ -55,6 +57,7 @@ export function summarizePlays(
 ): Pick<PlaysReport, 'totals' | 'ownPlays' | 'daily' | 'items'> {
   // The rows of the period, by who listened.
   const inPeriod = rows.filter(r => r.played_on >= period.since && r.played_on <= period.until)
+  // Plays by visitors (the rest are the owner's own).
   const visitors = inPeriod.filter(r => r.listener === 'visitor')
   const ownPlays = inPeriod.length - visitors.length
 
@@ -63,10 +66,12 @@ export function summarizePlays(
   const perPage = new Map<string, PlayRow[]>()
   for (const row of visitors) {
     perDay.set(row.played_on, (perDay.get(row.played_on) ?? 0) + 1)
+    // The share page this play happened on.
     const path = pagePathOf(row)
     perPage.set(path, [...(perPage.get(path) ?? []), row])
   }
 
+  // Share pages with visitors' plays, most played first.
   const items: PlaysItem[] = targets
     .flatMap(target => (perPage.has(target.path) ? [{ ...target, ...countPlays(perPage.get(target.path)!) }] : []))
     .sort((a, b) => b.plays - a.plays || a.title.localeCompare(b.title))

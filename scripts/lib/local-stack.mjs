@@ -21,6 +21,7 @@ export function tryRun(command, timeoutMs = 30_000) {
 /** Runs a command with inherited output; resolves with its exit code. */
 export function runInherited(command) {
   return new Promise((resolve) => {
+    // Through the shell, its output straight to this terminal.
     const child = spawn(command, { stdio: 'inherit', shell: true })
     child.on('exit', code => resolve(code ?? 1))
   })
@@ -49,10 +50,12 @@ export function ensureDocker() {
 
 /** Status of the local Supabase stack, or null when it is not running. */
 export function supabaseStatus() {
+  // The CLI's JSON status (null when it fails: the stack is not running).
   const raw = tryRun('pnpm exec supabase status -o json')
   // The CLI may print notices (e.g. "a new version is available") before the JSON.
   if (!raw || !raw.includes('{')) return null
   try {
+    // The JSON part only.
     const status = JSON.parse(raw.slice(raw.indexOf('{')))
     return status.API_URL ? status : null
   }
@@ -70,6 +73,7 @@ export async function ensureSupabase() {
     return status
   }
   console.log('▸ Starting Supabase (the first run downloads the Docker images)…')
+  // Its exit code (0: started).
   const code = await runInherited('pnpm exec supabase start')
   status = supabaseStatus()
   if (code !== 0 || !status) throw new Error('Supabase could not be started (see the output above).')
@@ -101,6 +105,7 @@ export function localAudioStorageEnv(status, hostname) {
 
 /** Sets the given variables in an env file, keeping any other line already there. */
 export function writeEnvFile(path, values) {
+  // The file's current lines, or none when it does not exist yet.
   const lines = existsSync(path) ? readFileSync(path, 'utf8').split(/\r?\n/) : []
   // Variables already present in the file (updated in place).
   const seen = new Set()
@@ -122,9 +127,11 @@ export function writeEnvFile(path, values) {
 
 /** Waits until a URL answers with HTTP 2xx. */
 export async function waitForUrl(url, timeoutMs) {
+  // Give up after this instant.
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
+      // One try (a refused connection throws: the server is not up yet).
       const response = await fetch(url)
       if (response.ok) return true
     }

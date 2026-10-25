@@ -26,6 +26,7 @@ import { getErrorMessage } from '~/utils/errors'
  */
 const PROGRESS_TOAST_DELAY = 700
 
+/** The download action for the menus and the edit page: `download(trackId)`, and `isDownloading(trackId)` for its spinner. */
 export function useTrackDownload() {
   // Progress and outcome of each download.
   const toast = useToast()
@@ -45,16 +46,20 @@ export function useTrackDownload() {
    * used for the percentage, never trusted for the result.
    */
   async function fetchBytes(url: string, onProgress: (fraction: number) => void): Promise<Uint8Array> {
+    // The stored file, streamed.
     const response = await fetch(url)
     if (!response.ok) throw new Error(`The file could not be downloaded (HTTP ${response.status})`)
+    // The file size the storage announces (0 when it gives none: no percentage).
     const total = Number(response.headers.get('content-length')) || 0
     if (!response.body) return new Uint8Array(await response.arrayBuffer())
 
+    // Reads the body piece by piece, to report progress.
     const reader = response.body.getReader()
     // Pieces as they arrive, and how many bytes so far.
     const chunks: Uint8Array[] = []
     let received = 0
     for (;;) {
+      // The next piece, or the end.
       const { done, value } = await reader.read()
       if (done) break
       chunks.push(value)
@@ -69,8 +74,10 @@ export function useTrackDownload() {
   async function coverForTags(coverUrl: string | null): Promise<CoverImage | null> {
     if (!coverUrl) return null
     try {
+      // The cover image from its address.
       const response = await fetch(coverUrl)
       if (!response.ok) return null
+      // The cover re-encoded as JPEG, the format every player shows inside tags.
       const jpeg = await toJpeg(await response.blob())
       return { ...jpeg, mimeType: 'image/jpeg' }
     }
@@ -128,12 +135,14 @@ export function useTrackDownload() {
     }
 
     try {
+      // The track's full data and a fresh streaming address, together.
       const [track, source] = await Promise.all([tracksApi.get(trackId), tracksApi.playback(trackId)])
       const audio = await fetchBytes(source.url, (fraction) => {
         progressText = `${track.title} · ${Math.round(fraction * 100)}%`
         if (progressShown) toast.update(progressToast, { description: progressText })
       })
 
+      // The tag system for this file's format, or null (saved untagged).
       const format = tagFormatOf(track.mimeType)
       // What gets saved: the tagged copy, or the file as stored.
       let file = audio

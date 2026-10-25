@@ -8,7 +8,9 @@ import { createGenre } from '../../services/genres.service'
  * Body: { name } (genreCreateSchema). 200 → Genre; 400 invalid name.
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
+  // The fields of the request body, validated against the schema (400 otherwise).
   const { name } = await readValidated(event, genreCreateSchema)
   return createGenre(db, userId, name)
 })

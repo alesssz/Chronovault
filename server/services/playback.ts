@@ -37,6 +37,7 @@ export async function playbackSource(audio: AudioStorage, audioPath: string): Pr
  * without a cover) are skipped, and nothing is sent when none is left.
  */
 export async function removeCoverFiles(db: DbClient, paths: (string | null | undefined)[]): Promise<void> {
+  // Only the items that have a cover.
   const existing = paths.filter((path): path is string => !!path)
   if (existing.length) await storageRepo.removeObjects(db, COVERS_BUCKET, existing)
 }

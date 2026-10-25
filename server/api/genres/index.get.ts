@@ -6,6 +6,7 @@ import { listGenres } from '../../services/genres.service'
  * 200 → Genre[]
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return listGenres(db, userId)
 })

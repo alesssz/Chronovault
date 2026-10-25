@@ -26,19 +26,27 @@ import { writeWavTags } from './wav-tags'
 
 /** A cover ready to embed: always JPEG (the most widely supported picture format in tags). */
 export interface CoverImage {
+  /** The JPEG file's bytes. */
   data: Uint8Array
+  /** Always JPEG (see above). */
   mimeType: 'image/jpeg'
+  /** Its width in pixels (the FLAC picture block records it). */
   width: number
+  /** Its height in pixels. */
   height: number
 }
 
 /** What gets written; empty fields are simply left out of the file. */
 export interface TrackTags {
+  /** The track's title. */
   title: string
   /** The track's "Composers / Authors", written as both artist and composer. */
   artist: string | null
+  /** The album. */
   album: string | null
+  /** The year. */
   year: number | null
+  /** The genre's name. */
   genre: string | null
   /** The track description, written as the comment. */
   comment: string | null
@@ -46,6 +54,7 @@ export interface TrackTags {
   lyrics: string | null
   /** Synced lyrics (headers included), sorted by time; null or empty = none. */
   lyricsSynced: SyncedLyricLine[] | null
+  /** The cover, already converted to JPEG; null = none. */
   cover: CoverImage | null
 }
 
@@ -54,6 +63,7 @@ export type TagFormat = 'flac' | 'mp3' | 'wav'
 
 /** Which tag system a stored file uses, from its MIME type; null = cannot be tagged. */
 export function tagFormatOf(mimeType: string): TagFormat | null {
+  // Compared in lower case: types may come capitalized.
   const type = mimeType.toLowerCase()
   if (type === 'audio/flac' || type === 'audio/x-flac') return 'flac'
   if (type === 'audio/mpeg' || type === 'audio/mp3') return 'mp3'

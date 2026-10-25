@@ -26,6 +26,7 @@ const PAGES = ['/', '/playlists', '/versions', '/stats', '/tracks/new']
 
 /** Fails when the page is wider than the screen (it would scroll sideways). */
 async function expectNoSidewaysScroll(page: Page, path: string): Promise<void> {
+  // The page's full width and the visible width, measured in the page.
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -36,6 +37,7 @@ async function expectNoSidewaysScroll(page: Page, path: string): Promise<void> {
 /** Id of the signed-in user's first track (newest first). */
 async function firstTrackId(page: Page): Promise<string> {
   return page.evaluate(async () => {
+    // The new account's tracks.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string }[]
     return tracks[0]!.id
   })
@@ -70,6 +72,7 @@ interface DeviceLog {
  */
 async function installDeviceProbes(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    // What the probes record, read back by deviceLog().
     const log: DeviceLog = { vibrations: [], wakeLocks: [], shared: [] }
     Object.assign(window, { __deviceLog: log })
     Object.defineProperty(navigator, 'vibrate', {
@@ -106,11 +109,15 @@ async function installDeviceProbes(page: Page): Promise<void> {
 
     // The real CloseWatcher, wrapped to know which watchers are still active.
     type Watcher = EventTarget & { requestClose: () => void, destroy: () => void, spent?: boolean }
+    // The browser's own CloseWatcher, if it has one.
     const Native = (window as unknown as { CloseWatcher?: new () => Watcher }).CloseWatcher
     if (Native) {
+      // Every watcher made since the page loaded, spent ones marked.
       const watchers: Watcher[] = []
       Object.assign(window, { __closeWatchers: watchers })
+      // The real watcher, recorded as it is made.
       class TrackedCloseWatcher extends Native {
+        // Creates the real watcher and keeps track of it.
         constructor() {
           super()
           watchers.push(this)
@@ -137,15 +144,19 @@ async function installDeviceProbes(page: Page): Promise<void> {
  */
 async function installCastDevice(page: Page): Promise<void> {
   await page.addInitScript(() => {
+    // When the app asked for the device picker (one entry per prompt).
     const prompts: number[] = []
     Object.assign(window, { __castPrompts: prompts })
     /** One fake RemotePlayback per element, like the browser's. */
     const remotes = new WeakMap<HTMLMediaElement, EventTarget>()
     Object.defineProperty(HTMLMediaElement.prototype, 'remote', {
       configurable: true,
+      // The element's fake RemotePlayback, made on first use.
       get(this: HTMLMediaElement) {
+        // The one already made for this element, if any.
         let remote = remotes.get(this)
         if (!remote) {
+          // A device is around and accepts the connection at once.
           const fake = Object.assign(new EventTarget(), {
             state: 'disconnected',
             watchAvailability: async (callback: (available: boolean) => void) => {
@@ -179,6 +190,7 @@ async function deviceLog(page: Page): Promise<DeviceLog> {
 /** The Android back button: a close request to the newest active CloseWatcher, as the system sends it. */
 async function pressBack(page: Page): Promise<void> {
   await page.evaluate(() => {
+    // Every watcher made so far (the probes recorded them).
     const watchers = (window as unknown as { __closeWatchers: { spent?: boolean, requestClose: () => void }[] }).__closeWatchers
     watchers.filter(w => !w.spent).at(-1)!.requestClose()
   })
@@ -189,13 +201,18 @@ async function pressBack(page: Page): Promise<void> {
  * real touch events (Chrome DevTools Protocol): Playwright's touchscreen API only taps.
  */
 async function swipe(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
+  // Where the element is on screen.
   const box = (await locator.boundingBox())!
+  // Its center: where the finger lands.
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
+  // The DevTools protocol, to send real touch events.
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  // The movement in ten steps, like a real finger.
   const steps = 10
   for (let i = 1; i <= steps; i++) {
+    // Where the finger is at this step.
     const point = { x: x + (dx * i) / steps, y: y + (dy * i) / steps }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] })
   }
@@ -236,6 +253,7 @@ test.describe('touch screens', () => {
     await signUpWithTrack(page)
 
     await page.getByTestId('track-title').tap()
+    // The player bar.
     const bar = page.getByTestId('player-bar')
     await expect(bar).toBeVisible()
     // The two-row bar of md+: waveform and the full controls.
@@ -261,6 +279,7 @@ test.describe('touch screens', () => {
     // Enough lyrics to make the page scroll, then the Sync tab with the track in the player.
     await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
     await page.getByRole('tab', { name: 'Lyrics' }).tap()
+    // Thirty lines: more than a phone screen holds.
     const lines = Array.from({ length: 30 }, (_, i) => `Line number ${i + 1}`)
     await page.getByTestId('field-lyrics').fill(lines.join('\n'))
     await page.getByRole('tab', { name: 'Sync' }).tap()
@@ -269,12 +288,14 @@ test.describe('touch screens', () => {
 
     // The desktop button gives way to the pinned bar.
     await expect(page.getByTestId('sync-stamp')).toBeHidden()
+    // The phones' Stamp line button, pinned above the player bar.
     const stamp = page.getByTestId('sync-stamp-mobile')
     await expect(stamp).toBeVisible()
 
     // Scrolled to the middle of the lines, the bar is still on screen, right above the player bar.
     await page.getByTestId('sync-row-text').nth(15).scrollIntoViewIfNeeded()
     await expect(stamp).toBeInViewport()
+    // Where the pinned bar and the player bar are on screen.
     const bar = await page.getByTestId('sync-stamp-bar').boundingBox()
     const player = await page.getByTestId('player-bar').boundingBox()
     expect(bar!.y + bar!.height).toBeLessThanOrEqual(player!.y)
@@ -307,6 +328,7 @@ test.describe('touch screens', () => {
 
     // Newest first: playing the first row queues both, "Older song" next.
     await page.getByTestId('track-title').first().tap()
+    // The player bar, its title and its track area (where the swipes go).
     const bar = page.getByTestId('player-bar')
     const title = bar.getByTestId('player-title')
     const trackArea = bar.getByTestId('player-track-area')
@@ -323,6 +345,7 @@ test.describe('touch screens', () => {
 
     // Swipe up: the full-screen view.
     await swipe(page, trackArea, 0, -150)
+    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     // It fits the screen even with the long title (its column once grew to the title's width).
@@ -342,9 +365,11 @@ test.describe('touch screens', () => {
     // The full-screen view, then Up next on top of it.
     await page.getByTestId('track-title').tap()
     await page.getByTestId('player-track-area').tap()
+    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     await expanded.getByRole('button', { name: 'Up next' }).tap()
+    // The Up next panel, a dialog over the view.
     const queue = page.getByRole('dialog', { name: 'Up next' })
     await expect(queue).toBeVisible()
 
@@ -378,6 +403,7 @@ test.describe('touch screens', () => {
     // Cast: on phones it is in the full-screen view; a tap opens the device picker, and the
     // button shows the connection.
     await page.getByTestId('player-track-area').tap()
+    // The Cast button of the full-screen view.
     const castButton = page.getByTestId('player-expanded').getByTestId('player-cast')
     await expect(castButton).toHaveAttribute('data-state', 'disconnected')
     await castButton.tap()
@@ -411,11 +437,13 @@ test.describe('touch screens', () => {
     test.skip(testInfo.project.name !== 'phone', 'phone layout only')
     await installDeviceProbes(page)
     await signUpWithTrack(page)
+    // The track that gets lyrics.
     const id = await firstTrackId(page)
 
     // A track without lyrics or description: the view has neither, and no Lyrics button.
     await page.getByTestId('track-title').tap()
     await page.getByTestId('player-track-area').tap()
+    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     // On opening the view itself takes the focus, not its first button, whose tooltip
@@ -428,7 +456,9 @@ test.describe('touch screens', () => {
     // Description and 30 synced lines (enough to scroll), then a reload: the saved queue
     // brings the track back with its new data.
     await page.evaluate(async (trackId) => {
+      // Thirty synced lines: enough to scroll.
       const lyricsSynced = Array.from({ length: 30 }, (_, i) => ({ time: i * 2, text: `Sung line ${i + 1}` }))
+      // The lyrics saved through the API, like the editor does.
       const response = await fetch(`/api/tracks/${trackId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -452,6 +482,7 @@ test.describe('touch screens', () => {
     const toggle = expanded.getByTestId('player-lyrics-toggle')
     await toggle.tap()
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    // The phones' lyrics view.
     const lyricsView = expanded.getByTestId('player-lyrics-view')
     await expect(lyricsView.getByTestId('lyrics-synced')).toBeVisible()
     await expect(lyricsView.getByRole('button', { name: /^(Play|Pause)$/ })).toBeVisible()
@@ -463,6 +494,7 @@ test.describe('touch screens', () => {
       return { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight }
     })
     expect(box.scrollHeight).toBeGreaterThan(box.clientHeight)
+    // Where the view is on screen: it must end within the screen.
     const viewBox = (await lyricsView.boundingBox())!
     expect(viewBox.y + viewBox.height).toBeLessThanOrEqual(page.viewportSize()!.height)
 
@@ -500,6 +532,7 @@ test.describe('touch screens', () => {
     await expect(share).toHaveText('Share link')
     await share.tap()
     await expect.poll(async () => (await deviceLog(page)).shared).toHaveLength(1)
+    // What the share sheet was handed.
     const [sent] = (await deviceLog(page)).shared
     expect(sent!.title).toBe('Touch screen song')
     expect(sent!.url).toMatch(/\/t\/[0-9a-f-]{36}$/)

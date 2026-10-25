@@ -30,6 +30,7 @@ interface CloseWatcherLike {
   /** Deactivates the watcher without a close request (the overlay closed by itself). */
   destroy: () => void
 }
+/** How CloseWatcher is constructed (not in the DOM types yet). */
 type CloseWatcherConstructor = new () => CloseWatcherLike
 
 /** The browser's CloseWatcher constructor, or null where it is not available (or on the server). */
@@ -72,6 +73,7 @@ function listenForEscape(): void {
  *   watcher is then armed again, so the next back press is caught too.
  */
 export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => void): void {
+  // The constructor, or null where there is none.
   const available = closeWatcherClass()
   // Server, or a browser without the API: keep today's behaviour.
   if (!available) return
@@ -85,6 +87,7 @@ export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => v
   /** Creates the watcher (once per opening). */
   function arm(): void {
     if (watcher) return
+    // One watcher per opening: it catches one back press, then is spent.
     const created = new CloseWatcherClass()
     created.onclose = () => {
       // A watcher fires once and is then spent: forget it.
@@ -106,6 +109,7 @@ export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => v
     watcher = null
   }
 
+  // Armed while open, disarmed when closed; `immediate`: already open on mount.
   watch(() => toValue(isOpen), open => (open ? arm() : disarm()), { immediate: true })
   // The component goes away while open (e.g. a page change): no stale watcher left behind.
   onScopeDispose(disarm)

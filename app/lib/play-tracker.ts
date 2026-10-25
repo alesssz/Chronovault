@@ -58,6 +58,7 @@ export function createPlayTracker() {
 
   /** Takes a position update and says whether it made a play or a completed play. */
   function update({ time, duration, listening }: PlayTick): PlayEvent {
+    // How far the position moved since the last update (0 on the first one).
     const step = lastTime === null ? 0 : time - lastTime
     lastTime = time
     // Forward, small and while playing: listening. Backwards, a jump or paused: not.

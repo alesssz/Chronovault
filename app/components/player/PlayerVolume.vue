@@ -36,6 +36,7 @@ const player = usePlayerStore()
  * match its HTML.
  */
 const adjustable = ref(true)
+// Decided in the browser: touch screens leave the volume to the hardware buttons.
 onMounted(() => {
   adjustable.value = pageControlsVolume()
 })

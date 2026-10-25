@@ -26,14 +26,17 @@ async function sharedPlaylist(page: Page): Promise<{ playlist: string, ids: Reco
   await signUp(page)
   for (const title of TRACKS) await uploadTrack(page, title, { seconds: SECONDS })
   return page.evaluate(async (titles) => {
+    // The tracks just uploaded, by title.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
     const ids = Object.fromEntries(tracks.map(t => [t.title, t.id]))
+    // Forty lines of lyrics: enough to make the page long on a phone.
     const lyrics = Array.from({ length: 40 }, (_, i) => `Line ${i + 1} of the tide`).join('\n')
     await fetch(`/api/tracks/${ids[titles[0]!]}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ lyrics }),
     })
+    // The shared playlist of the three tracks.
     const response = await fetch('/api/playlists', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -46,15 +49,19 @@ async function sharedPlaylist(page: Page): Promise<{ playlist: string, ids: Reco
 test.describe('share page player', () => {
   test('previous / next, volume, full screen, the phone\'s mini player, and the screen off', async ({ page, browser }) => {
     test.setTimeout(150_000)
+    // The playlist and its tracks' ids.
     const { playlist, ids } = await sharedPlaylist(page)
+    // Its share page.
     const url = `/p/${playlist}`
 
     // --- A visitor on a desktop ---
     const desktop = await browser.newContext()
     try {
+      // A visitor without an account, in another browser context.
       const visitor = await desktop.newPage()
       await visitor.goto(url)
       await waitForHydration(visitor)
+      // The title of what is playing, on the page.
       const nowPlaying = visitor.getByTestId('shared-now-playing-title')
       await expect(nowPlaying).toHaveText('Tide 1')
       // A playlist with tracks is never called empty (the vote panel once stole its v-else).
@@ -75,6 +82,7 @@ test.describe('share page player', () => {
 
       // The full-screen view, without the owner's tools.
       await visitor.getByTestId('shared-expand').click()
+      // The full-screen view.
       const expanded = visitor.getByTestId('player-expanded')
       await expect(expanded).toContainText('Tide 1')
       await expect(expanded.getByRole('button', { name: 'Edit track' })).toHaveCount(0)
@@ -115,14 +123,18 @@ test.describe('share page player', () => {
     // level the page gives an audio element: on a touch screen it must play at full volume.
     await phone.addInitScript(() => {
       localStorage.setItem('chronovault:volume', '0.3')
+      // Every volume the page sets on an audio element, recorded below.
       const recorder = window as unknown as { __volumes: number[] }
       recorder.__volumes = []
+      // The browser's own volume property, wrapped to record the writes.
       const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume')!
       Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
         configurable: true,
+        // Reading is unchanged.
         get() {
           return volume.get!.call(this)
         },
+        // Writing is recorded, then done as usual.
         set(value: number) {
           recorder.__volumes.push(value)
           volume.set!.call(this, value)
@@ -130,9 +142,11 @@ test.describe('share page player', () => {
       })
     })
     try {
+      // A visitor on a phone.
       const visitor = await phone.newPage()
       await visitor.goto(url)
       await waitForHydration(visitor)
+      // The mini player at the bottom of the screen.
       const mini = visitor.getByTestId('shared-mini-player')
       // The page's own player is on screen: no mini player yet.
       await expect(visitor.getByTestId('shared-play')).toBeVisible()
@@ -148,6 +162,7 @@ test.describe('share page player', () => {
       await mini.getByTestId('shared-mini-toggle').click()
       await expect(mini.getByTestId('shared-mini-toggle')).toHaveAccessibleName('Pause')
       await mini.getByTestId('shared-mini-open').click()
+      // The full-screen view, opened from the mini player.
       const expanded = visitor.getByTestId('player-expanded')
       await expect(expanded).toBeVisible()
 

@@ -61,6 +61,7 @@ describe('toTrackDetail', () => {
 
 describe('toSharedTrack', () => {
   it('exposes only the shareable fields: no Suno prompt, mastering, owner or storage paths', () => {
+    // A shared track built from a get_shared_track() row (which still carries the audio path).
     const shared = toSharedTrack({
       id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
       description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
@@ -78,6 +79,7 @@ describe('toSharedTrack', () => {
 
 describe('toSharedPlaylistTrack', () => {
   it('gives a playlist track the same shareable fields as a shared track page, without visibility', () => {
+    // A playlist track built from a get_shared_playlist_tracks() row, covers signed by a fake.
     const shared = toSharedPlaylistTrack({
       id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
       description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
@@ -110,6 +112,7 @@ describe('cover addresses', () => {
 
 describe('toTrackInsert', () => {
   it('applies defaults for optional fields', () => {
+    // An insert built from the bare minimum of a new track.
     const insert = toTrackInsert(USER, {
       id: TRACK,
       title: 'New',
@@ -132,6 +135,7 @@ describe('toTrackInsert', () => {
   })
 
   it('keeps an explicit status', () => {
+    // An insert that asks for a status.
     const insert = toTrackInsert(USER, {
       id: TRACK, title: 'New', audioPath: `${USER}/${TRACK}.wav`, mimeType: 'audio/wav', sizeBytes: 42, status: 'final',
     })
@@ -141,6 +145,7 @@ describe('toTrackInsert', () => {
 
 describe('toTrackUpdate', () => {
   it('only includes present fields, mapping column names', () => {
+    // Only the three fields given, under their column names.
     expect(toTrackUpdate({ sunoPrompt: 'p', genreId: null, coverPath: null })).toEqual({
       suno_prompt: 'p',
       genre_id: null,

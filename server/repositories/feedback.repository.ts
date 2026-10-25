@@ -28,10 +28,15 @@ export type VoteTimeRow = Pick<Tables<'version_votes'>, 'playlist_id' | 'track_i
 export type SeenRow = Pick<Tables<'feedback_seen'>, 'playlist_id' | 'seen_at'>
 /** What get_version_vote() returns: the vote state of one visitor (the pick fields are null without a pick). */
 export interface VoteStateRow {
+  /** Voting is open: no version of the group is final yet. */
   open: boolean
+  /** The caller (by their session) owns the group. */
   is_owner: boolean
+  /** The visitor's pick, or null without one. */
   track_id: string | null
+  /** The name given with the pick. */
   name: string | null
+  /** The note given with the pick. */
   comment: string | null
 }
 
@@ -42,6 +47,7 @@ const PLAY_COLUMNS = 'track_id, playlist_id, listener, listener_id, completed, p
 
 /** Counts a play, or marks today's play completed (404 when the caller cannot listen to that track there). */
 export async function recordPlay(db: DbClient, play: PlayRecord): Promise<void> {
+  // The SQL function decides whether the play counts (and as whose); nothing comes back.
   const { error } = await db.rpc('record_play', {
     p_track_id: play.trackId,
     // The generated types know no nullable arguments; SQL takes null as "no playlist".
@@ -54,6 +60,7 @@ export async function recordPlay(db: DbClient, play: PlayRecord): Promise<void> 
 
 /** A visitor's vote state in a shared group; null when the playlist is not a shared group. */
 export async function findVoteState(db: DbClient, playlistId: string, voterId: string): Promise<VoteStateRow | null> {
+  // One row (the state), or none when the playlist is not a shared group.
   const { data, error } = await db.rpc('get_version_vote', { p_playlist_id: playlistId, p_voter_id: voterId }).maybeSingle()
   if (error) throw toHttpError(error, 'votes.find')
   return data
@@ -61,6 +68,7 @@ export async function findVoteState(db: DbClient, playlistId: string, voterId: s
 
 /** Casts or changes a visitor's pick (404 not a shared group or version, 403 the owner, 409 voting closed). */
 export async function castVote(db: DbClient, playlistId: string, vote: VersionVote): Promise<void> {
+  // The SQL function checks the group, the version, the owner and whether voting is open.
   const { error } = await db.rpc('cast_version_vote', {
     p_playlist_id: playlistId,
     p_track_id: vote.trackId,
@@ -74,6 +82,7 @@ export async function castVote(db: DbClient, playlistId: string, vote: VersionVo
 
 /** Takes a visitor's pick back (same errors as castVote). */
 export async function withdrawVote(db: DbClient, playlistId: string, voterId: string): Promise<void> {
+  // Same checks as cast_version_vote; withdrawing a pick that does not exist is not an error.
   const { error } = await db.rpc('withdraw_version_vote', { p_playlist_id: playlistId, p_voter_id: voterId })
   if (error) throw toHttpError(error, 'votes.withdraw')
 }
@@ -139,6 +148,7 @@ export async function listSeenRows(db: DbClient): Promise<SeenRow[]> {
 
 /** The owner's last visit to one group, or null when never recorded. */
 export async function findSeenAt(db: DbClient, playlistId: string): Promise<string | null> {
+  // At most one row per group (playlist_id is the key).
   const { data, error } = await db.from('feedback_seen').select('seen_at').eq('playlist_id', playlistId).maybeSingle()
   if (error) throw toHttpError(error, 'feedbackSeen.find')
   return data?.seen_at ?? null
@@ -146,6 +156,7 @@ export async function findSeenAt(db: DbClient, playlistId: string): Promise<stri
 
 /** Records a visit to a group, seen up to `seenAt` (insert or move; RLS refuses someone else's group). */
 export async function markSeen(db: DbClient, playlistId: string, seenAt: string): Promise<void> {
+  // One row per group: insert the first visit, move it on later ones.
   const { error } = await db.from('feedback_seen').upsert({ playlist_id: playlistId, seen_at: seenAt })
   if (error) throw toHttpError(error, 'feedbackSeen.mark')
 }

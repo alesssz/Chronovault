@@ -11,6 +11,7 @@ import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 // Browser tab title: "Upload tracks · Chronovault".
 usePageTitle('Upload tracks')
 
+// The upload queue and its actions.
 const { items, pending, completed, add, remove, clearFinished } = useTrackUploader()
 /** Files chosen in the drop zone (moved to the queue right away). */
 const picked = ref<File[] | null>(null)
@@ -36,6 +37,7 @@ const statusInfo: Record<UploadStatus, { label: string, color: 'neutral' | 'prim
 /** "FLAC · lossless … 70 MB → 35 MB (−50%)", or why the WAV was kept as is. */
 function conversionLabel(conversion: UploadConversion): string {
   if (conversion.kind === 'kept') return `Kept as WAV: ${conversion.reason}`
+  // Space saved, as a whole percentage.
   const saved = Math.round((1 - conversion.flacBytes / conversion.originalBytes) * 100)
   return `FLAC · lossless, verified bit for bit · ${formatBytes(conversion.originalBytes)} → ${formatBytes(conversion.flacBytes)} (−${saved}%)`
 }
@@ -76,6 +78,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
       data-testid="upload-dropzone"
     />
 
+    <!-- What is read from the files -->
     <p class="mt-3 text-sm text-muted">
       Title, composers, album, year, genre, lyrics and cover are read from the file tags.
       You can edit them later.
@@ -103,6 +106,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
       v-if="items.length"
       class="mt-8"
     >
+      <!-- The queue's title with how many are left, and Clear list once nothing is running -->
       <div class="mb-3 flex items-center justify-between">
         <h2 class="font-medium">
           Uploads
@@ -118,6 +122,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
         />
       </div>
 
+      <!-- One row per file -->
       <ul class="divide-y divide-default rounded-lg border border-default">
         <li
           v-for="item in items"
@@ -126,6 +131,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
           data-testid="upload-item"
           :data-status="item.status"
         >
+          <!-- Its status as an icon (coloured while working, green done, red failed) -->
           <UIcon
             :name="statusInfo[item.status].icon"
             class="size-5 shrink-0"
@@ -136,6 +142,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
               'text-muted': item.status === 'queued',
             }"
           />
+          <!-- Title, status text, progress bars and the FLAC outcome -->
           <div class="min-w-0 flex-1 space-y-1.5">
             <div class="flex items-center justify-between gap-2">
               <p class="truncate text-sm font-medium">
@@ -183,6 +190,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
               {{ conversionLabel(item.conversion) }}
             </p>
           </div>
+          <!-- Done: open the new track's editor; waiting or failed: drop it from the list -->
           <UButton
             v-if="item.status === 'done' && item.trackId"
             :to="`/tracks/${item.trackId}/edit`"
@@ -204,6 +212,7 @@ useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
         </li>
       </ul>
 
+      <!-- Everything finished: on to the library -->
       <div
         v-if="pending === 0 && completed > 0"
         class="mt-6 flex justify-end"

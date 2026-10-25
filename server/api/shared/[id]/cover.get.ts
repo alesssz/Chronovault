@@ -7,6 +7,7 @@ import { getSharedCoverUrl } from '../../../services/sharing.service'
  * 302 → signed cover URL (6 hours); 404 when there is no cover.
  */
 export default defineEventHandler(async (event) => {
+  // A signed URL of the cover, through the visitor's client (404 for a private or missing track, or no cover).
   const url = await getSharedCoverUrl(await visitorClient(event), requireUuidParam(event))
   return sendRedirect(event, url, 302)
 })

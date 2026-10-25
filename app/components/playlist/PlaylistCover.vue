@@ -25,6 +25,7 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
 </script>
 
 <template>
+  <!-- No cover of its own and four track covers: the 2×2 mosaic -->
   <div
     v-if="!url && tiles.length"
     class="grid aspect-square shrink-0 grid-cols-2 overflow-hidden bg-elevated"
@@ -43,6 +44,7 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
       class="size-full object-cover"
     >
   </div>
+  <!-- Its own cover, or the first track cover when the mosaic is incomplete -->
   <div
     v-else-if="single"
     class="aspect-square shrink-0 overflow-hidden bg-elevated"

@@ -43,13 +43,17 @@ export type AnalyticsTarget = Omit<AnalyticsItem, keyof AnalyticsCount>
 
 /** The days of a period: first, last (both included) and every day in between, `YYYY-MM-DD`, UTC. */
 export interface AnalyticsPeriodDays {
+  /** First day, `YYYY-MM-DD` (UTC). */
   since: string
+  /** Last day, `YYYY-MM-DD` (UTC): today. */
   until: string
+  /** Every day from `since` to `until`, oldest first. */
   dates: string[]
 }
 
 /** The `days` days ending today (UTC), today included. */
 export function periodOf(days: AnalyticsPeriod, today: Date): AnalyticsPeriodDays {
+  // Every day of the period, oldest first.
   const dates = Array.from({ length: days }, (_, i) => {
     // i = 0 is the oldest day; Date.UTC handles month and year boundaries.
     const day = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - (days - 1 - i)))
@@ -70,11 +74,13 @@ export async function getAnalyticsReport(
   source: WebAnalyticsSource,
   today = new Date(),
 ): Promise<AnalyticsReport> {
+  // The period's days (UTC), today included.
   const period = periodOf(days, today)
   // Fields every report has, whatever the source.
   const base = { days, since: period.since, until: period.until }
   if (source.kind === 'unconfigured') return { source: 'unconfigured', ...base, ...emptyNumbers(period) }
 
+  // Every track and playlist of the user, with its public page path.
   const targets = await listTargets(db, userId)
   if (source.kind === 'demo') return { source: 'demo', ...base, ...demoNumbers(targets, period) }
   return { source: 'vercel', ...base, ...await vercelNumbers(source.client, targets, period) }
@@ -82,6 +88,7 @@ export async function getAnalyticsReport(
 
 /** Every track and playlist of the user, with its public page path (also used by plays.service.ts). */
 export async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarget[]> {
+  // The labels of the user's tracks and playlists, read together.
   const [tracks, playlists] = await Promise.all([
     tracksRepo.listTrackLabels(db, userId),
     playlistsRepo.listPlaylistLabels(db, userId),
@@ -125,8 +132,11 @@ function emptyNumbers(period: AnalyticsPeriodDays): AnalyticsNumbers {
 const QUERIES: { by: WebAnalyticsDimension, limit: number }[] = [
   // A single row: the period's total (unique visitors over the whole period).
   { by: 'environment', limit: 1 },
+  // One row per day of the period (at most 30).
   { by: 'day', limit: 100 },
+  // One row per page visited (the group holds at most PATHS_PER_QUERY paths).
   { by: 'requestPath', limit: 100 },
+  // The top values of each breakdown; the API groups the rest into "Others".
   { by: 'referrerHostname', limit: 10 },
   { by: 'country', limit: 10 },
   { by: 'deviceType', limit: 10 },
@@ -148,6 +158,7 @@ async function vercelNumbers(
   // One result list per query kind, filled by every group.
   const results = new Map<WebAnalyticsDimension, WebAnalyticsRow[]>(QUERIES.map(q => [q.by, []]))
   for (let start = 0; start < targets.length; start += PATHS_PER_QUERY) {
+    // This group's paths, quoted for the OData filter.
     const paths = targets.slice(start, start + PATHS_PER_QUERY).map(t => `'${t.path}'`)
     // Production only: preview deployments are tests, not real visitors.
     const filter = `environment eq 'production' and requestPath in (${paths.join(', ')})`
@@ -156,9 +167,11 @@ async function vercelNumbers(
     QUERIES.forEach((q, i) => results.get(q.by)!.push(...groupRows[i]!))
   }
 
+  // The period's total: the single `environment` row of each group, summed.
   const totals = sumRows(results.get('environment')!)
   // Day rows carry an ISO timestamp: keep the date part.
   const byDay = groupSum(results.get('day')!, row => row.key?.slice(0, 10) ?? null)
+  // Visits per public page path.
   const byPath = groupSum(results.get('requestPath')!, row => row.key)
   return {
     totals,
@@ -180,6 +193,7 @@ function groupSum(rows: WebAnalyticsRow[], keyOf: (row: WebAnalyticsRow) => stri
   // Running totals per key (null is a valid key: unknown referrer).
   const sums = new Map<string | null, AnalyticsCount>()
   for (const row of rows) {
+    // The group this row adds to.
     const key = keyOf(row)
     sums.set(key, sumRows([sums.get(key) ?? zeroCount(), row]))
   }
@@ -204,6 +218,7 @@ export function itemsOf(targets: AnalyticsTarget[], byPath: Map<string | null, A
  * as one final "Others" row.
  */
 export function breakdown(rows: WebAnalyticsRow[]): AnalyticsBreakdownRow[] {
+  // Page views per value, the path groups added up.
   const sums = groupSum(rows, row => row.key)
   // The API's "Others" is folded together with what does not make the top list.
   let others = sums.get(OTHERS)?.pageviews ?? 0
@@ -212,6 +227,7 @@ export function breakdown(rows: WebAnalyticsRow[]): AnalyticsBreakdownRow[] {
   const sorted = [...sums].map(([key, c]) => ({ key, pageviews: c.pageviews })).filter(r => r.pageviews > 0)
     .sort((a, b) => b.pageviews - a.pageviews)
   for (const row of sorted.slice(BREAKDOWN_SIZE)) others += row.pageviews
+  // The values listed by name.
   const top = sorted.slice(0, BREAKDOWN_SIZE)
   return others > 0 ? [...top, { key: OTHERS, pageviews: others }] : top
 }

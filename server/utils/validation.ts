@@ -7,6 +7,7 @@ import { z } from 'zod'
  * ones the client forms use.
  */
 
+/** Any UUID (the ids of every table). */
 const uuidSchema = z.uuid()
 
 /**
@@ -14,6 +15,7 @@ const uuidSchema = z.uuid()
  * Checking it here avoids a round trip to Postgres for obviously invalid ids.
  */
 export function requireUuidParam(event: H3Event, name = 'id'): string {
+  // The parameter, checked (missing or malformed: not a success).
   const parsed = uuidSchema.safeParse(getRouterParam(event, name))
   if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: `Invalid "${name}" parameter` })
@@ -36,6 +38,7 @@ export async function readValidated<T extends z.ZodType>(event: H3Event, schema:
     throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: 'Invalid JSON' })
   }
 
+  // The body checked and converted by the schema.
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
     throw createError({
@@ -54,6 +57,7 @@ export async function readValidated<T extends z.ZodType>(event: H3Event, schema:
  * converts them).
  */
 export function readValidatedQuery<T extends z.ZodType>(event: H3Event, schema: T): z.output<T> {
+  // The query checked and converted by the schema.
   const parsed = schema.safeParse(getQuery(event))
   if (!parsed.success) {
     throw createError({

@@ -20,6 +20,7 @@ function fakeAudioElement() {
 
 describe('AudioEngine.setPlaybackRate', () => {
   it('sets the speed, keeps the pitch and survives a source reload', () => {
+    // A fake <audio> recording what the engine sets.
     const element = fakeAudioElement()
     // The engine wraps the fake element exactly like a real <audio>.
     const engine = new AudioEngine(element as unknown as HTMLAudioElement)
@@ -38,6 +39,7 @@ describe('AudioEngine.setPlaybackRate', () => {
  * position the test sets.
  */
 function playableElement() {
+  // The element's listeners, by event name, to fire them from the test.
   const listeners = new Map<string, () => void>()
   return {
     preload: '',
@@ -58,6 +60,7 @@ describe('AudioEngine time reports', () => {
     // Frames are scheduled, never drawn: exactly a hidden page.
     vi.stubGlobal('requestAnimationFrame', () => 1)
     vi.stubGlobal('cancelAnimationFrame', () => {})
+    // The engine on that element, and every position it reports.
     const engine = new AudioEngine(element as unknown as HTMLAudioElement)
     const times: number[] = []
     engine.on('time', t => void times.push(t))
@@ -67,7 +70,9 @@ describe('AudioEngine time reports', () => {
 
   it('leaves the position to the per-frame clock while the page shows', () => {
     vi.stubGlobal('document', { visibilityState: 'visible' })
+    // An element that plays.
     const element = playableElement()
+    // The positions the engine reports while it plays.
     const times = playingEngine(element)
     element.currentTime = 12
     element.fire('timeupdate')
@@ -76,7 +81,9 @@ describe('AudioEngine time reports', () => {
 
   it('keeps reporting the position from timeupdate with the page hidden (screen off)', () => {
     vi.stubGlobal('document', { visibilityState: 'hidden' })
+    // An element that plays.
     const element = playableElement()
+    // The positions the engine reports while it plays.
     const times = playingEngine(element)
     element.currentTime = 12
     element.fire('timeupdate')
@@ -119,6 +126,7 @@ describe('pageControlsVolume', () => {
 
 describe('canSetVolume', () => {
   it('is true when the volume sticks (desktop browsers, Android)', () => {
+    // An element whose volume sticks.
     const probe = { volume: 1 }
     expect(canSetVolume(probe as unknown as HTMLAudioElement)).toBe(true)
   })
@@ -126,6 +134,7 @@ describe('canSetVolume', () => {
   it('is false when the volume always reads back 1 (iPhone, iPad)', () => {
     // iOS ignores the write: the getter keeps answering 1.
     const probe = {
+      // Always 1, whatever was written.
       get volume() {
         return 1
       },
@@ -135,10 +144,13 @@ describe('canSetVolume', () => {
   })
 
   it('is false when setting the volume throws', () => {
+    // An element whose volume cannot be written at all.
     const probe = {
+      // Reads 1.
       get volume() {
         return 1
       },
+      // Writing throws.
       set volume(_: number) {
         throw new Error('read-only')
       },

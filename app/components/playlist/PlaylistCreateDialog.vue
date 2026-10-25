@@ -36,12 +36,14 @@ watch(open, (value) => {
 
 /** Validates the title, creates the playlist (with the selected track, if any) and opens it. */
 async function onSubmit() {
+  // The title checked with the shared schema (empty or too long: an error on the field).
   const parsed = playlistMetadataSchema.shape.title.safeParse(title.value)
   if (!parsed.success) {
     titleError.value = parsed.error.issues[0]?.message ?? 'Invalid title'
     return
   }
   await saving.run(async () => {
+    // The new playlist, cached in the list.
     const created = await createPlaylist(parsed.data, createDialog.value.trackIds)
     createDialog.value = { open: false, trackIds: [] }
     toast.add({ title: `Playlist "${created.title}" created`, icon: 'i-lucide-list-music', color: 'success' })
@@ -59,6 +61,7 @@ async function onSubmit() {
       : 'You can add tracks from the library.'"
     :dismissible="!saving.running"
   >
+    <!-- The title, checked on submit (Enter or the Create button) -->
     <template #body>
       <form
         id="playlist-create-form"
@@ -79,6 +82,7 @@ async function onSubmit() {
         </UFormField>
       </form>
     </template>
+    <!-- Cancel, and Create (it submits the form above through its id) -->
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton

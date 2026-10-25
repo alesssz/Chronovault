@@ -23,13 +23,16 @@ import { badRequest, notFound } from '../utils/errors'
  * player runs on another origin); they hold nothing the address does not.
  */
 export default defineEventHandler(async (event) => {
+  // Only reading: anything else is refused before looking at the address.
   if (event.method !== 'GET' && event.method !== 'HEAD') {
     throw createError({ statusCode: 405, message: 'Method not allowed' })
   }
+  // The address's parts: the storage key, its expiry (unix seconds) and the signature.
   const { k, e, s } = getQuery(event)
   if (typeof k !== 'string' || typeof e !== 'string' || typeof s !== 'string') {
     throw badRequest('Invalid audio address')
   }
+  // The audio storage client (R2, or the local S3 endpoint).
   const audio = useAudioStorage()
   if (!(await audio.verifyStream(k, e, s))) {
     throw createError({ statusCode: 403, message: 'Invalid or expired audio address' })
@@ -39,6 +42,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeaders(event, { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' })
 
   if (event.method === 'HEAD') {
+    // The file's size and type, from a HEAD signed by the server.
     const object = await audio.head(k)
     if (!object) throw notFound('Audio file not found')
     // Headers only: written directly, so nothing recomputes Content-Length from an empty body.

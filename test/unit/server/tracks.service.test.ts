@@ -20,6 +20,7 @@ import {
 
 vi.mock('~~/server/repositories/tracks.repository')
 vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
+  // The real module, for its SIGNED_URL_TTL.
   const original = await importOriginal<typeof storageRepo>()
   return {
     SIGNED_URL_TTL: original.SIGNED_URL_TTL,
@@ -83,6 +84,7 @@ describe('listTracks', () => {
       makeRow({ id: 'other', cover_path: null }),
     ])
 
+    // The library as the service returns it.
     const result = await listTracks(db, USER)
 
     // The version is updated_at in base 36: a new cover (new updated_at) means a new address.
@@ -93,6 +95,7 @@ describe('listTracks', () => {
 
 describe('createUploadTarget', () => {
   it('signs an upload URL inside the user folder', async () => {
+    // Before the call: the expiry must be at least an hour after this.
     const before = Date.now()
     const target = await createUploadTarget(storage(), USER, {
       trackId: TRACK, extension: 'flac', mimeType: 'audio/flac', sizeBytes: 10,
@@ -135,6 +138,7 @@ describe('createTrack', () => {
   it('registers the track when the uploaded file matches', async () => {
     vi.mocked(tracksRepo.insertTrackRow).mockResolvedValue(makeRow())
 
+    // The registered track.
     const track = await createTrack(db, storage(), USER, createInput)
 
     expect(audio.head).toHaveBeenCalledWith(AUDIO)
@@ -170,6 +174,7 @@ describe('updateTrack', () => {
 
   it('does not touch storage for metadata-only changes', async () => {
     vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(makeRow({ mastered: true }))
+    // The track after a metadata-only change.
     const track = await updateTrack(db, USER, TRACK, { mastered: true })
     expect(track.mastered).toBe(true)
     expect(tracksRepo.findTrackRow).not.toHaveBeenCalled()
@@ -197,8 +202,10 @@ describe('deleteTrack', () => {
 describe('getPlaybackSource', () => {
   it('returns the streaming address with its expiry', async () => {
     vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(AUDIO)
+    // Before the call: the expiry must be six hours after this, or later.
     const before = Date.now()
 
+    // The track's streaming address.
     const source = await getPlaybackSource(db, storage(), USER, TRACK)
 
     expect(audio.streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)

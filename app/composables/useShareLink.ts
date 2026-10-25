@@ -36,6 +36,7 @@ export function useShareLink() {
 
   /** The share sheet is used instead of the clipboard (decided in the browser, after mount). */
   const nativeShare = ref(false)
+  // Decided in the browser only: the server cannot know.
   onMounted(() => {
     nativeShare.value = detectNativeShare()
   })
@@ -47,6 +48,7 @@ export function useShareLink() {
 
   /** Copies the link to the clipboard and confirms with a toast (showing the link). */
   async function copyShareLink(id: string, kind: ShareKind = 'track'): Promise<void> {
+    // The page's full address.
     const url = shareUrl(id, kind)
     if (await copyText(url)) {
       toast.add({ title: 'Share link copied', description: url, icon: 'i-lucide-link', color: 'success' })

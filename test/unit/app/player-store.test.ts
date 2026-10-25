@@ -28,6 +28,7 @@ class FakeEngine implements PlaybackEngine {
   muted = false
   private handlers = new Map<string, Set<(...args: unknown[]) => void>>()
 
+  // Adds a listener; returns the function that removes it, like the real engine.
   on<K extends keyof AudioEngineEvents>(event: K, listener: AudioEngineEvents[K]) {
     // This event's listeners (a new set on first use).
     const set = this.handlers.get(event) ?? new Set()
@@ -1120,6 +1121,7 @@ describe('shuffle', () => {
       // hydrates every ref from it, and a missing key would leave the queue undefined.
       const server = createPinia()
       setActivePinia(server)
+      // The store as the server builds it.
       const serverStore = usePlayerStore()
       const handedOver = JSON.parse(JSON.stringify(server.state.value.player))
       serverStore.$dispose()

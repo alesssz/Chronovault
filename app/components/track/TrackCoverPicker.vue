@@ -15,6 +15,7 @@ defineProps<{
   busy?: boolean
 }>()
 
+// The picked image with its crop, or a request to remove the cover.
 const emit = defineEmits<{
   /** An image and the square to keep from it (source pixels). */
   select: [file: File, crop: CropRect]
@@ -36,6 +37,7 @@ const input = ref<HTMLInputElement | null>(null)
 
 /** A file was picked: open the crop editor with it. */
 function onChange(event: Event) {
+  // The hidden file input.
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   // Reset the input, so picking the same file again still fires `change`.
@@ -58,6 +60,7 @@ function onChange(event: Event) {
           class="w-full"
         />
       </slot>
+      <!-- Saving: a spinner over the preview -->
       <div
         v-if="busy"
         class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50"
@@ -68,6 +71,7 @@ function onChange(event: Event) {
         />
       </div>
     </div>
+    <!-- The system file picker, opened by the button below -->
     <input
       ref="input"
       type="file"
@@ -76,6 +80,7 @@ function onChange(event: Event) {
       data-testid="cover-input"
       @change="onChange"
     >
+    <!-- Add or change the cover; remove it -->
     <div class="flex gap-2">
       <UButton
         :label="url ? 'Change cover' : 'Add cover'"
@@ -96,6 +101,7 @@ function onChange(event: Event) {
         @click="emit('remove')"
       />
     </div>
+    <!-- What happens to the picked image -->
     <p class="text-xs text-muted">
       You choose the square to keep; saved at up to 800×800.
     </p>

@@ -41,6 +41,7 @@ export function migrateLegacyKeys(storage: Storage): number {
   // The old keys, collected first: removing while walking the indexes would skip some.
   const legacy: string[] = []
   for (let i = 0; i < storage.length; i++) {
+    // The name of the key at this index.
     const key = storage.key(i)
     if (key?.startsWith(LEGACY_PREFIX)) legacy.push(key)
   }

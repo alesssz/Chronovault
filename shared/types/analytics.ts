@@ -26,7 +26,9 @@ export type AnalyticsSource = 'vercel' | 'demo' | 'unconfigured'
 
 /** Page views and unique visitors. */
 export interface AnalyticsCount {
+  /** Openings of the page(s), reloads included. */
   pageviews: number
+  /** Different visitors (Vercel's daily, cookieless estimate). */
   visitors: number
 }
 
@@ -38,8 +40,11 @@ export interface AnalyticsDay extends AnalyticsCount {
 
 /** A shared track or playlist and the visits to its public page. */
 export interface AnalyticsItem extends AnalyticsCount {
+  /** A track's page (/t/…) or a playlist's (/p/…). */
   kind: 'track' | 'playlist'
+  /** The track's or playlist's id. */
   id: string
+  /** Its current title. */
   title: string
   /** Current visibility: a page made private again keeps its past visits. */
   visibility: TrackVisibility
@@ -57,6 +62,7 @@ export interface AnalyticsBreakdownRow {
    * sends no referrer). `Others` groups the values beyond the top ones.
    */
   key: string | null
+  /** Page views with that value. */
   pageviews: number
 }
 
@@ -68,7 +74,9 @@ export interface AnalyticsBreakdownRow {
 
 /** Visitors' plays: how many, how many to the end, and by how many different listeners. */
 export interface PlaysCount {
+  /** Listens long enough to count (30 s, or half a shorter track). */
   plays: number
+  /** Of those, how many reached the end (90% of the track). */
   completed: number
   /** Different visitors' browsers (one person on two devices counts twice). */
   listeners: number
@@ -78,6 +86,7 @@ export interface PlaysCount {
 export interface PlaysDay {
   /** `YYYY-MM-DD`. */
   date: string
+  /** Visitors' plays that day. */
   plays: number
 }
 
@@ -91,9 +100,11 @@ export interface PlaysItem extends Omit<AnalyticsItem, keyof AnalyticsCount>, Pl
 
 /** Response of GET /api/analytics/plays. */
 export interface PlaysReport {
+  /** The period asked for, in days. */
   days: AnalyticsPeriod
-  /** First and last day of the period, `YYYY-MM-DD` (UTC, both included). */
+  /** First day of the period, `YYYY-MM-DD` (UTC, included). */
   since: string
+  /** Last day of the period, `YYYY-MM-DD` (UTC, included: today). */
   until: string
   /** Visitors only: the owner's own plays never count here. */
   totals: PlaysCount
@@ -107,10 +118,13 @@ export interface PlaysReport {
 
 /** Response of GET /api/analytics. */
 export interface AnalyticsReport {
+  /** Where the numbers come from: real (Vercel), demo, or not configured. */
   source: AnalyticsSource
+  /** The period asked for, in days. */
   days: AnalyticsPeriod
-  /** First and last day of the period, `YYYY-MM-DD` (UTC, both included). */
+  /** First day of the period, `YYYY-MM-DD` (UTC, included). */
   since: string
+  /** Last day of the period, `YYYY-MM-DD` (UTC, included: today). */
   until: string
   /** The whole period, all share pages together. */
   totals: AnalyticsCount
@@ -118,8 +132,10 @@ export interface AnalyticsReport {
   daily: AnalyticsDay[]
   /** Shared items and items visited in the period, most viewed first. */
   items: AnalyticsItem[]
-  /** Most frequent first (top values only). */
+  /** Where visitors came from (referrer hostnames), most frequent first (top values only). */
   referrers: AnalyticsBreakdownRow[]
+  /** Visitors' countries (ISO codes), most frequent first (top values only). */
   countries: AnalyticsBreakdownRow[]
+  /** Device types (desktop, mobile, tablet), most frequent first. */
   devices: AnalyticsBreakdownRow[]
 }

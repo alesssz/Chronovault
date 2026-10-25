@@ -41,6 +41,7 @@ describe('setMediaSessionTrack', () => {
 
   it('falls back to the artwork and the app name, so the card always shows whose music it is', () => {
     setMediaSessionTrack({ title: 'Untitled demo', artist: null, album: '', artworkUrl: null })
+    // What the card was built with.
     const init = session.metadata!.init
     expect(init.artist).toBe('Chronovault')
     expect(init.album).toBe(APP_NAME)

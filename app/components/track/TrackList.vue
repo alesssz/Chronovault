@@ -39,6 +39,7 @@ const props = defineProps<{
 /** Ids of the selected tracks (selection mode). */
 const selected = defineModel<string[]>('selected', { default: () => [] })
 
+// What the rows ask the page to do: play a track, delete it, change its draft/final status.
 const emit = defineEmits<{
   /** Play this track with the visible list as the queue (or toggle it). */
   play: [track: TrackSummary]
@@ -143,6 +144,7 @@ const listTop = ref(0)
  * (and the scroll position restored when coming back) is right from the start.
  */
 function estimateRowHeight(): number {
+  // The root font size in px (20 on large screens, 17 on phones).
   const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   return Math.round(rem * 4.25) + 1
 }
@@ -168,6 +170,7 @@ const visibleRows = computed(() => virtualizer.value.getVirtualItems().map(item 
 function measureListTop() {
   if (listEl.value) listTop.value = listEl.value.getBoundingClientRect().top + window.scrollY
 }
+// Measured once on screen, then whenever the page height changes (below).
 onMounted(measureListTop)
 // The page's height changes with whatever moves the list (filters wrapping, the selection bar).
 useResizeObserver(() => document.body, measureListTop)
@@ -189,6 +192,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
     class="relative"
     :style="{ height: `${virtualizer.getTotalSize()}px` }"
   >
+    <!-- One row per track drawn: placed at its offset in the whole list (virtual scroll) -->
     <li
       v-for="{ track, genre, index, top } in visibleRows"
       :key="track.id"
@@ -205,6 +209,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
       :style="{ transform: `translateY(${top}px)` }"
       data-testid="track-row"
     >
+      <!-- Selection mode: a checkbox per row -->
       <UCheckbox
         v-if="selectable"
         :model-value="isSelected(track)"
@@ -252,6 +257,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
         </button>
       </UTooltip>
 
+      <!-- Title and details: clicking plays the track (or selects it in selection mode) -->
       <button
         type="button"
         class="min-w-0 flex-1 cursor-pointer rounded-sm text-left"
@@ -280,6 +286,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
         </p>
       </button>
 
+      <!-- Badges from `md` up: genre, mastered, lyrics, visibility -->
       <div class="hidden items-center gap-1.5 md:flex">
         <UBadge
           v-if="genre"
@@ -313,10 +320,12 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
         </UTooltip>
       </div>
 
+      <!-- Duration -->
       <span class="hidden w-12 text-right text-sm tabular-nums text-muted sm:block">
         {{ formatTime(track.durationSeconds) }}
       </span>
 
+      <!-- The row's actions menu -->
       <UDropdownMenu
         :items="menuFor(track)"
         :content="{ align: 'end' }"

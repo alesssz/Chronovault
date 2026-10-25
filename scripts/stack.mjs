@@ -41,6 +41,7 @@ function dockerSupabaseUrl(apiUrl) {
  */
 async function local() {
   await ensureDocker()
+  // The running stack's URLs and keys (started when needed).
   const status = await ensureSupabase()
   writeEnvFile(resolve('.env'), {
     SUPABASE_URL: status.API_URL,
@@ -58,6 +59,7 @@ async function local() {
  */
 async function docker() {
   await ensureDocker()
+  // The running stack's URLs and keys (started when needed).
   const status = await ensureSupabase()
 
   writeEnvFile(resolve('.env.docker'), {
@@ -69,6 +71,7 @@ async function docker() {
   console.log('✔ .env.docker updated')
 
   console.log('▸ Building and starting the app container (the first build takes a few minutes)…')
+  // Its exit code (0: built and started).
   const code = await runInherited('docker compose up --build --detach')
   if (code !== 0) return code
 

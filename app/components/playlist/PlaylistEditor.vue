@@ -42,6 +42,7 @@ const queue = useQueueActions()
 // "Download" in each track's menu: the file with its metadata written in.
 const { download } = useTrackDownload()
 
+// The playlist with its tracks (an error when missing or someone else's).
 const { data: playlist, error } = await useAsyncData(`playlist-${props.id}`, () => playlistsApi.get(props.id))
 
 // Missing or someone else's playlist: the error page (404).
@@ -89,7 +90,9 @@ const saving = useAsyncTask()
 
 /** Saves title, description and visibility (validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
+  // True when the save went through; false when it failed (the task showed the error).
   const saved = await saving.run(async () => {
+    // The playlist as the server stored it.
     const updated = await playlistsApi.update(props.id, event.data)
     applyServerPlaylist(updated)
     // The form takes the normalized values back and is clean again.
@@ -129,6 +132,7 @@ const savingOrder = ref(false)
  * first (optimistic); if the request fails it goes back to the saved one.
  */
 async function saveTracks(next: TrackSummary[], failureTitle: string) {
+  // The order on the server, to go back to on failure.
   const previous = playlist.value!.tracks
   tracks.value = next
   savingOrder.value = true
@@ -148,6 +152,7 @@ async function saveTracks(next: TrackSummary[], failureTitle: string) {
 
 /** "Move up/down": swaps the track with its neighbour and saves. */
 function move(index: number, offset: number) {
+  // The neighbour's position.
   const target = index + offset
   if (target < 0 || target >= tracks.value.length) return
   void saveTracks(moveItem(tracks.value, index, target), 'Order not saved')
@@ -165,6 +170,7 @@ function removeTrack(track: TrackSummary) {
  */
 async function setStatus(track: TrackSummary, status: TrackStatus) {
   try {
+    // The track as the server stored it.
     const updated = await tracksApi.update(track.id, { status })
     const withStatus = (t: TrackSummary) => (t.id === track.id ? { ...t, status: updated.status } : t)
     tracks.value = tracks.value.map(withStatus)
@@ -214,6 +220,7 @@ async function loadFeedback() {
     feedback.value = null
   }
 }
+// The feedback, once the page is on screen (groups only: loadFeedback checks).
 onMounted(loadFeedback)
 
 // --- New feedback: seen when the owner leaves the group ---------------------------------
@@ -224,17 +231,20 @@ onMounted(loadFeedback)
 // is seen up to when its feedback was last read (`asOf`), so a vote that arrived while
 // the owner looked at an older copy stays new. Groups only: playlists get no votes.
 const unseenFeedback = isVersions ? useUnseenFeedback() : null
+// The dot and the card's badge go away at once, before the visit is recorded.
 onMounted(() => unseenFeedback?.clearLocally(props.id))
 /** Records the visit (idempotent: hiding the page and then leaving it sends it twice, harmlessly). */
 function markFeedbackSeen() {
   // No feedback on screen (not loaded, or failed): nothing was seen.
   if (feedback.value) void unseenFeedback?.markSeen(props.id, feedback.value.asOf)
 }
+// Leaving the page in the app records the visit.
 onBeforeUnmount(markFeedbackSeen)
 // Hidden (another tab or app, the phone locked) or closed: the visit counts as done.
 useEventListener(document, 'visibilitychange', () => {
   if (document.visibilityState === 'hidden') markFeedbackSeen()
 })
+// Closing the tab or leaving the site records it too.
 useEventListener(window, 'pagehide', markFeedbackSeen)
 
 /** A version's votes and plays, for the line under its title (null: no feedback loaded). */
@@ -266,6 +276,7 @@ const deleting = useAsyncTask()
 
 /** Deletes the playlist (tracks stay in the library) and goes back to its list page. */
 async function onDelete() {
+  // True once the playlist is deleted; false when the request failed (the task showed the error).
   const deleted = await deleting.run(async () => {
     await playlistsApi.remove(props.id)
     forget(props.id)

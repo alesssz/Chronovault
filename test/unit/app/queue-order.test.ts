@@ -7,9 +7,11 @@ import { inOriginalOrder, randomUpcomingSlot, shuffled, shuffledRound, shuffleUp
 
 /** Deterministic random numbers in [0, 1) (mulberry32). */
 function seeded(seed: number): () => number {
+  // mulberry32's state.
   let a = seed
   return () => {
     a = (a + 0x6D2B79F5) | 0
+    // One step of mulberry32.
     let t = Math.imul(a ^ (a >>> 15), 1 | a)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
@@ -23,7 +25,9 @@ const ids = (queue: { id: string }[]) => queue.map(t => t.id)
 
 describe('shuffled', () => {
   it('returns a permutation and leaves the input untouched', () => {
+    // The list to shuffle.
     const input = ['a', 'b', 'c', 'd', 'e']
+    // A shuffled copy (seeded: the same on every run).
     const result = shuffled(input, seeded(1))
     expect([...result].sort()).toEqual(input)
     expect(result).not.toEqual(input)
@@ -37,6 +41,7 @@ describe('shuffled', () => {
 
 describe('shuffleUpcoming', () => {
   it('keeps played tracks and the current one in place', () => {
+    // The ids after shuffling what comes after position 1.
     const result = ids(shuffleUpcoming(items('a', 'b', 'c', 'd', 'e', 'f'), 1, seeded(3)))
     expect(result.slice(0, 2)).toEqual(['a', 'b'])
     expect(result.slice(2).sort()).toEqual(['c', 'd', 'e', 'f'])
@@ -44,6 +49,7 @@ describe('shuffleUpcoming', () => {
 })
 
 describe('unshuffleUpcoming', () => {
+  // The list's order before any shuffle.
   const original = ['a', 'b', 'c', 'd', 'e']
 
   it('carries on in the original order from the current track, wrapping around', () => {
@@ -73,6 +79,7 @@ describe('randomUpcomingSlot', () => {
 describe('shuffledRound', () => {
   it('never starts with the track that just ended', () => {
     for (let seed = 0; seed < 50; seed++) {
+      // A new round's order right after "a" played.
       const round = ids(shuffledRound(items('a', 'b', 'c'), 'a', seeded(seed)))
       expect(round[0]).not.toBe('a')
       expect([...round].sort()).toEqual(['a', 'b', 'c'])

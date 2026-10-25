@@ -8,7 +8,9 @@ import { createError } from 'h3'
 
 /** Shape shared by Postgres, PostgREST and Storage errors. */
 interface DbError {
+  /** SQLSTATE or PostgREST code, e.g. `23505`, `PGRST116`; absent for Storage errors. */
   code?: string
+  /** The technical message: logged, never sent to the client. */
   message: string
 }
 
@@ -37,6 +39,7 @@ export function toHttpError(error: DbError, context: string) {
     // PostgREST: `.single()` found no row
     'PGRST116': { statusCode: 404, message: 'Item not found' },
   }
+  // The status this code maps to; unknown codes are logged and become 500.
   const mapped = error.code ? byCode[error.code] : undefined
   if (!mapped) console.error(`[${context}]`, error)
   return createError({

@@ -58,6 +58,7 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
     byPath.set(target.path, sum)
   }
 
+  // Page views of the whole period, all items together.
   const pageviews = daily.reduce((n, d) => n + d.pageviews, 0)
   // Over a whole period some visitors come back on other days: fewer unique visitors than the daily sum.
   const visitors = Math.round(daily.reduce((n, d) => n + d.visitors, 0) * 0.8)
@@ -76,7 +77,9 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
  * (largest remainders get the leftover units); empty parts are dropped.
  */
 function split(total: number, shares: [string | null, number][]): AnalyticsBreakdownRow[] {
+  // Each key's exact (fractional) part of the total.
   const exact = shares.map(([key, share]) => ({ key, value: total * share }))
+  // Rounded down: the leftover units are handed out below.
   const rows = exact.map(({ key, value }) => ({ key, pageviews: Math.floor(value) }))
   // Units lost to rounding down go to the largest fractional parts.
   let leftover = total - rows.reduce((n, r) => n + r.pageviews, 0)

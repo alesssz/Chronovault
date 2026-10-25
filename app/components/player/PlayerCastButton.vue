@@ -23,10 +23,12 @@ import { getAudioEngine } from '~/lib/audio-engine'
  * after mount: there is no audio element on the server.
  */
 const element = shallowRef<HTMLMediaElement | null>(null)
+// The app's single <audio>, available once in the browser.
 onMounted(() => {
   element.value = getAudioEngine().element
 })
 
+// A device to offer, the connection, and the picker.
 const { available, state, prompt } = useRemotePlayback(element)
 // "No devices found" / "cannot cast" / failure messages.
 const toast = useToast()
@@ -51,6 +53,7 @@ const label = computed(() => {
  * switched off in an installed app, a browser without it…).
  */
 async function cast() {
+  // What the picker did, and the browser's own words when it refused.
   const { result, detail } = await prompt()
   /** The browser's answer, appended to the explanation when there is one. */
   const answer = detail ? ` Browser's answer: ${detail}.` : ''

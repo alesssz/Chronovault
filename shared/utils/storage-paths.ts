@@ -37,10 +37,13 @@ export function buildPlaylistCoverPath(userId: string, playlistId: string): stri
  * e.g. pointing a track at someone else's file.
  */
 export function isTrackPath(path: string, userId: string, trackId: string): boolean {
+  // The folder and the file name.
   const parts = path.split('/')
   // Exactly `<folder>/<file>`: also rules out playlist covers and `..` tricks.
   if (parts.length !== 2) return false
+  // Exactly two parts, checked just above.
   const [folder, file] = parts as [string, string]
+  // Where the extension starts: the name before it must be the track id.
   const dot = file.lastIndexOf('.')
   return folder === userId && dot > 0 && file.slice(0, dot) === trackId
 }

@@ -41,6 +41,7 @@ describe('formatBytes', () => {
 })
 
 describe('formatAge', () => {
+  // "Now" for every case below.
   const now = Date.parse('2026-10-21T12:00:00Z')
   it.each([
     ['2026-10-21T11:59:30Z', 'just now'],

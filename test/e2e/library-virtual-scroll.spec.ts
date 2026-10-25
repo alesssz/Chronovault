@@ -81,7 +81,9 @@ test.describe('library with many tracks', () => {
     // --- Back from a track's page, the list is where it was ---
     await page.evaluate(() => window.scrollTo(0, 9000))
     await expect.poll(() => firstTitleOnScreen(page)).not.toBeNull()
+    // The title at the top of the screen before leaving the list.
     const before = await firstTitleOnScreen(page)
+    // Its row.
     const row = rows.filter({ hasText: before! })
     await row.getByRole('button', { name: `Actions for ${before}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()

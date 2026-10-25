@@ -39,6 +39,7 @@ describe('truncate', () => {
   })
 
   it('cuts long texts to the limit, ending with an ellipsis and no dangling space', () => {
+    // A title cut to 13 characters.
     const cut = truncate('Night drive across the city', 13)
     expect(cut).toBe('Night drive…')
     expect(cut.length).toBeLessThanOrEqual(13)
@@ -98,6 +99,7 @@ describe('moveItem', () => {
   })
 
   it('never mutates the original list', () => {
+    // The list, and a moved copy of it.
     const list = ['a', 'b', 'c']
     const moved = moveItem(list, 0, 1)
     expect(list).toEqual(['a', 'b', 'c'])

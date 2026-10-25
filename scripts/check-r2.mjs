@@ -32,6 +32,7 @@ const config = {
   accessKeyId: process.env.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
   secretAccessKey: process.env.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
 }
+// Settings left empty in .env.r2.
 const missing = Object.entries(config).filter(([, v]) => !v).map(([k]) => k)
 if (missing.length) {
   console.error(`✖ Missing in ${envFile}: ${missing.join(', ')}`)
@@ -95,18 +96,22 @@ try {
 
   // 4–5. CORS, for every origin the app is served from
   for (const origin of origins) {
+    // The browser's preflight before an upload: may this origin PUT?
     const putPreflight = await fetch(await presign('PUT'), {
       method: 'OPTIONS',
       headers: { 'origin': origin, 'access-control-request-method': 'PUT', 'access-control-request-headers': 'content-type' },
     })
+    // The origin R2 allows for it (or `*`), null when none.
     const putAllowed = putPreflight.headers.get('access-control-allow-origin')
     report(putPreflight.ok && (putAllowed === origin || putAllowed === '*'), `CORS upload from ${origin}`,
       `Add "${origin}" to AllowedOrigins and PUT to AllowedMethods in the bucket CORS policy (see README).`)
 
+    // The preflight before streaming: may this origin GET with a Range header?
     const getPreflight = await fetch(await presign('GET'), {
       method: 'OPTIONS',
       headers: { 'origin': origin, 'access-control-request-method': 'GET', 'access-control-request-headers': 'range' },
     })
+    // The origin R2 allows for it (or `*`), null when none.
     const getAllowed = getPreflight.headers.get('access-control-allow-origin')
     report(getPreflight.ok && (getAllowed === origin || getAllowed === '*'), `CORS streaming / waveform from ${origin}`,
       `Allow GET and the "range" header for "${origin}" in the bucket CORS policy (see README).`)

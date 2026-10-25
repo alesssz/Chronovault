@@ -21,6 +21,7 @@ const props = defineProps<{
   title?: string
 }>()
 
+// The link, the share action, and whether it opens the device's share sheet.
 const { shareUrl, shareLink, nativeShare } = useShareLink()
 
 /** What a visitor can do with the link. */
@@ -37,6 +38,7 @@ const reach = computed(() => (props.kind === 'playlist'
     <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
       Sharing
     </h2>
+    <!-- Shared: who can open it, the page's own extra content (slot), then the link -->
     <template v-if="shared">
       <p class="text-sm text-muted">
         {{ reach }} The Suno prompt and the mastering status are never shown.
@@ -63,6 +65,7 @@ const reach = computed(() => (props.kind === 'playlist'
         />
       </UFieldGroup>
     </template>
+    <!-- Private: how to get a link -->
     <p
       v-else
       class="text-sm text-muted"

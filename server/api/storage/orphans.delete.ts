@@ -8,6 +8,7 @@ import { cleanStorage } from '../../services/storage-cleanup.service'
  * 200 → StorageCleanupResult
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return cleanStorage(db, useAudioStorage(), userId, orphanMinAgeHours())
 })

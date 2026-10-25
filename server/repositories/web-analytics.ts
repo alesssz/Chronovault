@@ -16,6 +16,7 @@ import { z } from 'zod'
  * (runtime config, like the R2 keys), and error responses never echo it.
  */
 
+/** How to reach the project's data: token, project and team (server runtime config). */
 export interface WebAnalyticsConfig {
   /** Vercel access token (Account settings → Tokens). */
   token: string
@@ -32,15 +33,19 @@ export type WebAnalyticsDimension = 'day' | 'environment' | 'requestPath' | 'ref
 export interface WebAnalyticsRow {
   /** Value of the grouping dimension; for `day`, the day's ISO timestamp. Null when unknown. */
   key: string | null
+  /** Page views of the group. */
   pageviews: number
+  /** Unique visitors of the group (Vercel's cookieless estimate). */
   visitors: number
 }
 
 /** One aggregate query. */
 export interface WebAnalyticsQuery {
+  /** The grouping dimension: one row per day, per path, per country… */
   by: WebAnalyticsDimension
-  /** First and last day, `YYYY-MM-DD`, both included. */
+  /** First day, `YYYY-MM-DD`, included. */
   since: string
+  /** Last day, `YYYY-MM-DD`, included. */
   until: string
   /** OData filter, e.g. `requestPath in ('/t/…', '/p/…')`. */
   filter?: string
@@ -48,6 +53,7 @@ export interface WebAnalyticsQuery {
   limit?: number
 }
 
+/** The aggregate endpoint (the only one the app calls). */
 const API_URL = 'https://api.vercel.com/v1/query/web-analytics/visits/aggregate'
 
 /**
@@ -61,6 +67,7 @@ const responseSchema = z.object({
 
 /** A count from the response: a non-negative number, 0 when missing or malformed. */
 function count(value: unknown): number {
+  // Counts may come as numbers or strings.
   const n = Number(value)
   return Number.isFinite(n) && n > 0 ? n : 0
 }
@@ -82,6 +89,7 @@ export class WebAnalyticsClient {
    * 401/403 mean a wrong or expired token, 402 a plan without the feature.
    */
   async aggregate(query: WebAnalyticsQuery): Promise<WebAnalyticsRow[]> {
+    // The query parameters: project, period, grouping and how many groups.
     const params = new URLSearchParams({
       projectId: this.config.projectId,
       since: query.since,
@@ -114,6 +122,7 @@ export class WebAnalyticsClient {
       throw unavailable(`Vercel Analytics answered ${response.status}`)
     }
 
+    // The JSON body, checked: null when it is not JSON at all.
     const parsed = responseSchema.safeParse(await response.json().catch(() => null))
     if (!parsed.success) {
       console.error('[web-analytics] unexpected response', parsed.error)
@@ -122,6 +131,7 @@ export class WebAnalyticsClient {
     // Time steps carry their date in `timestamp`, other groups in a property named after the dimension.
     const keyField = query.by === 'day' ? 'timestamp' : query.by
     return parsed.data.data.map((row) => {
+      // This row's value of the dimension (empty string: unknown).
       const key = row[keyField]
       return {
         key: typeof key === 'string' && key !== '' ? key : null,

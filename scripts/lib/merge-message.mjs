@@ -15,6 +15,7 @@
  * @returns {string} the full commit message
  */
 export function buildMergeMessage(branch, subjects) {
+  // The subjects, trimmed, empty ones dropped.
   const cleaned = subjects.map(s => s.trim()).filter(Boolean)
   if (cleaned.length === 0) return `Merge ${branch}`
   if (cleaned.length === 1) return `Merge ${branch}: ${cleaned[0]}`

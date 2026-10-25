@@ -22,6 +22,7 @@ export function useQueueActions() {
 
   /** Shows the toast for an outcome; `nextLabel` = it came from "Play next". */
   function notify(result: QueueResult, track: QueueItem, nextLabel: boolean) {
+    // The toast's text for this outcome.
     const message = messages[result](track.title)
     // "Play next" says where the track went.
     if (result === 'queued' && nextLabel) message.title = `${track.title} plays next`

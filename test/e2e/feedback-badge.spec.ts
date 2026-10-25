@@ -9,8 +9,10 @@ import { signUp, uploadTrack } from './helpers'
 
 /** The friend's side: opens the group's link in a fresh browser and picks a version, with a note. */
 async function friendVotes(browser: Browser, group: string, version: string, note: string) {
+  // A friend without an account, in another browser context.
   const context = await browser.newContext()
   try {
+    // The friend's page.
     const friend = await context.newPage()
     await friend.goto(`/p/${group}`)
     await friend.getByTestId('shared-playlist-track').filter({ hasText: version }).getByRole('button', { name: `Pick ${version}` }).click()
@@ -60,6 +62,7 @@ test.describe('new feedback signal', () => {
 
     // --- Inside the group: what is new is marked, and the dot goes at once ---
     await card(page).click()
+    // The group's feedback panel.
     const panel = page.getByTestId('version-feedback')
     await expect(panel.getByTestId('version-feedback-unseen')).toHaveText('1 new vote since your last visit')
     await expect(panel.getByTestId('version-feedback-comment-new')).toBeVisible()

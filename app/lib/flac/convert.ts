@@ -18,6 +18,7 @@ const INACTIVITY_TIMEOUT_MS = 30_000
  * caller uploads the original WAV.
  */
 export async function convertWavToFlac(file: File, onProgress?: (fraction: number) => void): Promise<FlacConversion> {
+  // The WAV's bytes, handed over to the worker (transferred, not copied).
   const buffer = await file.arrayBuffer()
   // A module worker keeps the heavy work (and libFLAC's memory) off the UI thread.
   const worker = new Worker(new URL('./flac.worker.ts', import.meta.url), { type: 'module' })
@@ -38,11 +39,13 @@ export async function convertWavToFlac(file: File, onProgress?: (fraction: numbe
 
       worker.onmessage = (event: MessageEvent<FlacWorkerResponse>) => {
         keepAlive()
+        // Progress, the converted file, or why it was not converted.
         const message = event.data
         if (message.type === 'progress') {
           onProgress?.(message.value)
         }
         else if (message.type === 'converted') {
+          // The FLAC as a file with the WAV's name and date, and its checksum.
           resolve({
             status: 'converted',
             file: new File([message.flac], toFlacName(file.name), { type: 'audio/flac', lastModified: file.lastModified }),

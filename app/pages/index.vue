@@ -21,8 +21,10 @@ usePageTitle('Library')
 const player = usePlayerStore()
 // Delete confirmations and failures.
 const toast = useToast()
+// The genres, and the name of a genre id (filter and rows).
 const { genres, genreName } = useGenres()
 
+// The library (newest first); empty while it loads.
 const { data: tracks, status, error, refresh } = await useAsyncData('tracks', () => tracksApi.list(), {
   default: () => [] as TrackSummary[],
 })
@@ -100,6 +102,7 @@ function onPlay(track: TrackSummary) {
 
 /** Puts updated tracks in place in the list (same order). */
 function replaceTracks(updated: TrackSummary[]) {
+  // The updated tracks by id.
   const byId = new Map(updated.map(t => [t.id, t]))
   tracks.value = tracks.value.map(t => byId.get(t.id) ?? t)
 }
@@ -109,10 +112,13 @@ function replaceTracks(updated: TrackSummary[]) {
  * that fail keep their old status; the toast says how it went.
  */
 async function setStatus(ids: string[], status: TrackStatus) {
+  // Each update on its own: one failure does not stop the others.
   const results = await Promise.allSettled(ids.map(id => tracksApi.update(id, { status })))
   replaceTracks(results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : [])))
+  // How many failed and how many went through.
   const failed = results.filter(r => r.status === 'rejected').length
   const done = ids.length - failed
+  // The word for the toasts.
   const what = status === 'final' ? 'final' : 'draft'
   if (done) toast.add({ title: done === 1 ? `Marked as ${what}` : `${pluralize(done, 'track')} marked as ${what}`, icon: 'i-lucide-check', color: 'success' })
   if (failed) toast.add({ title: `${failed} not updated`, description: 'Try again', color: 'error' })
@@ -126,6 +132,7 @@ const selectedIds = ref<string[]>([])
 
 // Only visible tracks stay selected: actions never touch tracks hidden by a filter.
 watch(filtered, (list) => {
+  // The ids of the tracks the filters show.
   const visible = new Set(list.map(t => t.id))
   selectedIds.value = selectedIds.value.filter(id => visible.has(id))
 })
@@ -170,9 +177,11 @@ const sharing = useAsyncTask()
  * "Work in progress".
  */
 async function shareForFeedback() {
+  // The selected tracks, in library order.
   const chosen = selectedTracks.value
   if (!chosen.length) return
   await sharing.run(async () => {
+    // The new group, unlisted, with the selected tracks.
     const playlist = await playlistsApi.create({
       title: feedbackPlaylistTitle(chosen.map(t => t.title)),
       purpose: 'versions',
@@ -197,14 +206,18 @@ const bulkDeleting = ref(false)
  * they can be retried.
  */
 async function confirmBulkDelete() {
+  // The selected tracks, in library order.
   const chosen = selectedTracks.value
   bulkDeleting.value = true
+  // Each deletion on its own: one failure does not stop the others.
   const results = await Promise.allSettled(chosen.map(t => tracksApi.remove(t.id)))
+  // The ids that were deleted.
   const deleted = chosen.filter((_, i) => results[i]!.status === 'fulfilled').map(t => t.id)
   for (const id of deleted) player.removeTrack(id)
   tracks.value = tracks.value.filter(t => !deleted.includes(t.id))
   bulkDeleting.value = false
   bulkDeleteOpen.value = false
+  // How many could not be deleted.
   const failed = chosen.length - deleted.length
   if (deleted.length) toast.add({ title: deleted.length === 1 ? 'Track deleted' : `${pluralize(deleted.length, 'track')} deleted`, icon: 'i-lucide-trash-2' })
   if (failed) toast.add({ title: `${failed} not deleted`, description: 'They are still selected: try again', color: 'error' })
@@ -225,6 +238,7 @@ const deleteOpen = computed({
 
 /** Deletes the track, drops it from the player queue and from the list. */
 async function confirmDelete() {
+  // The track the confirmation dialog is about.
   const track = toDelete.value
   if (!track) return
   await deleting.run(async () => {

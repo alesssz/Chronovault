@@ -13,6 +13,7 @@ export default defineNuxtPlugin(() => {
   // Lock-screen controls drive the store; its state feeds the OS.
   const player = usePlayerStore()
 
+  // The lock screen's and the media keys' buttons, routed to the store.
   setMediaSessionHandlers({
     play: () => void player.play(),
     pause: () => player.pause(),

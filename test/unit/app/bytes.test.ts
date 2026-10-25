@@ -6,11 +6,13 @@ import { asciiAt, concatBytes } from '~/lib/bytes'
 
 describe('concatBytes', () => {
   it('joins the parts in order into one buffer of their total length', () => {
+    // Three parts, one of them empty, joined.
     const joined = concatBytes([new Uint8Array([1, 2]), new Uint8Array([]), new Uint8Array([3])])
     expect([...joined]).toEqual([1, 2, 3])
   })
 
   it('respects views into a larger buffer (only their own bytes)', () => {
+    // A buffer the views below take a part of.
     const big = new Uint8Array([9, 9, 4, 5, 9])
     expect([...concatBytes([big.subarray(2, 4)])]).toEqual([4, 5])
   })

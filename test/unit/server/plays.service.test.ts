@@ -18,10 +18,12 @@ vi.mock('~~/server/repositories/playlists.repository')
 
 // The repositories are mocked: the client is never used, any object will do.
 const db = {} as DbClient
+// The owner (their own plays are counted apart).
 const USER = '11111111-1111-4111-8111-111111111111'
 // A track with its own page, and a playlist.
 const TRACK = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const LIST = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+// A playlist that no longer exists (deleted after its plays).
 const GONE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 
 /** The 7 days ending on 2026-10-24. */
@@ -59,6 +61,7 @@ describe('pagePathOf and countPlays', () => {
 
 describe('summarizePlays', () => {
   it('sums visitors\' plays per day and per page, own plays apart', () => {
+    // Three visitors' plays (two through the playlist) and one of the owner.
     const summary = summarizePlays([
       row('2026-10-24', 'l1', LIST, { completed: true }),
       row('2026-10-24', 'l2', LIST),
@@ -82,12 +85,14 @@ describe('summarizePlays', () => {
   })
 
   it('counts plays of a deleted playlist in the totals, without an item', () => {
+    // One play through the deleted playlist.
     const summary = summarizePlays([row('2026-10-24', 'l1', GONE)], targets, period)
     expect(summary.totals.plays).toBe(1)
     expect(summary.items).toEqual([])
   })
 
   it('has zero totals and every day at zero without plays', () => {
+    // A period without any play.
     const summary = summarizePlays([], targets, period)
     expect(summary.totals).toEqual({ plays: 0, completed: 0, listeners: 0 })
     expect(summary.daily.every(d => d.plays === 0)).toBe(true)
@@ -99,6 +104,7 @@ describe('getPlaysReport', () => {
     vi.mocked(listPlayRows).mockResolvedValue([row('2026-10-24', 'l1')])
     vi.mocked(listTrackLabels).mockResolvedValue([{ id: TRACK, title: 'Song', visibility: 'unlisted', cover_path: null, updated_at: '' }])
     vi.mocked(listPlaylistLabels).mockResolvedValue([])
+    // The report for the 7 days ending on Oct 24.
     const report = await getPlaysReport(db, USER, 7, new Date('2026-10-24T12:00:00Z'))
     expect(listPlayRows).toHaveBeenCalledWith(db, USER, '2026-10-18')
     expect(report).toMatchObject({ days: 7, since: '2026-10-18', until: '2026-10-24', ownPlays: 0 })

@@ -17,6 +17,7 @@ function fakeFetch(status: number, body: unknown) {
 
 describe('WebAnalyticsClient.aggregate', () => {
   it('sends the query and the token, and reads the grouped rows', async () => {
+    // Vercel's answer: two rows grouped by country, counts as numbers and as strings.
     const fetchImpl = fakeFetch(200, {
       version: 1,
       data: [
@@ -24,8 +25,10 @@ describe('WebAnalyticsClient.aggregate', () => {
         { country: '', pageviews: '3', visitors: 2 },
       ],
     })
+    // The rows the client reads from it.
     const rows = await new WebAnalyticsClient(config, fetchImpl).aggregate(query)
 
+    // The request sent: its address and its options (the token header).
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     const sent = new URL(url)
     expect(sent.origin + sent.pathname).toBe('https://api.vercel.com/v1/query/web-analytics/visits/aggregate')
@@ -42,7 +45,9 @@ describe('WebAnalyticsClient.aggregate', () => {
   })
 
   it('reads day rows from their timestamp and omits teamId for personal projects', async () => {
+    // A day row, which carries its date in `timestamp`.
     const fetchImpl = fakeFetch(200, { data: [{ timestamp: '2026-10-02T00:00:00.000Z', pageviews: 4, visitors: 3 }] })
+    // The rows of a personal project (no team id).
     const rows = await new WebAnalyticsClient({ ...config, teamId: '' }, fetchImpl).aggregate({ ...query, by: 'day' })
 
     expect(new URL(fetchImpl.mock.calls[0]![0] as unknown as string).searchParams.has('teamId')).toBe(false)
@@ -51,6 +56,7 @@ describe('WebAnalyticsClient.aggregate', () => {
 
   it('turns a refused token into a 502 that names the variable, not the token', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    // What a refused token gives: the error itself, not a throw.
     const error = await new WebAnalyticsClient(config, fakeFetch(403, { error: 'forbidden' })).aggregate(query).catch(e => e)
     expect(error).toMatchObject({ statusCode: 502 })
     expect(error.message).toContain('NUXT_ANALYTICS_TOKEN')
@@ -65,6 +71,7 @@ describe('WebAnalyticsClient.aggregate', () => {
 
   it('answers 502 when Vercel cannot be reached or answers nonsense', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    // A fetch that fails like a network error.
     const offline = vi.fn(async () => {
       throw new TypeError('fetch failed')
     })

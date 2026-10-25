@@ -22,14 +22,19 @@ import * as storageRepo from '../repositories/storage.repository'
 
 /** A stored file, whatever the bucket. */
 interface StoredFile {
+  /** Which storage holds it. */
   bucket: OrphanFile['bucket']
+  /** Its key in that storage (`<userId>/…`). */
   path: string
+  /** Its size in bytes. */
   sizeBytes: number
+  /** When it was last uploaded (ISO 8601): decides whether it is old enough to delete. */
   lastModified: string
 }
 
 /** Lists every stored file of the user and everything their tracks and playlists reference. */
 async function inventory(db: DbClient, audio: AudioStorage, userId: string) {
+  // Both storages' files and every path the user's tracks and playlists use, read together.
   const [audioObjects, trackCovers, playlistCovers, trackPaths, playlistCoverPaths] = await Promise.all([
     audio.list(`${userId}/`),
     storageRepo.listFolderFiles(db, COVERS_BUCKET, userId),
@@ -53,6 +58,7 @@ async function inventory(db: DbClient, audio: AudioStorage, userId: string) {
 
 /** File count and total size in one bucket. */
 function usageOf(files: StoredFile[], bucket: OrphanFile['bucket']): StorageUsage {
+  // The files of that storage.
   const inBucket = files.filter(f => f.bucket === bucket)
   return { files: inBucket.length, bytes: inBucket.reduce((sum, f) => sum + f.sizeBytes, 0) }
 }
@@ -65,8 +71,11 @@ export async function scanStorage(
   minAgeHours: number,
   now = Date.now(),
 ): Promise<StorageReport> {
+  // Every file, and every path in use.
   const { files, referenced } = await inventory(db, audio, userId)
+  // The minimum age as milliseconds.
   const minAgeMs = minAgeHours * 60 * 60 * 1000
+  // Files nothing uses, oldest first, each marked deletable or too recent.
   const orphans = files
     .filter(f => !referenced.has(f.path))
     .map(f => ({ ...f, deletable: now - Date.parse(f.lastModified) >= minAgeMs }))
@@ -90,7 +99,9 @@ export async function cleanStorage(
   minAgeHours: number,
   now = Date.now(),
 ): Promise<StorageCleanupResult> {
+  // A fresh scan, made now (see above).
   const { orphans } = await scanStorage(db, audio, userId, minAgeHours, now)
+  // The orphans old enough to go.
   const doomed = orphans.filter(o => o.deletable)
   // Paths to delete in one storage.
   const paths = (bucket: OrphanFile['bucket']) => doomed.filter(o => o.bucket === bucket).map(o => o.path)

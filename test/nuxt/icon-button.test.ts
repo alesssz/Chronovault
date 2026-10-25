@@ -16,7 +16,9 @@ function inApp(props: Record<string, unknown>) {
 
 describe('IconButton', () => {
   it('names the button with its label and passes the rest to it', async () => {
+    // The button with a label, an icon and props for UButton.
     const wrapper = await mountSuspended(inApp({ 'label': 'Next track', 'icon': 'i-lucide-skip-forward', 'data-testid': 'next', 'disabled': true }))
+    // The rendered <button>.
     const button = wrapper.find('button')
     expect(button.attributes('aria-label')).toBe('Next track')
     expect(button.attributes('data-testid')).toBe('next')

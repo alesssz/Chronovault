@@ -210,7 +210,9 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   /** A track's data and streaming address, as load() needs them. */
   interface TrackData {
+    /** Everything the player shows about the track. */
     detail: PlayerTrack
+    /** Its streaming address and when that expires. */
     playback: PlaybackSource
   }
 
@@ -255,6 +257,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     // Which track, from which source.
     const key = preparedKey(item.id)
     if (prepared?.key === key) return
+    // The request, started now; `ready` is set once it answers.
     const entry: Prepared = { key, promise: fetchTrack(item.id), ready: null }
     prepared = entry
     entry.promise.then(

@@ -4,6 +4,7 @@
  */
 // Browser only (reads computed styles): call it from onMounted or later.
 export function themeColor(variable: string, fallback: string): string {
+  // The variable's resolved value on <html> (empty when unset).
   const value = getComputedStyle(document.documentElement).getPropertyValue(variable).trim()
   return value || fallback
 }

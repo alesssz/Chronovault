@@ -22,21 +22,27 @@ export const PEAKS_RESOLUTION = 1000
  * value per sample.
  */
 export function computePeaks(channels: ArrayLike<number>[], buckets = PEAKS_RESOLUTION): number[] {
+  // Samples in the longest channel (they normally all have the same length).
   const length = channels.reduce((max, ch) => Math.max(max, ch.length), 0)
   if (length === 0 || buckets <= 0) return []
 
+  // One value per bucket, never more values than samples.
   const count = Math.min(buckets, length)
   // Samples per bucket; fractional, so buckets differ by at most one sample.
   const size = length / count
+  // One peak per bucket, filled below.
   const peaks = Array.from<number>({ length: count }).fill(0)
 
   for (let b = 0; b < count; b++) {
+    // First sample of this bucket.
     const start = Math.floor(b * size)
+    // One past its last sample (at least one sample per bucket).
     const end = Math.max(start + 1, Math.floor((b + 1) * size))
     // Loudest absolute sample of this bucket, across all channels.
     let peak = 0
     for (const channel of channels) {
       for (let i = start; i < end && i < channel.length; i++) {
+        // This sample's amplitude, whatever its sign.
         const v = Math.abs(channel[i]!)
         if (v > peak) peak = v
       }
@@ -44,6 +50,7 @@ export function computePeaks(channels: ArrayLike<number>[], buckets = PEAKS_RESO
     peaks[b] = peak
   }
 
+  // The loudest bucket, which becomes 1 (all zeros: silence, nothing to scale).
   const max = Math.max(...peaks)
   if (max === 0) return peaks
   return peaks.map(p => Math.round((p / max) * 1000) / 1000)

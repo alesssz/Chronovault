@@ -65,6 +65,7 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
    * already given), or takes the pick back when it is the current one.
    */
   async function toggle(trackId: string) {
+    // This browser's current pick, if any.
     const pick = state.value?.pick
     if (pick?.trackId === trackId) {
       await send(() => sharedApi.withdrawVote(playlistId, getListenerId()), 'Pick not removed')
@@ -80,13 +81,16 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
 
   /** Saves a name and a comment with the current pick; true when saved. */
   async function saveNote(name: string, comment: string): Promise<boolean> {
+    // The pick the note goes with (none: nothing to save).
     const pick = state.value?.pick
     if (!pick) return false
+    // The same pick sent again, now with the name and the comment.
     const saved = await send(() => sharedApi.vote(playlistId, { voterId: getListenerId(), trackId: pick.trackId, name, comment }), 'Note not saved')
     if (saved) toast.add({ title: 'Note saved', description: 'Thanks for your feedback!', icon: 'i-lucide-check', color: 'success' })
     return saved
   }
 
+  // The state is read once the page is in the browser (the listener id lives there).
   onMounted(load)
 
   return { state, busy, canVote, toggle, saveNote }

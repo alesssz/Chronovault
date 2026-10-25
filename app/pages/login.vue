@@ -26,6 +26,7 @@ const loading = ref(false)
 /** Sign-up done with email confirmation on: show "check your inbox" instead of the form. */
 const confirmationSent = ref(false)
 
+// The form's fields, checked before anything is sent.
 const schema = z.object({
   email: z.email('Invalid email'),
   password: z.string().min(8, 'At least 8 characters'),
@@ -44,11 +45,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {
     if (mode.value === 'login') {
+      // Signs in; the session cookies are set by the Supabase client.
       const { error } = await supabase.auth.signInWithPassword(event.data)
       if (error) throw error
       return
     }
 
+    // Creates the account; `data.session` is null while the email still needs confirming.
     const { data, error } = await supabase.auth.signUp({
       ...event.data,
       options: { emailRedirectTo: `${window.location.origin}/confirm` },
@@ -82,6 +85,7 @@ function toggleMode() {
     v-if="confirmationSent"
     class="space-y-4 text-center"
   >
+    <!-- Signed up with email confirmation on: the account waits for the link in the inbox -->
     <UIcon
       name="i-lucide-mail-check"
       class="size-10 text-primary"
@@ -110,6 +114,7 @@ function toggleMode() {
     :submit="{ label: mode === 'login' ? 'Sign in' : 'Sign up', block: true }"
     @submit="onSubmit"
   >
+    <!-- Switch between signing in and signing up -->
     <template #footer>
       <p class="text-center text-sm text-muted">
         {{ mode === 'login' ? 'No account yet?' : 'Already have an account?' }}

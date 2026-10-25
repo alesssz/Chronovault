@@ -7,21 +7,28 @@ import { expect, type Locator, type Page } from '@playwright/test'
 
 /** Shape of a generated WAV (defaults: 3 s, 8 kHz, mono, 16-bit). */
 export interface WavOptions {
+  /** Length in seconds. */
   seconds?: number
+  /** Samples per second. */
   sampleRate?: number
+  /** 1 mono, 2 stereo. */
   channels?: number
   /** 16 or 24 for integer PCM, 32 together with `float` for IEEE float. */
   bitsPerSample?: 16 | 24 | 32
+  /** IEEE float samples (with `bitsPerSample: 32`). */
   float?: boolean
 }
 
 /** PCM WAV with a sine wave: a valid audio file with no binary fixtures. */
 export function makeWav(options: WavOptions = {}): Buffer {
+  // The options with their defaults.
   const { seconds = 3, sampleRate = 8000, channels = 1, bitsPerSample = 16, float = false } = options
+  // Bytes per sample, the number of sample frames, and the PCM data they fill.
   const bytesPerSample = bitsPerSample / 8
   const frames = Math.floor(seconds * sampleRate)
   const data = Buffer.alloc(frames * channels * bytesPerSample)
   for (let i = 0; i < frames; i++) {
+    // A 440 Hz sine at half volume, the same on every channel.
     const value = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.5
     for (let ch = 0; ch < channels; ch++) {
       // Interleaved layout: every channel gets the same sine sample.
@@ -31,6 +38,7 @@ export function makeWav(options: WavOptions = {}): Buffer {
     }
   }
 
+  // The 44-byte RIFF/WAVE header: "fmt " and "data" chunks, little-endian.
   const header = Buffer.alloc(44)
   header.write('RIFF', 0)
   header.writeUInt32LE(36 + data.length, 4)
@@ -102,7 +110,9 @@ export async function waitForHydration(page: Page): Promise<void> {
 
 /** An API request to wait for: HTTP method and a pattern for the URL path. */
 export interface ApiRequest {
+  /** HTTP method, e.g. `POST`. */
   method: string
+  /** The URL path to match, e.g. `/^\/api\/tracks$/`. */
   path: RegExp
 }
 
@@ -138,17 +148,22 @@ export async function seedLibrary(page: Page, count: number): Promise<void> {
     const bytes = Uint8Array.from(atob(wav), c => c.charCodeAt(0))
     /** One track: upload address, file, then the track itself; any step failing throws. */
     async function attempt(n: number) {
+      // The new track's id, chosen by the client as the upload does.
       const id = crypto.randomUUID()
+      // A JSON POST through the page (its session cookie goes along).
       const post = (url: string, body: unknown) => fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       })
+      // A presigned PUT address for the file.
       const target = await (await post('/api/tracks/upload-url', {
         trackId: id, extension: 'wav', mimeType: 'audio/wav', sizeBytes: bytes.length,
       })).json() as { uploadUrl: string, audioPath: string }
+      // The file, straight to storage.
       const upload = await fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': 'audio/wav' }, body: bytes })
       if (!upload.ok) throw new Error(`Track ${n}: upload failed (${upload.status})`)
+      // The track itself.
       const response = await post('/api/tracks', {
         id, title: `Track ${String(n).padStart(3, '0')}`, audioPath: target.audioPath,
         mimeType: 'audio/wav', sizeBytes: bytes.length, durationSeconds: 0.1,

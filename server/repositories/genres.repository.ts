@@ -9,6 +9,7 @@ import { readAllPages } from './pages'
  * enforced by RLS).
  */
 
+/** A genre row as the API needs it (`user_id` null: built-in). */
 export type GenreRow = Pick<Tables<'genres'>, 'id' | 'name' | 'user_id'>
 
 /** Built-in genres + the user's custom genres, sorted by name (read in pages, like every list that grows). */
@@ -26,6 +27,7 @@ export async function listGenreRows(db: DbClient, userId: string): Promise<Genre
 
 /** Inserts a custom genre; a duplicate name (case-insensitive) fails with 409 (unique index). */
 export async function insertGenreRow(db: DbClient, userId: string, name: string): Promise<GenreRow> {
+  // The new row, read back in the same request.
   const { data, error } = await db.from('genres').insert({ user_id: userId, name }).select('id, name, user_id').single()
   if (error) throw toHttpError(error, 'genres.insert')
   return data

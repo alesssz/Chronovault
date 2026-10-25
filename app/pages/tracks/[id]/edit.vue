@@ -22,8 +22,10 @@ const id = route.params.id as string
 const player = usePlayerStore()
 // Success and failure messages.
 const toast = useToast()
+// The genre list, and creating a genre typed in the select.
 const { genres, createGenre } = useGenres()
 
+// The track (an error when missing or someone else's).
 const { data: track, error } = await useAsyncData(`track-${id}`, () => tracksApi.get(id))
 
 // Missing or someone else's track: the error page (404).
@@ -110,6 +112,7 @@ function applyServerTrack(updated: TrackDetail) {
 
 /** Saves the whole form (already validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
+  // True when the save went through; false when it failed (the task showed the error).
   const saved = await saving.run(async () => {
     const updated = await tracksApi.update(id, event.data)
     applyServerTrack(updated)
@@ -141,6 +144,7 @@ const deleting = useAsyncTask()
 
 /** Deletes the track (and its files), stops it if playing, back to the library. */
 async function onDelete() {
+  // True once the track is deleted; false when the request failed (the task showed the error).
   const deleted = await deleting.run(async () => {
     await tracksApi.remove(id)
     player.removeTrack(id)
@@ -219,6 +223,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
       </UButton>
     </div>
 
+    <!-- Two columns from `md`: the side column, then the form; one column on phones -->
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
       <!-- Side column: cover (saved at once), file info, sharing, deletion -->
       <aside class="space-y-6">
@@ -266,6 +271,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
           :title="track?.title"
         />
 
+        <!-- Deletion, after a confirmation (below) -->
         <UButton
           label="Delete track"
           icon="i-lucide-trash-2"
@@ -276,6 +282,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         />
       </aside>
 
+      <!-- Main column: the form, its fields in three tabs (Save in the header submits it by its id) -->
       <UForm
         id="track-form"
         :schema="trackMetadataSchema"
@@ -343,6 +350,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                 />
               </UFormField>
 
+              <!-- Genre: a built-in one, one of the user's own, or a new one typed in -->
               <UFormField
                 label="Genre"
                 name="genreId"
@@ -388,6 +396,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                 </div>
               </UFormField>
 
+              <!-- Description: shown on the share page and in the full-screen player -->
               <UFormField
                 label="Description"
                 name="description"
@@ -404,6 +413,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                 />
               </UFormField>
 
+              <!-- Suno prompt: a private note, never shared -->
               <UFormField
                 label="Suno prompt"
                 name="sunoPrompt"
@@ -420,6 +430,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                 />
               </UFormField>
 
+              <!-- Visibility: private, unlisted, public (with what each means) -->
               <UFormField
                 label="Visibility"
                 name="visibility"

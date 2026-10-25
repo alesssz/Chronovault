@@ -7,6 +7,7 @@ import { genresApi } from '~/services/api'
  * the edit page; a genre created on the fly is added to the cache in place.
  */
 export function useGenres() {
+  // Every genre (built-in and the user's own), cached app-wide under one key.
   const { data, refresh, status } = useAsyncData('genres', () => genresApi.list(), {
     default: () => [] as Genre[],
   })
@@ -21,6 +22,7 @@ export function useGenres() {
 
   /** Creates (or finds) a custom genre and keeps the cached list sorted. */
   async function createGenre(name: string): Promise<Genre> {
+    // The genre as the server returns it (the existing one, for a name already taken).
     const genre = await genresApi.create({ name })
     if (!byId.value.has(genre.id)) {
       data.value = [...data.value, genre].sort((a, b) => a.name.localeCompare(b.name, 'en'))

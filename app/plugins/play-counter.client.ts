@@ -28,8 +28,10 @@ export default defineNuxtPlugin(() => {
 
   // Every position update (each animation frame while playing).
   watch(() => player.currentTime, (time) => {
+    // The loaded track (nothing to count without one).
     const track = player.current
     if (!track) return
+    // Whether this update makes a play, or a completed one (at most once each per listen).
     const event = tracker.update({
       time,
       duration: player.duration,

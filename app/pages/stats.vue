@@ -25,9 +25,11 @@ usePageTitle('Statistics')
 
 /** Selected period; changing it reloads both reports. */
 const days = ref<AnalyticsPeriod>(30)
+// Vercel's page views (or demo data), reloaded with the period.
 const { data: report, status, error } = useAsyncData('analytics', () => analyticsApi.report(days.value), {
   watch: [days],
 })
+// The app's own plays, reloaded with the period.
 const { data: plays, status: playsStatus, error: playsError } = useAsyncData('plays', () => analyticsApi.plays(days.value), {
   watch: [days],
 })
@@ -79,6 +81,7 @@ const pages = computed<PageRow[]>(() => {
   const byPath = new Map<string, PageRow>()
   for (const item of hasViews.value ? report.value!.items : []) byPath.set(item.path, { ...item, plays: 0, completed: 0 })
   for (const item of plays.value?.items ?? []) {
+    // The page's row, when it has views too.
     const row = byPath.get(item.path)
     if (row) Object.assign(row, { plays: item.plays, completed: item.completed })
     else byPath.set(item.path, { ...pageOf(item), pageviews: null, visitors: null, plays: item.plays, completed: item.completed })
@@ -113,6 +116,7 @@ function referrerLabel(key: string | null): string {
 /** Country names in English, from ISO codes ("IT" → "Italy"). */
 // Built into the browser: no country list to maintain.
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+/** A country's name from its ISO code; "Unknown" when there is none. */
 function countryLabel(key: string | null): string {
   if (!key) return 'Unknown'
   if (key === 'Others') return key

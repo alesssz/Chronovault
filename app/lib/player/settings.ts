@@ -22,14 +22,18 @@ export const REPEAT_MODES: readonly RepeatMode[] = ['off', 'all', 'one']
 
 /** Shuffle and repeat, as saved together. */
 export interface PlaybackModes {
+  /** Shuffle is on. */
   shuffle: boolean
+  /** Repeat mode: off, the whole queue, or the current track. */
   repeat: RepeatMode
 }
 
 /** Volume saved by the previous visit (1 when absent, invalid or storage is blocked). */
 export function readStoredVolume(): number {
   try {
+    // The saved text, or nothing (null: never saved; undefined: no storage).
     const raw = globalThis.localStorage?.getItem(VOLUME_KEY)
+    // As a number (NaN when missing or not a number).
     const value = raw == null ? Number.NaN : Number(raw)
     return Number.isFinite(value) ? clamp(value, 0, 1) : 1
   }
@@ -51,7 +55,9 @@ export function storeVolume(value: number): void {
 /** Shuffle and repeat saved by the previous visit (both off when absent, invalid or storage is blocked). */
 export function readStoredModes(): PlaybackModes {
   try {
+    // The saved JSON, or nothing.
     const raw = globalThis.localStorage?.getItem(MODES_KEY)
+    // Its fields, still unchecked (anything not as expected counts as off).
     const value = (raw ? JSON.parse(raw) : {}) as { shuffle?: unknown, repeat?: unknown }
     return {
       shuffle: value.shuffle === true,

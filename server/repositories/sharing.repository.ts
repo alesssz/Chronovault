@@ -16,6 +16,7 @@ import { byPosition } from './playlists.repository'
 
 /** A non-private track (null for private or missing ones: the two are indistinguishable). */
 export async function findSharedTrackRow(db: DbClient, id: string): Promise<SharedTrackRow | null> {
+  // One row, or none: private and missing tracks look the same from here.
   const { data, error } = await db.rpc('get_shared_track', { p_track_id: id }).maybeSingle()
   if (error) throw toHttpError(error, 'sharedTracks.find')
   return data
@@ -23,6 +24,7 @@ export async function findSharedTrackRow(db: DbClient, id: string): Promise<Shar
 
 /** A non-private playlist (null for private or missing ones). */
 export async function findSharedPlaylistRow(db: DbClient, id: string): Promise<SharedPlaylistRow | null> {
+  // One row, or none for a private or missing playlist.
   const { data, error } = await db.rpc('get_shared_playlist', { p_playlist_id: id }).maybeSingle()
   if (error) throw toHttpError(error, 'sharedPlaylists.find')
   return data
@@ -34,6 +36,7 @@ export async function findSharedPlaylistRow(db: DbClient, id: string): Promise<S
  * if PostgREST ever returns the rows differently.
  */
 export async function listSharedPlaylistTrackRows(db: DbClient, id: string): Promise<SharedPlaylistTrackRow[]> {
+  // Every track of the playlist (few: no paging needed, a playlist is never thousands of tracks long).
   const { data, error } = await db.rpc('get_shared_playlist_tracks', { p_playlist_id: id })
   if (error) throw toHttpError(error, 'sharedPlaylists.tracks')
   return [...data].sort(byPosition)

@@ -12,8 +12,11 @@ import { markFeedbackSeen } from '../../../../services/feedback.service'
  * 204 · 400 invalid `at` · 404 missing or not the user's
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
+  // The id in the address (400 when it is not a UUID).
   const id = requireUuidParam(event)
+  // The fields of the request body, validated against the schema (400 otherwise).
   const { at } = await readValidated(event, feedbackSeenSchema)
   await markFeedbackSeen(db, userId, id, at)
   setResponseStatus(event, 204)

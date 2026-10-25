@@ -11,6 +11,7 @@ describe('haptic', () => {
   })
 
   it('passes the pattern to navigator.vibrate', () => {
+    // A Vibration API that accepts.
     const vibrate = vi.fn(() => true)
     vi.stubGlobal('navigator', { vibrate })
     haptic(HAPTIC.tick)

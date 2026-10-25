@@ -29,6 +29,7 @@ export async function readAllPages<T>(
   // Rows of the pages read so far.
   const rows: T[] = []
   for (let from = 0; ; from += PAGE_SIZE) {
+    // One page: rows `from` to `from + PAGE_SIZE - 1` (both included, as PostgREST counts them).
     const { data, error } = await page(from, from + PAGE_SIZE - 1)
     if (error) throw toHttpError(error, context)
     rows.push(...(data ?? []))

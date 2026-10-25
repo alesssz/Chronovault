@@ -27,6 +27,7 @@ const START_THRESHOLD = 10
 /** How much the area follows the finger towards a direction that leads nowhere. */
 const STIFFNESS = 0.25
 
+/** What the gesture may do, and what happens when it triggers. */
 export interface TrackSwipeOptions {
   /** There is a next track to swipe to (left). */
   canNext: MaybeRefOrGetter<boolean>
@@ -38,6 +39,11 @@ export interface TrackSwipeOptions {
   onOpen: () => void
 }
 
+/**
+ * Watches touches on `target` (the bar's track area). Returns `offset` (px,
+ * how far the area follows the finger sideways) and `dragging` (a finger is
+ * on it), for the template to move the area and drop its transition.
+ */
 export function useTrackSwipe(
   target: MaybeRefOrGetter<HTMLElement | null | undefined>,
   options: TrackSwipeOptions,
@@ -52,35 +58,44 @@ export function useTrackSwipe(
   /** When the touch started (ms), for the flick speed. */
   let startedAt = 0
 
+  // How far the finger moved since the touch started (start minus current), from VueUse.
   const { lengthX, lengthY } = useSwipe(target, {
     threshold: START_THRESHOLD,
     // Passive: `touch-action: none` on the element already stops the browser's own handling.
     passive: true,
+    // A new touch: no direction yet.
     onSwipeStart(event) {
       axis = null
       startedAt = event.timeStamp
     },
+    // The finger moved.
     onSwipe() {
       // useSwipe measures start minus current: positive lengthX = moved left, positive lengthY = moved up.
       axis ??= Math.abs(lengthX.value) > Math.abs(lengthY.value) ? 'x' : 'y'
       dragging.value = true
       if (axis !== 'x') return
+      // Sideways distance, positive to the right.
       const moved = -lengthX.value
       // Towards the next track with none left: follow stiffly, to show there is nothing there.
       const blocked = moved < 0 && !toValue(options.canNext)
       offset.value = blocked ? moved * STIFFNESS : moved
     },
+    // The finger lifted: trigger, or spring back.
     onSwipeEnd(event) {
       if (!dragging.value) return
       dragging.value = false
+      // How long the touch lasted (at least 1 ms, for the speed).
       const elapsed = Math.max(1, event.timeStamp - startedAt)
       if (axis === 'x') {
+        // Sideways distance, positive to the right.
         const moved = -lengthX.value
+        // Far enough, or a quick flick.
         const far = Math.abs(moved) >= TRIGGER_DISTANCE || Math.abs(moved) / elapsed >= TRIGGER_SPEED
         if (far && moved < 0 && toValue(options.canNext)) options.onNext()
         else if (far && moved > 0) options.onPrevious()
       }
       else if (axis === 'y') {
+        // Upward distance.
         const up = lengthY.value
         if (up >= TRIGGER_DISTANCE || (up > 0 && up / elapsed >= TRIGGER_SPEED)) options.onOpen()
       }

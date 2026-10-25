@@ -4,6 +4,7 @@
  * Invalid values fall back to the default rather than deleting fresh uploads.
  */
 export function orphanMinAgeHours(): number {
+  // The configured value as a number (NaN when missing or not a number).
   const value = Number(useRuntimeConfig().storageCleanup?.minAgeHours)
   return Number.isFinite(value) && value >= 0 ? value : 24
 }

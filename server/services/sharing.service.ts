@@ -21,6 +21,7 @@ import { playbackSource } from './playback'
 
 /** Public data of an unlisted/public track, with a signed cover. */
 export async function getSharedTrack(db: DbClient, id: string): Promise<SharedTrack> {
+  // The track, if it is shared (private and missing look the same).
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
   return toSharedTrack(row, await signCover(db, row.cover_path))
@@ -28,6 +29,7 @@ export async function getSharedTrack(db: DbClient, id: string): Promise<SharedTr
 
 /** Streaming address of an unlisted/public track (6 h, see playbackSource). */
 export async function getSharedPlaybackSource(db: DbClient, audio: AudioStorage, id: string): Promise<PlaybackSource> {
+  // The shared track's row: its audio path stays on the server.
   const row = await findSharedTrackRow(db, id)
   if (!row) throw notFound()
   return playbackSource(audio, row.audio_path)
@@ -35,7 +37,9 @@ export async function getSharedPlaybackSource(db: DbClient, audio: AudioStorage,
 
 /** Fresh signed URL of the cover: social previews link to a stable address that redirects here. */
 export async function getSharedCoverUrl(db: DbClient, id: string): Promise<string> {
+  // The shared track's row, for its cover path.
   const row = await findSharedTrackRow(db, id)
+  // A fresh signed URL of the cover, or null without one.
   const url = row ? await signCover(db, row.cover_path) : null
   if (!url) throw notFound('Cover not found')
   return url
@@ -45,9 +49,12 @@ export async function getSharedCoverUrl(db: DbClient, id: string): Promise<strin
 
 /** Public data of an unlisted/public playlist and all its tracks, covers signed in one request. */
 export async function getSharedPlaylist(db: DbClient, id: string): Promise<SharedPlaylist> {
+  // The playlist, if it is shared.
   const row = await findSharedPlaylistRow(db, id)
   if (!row) throw playlistNotFound()
+  // Its tracks, in order (private ones included: the playlist shares them).
   const tracks = await listSharedPlaylistTrackRows(db, id)
+  // Every cover of the page signed in one request: the custom one and the tracks'.
   const signed = await signCovers(db, [row.cover_path, ...tracks.map(t => t.cover_path)])
   return toSharedPlaylist(row, tracks, signed)
 }
@@ -71,9 +78,12 @@ export async function getSharedPlaylistPlaybackSource(
 
 /** Fresh signed URL of the playlist's cover: the custom one, otherwise the first track cover. */
 export async function getSharedPlaylistCoverUrl(db: DbClient, id: string): Promise<string> {
+  // The playlist, if it is shared.
   const row = await findSharedPlaylistRow(db, id)
   if (!row) throw playlistNotFound()
+  // The custom cover, otherwise the first track cover of the mosaic.
   const path = row.cover_path ?? mosaicPaths(await listSharedPlaylistTrackRows(db, id))[0] ?? null
+  // A fresh signed URL of it, or null.
   const url = await signCover(db, path)
   if (!url) throw notFound('Cover not found')
   return url

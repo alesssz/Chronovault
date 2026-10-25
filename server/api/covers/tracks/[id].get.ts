@@ -8,6 +8,7 @@ import { getTrackCover } from '../../../services/covers.service'
  * 200 → image (WebP); 404 no cover, or not the user's track.
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return sendCover(event, await getTrackCover(db, userId, requireUuidParam(event)))
 })
