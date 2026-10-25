@@ -10,6 +10,10 @@
  * fresh one at the same position; when storage refuses a URL anyway, the
  * source is reloaded once before an error is shown.
  *
+ * The next track can be asked for ahead (prefetch, called by the store a
+ * little before the end): load() then finds its data and address ready and
+ * starts it in the same moment the previous one ended, with no network wait.
+ *
  * The actual audio lives in the engine (`getAudioEngine`, one `<audio>`
  * element outside Vue): this part only holds reactive state and commands.
  */
@@ -96,6 +100,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function engine(): PlaybackEngine {
     if (engineRef) return engineRef
+    // The app-wide engine, wired to this player below, once.
     const e = getAudioEngine()
     e.setVolume(volume.value)
     e.on('time', (t) => {
@@ -149,6 +154,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * `position` (applied by the element as soon as the metadata is in).
    */
   function applySource(playback: PlaybackSource, position: number): void {
+    // The engine the address goes into.
     const e = engine()
     e.load(playback.url)
     sourceExpiresAt = Date.parse(playback.expiresAt) || 0
@@ -157,6 +163,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   /** Loads a fresh signed URL for `trackId` into the engine, starting at `position`. */
   async function loadSource(trackId: string, position: number, token: number): Promise<boolean> {
+    // A fresh signed address, from the current source.
     const playback = await source().playback(trackId)
     if (token !== loadToken) return false
     applySource(playback, position)
@@ -172,10 +179,12 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     // The element's own position by default: the waveform may have just moved it.
     position = engine().currentTime || currentTime.value,
   ): Promise<boolean> {
+    // The loaded track: without one there is nothing to recover.
     const track = current.value
     if (!track || sourceRecovered) return false
     sourceRecovered = true
     recovering = true
+    // The load this recovery belongs to: a newer load makes it moot.
     const token = loadToken
     try {
       if (!(await loadSource(track.id, position, token))) return true
@@ -192,16 +201,98 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     }
   }
 
+  // --- The next track, asked for ahead ------------------------------------------------
+  // When a track ends by itself, loading the next one used to start with two requests
+  // (its data and its streaming address): a pause of a few hundred ms on the deployed
+  // app, and with the screen off a play() that came only after a network wait, which some
+  // browsers refuse in the background. The store asks for the next track a little before
+  // the end (prefetch); load() then finds it ready and starts it in the same moment.
+
+  /** A track's data and streaming address, as load() needs them. */
+  interface TrackData {
+    detail: PlayerTrack
+    playback: PlaybackSource
+  }
+
+  /** The track asked for ahead: one at most, the last one asked for. */
+  interface Prepared {
+    /** Which track, from which source (see preparedKey). */
+    key: string
+    /** The two requests, on their way or done. */
+    promise: Promise<TrackData>
+    /** Their answer once in (null until then): load() uses it without waiting. */
+    ready: TrackData | null
+  }
+  /** The track asked for ahead, until load() takes it (or another one replaces it); null when none. */
+  let prepared: Prepared | null = null
+
+  /** Identifies a track of the current source: the same id from another source (a share page) is another track. */
+  function preparedKey(trackId: string): string {
+    return `${source().key}|${trackId}`
+  }
+
+  /** A track's data and streaming address from the current source, in parallel. */
+  async function fetchTrack(trackId: string): Promise<TrackData> {
+    // The source now (a share page may take the player over while the requests are out).
+    const from = source()
+    // Data and address, asked for in parallel.
+    const [detail, playback] = await Promise.all([from.get(trackId), from.playback(trackId)])
+    return { detail, playback }
+  }
+
+  /** The address expires within the safety margin: not worth starting with (see sourceExpired). */
+  function expiresSoon(playback: PlaybackSource): boolean {
+    return Date.now() > (Date.parse(playback.expiresAt) || 0) - SOURCE_EXPIRY_MARGIN_MS
+  }
+
+  /**
+   * Asks for `item`'s data and address now, so that loading it later needs no
+   * network wait. Asking for another track replaces it (the next one changed:
+   * Up next edited, shuffle); asking again for the same one does nothing. A
+   * failure is forgotten: load() then asks as usual.
+   */
+  function prefetch(item: QueueItem): void {
+    // Which track, from which source.
+    const key = preparedKey(item.id)
+    if (prepared?.key === key) return
+    const entry: Prepared = { key, promise: fetchTrack(item.id), ready: null }
+    prepared = entry
+    entry.promise.then(
+      (data) => {
+        entry.ready = data
+      },
+      () => {
+        // Still the one waiting: forget it, so load() asks again.
+        if (prepared === entry) prepared = null
+      },
+    )
+  }
+
+  /** What was asked for ahead for `item`, if anything: handed over once (load() takes it). */
+  function claimPrepared(item: QueueItem): Prepared | null {
+    // The one asked for ahead, if it is this very track.
+    const entry = prepared?.key === preparedKey(item.id) ? prepared : null
+    if (entry) prepared = null
+    return entry
+  }
+
   // --- Commands ------------------------------------------------------------------------
 
   /**
-   * Loads `item` (fresh data and URL from the source) in place of the
-   * current track; `position` resumes inside it. A later load supersedes
-   * this one: its late responses are ignored.
+   * Loads `item` in place of the current track; `position` resumes inside
+   * it. Its data and address come from what was asked for ahead (prefetch)
+   * when there is any: already in, the track starts at once, in this very
+   * call; still on its way, it is waited for; failed or about to expire, they
+   * are asked for again. A later load supersedes this one: its late responses
+   * are ignored.
    */
   async function load(item: QueueItem, autoplay: boolean, position = 0): Promise<void> {
+    // This load's number: answers belonging to older loads are dropped.
     const token = ++loadToken
+    // The engine (created on first use).
     const e = engine()
+    // Asked for ahead (the store does it a little before a track ends).
+    const ahead = claimPrepared(item)
 
     e.pause()
     status.value = 'loading'
@@ -211,8 +302,13 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     sourceRecovered = false
 
     try {
-      const from = source()
-      const [detail, playback] = await Promise.all([from.get(item.id), from.playback(item.id)])
+      // Ready: no await at all here, so play() below runs in the same moment as the track
+      // that just ended. Otherwise wait for it (asking again if it failed), or ask now (a
+      // failure then is the load's own, reported as before).
+      let { detail, playback } = ahead?.ready
+        ?? await (ahead ? ahead.promise.catch(() => fetchTrack(item.id)) : fetchTrack(item.id))
+      // Asked for long ago (a paused track): the address may be about to expire.
+      if (expiresSoon(playback)) ({ detail, playback } = await fetchTrack(item.id))
       if (token !== loadToken) return
       // Audio source first, then the current track: the waveform mounted when
       // `current` changes already finds the audio element on the right file.
@@ -305,6 +401,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function seek(seconds: number): void {
     if (!isActive.value) return
+    // Never before the start.
     const position = Math.max(0, seconds)
     currentTime.value = position
     if (current.value && sourceExpired() && status.value !== 'loading') {
@@ -339,6 +436,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   /** Changes the playback speed, keeping the pitch (e.g. 0.75 while syncing lyrics). */
   function setPlaybackRate(rate: number): void {
+    // Within the speeds the player supports.
     const value = clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE)
     if (value === playbackRate.value) return
     playbackRate.value = value
@@ -351,6 +449,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function reset(): void {
     loadToken++
+    // Nothing comes next any more.
+    prepared = null
     if (engineRef) engineRef.unload()
     current.value = null
     status.value = 'idle'
@@ -368,7 +468,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   return {
     current, status, buffering, currentTime, duration, volume, muted, playbackRate, error,
     isActive, isPlaying, progress,
-    load, play, pause, togglePlay, stop, replay, seek, setVolume, setMuted, toggleMute, setPlaybackRate, reset,
+    load, prefetch, play, pause, togglePlay, stop, replay, seek, setVolume, setMuted, toggleMute, setPlaybackRate, reset,
   }
 }
 

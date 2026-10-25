@@ -1,5 +1,5 @@
 import { defineStore, skipHydrate } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { SharedTrack, TrackDetail } from '~~/shared/types/track'
 import type { SharedPlaylist } from '~~/shared/types/playlist'
 import { createPlayback } from '~/lib/player/playback'
@@ -7,6 +7,7 @@ import { createPlayQueue } from '~/lib/player/queue'
 import { readStoredModes, REPEAT_MODES, storeModes } from '~/lib/player/settings'
 import { librarySource, sharedPlaylistSource, sharedTrackSource, type TrackSource } from '~/lib/player/sources'
 import type { QueueItem, QueueResult, RepeatMode } from '~/lib/player/types'
+import { inOriginalOrder } from '~/lib/queue-order'
 
 // The player's types, for components (they live with the player's parts).
 export type { PlayerStatus, PlayerTrack, QueueItem, QueueResult, RepeatMode } from '~/lib/player/types'
@@ -14,6 +15,12 @@ export type { TrackSource } from '~/lib/player/sources'
 
 /** Past this point (seconds) "previous" restarts the track instead of going back. */
 const RESTART_THRESHOLD = 3
+/**
+ * Seconds before the end of a track at which the next one is asked for
+ * (half-way through a track shorter than twice this): early enough for slow
+ * networks, late enough not to ask for tracks that get skipped.
+ */
+const PREFETCH_LEAD_SECONDS = 20
 
 /**
  * Player state shared by the whole app (bottom bar, expanded view, lyrics
@@ -27,8 +34,9 @@ const RESTART_THRESHOLD = 3
  * - `settings.ts`: volume, shuffle and repeat remembered on the device.
  *
  * What is left here are the rules that need several parts at once: which
- * track to load when (next, previous, repeat), shuffle and repeat, the
- * public pages' players, and the full-screen and Up next flags. Components
+ * track to load when (next, previous, repeat) and which one to ask for
+ * ahead (comingNext), shuffle and repeat, the public pages' players, and the
+ * full-screen and Up next flags. Components
  * see one store with one flat API, whatever part holds the state.
  */
 export const usePlayerStore = defineStore('player', () => {
@@ -67,6 +75,7 @@ export const usePlayerStore = defineStore('player', () => {
   })
   // Play/pause, which several commands below fall back to (the same function, under a short name).
   const { togglePlay } = playback
+  // The playback state the rules below read most, under short names (the same refs).
   const { current, status, currentTime, isActive } = playback
 
   // --- Derived state ------------------------------------------------------------------
@@ -86,10 +95,44 @@ export const usePlayerStore = defineStore('player', () => {
   /** Queue editing ("Play next", "Add to queue", the Up next panel) applies to library playback only. */
   const queueEditable = computed(() => isActive.value && sourceKey.value === librarySource.key)
 
+  // --- The next track, asked for ahead ------------------------------------------------
+  /**
+   * The track that will start by itself when the current one ends, when it
+   * can be known now: the next in the queue; at the end of a looping queue,
+   * the first of the new round. None with "repeat one" (the same track starts
+   * again), at the end of a queue that stops, or for a new round while
+   * shuffled (its order is drawn only then).
+   */
+  const comingNext = computed<QueueItem | null>(() => {
+    if (index.value < 0 || (modesApply.value && repeat.value === 'one')) return null
+    if (index.value < queue.value.length - 1) return queue.value[index.value + 1] ?? null
+    if (!loops.value || queue.value.length < 2 || shuffle.value) return null
+    // The new round: in the list's order when shuffle was on once, otherwise as it is (see newRound).
+    return (originalOrder.value ? inOriginalOrder(queue.value, originalOrder.value) : queue.value)[0] ?? null
+  })
+
+  // A little before the end, the next track's data and address are asked for, so it
+  // starts at once when this one ends (see prefetch in lib/player/playback.ts). The
+  // watched value changes only when the moment comes or the next track changes (Up next
+  // edited, shuffle): the position moving alone asks nothing. While paused, nothing is
+  // asked: the track may never be finished.
+  watch(() => {
+    // The track that would start by itself.
+    const next = comingNext.value
+    // The current track's length (0 until known).
+    const length = playback.duration.value
+    if (!next || status.value !== 'playing' || length <= 0) return null
+    // 20 seconds before the end, or half-way through a track shorter than 40.
+    return currentTime.value >= length - Math.min(PREFETCH_LEAD_SECONDS, length / 2) ? next : null
+  }, (next) => {
+    if (next) playback.prefetch(next)
+  })
+
   // --- Moving through the queue ---------------------------------------------------------
 
   /** Makes queue item `i` the current track and loads it; `position` resumes inside the track. */
   async function loadIndex(i: number, autoplay: boolean, position = 0): Promise<void> {
+    // That track's queued summary (nothing to load past the end of the queue).
     const item = queue.value[i]
     if (!item) return
     index.value = i
@@ -124,6 +167,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Plays a whole list ("Play" on a playlist): from its first track, or from a random one while shuffled. */
   async function playAll(list: QueueItem[]): Promise<void> {
+    // Where the list starts: its first track, or a random one while shuffled.
     const start = shuffle.value ? list[Math.floor(Math.random() * list.length)] : list[0]
     if (start) await playTrack(start, list)
   }
@@ -141,7 +185,9 @@ export const usePlayerStore = defineStore('player', () => {
    * it toggles play/pause instead.
    */
   async function playSharedPlaylist(playlist: SharedPlaylist, index = 0, autoplay = true): Promise<void> {
+    // The playlist's source key: is the player already on this playlist?
     const key = sharedPlaylistSource(playlist).key
+    // The track asked for (none past the end of the playlist).
     const track = playlist.tracks[index]
     if (!track) return
     if (sourceKey.value === key && current.value?.id === track.id && status.value !== 'error') {
