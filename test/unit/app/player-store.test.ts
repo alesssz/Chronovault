@@ -1114,10 +1114,19 @@ describe('shuffle', () => {
       setItem: (key: string, value: string) => stored.set(key, value),
     })
     try {
-      // A fresh Pinia, as on a page load.
+      // What the public pages (/t, /p) hand over from the server: the whole state of a
+      // fresh store, serialized to JSON as Nuxt does, with the server's defaults for the
+      // settings (it has no localStorage). The whole state, not just the settings: Pinia
+      // hydrates every ref from it, and a missing key would leave the queue undefined.
+      const server = createPinia()
+      setActivePinia(server)
+      const serverStore = usePlayerStore()
+      const handedOver = JSON.parse(JSON.stringify(server.state.value.player))
+      serverStore.$dispose()
+
+      // A fresh Pinia, as on a page load, holding what the server handed over.
       const pinia = createPinia()
-      // What the public pages (/t, /p) hand over from the server: its defaults.
-      pinia.state.value.player = { volume: 1, shuffle: false, repeat: 'off' }
+      pinia.state.value.player = { ...handedOver, volume: 1, shuffle: false, repeat: 'off' }
       setActivePinia(pinia)
 
       // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
