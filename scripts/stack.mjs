@@ -76,7 +76,7 @@ async function docker() {
     console.error('✖ The app container did not become healthy. Check: docker compose logs app')
     return 1
   }
-  console.log(`\n✔ ChronoPlayer is running in Docker: ${DOCKER_APP_URL}`)
+  console.log(`\n✔ Chronovault is running in Docker: ${DOCKER_APP_URL}`)
   console.log('  Demo user: demo@chronoplayer.local / chronoplayer')
   console.log('  Logs: docker compose logs -f app · Stop everything: pnpm stop')
   return 0

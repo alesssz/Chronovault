@@ -74,10 +74,10 @@ const track = computed(() => player.displayTrack)
     class="fixed inset-x-0 bottom-0 z-40 border-t border-default bg-default/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     data-testid="player-bar"
   >
-    <!-- On mobile there is no waveform: a thin progress bar instead. -->
+    <!-- On mobile there is no waveform: a thin progress bar instead, spectral blue like the waveform's played part. -->
     <div class="h-0.5 bg-accented md:hidden">
       <div
-        class="h-full bg-primary"
+        class="h-full bg-secondary"
         :style="{ width: `${player.progress * 100}%` }"
       />
     </div>

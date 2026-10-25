@@ -20,6 +20,7 @@ import { serializeLrc } from '~~/shared/utils/lyrics'
 import { asciiAt, concatBytes } from '../bytes'
 import { hasText } from '~~/shared/utils/text'
 import type { TrackTags } from './track-tags'
+import { APP_NAME } from '~~/shared/brand'
 
 /** Metadata block types used here (see the header above). */
 const BLOCK = { STREAMINFO: 0, PADDING: 1, VORBIS_COMMENT: 4, PICTURE: 6 } as const
@@ -30,8 +31,8 @@ const PADDING_BYTES = 4096
 /** Largest block body the 24-bit length field can describe. */
 const MAX_BLOCK_LENGTH = 0xFFFFFF
 
-/** Written as the Vorbis "vendor string" (the tool that wrote the comments). */
-const VENDOR = 'ChronoPlayer'
+/** Written as the Vorbis "vendor string" (the tool that wrote the comments): the app's name. */
+const VENDOR = APP_NAME
 
 /** A metadata block as it sits in the file: type + body (the header is rebuilt on write). */
 interface Block {

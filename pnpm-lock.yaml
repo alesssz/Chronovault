@@ -257,9 +257,6 @@ importers:
       '@types/sortablejs':
         specifier: ^1.15.9
         version: 1.15.9
-      '@vite-pwa/assets-generator':
-        specifier: ^1.0.4
-        version: 1.0.4(@types/node@26.6.5)
       '@vitest/coverage-v8':
         specifier: ^5.0.5
         version: 5.0.5(vitest@5.0.5)
@@ -275,6 +272,9 @@ importers:
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@26.6.5)
       supabase:
         specifier: ^2.122.0
         version: 2.122.0
@@ -7730,7 +7730,8 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@canvas/image-data@1.1.0': {}
+  '@canvas/image-data@1.1.0':
+    optional: true
 
   '@capsizecss/unpack@4.0.1':
     dependencies:
@@ -9159,6 +9160,7 @@ snapshots:
   '@quansync/fs@1.1.0':
     dependencies:
       quansync: 1.0.0
+    optional: true
 
   '@rolldown/binding-android-arm-eabi@1.2.15':
     optional: true
@@ -10052,6 +10054,7 @@ snapshots:
       unconfig: 7.5.0
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
   '@vite-pwa/nuxt@1.1.1(@vite-pwa/assets-generator@1.0.4(@types/node@26.6.5))(magicast@0.5.5)(supports-color@10.2.2)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(workbox-build@7.4.1(supports-color@10.2.2))(workbox-window@7.4.1)':
     dependencies:
@@ -10636,7 +10639,8 @@ snapshots:
     optionalDependencies:
       magicast: 0.5.5
 
-  cac@6.7.14: {}
+  cac@6.7.14:
+    optional: true
 
   cac@7.1.0: {}
 
@@ -10708,7 +10712,8 @@ snapshots:
 
   color-name@1.1.4: {}
 
-  colorette@2.0.20: {}
+  colorette@2.0.20:
+    optional: true
 
   colortranslator@5.0.0: {}
 
@@ -10840,12 +10845,14 @@ snapshots:
     dependencies:
       '@canvas/image-data': 1.1.0
       to-data-view: 1.1.0
+    optional: true
 
   decode-ico@0.4.1:
     dependencies:
       '@canvas/image-data': 1.1.0
       decode-bmp: 0.2.1
       to-data-view: 1.1.0
+    optional: true
 
   deep-is@0.1.4: {}
 
@@ -11793,7 +11800,8 @@ snapshots:
 
   iceberg-js@0.8.1: {}
 
-  ico-endec@0.1.6: {}
+  ico-endec@0.1.6:
+    optional: true
 
   idb@7.1.1: {}
 
@@ -13021,7 +13029,8 @@ snapshots:
 
   quansync@0.2.11: {}
 
-  quansync@1.0.0: {}
+  quansync@1.0.0:
+    optional: true
 
   queue-microtask@1.2.3: {}
 
@@ -13330,6 +13339,7 @@ snapshots:
       sharp: 0.35.5(@types/node@26.6.5)
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
   sharp@0.35.5(@types/node@26.6.5):
     dependencies:
@@ -13677,7 +13687,8 @@ snapshots:
 
   tinyrainbow@3.2.0: {}
 
-  to-data-view@1.1.0: {}
+  to-data-view@1.1.0:
+    optional: true
 
   to-regex-range@5.0.1:
     dependencies:
@@ -13771,6 +13782,7 @@ snapshots:
     dependencies:
       '@quansync/fs': 1.1.0
       quansync: 1.0.0
+    optional: true
 
   unconfig@7.5.0:
     dependencies:
@@ -13779,6 +13791,7 @@ snapshots:
       jiti: 2.7.0
       quansync: 1.0.0
       unconfig-core: 7.5.0
+    optional: true
 
   uncrypto@0.1.3: {}
 

@@ -12,7 +12,7 @@
  *
  * Synced lyrics travel too (FLAC: LRC text in LYRICS; MP3: an SYLT frame),
  * and the upload reads them back (lib/audio-analysis.ts): downloading a
- * track from one ChronoPlayer and uploading it to another carries the sync.
+ * track from one Chronovault and uploading it to another carries the sync.
  *
  * Other formats (OGG/Opus, M4A/AAC, WebM) are downloaded as stored. Only the
  * tags change: the audio data is copied byte for byte. The Suno prompt and

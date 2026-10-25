@@ -1,13 +1,95 @@
 /*
  * Global styles: Tailwind CSS 4 + Nuxt UI, plus the few app-wide rules that
- * cannot live in a component (base scale, smaller on phones; room for the
- * player bar).
+ * cannot live in a component (the brand's fonts and colours, base scale,
+ * smaller on phones; room for the player bar).
  */
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/*
+ * Fonts and the Chronovault colours. `static`: every variable is emitted even
+ * if no class uses it, since Nuxt UI reads the scales by name at runtime.
+ * @nuxt/fonts (enabled by Nuxt UI) finds the families named here and serves
+ * them from the app itself, in weights 400 to 700.
+ */
 @theme static {
+  /* Body text: Inter, for legibility at every size. */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /*
+   * The name only (AppLogo, `font-display`): Cinzel, a classical Roman
+   * capital like the title of the Chronovault artwork.
+   */
+  --font-display: "Cinzel", "Trajan Pro", Georgia, serif;
+
+  /*
+   * The three scales, made in OKLCH from the colours of the artwork, with
+   * steps of lightness like Tailwind's own. app.config.ts maps them to Nuxt
+   * UI's roles. The brand values sit at 400 (gold, spectral) and 900 (night);
+   * shared/brand.ts repeats them for the icons and the PWA manifest.
+   */
+
+  /* Gold (primary): the ring of the mark, the name, buttons, the current track. */
+  --color-gold-50: #fdf6e8;
+  --color-gold-100: #fbebcb;
+  --color-gold-200: #f6d8a0;
+  --color-gold-300: #eac172;
+  --color-gold-400: #d6a84e;
+  --color-gold-500: #b88930;
+  --color-gold-600: #9c701f;
+  --color-gold-700: #805915;
+  --color-gold-800: #684712;
+  --color-gold-900: #533812;
+  --color-gold-950: #342107;
+
+  /* Spectral blue (secondary): the strings of the mark, the played part of the waveform. */
+  --color-spectral-50: #e9faff;
+  --color-spectral-100: #d1f6ff;
+  --color-spectral-200: #b0eeff;
+  --color-spectral-300: #8ae4ff;
+  --color-spectral-400: #66d6ff;
+  --color-spectral-500: #41b6e2;
+  --color-spectral-600: #2597c2;
+  --color-spectral-700: #137ca4;
+  --color-spectral-800: #146385;
+  --color-spectral-900: #154d6a;
+  --color-spectral-950: #0b3246;
+
+  /*
+   * Night blue (neutral): backgrounds, borders and text. The dark theme's
+   * background is 900 (the night of the artwork) and its raised surfaces 800;
+   * the light theme uses the pale end, barely tinted.
+   */
+  --color-night-50: #f5f7fa;
+  --color-night-100: #eceff6;
+  --color-night-200: #dbdfec;
+  --color-night-300: #c1c7d9;
+  --color-night-400: #969eb6;
+  --color-night-500: #6c7592;
+  --color-night-600: #4c5574;
+  --color-night-700: #323b5c;
+  --color-night-800: #182041;
+  --color-night-900: #0b1024;
+  --color-night-950: #040716;
+}
+
+/*
+ * Which step of the scale each theme uses. Nuxt UI takes 500 in the light
+ * theme and 400 in the dark one; that suits the orange it was made for, but a
+ * gold 500 on white reads at only 3.2:1 (white on a gold button too). So:
+ * - light: 700 for both, 6.2:1 (gold) and 4.7:1 (spectral) on white, above
+ *   the 4.5:1 that text needs;
+ * - dark: the brand colours themselves (400), 8.6:1 and 11:1 on the night.
+ * Nuxt UI sets these in `@layer theme`; rules outside any layer win over it.
+ */
+:root,
+.light {
+  --ui-primary: var(--ui-color-primary-700);
+  --ui-secondary: var(--ui-color-secondary-700);
+}
+
+.dark {
+  --ui-primary: var(--ui-color-primary-400);
+  --ui-secondary: var(--ui-color-secondary-400);
 }
 
 html {

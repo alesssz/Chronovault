@@ -78,7 +78,7 @@ const syncedLinesSchema = z.array(syncedLyricLineSchema).min(1).max(2000)
  *
  * music-metadata already turns both kinds of synced lyrics into `syncText`
  * (timestamps in ms): an ID3 SYLT frame, and LRC text in a lyrics field
- * (how FLAC files carry them, including ChronoPlayer's own downloads).
+ * (how FLAC files carry them, including Chronovault's own downloads).
  *
  * - Synced: the first tag with millisecond timestamps. Lines such as
  *   `[Verse 1]` become section headers. Lines the API would refuse (too

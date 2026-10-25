@@ -31,7 +31,8 @@ if (error.value || !track.value) {
   throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Track not found', fatal: true })
 }
 
-useSeoMeta({ title: () => `${track.value?.title ?? 'Track'} · Edit` })
+// Browser tab title, following the track's title: "Night drive · Edit · Chronovault".
+usePageTitle(() => `${track.value?.title ?? 'Track'} · Edit`)
 
 // --- Form state ------------------------------------------------------------------
 // Optional texts are strings in the form ('' = empty): the schema turns them into null.

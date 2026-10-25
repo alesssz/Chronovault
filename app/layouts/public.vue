@@ -7,6 +7,8 @@
   tools). `has-mini-player` keeps room at the bottom of the page while the
   player is in use, so the mini player never covers the end of the page
   (see main.css).
+  The header carries the logo with its tagline: these are the pages other
+  people see, so they say whose music it is.
 -->
 <script setup lang="ts">
 // Whether the page's player is in use (room for the mini player).
@@ -20,7 +22,7 @@ const player = usePlayerStore()
   >
     <header class="border-b border-default">
       <UContainer class="flex h-14 items-center justify-between gap-3">
-        <AppLogo />
+        <AppLogo tagline />
         <ThemeButton />
       </UContainer>
     </header>

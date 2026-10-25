@@ -4,7 +4,7 @@
  * Versions: the groups of versions shared for feedback), "Add" (upload),
  * light/dark switch and the account menu (Statistics, Storage, Keyboard
  * shortcuts, Sign out).
- * On phones the logo shows only its icon and the section links only theirs.
+ * On phones the logo shows only its mark and the section links only their icons.
  *
  * A dot on "Versions" says that friends voted or commented on a group since
  * the owner's last visit to it (useUnseenFeedback). It is checked again
@@ -12,6 +12,7 @@
  * owner is elsewhere.
  */
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { APP_NAME } from '~~/shared/brand'
 
 // Sign-out runs in the browser.
 const supabase = useSupabaseClient()
@@ -78,7 +79,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
       <div class="flex min-w-0 items-center gap-1 sm:gap-4">
         <NuxtLink
           to="/"
-          aria-label="ChronoPlayer home"
+          :aria-label="`${APP_NAME} home`"
         >
           <AppLogo compact />
         </NuxtLink>

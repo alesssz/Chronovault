@@ -59,8 +59,8 @@ const info = PLAYLIST_PURPOSE_INFO[props.purpose]
 /** The page is a group of versions (Final badges, Mark as final/draft). */
 const isVersions = props.purpose === 'versions'
 
-// Browser tab title: follows renames ("Night drive – versions · ChronoPlayer").
-useSeoMeta({ title: () => `${playlist.value?.title ?? info.section} · ChronoPlayer` })
+// Browser tab title: follows renames ("Night drive – versions · Chronovault").
+usePageTitle(() => playlist.value?.title ?? info.section)
 
 /** Tracks in their current order (reordered locally, then saved). */
 const tracks = ref<TrackSummary[]>([...playlist.value.tracks])

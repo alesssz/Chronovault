@@ -1,4 +1,4 @@
-# ChronoPlayer app container. Supabase (database, auth, storage) runs in its own
+# Chronovault app container. Supabase (database, auth, storage) runs in its own
 # containers managed by the Supabase CLI. Use `pnpm docker` to start both:
 # it also writes the .env.docker file this service reads.
 name: chronoplayer

@@ -364,16 +364,16 @@ test.describe('touch screens', () => {
     await page.getByTestId('track-title').tap()
     await expect(page.getByTestId('player-title')).toHaveText('Touch screen song')
 
-    // The media card (lock screen, notification): the title, and the app where the track
-    // has no composers, album or cover.
+    // The media card (lock screen, notification): the title, and the app's name and its
+    // artwork where the track has no composers, album or cover.
     const card = await page.evaluate(() => {
       const metadata = navigator.mediaSession.metadata!
       return { title: metadata.title, artist: metadata.artist, album: metadata.album, artwork: metadata.artwork.map(a => a.src) }
     })
     expect(card.title).toBe('Touch screen song')
-    expect(card.artist).toBe('ChronoPlayer')
-    expect(card.album).toBe('ChronoPlayer')
-    expect(card.artwork[0]).toMatch(/^http.*\/pwa-192x192\.png$/)
+    expect(card.artist).toBe('Chronovault')
+    expect(card.album).toBe('Chronovault')
+    expect(card.artwork[0]).toMatch(/^http.*\/cover-fallback\.webp$/)
 
     // Cast: on phones it is in the full-screen view; a tap opens the device picker, and the
     // button shows the connection.
