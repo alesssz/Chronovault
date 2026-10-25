@@ -2,7 +2,8 @@
  * End-to-end, touch screens: the phone and tablet layouts (Playwright projects `phone` and
  * `tablet`, see playwright.config.ts; the desktop project skips this file). No page scrolls
  * sideways, track covers show that they play without needing a hover, the tablet player bar
- * keeps a readable title and reaches the volume through a popover, and on phones the lyrics
+ * keeps a readable title and offers mute alone for the volume (the hardware buttons own it on a
+ * touch screen), and on phones the lyrics
  * sync editor keeps Stamp line pinned above the player bar, keeps the screen on and vibrates.
  *
  * Phone-only device features, checked in Chromium with real touch events and a real
@@ -230,7 +231,7 @@ test.describe('touch screens', () => {
     expect(heading.width).toBeGreaterThan(150)
   })
 
-  test('tablet: player bar with a readable title and the volume in a popover', async ({ page }, testInfo) => {
+  test('tablet: player bar with a readable title, and mute alone for the volume', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'tablet', 'tablet layout only')
     await signUpWithTrack(page)
 
@@ -244,9 +245,12 @@ test.describe('touch screens', () => {
     const title = await bar.getByTestId('player-title').boundingBox()
     expect(title!.width).toBeGreaterThan(140)
 
-    // The inline slider does not fit here: one speaker button opens it in a popover.
-    await bar.getByTestId('player-volume-compact').tap()
-    await expect(page.getByRole('slider', { name: 'Volume' })).toBeVisible()
+    // A touch screen: the hardware buttons own the volume, so the bar offers mute alone (no
+    // slider, and no popover button for one), and muting still works.
+    await expect(bar.getByTestId('player-volume-compact')).toHaveCount(0)
+    await expect(page.getByRole('slider', { name: 'Volume' })).toHaveCount(0)
+    await bar.getByRole('button', { name: 'Mute' }).tap()
+    await expect(bar.getByRole('button', { name: 'Unmute' })).toBeVisible()
   })
 
   test('phone: Stamp line stays pinned above the player bar while syncing', async ({ page }, testInfo) => {

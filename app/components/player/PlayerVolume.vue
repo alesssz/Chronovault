@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { canSetVolume } from '~/lib/audio-engine'
+import { pageControlsVolume } from '~/lib/audio-engine'
 
 /**
  * Mute button + volume slider. The slider shows 0 while muted; moving it
@@ -7,29 +7,33 @@ import { canSetVolume } from '~/lib/audio-engine'
  *
  * Two layouts:
  * - default: the mute button with a horizontal slider beside it (desktop
- *   player bar, full-screen view);
+ *   player bar, full-screen view, share pages);
  * - `compact`: a single speaker button that opens a small popover with the
- *   mute button and a vertical slider, for the tablet-width player bar,
- *   where a horizontal slider does not fit.
+ *   mute button and a vertical slider, for the player bar of a narrow
+ *   window (`md` to `lg`), where a horizontal slider does not fit.
  *
- * Where the page cannot set the volume (iPhone, iPad: the hardware buttons
- * own it, see canSetVolume) a slider would do nothing, so only the mute
- * button is shown, in both layouts.
+ * The slider exists only with a mouse or trackpad (pageControlsVolume). On
+ * touch screens, phones and tablets alike, the hardware buttons own the
+ * volume and the page plays at full level: a second level here would only
+ * multiply with theirs, so only the mute button is shown, in both layouts
+ * (on iPhone and iPad the page could not set the volume anyway).
  */
 withDefaults(defineProps<{
   /** Speaker button + popover instead of an inline slider. */
   compact?: boolean
 }>(), { compact: false })
 
+// The level, mute and their commands.
 const player = usePlayerStore()
 
 /**
- * Whether a volume slider makes sense on this device. true until mounted:
- * the server cannot know, and the first client render must match its HTML.
+ * Whether this device gets a volume slider (see pageControlsVolume). true
+ * until mounted: the server cannot know, and the first client render must
+ * match its HTML.
  */
 const adjustable = ref(true)
 onMounted(() => {
-  adjustable.value = canSetVolume()
+  adjustable.value = pageControlsVolume()
 })
 
 /** Speaker icon: muted, low or high. */
@@ -47,7 +51,7 @@ const level = computed({
 
 <template>
   <!--
-    Compact (tablet bar) with a usable slider: speaker button opening a popover.
+    Compact (narrow player bar) with a slider (a mouse or trackpad): speaker button opening a popover.
     The wrapper gives the parent's classes (e.g. `lg:hidden`) an element to land on:
     the popover itself renders none.
   -->
@@ -84,7 +88,7 @@ const level = computed({
     </UPopover>
   </div>
 
-  <!-- Inline layout, or mute only where the volume cannot be set -->
+  <!-- Inline layout, or mute alone where the page offers no volume of its own (touch screens) -->
   <div
     v-else
     class="flex items-center gap-2"

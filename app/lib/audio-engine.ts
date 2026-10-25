@@ -258,6 +258,35 @@ export function canSetVolume(probe?: HTMLAudioElement): boolean {
   return volumeSettable
 }
 
+/**
+ * Whether the page offers a volume level of its own (the slider), or leaves
+ * the level to the device and plays at full volume (mute only).
+ *
+ * Only with a mouse or trackpad (a fine primary pointer) on a browser that
+ * lets pages set the volume. On touch screens, phones and tablets alike, the
+ * hardware buttons own the volume: a page level would multiply with theirs
+ * (at 30% here, even their maximum sounds quiet, with no visible reason),
+ * and being remembered on the device it could stay low for good, hidden
+ * behind buttons that already do everything. On iPhone and iPad the page
+ * cannot set it anyway (canSetVolume).
+ *
+ * The primary pointer, not the screen width, decides: a laptop with a touch
+ * screen but used with its trackpad keeps the slider.
+ *
+ * Where it cannot be told (server rendering, unit tests: no window) the
+ * answer is true, the behaviour the page had before this rule.
+ *
+ * @param settable injectable for tests; the browser's answer otherwise
+ * @param finePointer injectable for tests; the `(pointer: fine)` media query otherwise
+ */
+export function pageControlsVolume(
+  settable: () => boolean = canSetVolume,
+  finePointer: () => boolean = () => window.matchMedia('(pointer: fine)').matches,
+): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+  return finePointer() && settable()
+}
+
 /** Sets an element's volume to an unusual level and checks that it stuck. */
 function probeVolume(element: HTMLAudioElement): boolean {
   try {

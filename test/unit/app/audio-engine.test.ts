@@ -1,10 +1,11 @@
 /**
  * AudioEngine against a minimal fake <audio> element: events, seeking bounds, playback rate,
- * the position still reported with the page hidden (screen off: no animation frames); plus the
+ * the position still reported with the page hidden (screen off: no animation frames); who gets a
+ * volume slider (a mouse or trackpad, not a touch screen); plus the
  * volume-support probe (iOS ignores the volume set from JavaScript).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AudioEngine, canSetVolume } from '~/lib/audio-engine'
+import { AudioEngine, canSetVolume, pageControlsVolume } from '~/lib/audio-engine'
 
 /** Just enough of an HTMLAudioElement for the engine's setters. */
 function fakeAudioElement() {
@@ -82,6 +83,37 @@ describe('AudioEngine time reports', () => {
     element.currentTime = 12.25
     element.fire('timeupdate')
     expect(times).toEqual([12, 12.25])
+  })
+})
+
+describe('pageControlsVolume', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** A browser window whose media queries answer nothing in particular (the injected checks decide). */
+  function stubWindow() {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) })
+  }
+
+  it('offers a slider with a mouse or trackpad, where the page can set the volume', () => {
+    stubWindow()
+    expect(pageControlsVolume(() => true, () => true)).toBe(true)
+  })
+
+  it('leaves the volume to the hardware buttons on touch screens (phones and tablets)', () => {
+    stubWindow()
+    expect(pageControlsVolume(() => true, () => false)).toBe(false)
+  })
+
+  it('offers none where the page cannot set it, a trackpad notwithstanding (iPad)', () => {
+    stubWindow()
+    expect(pageControlsVolume(() => false, () => true)).toBe(false)
+  })
+
+  it('keeps the slider where it cannot tell (server rendering, unit tests: no window)', () => {
+    vi.stubGlobal('window', undefined)
+    expect(pageControlsVolume(() => false, () => false)).toBe(true)
   })
 })
 

@@ -15,8 +15,10 @@
  *   taller (`--player-bar-height`, see main.css), so the two rows have room
  *   around them;
  * - tablets (`md` to `lg`): the volume is a single speaker button opening a
- *   small popover with the slider (no room for an inline one); from `lg`
- *   the slider sits inline. The Expand button is left out there too: Cast
+ *   small popover with the slider (no room for an inline one), when there
+ *   is a slider at all: on touch screens the hardware buttons own the
+ *   volume and the button only mutes (PlayerVolume); from `lg` the slider
+ *   sits inline. The Expand button is left out there too: Cast
  *   is always shown on touch screens, and a fifth icon squeezed the title
  *   to a few letters again, while the title area (tap, or swipe up) already
  *   opens the full-screen view. From `lg` there is room for both.
@@ -170,11 +172,11 @@ const track = computed(() => player.displayTrack)
         <PlayerControls />
       </div>
 
-      <!-- Right column (md+): volume (a popover button on tablets, inline from lg), then Cast (always on touch screens, otherwise when a device is around), Up next, expand (from lg) and close -->
+      <!-- Right column (md+): volume (a popover button on tablets, inline from lg; mute alone on touch screens), then Cast (always on touch screens, otherwise when a device is around), Up next, expand (from lg) and close -->
       <div class="hidden flex-none items-center justify-end gap-3 md:flex lg:flex-1 lg:basis-0">
         <PlayerVolume class="hidden lg:flex" />
         <div class="flex shrink-0 items-center">
-          <!-- Tablets: the volume joins the icon buttons, as one more of them -->
+          <!-- Tablets: the volume joins the icon buttons, as one more of them (mute alone on touch screens) -->
           <PlayerVolume
             compact
             class="lg:hidden"
