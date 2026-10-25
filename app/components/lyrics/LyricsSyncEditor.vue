@@ -19,6 +19,9 @@ import { HAPTIC, haptic } from '~/lib/haptics'
  * start of each line to stamp it with the current time.
  *   ↑ undo the last line · R replay the selected line · ←/→ nudge it by 0.05 s
  *   P play/pause · click a line to select it and jump there
+ * While the editor is in use it claims the keyboard (useKeyboardClaim): the
+ * player's own shortcuts (Space play/pause, ← / → seek…) wait, so Space
+ * stamps a line instead of pausing.
  * Playback can be slowed down (pitch preserved), and the detailed waveform
  * shows a draggable marker per synced line.
  * Section headers ([Intro], [Verse 1]…) are kept: they take the time of the
@@ -73,11 +76,14 @@ function initialRows(): SyncRow[] {
 
 /** Rebuilds the rows from the lyrics, keeping the times of lines already synced. */
 function reloadFromLyrics() {
+  // The lines synced so far: their times go to the same lines of the new lyrics.
   const available = rows.value.filter(r => !r.section && r.time != null)
   rows.value = syncRowsFromLyrics(props.lyrics).map((row) => {
     if (row.section) return row
+    // The same text among them (the first one left, for repeated lines such as a chorus).
     const i = available.findIndex(r => r.text === row.text)
     if (i === -1) return row
+    // Taken out, so a repeated line gives its time to one new line only.
     const [match] = available.splice(i, 1)
     return { ...row, time: match!.time }
   })
@@ -85,6 +91,7 @@ function reloadFromLyrics() {
 
 // Every change to the rows updates the form model (saved with the track).
 watch(rows, (value) => {
+  // The synced lines, as saved with the track (none: the field is cleared).
   const lines = buildSyncedLines(value)
   model.value = lines.length ? lines : null
 }, { deep: true })
@@ -97,6 +104,7 @@ const lyricRows = computed(() => rows.value.filter(r => !r.section))
 const syncedCount = computed(() => lyricRows.value.filter(r => r.time != null).length)
 /** Next lyric line to sync (section headers are skipped). */
 const cursor = computed(() => {
+  // The first lyric line without a time.
   const i = rows.value.findIndex(r => !r.section && r.time == null)
   return i === -1 ? rows.value.length : i
 })
@@ -117,6 +125,7 @@ const selected = ref<number | null>(null)
 /** Gives the next unsynced line the current playback time (Space / ↓). */
 function stamp() {
   if (!isLoaded.value || cursor.value >= rows.value.length) return
+  // The line being stamped.
   const index = cursor.value
   rows.value[index]!.time = roundToCentiseconds(player.currentTime)
   selected.value = index
@@ -133,7 +142,9 @@ function select(i: number) {
 
 /** Plays the selected line (or the one playing) again from just before its start. */
 function replay() {
+  // The selected line, or else the one playing (none: nothing to replay).
   const index = selected.value ?? (playingIndex.value >= 0 ? playingIndex.value : null)
+  // That line's start, if it has one.
   const time = index == null ? null : rows.value[index]?.time
   if (!isLoaded.value || time == null) return
   player.seek(Math.max(0, time - REPLAY_PREROLL))
@@ -142,6 +153,7 @@ function replay() {
 
 /** Moves the start of a line (after dragging its marker on the waveform). */
 function moveLine(i: number, time: number) {
+  // The dragged line (a section header has no time to move).
   const row = rows.value[i]
   if (!row || row.section) return
   row.time = Math.max(0, time)
@@ -150,6 +162,7 @@ function moveLine(i: number, time: number) {
 
 /** Clears the last synced line and jumps back to just before the previous one (↑). */
 function undo() {
+  // The last line stamped, the one to undo.
   const last = syncedBefore(cursor.value)
   if (last < 0) return
   rows.value[last]!.time = null
@@ -163,6 +176,7 @@ function undo() {
 
 /** Index of the last synced lyric line before row `index` (section headers skipped), -1 when none. */
 function syncedBefore(index: number): number {
+  // Walks back from the row before `index`.
   let i = index - 1
   while (i >= 0 && (rows.value[i]!.section || rows.value[i]!.time == null)) i--
   return i
@@ -170,6 +184,7 @@ function syncedBefore(index: number): number {
 
 /** Shifts a line's start by `delta` seconds (←/→), never below 0. */
 function nudge(i: number, delta: number) {
+  // The line to shift (only a synced one has a start).
   const row = rows.value[i]
   if (row?.time == null) return
   row.time = Math.max(0, roundToCentiseconds(row.time + delta))
@@ -177,6 +192,7 @@ function nudge(i: number, delta: number) {
 
 /** Moves playback to a synced line's start. */
 function seekTo(i: number) {
+  // The line's start (none: nothing to jump to).
   const time = rows.value[i]?.time
   if (isLoaded.value && time != null) player.seek(time)
 }
@@ -215,8 +231,13 @@ function loadInPlayer() {
 }
 
 // --- Keyboard shortcuts ----------------------------------------------------------
+// The editor uses the keys as a whole while in use (Space stamps a line, ← / → nudge it,
+// P plays): the player's own shortcuts (Space play/pause, ← / → seek…) wait meanwhile.
+useKeyboardClaim(syncing)
+
 useEventListener('keydown', (event: KeyboardEvent) => {
   if (!props.active || !isLoaded.value) return
+  // Where the key was pressed: some places keep their keys.
   const target = event.target as HTMLElement | null
   // Never steal keys from text fields, sliders (the waveform) or open dialogs (LRC import).
   if (target?.closest('input, textarea, select, [contenteditable="true"], [role="slider"], [role="dialog"]')) return
@@ -289,7 +310,9 @@ const lrcFileInput = ref<HTMLInputElement | null>(null)
  * the user sees it and confirms with Apply, like pasted text.
  */
 async function openLrcFile(event: Event) {
+  // The hidden file input that was used.
   const input = event.target as HTMLInputElement
+  // The chosen file (none: the choice was cancelled).
   const file = input.files?.[0]
   // Cleared so choosing the same file again fires `change` again.
   input.value = ''
@@ -299,6 +322,7 @@ async function openLrcFile(event: Event) {
 
 /** Replaces the rows with the pasted LRC (import); invalid text leaves everything unchanged. */
 function applyLrc() {
+  // The lines the pasted text holds.
   const parsed = parseLrc(lrcText.value)
   if (!parsed.length && lrcText.value.trim()) {
     toast.add({ title: 'No valid lines', description: 'Use the [mm:ss.xx] text format', color: 'error' })

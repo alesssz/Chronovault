@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
 /**
  * Mini player of the share pages (/t/:id, /p/:id): a bar fixed at the bottom
  * of the screen, shown while the page's own player (SharePlayer, which
@@ -15,6 +16,9 @@
  * The page reserves room at its bottom for it while its player is in use
  * (`has-mini-player` in the public layout), so it never covers the end of
  * the page.
+ *
+ * Previous, play and next announce their keyboard shortcut to screen
+ * readers (aria-keyshortcuts, app/lib/keyboard-shortcuts.ts).
  */
 const props = defineProps<{
   /** The page's own player is off screen: the bar shows. */
@@ -116,6 +120,7 @@ const waiting = computed(() => player.status === 'loading' || player.buffering)
           color="neutral"
           variant="ghost"
           label="Previous track"
+          :aria-keyshortcuts="ariaShortcut('previous')"
           @click="player.previous()"
         />
         <IconButton
@@ -124,6 +129,7 @@ const waiting = computed(() => player.status === 'loading' || player.buffering)
           :ui="{ leadingIcon: waiting ? 'animate-spin' : '' }"
           :label="player.isPlaying ? 'Pause' : 'Play'"
           data-testid="shared-mini-toggle"
+          :aria-keyshortcuts="ariaShortcut('toggle-play')"
           @click="emit('toggle')"
         />
         <IconButton
@@ -132,6 +138,7 @@ const waiting = computed(() => player.status === 'loading' || player.buffering)
           color="neutral"
           variant="ghost"
           label="Next track"
+          :aria-keyshortcuts="ariaShortcut('next')"
           :disabled="!player.hasNext"
           @click="player.next()"
         />

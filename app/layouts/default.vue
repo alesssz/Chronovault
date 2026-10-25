@@ -24,5 +24,7 @@ const player = usePlayerStore()
     <PlayerQueue />
     <!-- Global dialog: "New playlist" can be opened from any page (usePlaylists). -->
     <PlaylistCreateDialog />
+    <!-- The list of keyboard shortcuts (the ? key, or the account menu) -->
+    <KeyboardShortcutsDialog />
   </div>
 </template>

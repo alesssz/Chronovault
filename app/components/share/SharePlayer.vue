@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
 /**
  * Player of the public share pages: a big play/pause button and the
  * waveform with elapsed and total time; under them previous / next (for
@@ -16,6 +17,9 @@
  * whether the player currently holds this page's item. Until it does, the
  * times show 0 and `duration` (from the item's data) and the button asks
  * the page to start (`toggle`); the other controls wait.
+ *
+ * Play, previous, next and full screen announce their keyboard shortcut to
+ * screen readers (aria-keyshortcuts, app/lib/keyboard-shortcuts.ts).
  */
 defineProps<{
   /** The player holds this page's track (or a track of this page's playlist). */
@@ -49,6 +53,7 @@ const onScreen = useElementVisibility(root)
         size="xl"
         class="shrink-0 rounded-full p-4"
         data-testid="shared-play"
+        :aria-keyshortcuts="ariaShortcut('toggle-play')"
         @click="emit('toggle')"
       />
       <div class="min-w-0 flex-1">
@@ -81,6 +86,7 @@ const onScreen = useElementVisibility(root)
             color="neutral"
             variant="ghost"
             label="Previous track"
+            :aria-keyshortcuts="ariaShortcut('previous')"
             :disabled="!active"
             data-testid="shared-previous"
             @click="player.previous()"
@@ -90,6 +96,7 @@ const onScreen = useElementVisibility(root)
             color="neutral"
             variant="ghost"
             label="Next track"
+            :aria-keyshortcuts="ariaShortcut('next')"
             :disabled="!active || !player.hasNext"
             data-testid="shared-next"
             @click="player.next()"
@@ -105,6 +112,7 @@ const onScreen = useElementVisibility(root)
           color="neutral"
           variant="ghost"
           label="Full screen"
+          :aria-keyshortcuts="ariaShortcut('full-screen')"
           :disabled="!active || !player.current"
           data-testid="shared-expand"
           @click="player.setExpanded(true)"
