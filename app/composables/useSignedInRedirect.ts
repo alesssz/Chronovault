@@ -12,6 +12,7 @@ export function useSignedInRedirect(): void {
   const redirect = useSupabaseCookieRedirect()
   const router = useRouter()
 
+  // A session appeared: go where the user was headed, or the library.
   watch(user, (value) => {
     if (value) void navigateTo(appPageOrNull(router, redirect.pluck()) ?? '/', { replace: true })
   }, { immediate: true })

@@ -30,7 +30,9 @@ const objects: ListedObject[] = [
   { key: `${USER}/orphan-new.flac`, size: 300, lastModified: RECENT },
 ]
 
+// The fake listing of the audio storage: always `objects`.
 const list = vi.fn(async (_prefix: string) => objects)
+// The fake removal: records the keys it was asked to delete.
 const remove = vi.fn(async (_keys: string[]) => {})
 /** Fake R2 client: listing returns `objects`, removals are recorded. */
 const audio = { list, remove } as unknown as AudioStorage
@@ -60,6 +62,7 @@ describe('scanStorage', () => {
   })
 
   it('reports files used by no track or playlist, oldest first, marking the recent ones as kept', async () => {
+    // The scan with the usual 24-hour minimum age.
     const report = await scanStorage(db, audio, USER, 24, NOW)
 
     expect(report.orphans.map(o => [o.bucket, o.path, o.deletable])).toEqual([
@@ -71,12 +74,14 @@ describe('scanStorage', () => {
   })
 
   it('totals what the user stores, orphans included', async () => {
+    // The usage part of the scan.
     const { usage } = await scanStorage(db, audio, USER, 24, NOW)
     expect(usage.audio).toEqual({ files: 3, bytes: 1800 })
     expect(usage.covers).toEqual({ files: 3, bytes: 150 })
   })
 
   it('with a minimum age of 0 every orphan is deletable', async () => {
+    // The orphans, with no minimum age.
     const { orphans } = await scanStorage(db, audio, USER, 0, NOW)
     expect(orphans.every(o => o.deletable)).toBe(true)
   })
@@ -84,6 +89,7 @@ describe('scanStorage', () => {
 
 describe('cleanStorage', () => {
   it('deletes only old orphans, each from its own storage', async () => {
+    // The clean-up with the usual 24-hour minimum age.
     const result = await cleanStorage(db, audio, USER, 24, NOW)
 
     expect(remove).toHaveBeenCalledWith([`${USER}/orphan-old.flac`])
@@ -93,6 +99,7 @@ describe('cleanStorage', () => {
 
   it('never deletes a file a track uses, even an old one', async () => {
     await cleanStorage(db, audio, USER, 0, NOW)
+    // Every key deleted from each storage.
     const deletedAudio = remove.mock.calls.flatMap(([keys]) => keys)
     const deletedCovers = vi.mocked(storageRepo.removeObjects).mock.calls.flatMap(([, , paths]) => paths)
     expect(deletedAudio).not.toContain(`${USER}/used.flac`)

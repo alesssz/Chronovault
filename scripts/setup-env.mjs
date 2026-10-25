@@ -9,6 +9,7 @@
 import { resolve } from 'node:path'
 import { localAudioStorageEnv, publishableKey, supabaseStatus, writeEnvFile } from './lib/local-stack.mjs'
 
+// The running stack's URLs and keys (null when it is not running).
 const status = supabaseStatus()
 if (!status) {
   console.error('✖ Could not read the Supabase status. Is it running? Run first: make db-start')

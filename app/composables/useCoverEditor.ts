@@ -34,6 +34,7 @@ export function useCoverEditor(options: CoverEditorOptions) {
     // Needed for the storage path; no session = nothing to do.
     const userId = covers.userId.value
     if (!userId) return
+    // True when the cover was uploaded and saved; false when it failed (the task showed the error).
     const done = await uploading.run(async () => {
       const path = options.path(userId)
       await covers.upload(path, file, crop)

@@ -22,9 +22,12 @@ const DANGLING = /(?:[\s\-–—_.,:#([]+|\s(?:v|ver|version|take|alt|mix)\.?)$/
 
 /** The longest common start of all texts (compared ignoring case; the first text's casing is kept). */
 function commonPrefix(texts: string[]): string {
+  // The first text is the reference; the others shorten the common part.
   const [first = '', ...rest] = texts
+  // Length of the start shared so far.
   let length = first.length
   for (const text of rest) {
+    // How far this text agrees with the first one.
     let i = 0
     while (i < length && i < text.length && first[i]!.toLowerCase() === text[i]!.toLowerCase()) i++
     length = i
@@ -39,6 +42,7 @@ function commonPrefix(texts: string[]): string {
  */
 export function feedbackPlaylistTitle(titles: string[]): string {
   if (!titles.length) return 'Versions'
+  // What every title starts with, trimmed below.
   let base = commonPrefix(titles)
   // Strip dangling separators and markers until nothing changes ("Night drive (v" → "Night drive").
   for (let previous = ''; previous !== base;) {

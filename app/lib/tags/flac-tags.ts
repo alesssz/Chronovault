@@ -36,7 +36,9 @@ const VENDOR = APP_NAME
 
 /** A metadata block as it sits in the file: type + body (the header is rebuilt on write). */
 interface Block {
+  /** The block type (see BLOCK). */
   type: number
+  /** The block's body, without its 4-byte header. */
   body: Uint8Array
 }
 
@@ -65,6 +67,7 @@ export function readFlacBlocks(file: Uint8Array): { blocks: Block[], audioOffset
   const blocks: Block[] = []
   for (;;) {
     if (offset + 4 > file.length) throw new Error('Truncated FLAC metadata')
+    // The first byte of the block's header.
     const header = file[offset]!
     // Header byte: last-block flag (bit 7) and block type (bits 0-6), then a 24-bit length.
     const isLast = (header & 0x80) !== 0
@@ -83,6 +86,7 @@ export function readFlacBlocks(file: Uint8Array): { blocks: Block[], audioOffset
 
 /** Little-endian 32-bit integer (Vorbis comments use little-endian lengths). */
 function u32le(value: number): Uint8Array {
+  // Four bytes, written through a DataView.
   const out = new Uint8Array(4)
   new DataView(out.buffer).setUint32(0, value, true)
   return out
@@ -90,6 +94,7 @@ function u32le(value: number): Uint8Array {
 
 /** Big-endian 32-bit integer (the PICTURE block uses big-endian fields). */
 function u32be(value: number): Uint8Array {
+  // Four bytes, written through a DataView.
   const out = new Uint8Array(4)
   new DataView(out.buffer).setUint32(0, value, false)
   return out
@@ -106,6 +111,7 @@ function u32be(value: number): Uint8Array {
  * its blank lines. Without synced lyrics, LYRICS is the plain text.
  */
 function vorbisCommentBlock(tags: TrackTags): Uint8Array {
+  // The synced lyrics as LRC text, or null without them.
   const synced = tags.lyricsSynced?.length ? serializeLrc(tags.lyricsSynced) : null
   // Vorbis field name → value; empty values are dropped below.
   const fields: [string, string | number | null][] = [
@@ -119,9 +125,11 @@ function vorbisCommentBlock(tags: TrackTags): Uint8Array {
     ['LYRICS', synced ?? tags.lyrics],
     ['UNSYNCEDLYRICS', synced ? tags.lyrics : null],
   ]
+  // Each non-empty field as one `NAME=value` comment, UTF-8.
   const entries = fields
     .filter(([, value]) => hasText(value))
     .map(([name, value]) => utf8.encode(`${name}=${value}`))
+  // The vendor string, UTF-8.
   const vendor = utf8.encode(VENDOR)
   return concatBytes([
     u32le(vendor.length), vendor,
@@ -132,6 +140,7 @@ function vorbisCommentBlock(tags: TrackTags): Uint8Array {
 
 /** PICTURE body for the front cover (picture type 3), with its size and a 24-bit colour depth. */
 function pictureBlock(cover: NonNullable<TrackTags['cover']>): Uint8Array {
+  // The image's MIME type and the picture's description, UTF-8.
   const mime = utf8.encode(cover.mimeType)
   const description = utf8.encode('Cover')
   return concatBytes([
@@ -165,7 +174,9 @@ function encodeBlock(block: Block, isLast: boolean): Uint8Array {
  * and all audio frames are kept as they are.
  */
 export function writeFlacTags(file: Uint8Array, tags: TrackTags): Uint8Array {
+  // The file's metadata blocks, and where the audio frames start.
   const { blocks, audioOffset } = readFlacBlocks(file)
+  // Every block but the ones rewritten here (STREAMINFO, SEEKTABLE… stay as they are).
   const kept = blocks.filter(b => b.type !== BLOCK.VORBIS_COMMENT && b.type !== BLOCK.PICTURE && b.type !== BLOCK.PADDING)
   // New chain: kept blocks (STREAMINFO first), then comments, cover and padding.
   const chain: Block[] = [

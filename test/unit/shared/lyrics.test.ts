@@ -88,6 +88,7 @@ describe('formatLrcTimestamp', () => {
 
 describe('serializeLrc', () => {
   it('produces sorted LRC that parses back identically', () => {
+    // Two lines out of order, written as LRC.
     const lines = [{ time: 20, text: 'b' }, { time: 1.25, text: 'a' }]
     const lrc = serializeLrc(lines)
     expect(lrc).toBe('[00:01.25] a\n[00:20.00] b')
@@ -95,6 +96,7 @@ describe('serializeLrc', () => {
   })
 
   it('round-trips section headers', () => {
+    // A header with its line, and another line.
     const lines = [
       { time: 5, text: '[Intro]', section: true },
       { time: 5, text: 'Hey' },
@@ -120,6 +122,7 @@ describe('isSectionHeader', () => {
 })
 
 describe('findActiveLineIndex', () => {
+  // Three lines, 4 seconds apart.
   const lines = [{ time: 1, text: 'a' }, { time: 5, text: 'b' }, { time: 9, text: 'c' }]
 
   it.each([
@@ -212,6 +215,7 @@ describe('syncRowsFromLines', () => {
   })
 
   it('round-trips through buildSyncedLines', () => {
+    // A header, its line and another line, as stored.
     const lines = [{ time: 1.5, text: '[Verse 1]', section: true }, { time: 1.5, text: 'One' }, { time: 4, text: 'Two' }]
     expect(buildSyncedLines(syncRowsFromLines(lines))).toEqual(lines)
   })

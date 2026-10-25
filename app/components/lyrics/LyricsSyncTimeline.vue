@@ -19,6 +19,7 @@ const props = defineProps<{
   selected: number | null
 }>()
 
+// Tells the editor about a drag (a marker moved) and a click (a marker selected).
 const emit = defineEmits<{
   move: [index: number, time: number]
   select: [index: number]
@@ -51,7 +52,9 @@ interface Marker {
   index: number
   /** 1-based number among lyric lines, as shown in the list. */
   number: number
+  /** Its time, in seconds. */
   time: number
+  /** Its text, shown in the marker's label. */
   text: string
 }
 
@@ -111,6 +114,7 @@ function indexOf(regionId: string): number {
 
 /** Builds the waveform on the shared audio element (rebuilt from scratch every time). */
 function create() {
+  // The app's single <audio>: the timeline follows the same playback.
   const media = getAudioEngine().element
   if (!container.value || !media) return
   destroy()
@@ -163,7 +167,9 @@ function destroy() {
   regions = null
 }
 
+// Built once on screen, destroyed when the editor goes.
 onMounted(create)
+// Nothing left behind on the shared <audio> when the editor goes.
 onBeforeUnmount(destroy)
 
 // Markers follow the rows (stamping, undo, nudges, drags) and the selection.
@@ -178,11 +184,14 @@ watch(zoom, (value) => {
 
 <template>
   <div class="space-y-2">
+    <!-- The detailed waveform with a marker per synced line, and its loading and error states over it -->
     <div class="relative overflow-hidden rounded-lg border border-default bg-elevated/30 px-1 py-2">
+      <!-- wavesurfer.js draws here -->
       <div
         ref="container"
         data-testid="sync-timeline"
       />
+      <!-- Decoding the whole file (it can take a few seconds) -->
       <div
         v-if="!ready && !failed"
         class="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted"
@@ -193,6 +202,7 @@ watch(zoom, (value) => {
         />
         Loading the detailed waveform… {{ loadingPercent }}%
       </div>
+      <!-- Decoding failed: try again -->
       <div
         v-if="failed"
         class="absolute inset-0 flex items-center justify-center gap-3 bg-default/80 text-sm text-muted"
@@ -207,6 +217,7 @@ watch(zoom, (value) => {
         />
       </div>
     </div>
+    <!-- Zoom, and how to use the markers -->
     <div class="flex flex-wrap items-center gap-3 text-sm text-muted">
       <UIcon
         name="i-lucide-zoom-out"

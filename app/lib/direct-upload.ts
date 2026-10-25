@@ -9,6 +9,7 @@
 export interface DirectUploadOptions {
   /** Presigned PUT URL from POST /api/tracks/upload-url. */
   url: string
+  /** The file to upload, sent as the request body. */
   file: Blob
   /** Must be the type the file is stored with: R2 serves it back as Content-Type. */
   contentType: string
@@ -33,6 +34,7 @@ export class UploadError extends Error {
  * immediately since retrying the same URL cannot succeed.
  */
 export async function directUpload(options: DirectUploadOptions): Promise<void> {
+  // How many tries in all (the first one included).
   const attempts = options.attempts ?? 3
   for (let attempt = 1; ; attempt++) {
     try {
@@ -40,6 +42,7 @@ export async function directUpload(options: DirectUploadOptions): Promise<void> 
       return
     }
     catch (error) {
+      // Worth another try: a network failure or a server error, not a refusal (4xx).
       const retryable = error instanceof UploadError && (error.status === null || error.status >= 500)
       if (!retryable || attempt >= attempts) throw error
       options.onProgress?.(0)

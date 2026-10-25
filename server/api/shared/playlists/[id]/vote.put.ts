@@ -11,7 +11,9 @@ import { castVote } from '../../../../services/feedback.service'
  * shared group, or not one of its versions · 409 voting closed (a version is final)
  */
 export default defineEventHandler(async (event) => {
+  // The id in the address (400 when it is not a UUID).
   const id = requireUuidParam(event)
+  // The request body, validated against the schema (400 otherwise).
   const vote = await readValidated(event, versionVoteSchema)
   return castVote(await visitorClient(event), id, vote)
 })

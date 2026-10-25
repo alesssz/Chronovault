@@ -10,6 +10,7 @@ const SAVE_PLAYLIST = { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ 
 
 /** Opens a library row's menu and its "Add to playlist" submenu. */
 async function openAddToPlaylist(page: Page, trackTitle: string) {
+  // The library row of that track.
   const row = page.getByTestId('track-row').filter({ hasText: trackTitle })
   await row.getByRole('button', { name: `Actions for ${trackTitle}` }).click()
   await page.getByRole('menuitem', { name: 'Add to playlist' }).click()
@@ -19,6 +20,7 @@ test.describe('playlists', () => {
   test('create, fill, reorder and share a playlist; private tracks play only through it', async ({ page, browser, context, baseURL }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await signUp(page)
+    // Two tracks named uniquely for this test.
     const first = `first-${uniqueId()}`
     const second = `second-${uniqueId()}`
     // Both tracks stay private.
@@ -45,6 +47,7 @@ test.describe('playlists', () => {
     // --- The playlist page: order, reorder, details ---
     await page.getByRole('link', { name: 'Playlists' }).click()
     await page.getByTestId('playlist-card').filter({ hasText: title }).click()
+    // The playlist page's rows.
     const rows = page.getByTestId('playlist-track')
     await expect(rows.getByTestId('playlist-track-title')).toHaveText([new RegExp(first), new RegExp(second)])
 
@@ -60,6 +63,7 @@ test.describe('playlists', () => {
     await page.getByTestId('playlist-play').click()
     await expect(page.getByTestId('player-bar').getByTestId('player-title')).toHaveText(second)
 
+    // The editor's sharing box.
     const shareBox = page.getByTestId('share-box')
     await expect(shareBox).toContainText('Private: only you can listen')
     await page.getByTestId('playlist-field-description').fill('Songs for the road.')
@@ -69,11 +73,15 @@ test.describe('playlists', () => {
     await expect(page.getByTestId('private-tracks-warning')).toContainText('2 private tracks included')
 
     await shareBox.getByTestId('copy-share-link').click()
+    // The copied link.
     const shareUrl = await page.evaluate(() => navigator.clipboard.readText())
     expect(shareUrl).toMatch(new RegExp(`^${baseURL}/p/[0-9a-f-]{36}$`))
+    // The playlist's id, from the link.
     const playlistId = shareUrl.split('/p/')[1]!
+    // The owner's tracks, to know the first one's id.
     const tracks = await page.evaluate(async () =>
       (await (await fetch('/api/tracks')).json()) as { id: string, title: string }[])
+    // The first track (private: only audible through the playlist).
     const firstId = tracks.find(t => t.title === first)!.id
 
     // --- A visitor without an account ---
@@ -85,6 +93,7 @@ test.describe('playlists', () => {
     await expect(visitor.getByTestId('shared-playlist-description')).toHaveText('Songs for the road.')
     await expect(visitor.locator('meta[property="og:title"]')).toHaveAttribute('content', title)
     await expect(visitor.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
+    // The visitor's rows of the shared playlist.
     const visitorRows = visitor.getByTestId('shared-playlist-track')
     await expect(visitorRows).toHaveText([new RegExp(second), new RegExp(first)])
     await expect(visitor.getByTestId('shared-now-playing-title')).toHaveText(second)
@@ -97,6 +106,7 @@ test.describe('playlists', () => {
 
     // …but still have no page of their own, and nothing private leaks through the API.
     expect((await visitor.request.get(`/api/shared/${firstId}`)).status()).toBe(404)
+    // The shared playlist as the API gives it to a visitor.
     const body = await (await visitor.request.get(`/api/shared/playlists/${playlistId}`)).json() as Record<string, unknown>
     expect(JSON.stringify(body)).not.toMatch(/sunoPrompt|mastered|audioPath|audio_path/)
     expect((await visitor.request.get(`/api/playlists/${playlistId}`)).status()).toBe(401)

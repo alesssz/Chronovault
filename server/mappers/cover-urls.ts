@@ -18,6 +18,7 @@
 
 /** Short cache-busting version from an ISO timestamp. */
 function version(updatedAt: string): string {
+  // Milliseconds since 1970: the version is that number in base 36.
   const ms = Date.parse(updatedAt)
   return Number.isFinite(ms) ? ms.toString(36) : '0'
 }
@@ -34,8 +35,11 @@ export function playlistCoverUrl(playlistId: string, updatedAt: string): string 
 
 /** The columns a cover address is built from (tracks and playlists alike). */
 export interface CoverRow {
+  /** The track's or playlist's id. */
   id: string
+  /** Its cover in storage, or null: no cover, no address. */
   cover_path: string | null
+  /** When it last changed (ISO 8601): the address's version. */
   updated_at: string
 }
 

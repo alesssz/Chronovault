@@ -10,6 +10,7 @@ import { getVoteState } from '../../../../services/feedback.service'
  * 200 → VersionVoteState · 400 invalid id or voter · 404 not a shared group
  */
 export default defineEventHandler(async (event) => {
+  // The query string, validated against the schema (400 otherwise).
   const { voter } = readValidatedQuery(event, voterQuerySchema)
   return getVoteState(await visitorClient(event), requireUuidParam(event), voter)
 })

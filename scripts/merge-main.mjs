@@ -63,8 +63,10 @@ function countCommits(range) {
 async function confirm(question) {
   if (assumeYes) return true
   if (!process.stdin.isTTY) throw new Stop('No terminal to ask for confirmation: run it again with --yes.')
+  // A prompt on this terminal.
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
+    // What the user typed.
     const answer = await rl.question(question)
     return /^y(es)?$/i.test(answer.trim())
   }
@@ -75,6 +77,7 @@ async function confirm(question) {
 
 /** The whole procedure; resolves with the exit code, throws Stop for expected refusals. */
 async function run() {
+  // The branch checked out (empty when HEAD is detached).
   const branch = git('branch', '--show-current')
   if (!branch) throw new Stop('You are not on a branch (detached HEAD): switch to the branch to merge.')
   if (branch === MAIN) {
@@ -95,10 +98,12 @@ async function run() {
   if (!gitSucceeds('rev-parse', '--verify', '--quiet', `refs/remotes/${upstream}`)) {
     throw new Stop(`"${branch}" has never been pushed. Push it first: git push -u ${REMOTE} ${branch}`)
   }
+  // Local commits the remote does not have yet.
   const unpushed = countCommits(`${upstream}..${branch}`)
   if (unpushed > 0) {
     throw new Stop(`"${branch}" has ${unpushed} local commit(s) not pushed yet. Push them first: git push`)
   }
+  // Remote commits this checkout does not have yet.
   const unpulled = countCommits(`${branch}..${upstream}`)
   if (unpulled > 0) {
     throw new Stop(`${REMOTE} has ${unpulled} commit(s) on "${branch}" that you don't have. Pull them first: git pull`)
@@ -107,6 +112,7 @@ async function run() {
     throw new Stop(`Your local ${MAIN} has commits that are not on ${REMOTE}: push or remove them before merging.`)
   }
 
+  // The subjects of the branch's own commits, oldest first, for the merge message.
   const subjects = git('log', '--reverse', '--no-merges', '--format=%s', `${REMOTE}/${MAIN}..${branch}`)
     .split('\n')
     .filter(Boolean)

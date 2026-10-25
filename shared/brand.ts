@@ -95,8 +95,11 @@ export type MarkPaint = 'ring' | 'wave' | 'halo'
 
 /** One stroke of the mark: an SVG path on the 100×100 grid, its paint and its width. */
 export interface MarkStroke {
+  /** The SVG path data, on the mark's 100×100 grid. */
   d: string
+  /** What it is painted with (see MarkPaint). */
   paint: MarkPaint
+  /** Stroke width, in grid units. */
   width: number
 }
 

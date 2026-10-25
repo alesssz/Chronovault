@@ -52,6 +52,7 @@ describe('pinnedPnpmVersion', () => {
 })
 
 describe('playwrightBrowsersDir', () => {
+  // A home folder, for the systems that keep the browsers there.
   const home = '/home/me'
 
   it('uses each OS default', () => {

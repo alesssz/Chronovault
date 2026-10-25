@@ -20,6 +20,7 @@ export default defineNuxtPlugin(() => {
   // Signed-in user, if any (known once the session is restored).
   const user = useSupabaseUser()
 
+  // Loads Vercel's counting script, filtered by beforeSend below.
   injectAnalytics({
     // The deployed site is production by definition: no debug script, no console logs.
     mode: 'production',

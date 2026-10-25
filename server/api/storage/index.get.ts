@@ -8,6 +8,7 @@ import { scanStorage } from '../../services/storage-cleanup.service'
  * 200 → StorageReport
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return scanStorage(db, useAudioStorage(), userId, orphanMinAgeHours())
 })

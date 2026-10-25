@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
   size?: 'default' | 'large'
 }>(), { size: 'default' })
 
+// A line was clicked: jump to its time.
 const emit = defineEmits<{ seek: [seconds: number] }>()
 
 /** The scrolling box. */
@@ -103,6 +104,7 @@ watch(activeIndex, (index) => {
       </li>
     </ol>
 
+    <!-- Not synced: the plain text, section headers as titles -->
     <div
       v-else-if="plain"
       class="space-y-1 py-4 leading-relaxed"
@@ -117,6 +119,7 @@ watch(activeIndex, (index) => {
       </p>
     </div>
 
+    <!-- No lyrics at all -->
     <UEmpty
       v-else
       icon="i-lucide-mic-off"

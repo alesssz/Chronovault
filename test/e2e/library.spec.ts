@@ -15,11 +15,15 @@ const TINY_PNG = Buffer.from(
 
 /** Downloads the audio file actually stored for the user's only track. */
 async function downloadStoredAudio(page: Page): Promise<Buffer> {
+  // The track's streaming address, asked for through the page (its session goes along).
   const url = await page.evaluate(async () => {
+    // The user's tracks: just the one.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string }[]
+    // Its playback source.
     const playback = await (await fetch(`/api/tracks/${tracks[0]!.id}/playback`)).json() as { url: string }
     return playback.url
   })
+  // The file itself, following the redirect to the storage.
   const response = await page.request.get(url)
   expect(response.ok()).toBe(true)
   return Buffer.from(await response.body())
@@ -27,6 +31,7 @@ async function downloadStoredAudio(page: Page): Promise<Buffer> {
 
 /** Integer samples of a WAV produced by `makeWav` (44-byte header). */
 function wavSamples(wav: Buffer, bitsPerSample: number): Int32Array {
+  // Bytes per sample.
   const bytes = bitsPerSample / 8
   // `makeWav` writes a plain 44-byte header, then the samples.
   const samples = new Int32Array((wav.length - 44) / bytes)
@@ -54,10 +59,12 @@ test.describe('library and player', () => {
     // An independent decoder, not the one the app uses for its own check.
     const decoder = new FLACDecoder()
     await decoder.ready
+    // The stored FLAC decoded by a second, independent decoder.
     const decoded = await decoder.decodeFile(new Uint8Array(stored))
     decoder.free()
     expect(decoded.errors).toEqual([])
     expect(decoded.bitDepth).toBe(24)
+    // The samples of the WAV that was uploaded.
     const original = wavSamples(makeWav(master), 24)
     // The decoder returns floats in ±1: scale back to 24-bit integers to compare.
     const scale = 2 ** 23 - 1
@@ -70,11 +77,13 @@ test.describe('library and player', () => {
     expect(Buffer.from(restored.buffer).equals(Buffer.from(original.buffer))).toBe(true)
     await page.getByRole('link', { name: 'Go to library' }).click()
 
+    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await expect(row).toBeVisible()
 
     // --- Playback: clicking the track name plays it, the player bar appears ---
     await row.getByTestId('track-title').click()
+    // The player bar.
     const bar = page.getByTestId('player-bar')
     await expect(bar).toBeVisible()
     await expect(bar.getByTestId('player-title')).toHaveText(title)
@@ -124,8 +133,10 @@ test.describe('library and player', () => {
     await page.getByTestId('sync-speed-0.75').click()
     await expect(bar.getByTestId('player-rate')).toHaveText('0.75×')
 
+    // The markers on the sync timeline.
     const markers = page.getByTestId('sync-timeline').getByTestId('sync-marker')
     await expect(markers).toHaveCount(2)
+    // The sync editor's row of the second line.
     const secondRow = page.getByTestId('sync-rows').locator('li').filter({ hasText: 'Second line' })
     await expect(secondRow).toContainText('00:01.50')
     // Drag the second marker to the right: the line now starts later.
@@ -150,6 +161,7 @@ test.describe('library and player', () => {
 
     // --- Expanded view with lyrics ---
     await bar.getByTestId('player-expand').click()
+    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     await expect(expanded.getByTestId('lyrics-synced')).toContainText('First line')
@@ -160,6 +172,7 @@ test.describe('library and player', () => {
 
     // --- Deletion from the library ---
     await page.getByRole('link', { name: 'Back to library' }).click()
+    // The row, with the title changed in the editor.
     const updatedRow = page.getByTestId('track-row').filter({ hasText: newTitle })
     await expect(updatedRow).toBeVisible()
     await updatedRow.getByRole('button', { name: `Actions for ${newTitle}` }).click()

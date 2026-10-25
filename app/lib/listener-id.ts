@@ -21,10 +21,13 @@ let fallback: string | null = null
 /** This browser's id, created on first use. */
 export function getListenerId(): string {
   try {
+    // The browser's storage (absent on the server and in some tests).
     const storage = globalThis.localStorage
     if (storage) {
+      // The id saved by an earlier visit, if any.
       const stored = storage.getItem(KEY)
       if (stored && UUID.test(stored)) return stored
+      // A new random id, saved for the next visits.
       const id = crypto.randomUUID()
       storage.setItem(KEY, id)
       return id

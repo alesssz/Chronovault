@@ -24,11 +24,15 @@ export const MOSAIC_SIZE = 4
 
 /** Lightweight playlist data for lists. */
 export interface PlaylistSummary {
+  /** Row id (uuid): the page address (/playlists/:id, /versions/:id, /p/:id). */
   id: string
   /** A curated playlist, or a group of versions sent for feedback. */
   purpose: PlaylistPurpose
+  /** The playlist's name. */
   title: string
+  /** Free text about it, shown on its page and its share page. */
   description: string | null
+  /** Who may open its share page (the tracks follow the playlist, whatever their own visibility). */
   visibility: TrackVisibility
   /** Custom cover, when the owner uploaded one (/api/covers/playlists/:id?v=…, cached). */
   coverUrl: string | null
@@ -38,10 +42,13 @@ export interface PlaylistSummary {
    * otherwise the first one alone (see PlaylistCover.vue).
    */
   mosaic: string[]
+  /** How many tracks it holds. */
   trackCount: number
   /** Sum of the tracks' durations, in seconds. */
   durationSeconds: number
+  /** When it was created (ISO 8601): the order of the cards, newest first. */
   createdAt: string
+  /** When it last changed (ISO 8601): versions the cover address. */
   updatedAt: string
 }
 
@@ -49,6 +56,7 @@ export interface PlaylistSummary {
 export interface PlaylistDetail extends PlaylistSummary {
   /** Storage key of the custom cover (owner only). */
   coverPath: string | null
+  /** The tracks, in playlist order. */
   tracks: TrackSummary[]
   /** How many of the tracks are private (they become audible when the playlist is shared). */
   privateTrackCount: number
@@ -61,18 +69,23 @@ export interface PlaylistDetail extends PlaylistSummary {
 
 /** One version of a group, with its feedback (owner's Versions page). */
 export interface VersionTally {
+  /** The version (a track of the group). */
   trackId: string
   /** Visitors who picked this version. */
   votes: number
   /** Visitors' plays heard through the group (see PlaysCount). */
   plays: number
+  /** Of those plays, how many reached the end (90% of the track). */
   completed: number
 }
 
 /** A pick that came with a name or a comment (owner's Versions page). */
 export interface VersionComment {
+  /** The version picked. */
   trackId: string
+  /** The name the visitor gave, if any. */
   name: string | null
+  /** The visitor's note to the owner, if any. */
   comment: string | null
   /** When the pick was made or last changed (ISO). */
   updatedAt: string
@@ -117,8 +130,11 @@ export interface UnseenFeedback {
 
 /** A visitor's own pick in a group of versions. */
 export interface VersionPick {
+  /** The version picked. */
   trackId: string
+  /** The name the visitor gave, if any. */
   name: string | null
+  /** The visitor's note to the owner, if any. */
   comment: string | null
 }
 
@@ -141,16 +157,23 @@ export interface VersionVoteState {
  * never the Suno prompt, the mastering status or storage paths.
  */
 export interface SharedPlaylist {
+  /** Row id: the share page's address (/p/:id). */
   id: string
   /** A group of versions is introduced as such ("Versions · 3 versions"). */
   purpose: PlaylistPurpose
+  /** The playlist's name. */
   title: string
+  /** Free text about it. */
   description: string | null
+  /** Never 'private': a private playlist answers like a missing one. */
   visibility: Exclude<TrackVisibility, 'private'>
   /** Signed Storage URLs (6 h): visitors cannot use the owner-only /api/covers. */
   coverUrl: string | null
+  /** Signed cover URLs of the first tracks that have one, for the automatic mosaic. */
   mosaic: string[]
+  /** Sum of the tracks' durations, in seconds. */
   durationSeconds: number
+  /** When it last changed (ISO 8601). */
   updatedAt: string
   /** In playlist order. Track visibility is not exposed: visitors don't need it. */
   tracks: SharedTrackContent[]

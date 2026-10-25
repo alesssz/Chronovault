@@ -82,6 +82,7 @@ else report('ok', 'Dependencies installed')
 
 // --- host.docker.internal (Docker mode only) -------------------------------------------
 try {
+  // The address Docker's DNS gives the host (fails when the name does not resolve).
   const { address } = await lookup('host.docker.internal')
   report('ok', `host.docker.internal → ${address} (needed by make docker)`)
 }
@@ -126,6 +127,7 @@ for (const { level, label, fix } of results) {
   console.log(`${icons[level]} ${label}`)
   if (fix && level !== 'ok') console.log(`    → ${fix}`)
 }
+// How many checks failed, and how many only warned.
 const failures = results.filter(r => r.level === 'fail').length
 const warnings = results.filter(r => r.level === 'warn').length
 console.log(failures

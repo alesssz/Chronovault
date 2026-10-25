@@ -38,6 +38,7 @@ export function roundToCentiseconds(n: number): number {
 
 /** True for section headers such as `[Intro]`, `[Verse 1]`, `[Chorus x2]` (but not metadata tags like `[ar:…]`). */
 export function isSectionHeader(text: string): boolean {
+  // Surrounding spaces do not count: "  [Chorus] " is a header.
   const trimmed = text.trim()
   return SECTION_TAG.test(trimmed) && !META_TAG.test(trimmed)
 }
@@ -69,16 +70,20 @@ export function parseLrc(input: string): SyncedLyricLine[] {
 
     // Consume every leading timestamp: `[00:45.10][01:30.00] text`.
     while ((match = LEADING_TIME_TAG.exec(rest))) {
+      // Minutes, seconds and the optional fraction, as written.
       const [, min, sec, frac] = match
       // `frac` is a decimal fraction whatever its length: "5" = 0.5 s, "05" = 0.05 s, "050" = 0.05 s.
       times.push(Number(min) * 60 + Number(sec) + (frac ? Number(`0.${frac}`) : 0))
       rest = rest.slice(match[0].length)
     }
+    // The line itself, once its timestamps are gone.
     const text = rest.trim()
 
     if (times.length === 0) {
+      // A metadata tag such as `[offset:+250]`, if the untimed line is one.
       const meta = META_TAG.exec(text)
       if (meta?.[1]?.toLowerCase() === 'offset') {
+        // The offset in milliseconds (a sign is allowed).
         const ms = Number.parseInt(meta[2]!.trim(), 10)
         if (Number.isFinite(ms)) offsetSeconds = ms / 1000
       }
@@ -113,6 +118,7 @@ export function parseLrc(input: string): SyncedLyricLine[] {
 export function formatLrcTimestamp(seconds: number): string {
   // Work in whole centiseconds so rounding never produces "60" seconds.
   const centis = Math.round(Math.max(0, seconds) * 100)
+  // Minutes, seconds and centiseconds of the timestamp.
   const m = Math.floor(centis / 6000)
   const s = Math.floor((centis % 6000) / 100)
   const c = centis % 100
@@ -140,6 +146,7 @@ export function serializeLrc(lines: SyncedLyricLine[]): string {
  */
 export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: number): number {
   // Classic binary search over the sorted times.
+  // The search range, and the best match so far (-1: no line started yet).
   let lo = 0
   let hi = lines.length - 1
   let found = -1
@@ -162,9 +169,11 @@ export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: num
 
 /** A row of the sync editor: a lyric line (to stamp) or a section header. */
 export interface SyncRow {
+  /** The line, or the header's name. */
   text: string
   /** Start time in seconds; `null` while the line has not been synced yet. */
   time: number | null
+  /** A section header: never stamped, it follows the line after it. */
   section?: boolean
 }
 
@@ -199,6 +208,7 @@ export function buildSyncedLines(rows: readonly SyncRow[]): SyncedLyricLine[] {
   const lines: SyncedLyricLine[] = []
   rows.forEach((row, i) => {
     if (row.section) {
+      // The first lyric line after this header: the header takes its time.
       const next = rows.slice(i + 1).find(r => !r.section)
       if (next?.time != null) lines.push({ time: roundToCentiseconds(next.time), text: row.text, section: true })
     }

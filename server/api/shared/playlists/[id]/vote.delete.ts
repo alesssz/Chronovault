@@ -9,6 +9,7 @@ import { withdrawVote } from '../../../../services/feedback.service'
  * a shared group · 409 voting closed
  */
 export default defineEventHandler(async (event) => {
+  // The query string, validated against the schema (400 otherwise).
   const { voter } = readValidatedQuery(event, voterQuerySchema)
   return withdrawVote(await visitorClient(event), requireUuidParam(event), voter)
 })

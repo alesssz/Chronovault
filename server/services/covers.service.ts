@@ -16,13 +16,16 @@ import * as storageRepo from '../repositories/storage.repository'
 
 /** Image bytes and their MIME type, ready to send. */
 export interface CoverImageFile {
+  /** The image file's bytes. */
   bytes: Uint8Array
+  /** Its MIME type (always an image type; WebP by default). */
   contentType: string
 }
 
 /** Reads a cover file; 404 when there is no path or the file cannot be read. */
 async function readCover(db: DbClient, path: string | null): Promise<CoverImageFile> {
   if (!path) throw notFound('Cover not found')
+  // The file, read with the user's rights (null when missing or not theirs).
   const blob = await storageRepo.downloadObject(db, COVERS_BUCKET, path)
   if (!blob) throw notFound('Cover not found')
   return {

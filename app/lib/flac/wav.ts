@@ -10,8 +10,11 @@ import { asciiAt } from '../bytes'
 export interface WavInfo {
   /** 'pcm' = integer samples, 'float' = IEEE floating point, 'other' = compressed/unknown. */
   encoding: 'pcm' | 'float' | 'other'
+  /** Number of channels (1 mono, 2 stereo…). */
   channels: number
+  /** Samples per second, per channel. */
   sampleRate: number
+  /** Bits per sample (8, 16, 24 or 32). */
   bitsPerSample: number
   /** Bytes per sample frame (all channels). */
   blockAlign: number
@@ -50,6 +53,7 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   if (bytes.byteLength < 12) throw new WavParseError('File too short to be a WAV')
 
+  // The container's signature: RIFF (or RF64 for very large files).
   const riff = asciiAt(bytes, 0)
   if (riff === 'RF64') throw new WavParseError('RF64 (very large) WAV files are not supported')
   if (riff !== 'RIFF' || asciiAt(bytes, 8) !== 'WAVE') throw new WavParseError('Not a WAV file')
@@ -62,8 +66,11 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   // Chunks start after the 12-byte header: "RIFF", size, "WAVE".
   let offset = 12
   while (offset + 8 <= bytes.byteLength && (!format || !data)) {
+    // This chunk's four-letter id.
     const id = asciiAt(bytes, offset)
+    // Its body size in bytes (little-endian).
     const size = view.getUint32(offset + 4, true)
+    // Where its body starts, after the id and the size.
     const body = offset + 8
 
     if (id === 'fmt ') {
@@ -78,6 +85,7 @@ export function parseWav(bytes: Uint8Array): WavInfo {
       if (formatTag === WAVE_FORMAT_EXTENSIBLE && size >= 40 && body + 26 <= bytes.byteLength) {
         formatTag = view.getUint16(body + 24, true)
       }
+      // What the format tag says the samples are.
       const encoding = formatTag === WAVE_FORMAT_PCM ? 'pcm' : formatTag === WAVE_FORMAT_IEEE_FLOAT ? 'float' : 'other'
       format = { encoding, channels, sampleRate, bitsPerSample, blockAlign }
     }
@@ -93,6 +101,7 @@ export function parseWav(bytes: Uint8Array): WavInfo {
   if (!format) throw new WavParseError('Missing fmt chunk')
   if (!data) throw new WavParseError('Missing data chunk')
 
+  // Whole sample frames in the data (a partial last frame is ignored).
   const frames = format.blockAlign > 0 ? Math.floor(data.length / format.blockAlign) : 0
   return { ...format, dataOffset: data.offset, dataLength: data.length, frames }
 }
@@ -119,6 +128,7 @@ export function readWavSample(view: DataView, offset: number, bitsPerSample: num
     case 8: return view.getUint8(offset) - 128
     case 16: return view.getInt16(offset, true)
     case 24: {
+      // The three little-endian bytes as an unsigned 24-bit number.
       const value = view.getUint8(offset) | (view.getUint8(offset + 1) << 8) | (view.getUint8(offset + 2) << 16)
       // Sign-extend the 24-bit value: shift it to the top of 32 bits and back.
       return (value << 8) >> 8

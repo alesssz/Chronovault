@@ -18,7 +18,9 @@ const API_LATENCY_MS = 500
 
 /** One thing that happened in the page, at `t` ms on the page's clock. */
 interface Mark {
+  /** What happened: a track ended, a track started playing, or a request went out. */
   kind: 'ended' | 'playing' | 'request'
+  /** When, in ms on the page's clock. */
   t: number
   /** The requested URL (requests only). */
   url?: string
@@ -27,6 +29,7 @@ interface Mark {
 /** Wraps the audio element and fetch of every page loaded from now on, to record the marks. */
 async function recordPlayback(page: Page) {
   await page.addInitScript(() => {
+    // Every mark, in order (read back by the test).
     const marks: Mark[] = []
     ;(window as unknown as { __marks: Mark[] }).__marks = marks
     // The player creates its one element with `new Audio()` on first play.

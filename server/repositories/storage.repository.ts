@@ -17,6 +17,7 @@ export const SIGNED_URL_TTL = 6 * 60 * 60
 
 /** Signs one file; throws (500) when the file is missing or not readable by this client. */
 export async function createSignedUrl(db: DbClient, bucket: string, path: string): Promise<string> {
+  // One signed URL, valid SIGNED_URL_TTL seconds.
   const { data, error } = await db.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL)
   if (error) throw toHttpError({ message: error.message }, `storage.sign:${bucket}`)
   return data.signedUrl
@@ -30,6 +31,7 @@ export async function createSignedUrls(db: DbClient, bucket: string, paths: stri
   // path → signed URL; a cover that fails is simply missing from the map.
   const result = new Map<string, string>()
   if (paths.length === 0) return result
+  // One request for every path; each entry has its URL or its own error.
   const { data, error } = await db.storage.from(bucket).createSignedUrls(paths, SIGNED_URL_TTL)
   if (error) {
     console.error(`[storage.signMany:${bucket}]`, error)
@@ -45,6 +47,7 @@ export async function createSignedUrls(db: DbClient, bucket: string, paths: stri
 export interface FolderFile {
   /** Full path inside the bucket (`<folder>/<name>`). */
   path: string
+  /** Size in bytes (0 when Storage reports none). */
   size: number
   /** ISO timestamp of the last upload (an upsert updates it). */
   lastModified: string
@@ -60,6 +63,7 @@ export async function listFolderFiles(db: DbClient, bucket: string, folder: stri
   // Files of every page, collected in order.
   const files: FolderFile[] = []
   for (let offset = 0; ; offset += PAGE) {
+    // One page of the folder, sorted by name so the pages follow each other.
     const { data, error } = await db.storage.from(bucket).list(folder, { limit: PAGE, offset, sortBy: { column: 'name', order: 'asc' } })
     if (error) throw toHttpError({ message: error.message }, `storage.list:${bucket}`)
     for (const item of data) {
@@ -80,6 +84,7 @@ export async function listFolderFiles(db: DbClient, bucket: string, folder: stri
  * when it is missing or not readable.
  */
 export async function downloadObject(db: DbClient, bucket: string, path: string): Promise<Blob | null> {
+  // The file's bytes, or an error when it is missing or not readable by this client.
   const { data, error } = await db.storage.from(bucket).download(path)
   if (error) {
     console.error(`[storage.download:${bucket}]`, error)
@@ -91,6 +96,7 @@ export async function downloadObject(db: DbClient, bucket: string, path: string)
 /** Best-effort removal: a failure here must not block the main operation. */
 export async function removeObjects(db: DbClient, bucket: string, paths: string[]): Promise<void> {
   if (paths.length === 0) return
+  // One request for every path; missing files are not an error.
   const { error } = await db.storage.from(bucket).remove(paths)
   if (error) console.error(`[storage.remove:${bucket}]`, error)
 }

@@ -8,7 +8,9 @@ import { createPlaylist } from '../../services/playlists.service'
  * 403 when a track id is not one of the user's tracks.
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
+  // The request body, validated against the schema (400 otherwise).
   const input = await readValidated(event, playlistCreateSchema)
   setResponseStatus(event, 201)
   return createPlaylist(db, userId, input)

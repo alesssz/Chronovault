@@ -12,4 +12,5 @@ export const analyticsQuerySchema = z.object({
     .transform(value => Number(value) as AnalyticsPeriod),
 })
 
+/** The validated query: `days` as a number (7 or 30). */
 export type AnalyticsQuery = z.output<typeof analyticsQuerySchema>

@@ -31,6 +31,7 @@ test.describe('streaming address', () => {
     const redirect = await page.request.get(url, { maxRedirects: 0 })
     expect(redirect.status()).toBe(302)
     expect(redirect.headers()['location']).toContain('X-Amz-Signature')
+    // The first four bytes, following the redirect to the storage.
     const audio = await page.request.get(url, { headers: { Range: 'bytes=0-3' } })
     expect(audio.status()).toBe(206)
     expect((await audio.body()).toString('latin1')).toBe('fLaC')
@@ -40,6 +41,7 @@ test.describe('streaming address', () => {
     const forged = new URLSearchParams(query)
     forged.set('k', query.get('k')!.replace(/\.flac$/, '.mp3'))
     expect((await page.request.head(`/api/stream?${forged}`)).status()).toBe(403)
+    // The same address with a later expiry: the signature no longer matches.
     const later = new URLSearchParams(query)
     later.set('e', String(Number(query.get('e')) + 60))
     expect((await page.request.get(`/api/stream?${later}`, { maxRedirects: 0 })).status()).toBe(403)

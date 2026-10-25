@@ -11,6 +11,7 @@ import { join } from 'node:path'
 
 /** `"24.11.0"` or `"v24.11.0"` → `[24, 11, 0]` (missing parts count as 0). */
 export function parseVersion(version) {
+  // Major, minor and patch, each a number (0 when missing or not a number).
   const [major = 0, minor = 0, patch = 0] = String(version).trim().replace(/^v/, '').split('.').map(part => Number.parseInt(part, 10) || 0)
   return [major, minor, patch]
 }
@@ -29,11 +30,14 @@ function compareVersions(a, b) {
  * e.g. `^22.21.0 || ^24.11.0 || >=26.0.0`.
  */
 export function satisfiesEngines(version, range) {
+  // The installed version, as numbers.
   const current = parseVersion(version)
   return range.split('||').some((alternative) => {
+    // One alternative of the range, e.g. `^24.11.0`.
     const part = alternative.trim()
     if (part.startsWith('>=')) return compareVersions(current, parseVersion(part.slice(2))) >= 0
     if (part.startsWith('^')) {
+      // The lowest version the caret allows.
       const minimum = parseVersion(part.slice(1))
       // Caret: same major version, at least the given one.
       return current[0] === minimum[0] && compareVersions(current, minimum) >= 0
@@ -44,6 +48,7 @@ export function satisfiesEngines(version, range) {
 
 /** The pnpm version pinned in `packageManager` (`"pnpm@12.14.0"` → `"12.14.0"`), or null. */
 export function pinnedPnpmVersion(packageManager) {
+  // The version after `pnpm@` (any hash after it is ignored).
   const match = /^pnpm@(\d+\.\d+\.\d+)/.exec(packageManager ?? '')
   return match ? match[1] : null
 }
@@ -55,6 +60,7 @@ export function pinnedPnpmVersion(packageManager) {
  * %LOCALAPPDATA%\ms-playwright, Linux ~/.cache/ms-playwright.
  */
 export function playwrightBrowsersDir(platform, env, home) {
+  // A folder chosen with PLAYWRIGHT_BROWSERS_PATH (`0`: inside node_modules).
   const custom = env.PLAYWRIGHT_BROWSERS_PATH
   if (custom === '0') return null
   if (custom) return custom
@@ -68,6 +74,7 @@ export function playwrightBrowsersDir(platform, env, home) {
  * playwright-core's browsers.json (e.g. `chromium_headless_shell-1248`).
  */
 export function headlessShellFolder(browsersJson) {
+  // The headless shell's entry, with its revision.
   const entry = browsersJson.browsers?.find(browser => browser.name === 'chromium-headless-shell')
   return entry ? `chromium_headless_shell-${entry.revision}` : null
 }
@@ -77,6 +84,7 @@ export function headlessShellFolder(browsersJson) {
  * anything else = Linux). The texts are commands to copy.
  */
 export function fixFor(problem, platform, details = {}) {
+  // Which system the fix is written for.
   const mac = platform === 'darwin'
   const windows = platform === 'win32'
   switch (problem) {

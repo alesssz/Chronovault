@@ -10,7 +10,9 @@
 import { ariaShortcut } from '~/lib/keyboard-shortcuts'
 
 withDefaults(defineProps<{
+  /** Button size (larger in the full-screen view). */
   size?: 'md' | 'lg' | 'xl'
+  /** The Stop button (left out where there is no room for it). */
   showStop?: boolean
   /** Shuffle and repeat buttons (the compact phone bar has no room for them). */
   showModes?: boolean
@@ -26,6 +28,7 @@ const player = usePlayerStore()
 
 <template>
   <div class="flex items-center gap-1">
+    <!-- Shuffle (library playback only, where there is a queue to shuffle) -->
     <IconButton
       v-if="showModes && player.queueEditable"
       icon="i-lucide-shuffle"
@@ -37,6 +40,7 @@ const player = usePlayerStore()
       data-testid="player-shuffle"
       @click="player.setShuffle(!player.shuffle)"
     />
+    <!-- Stop: pause and back to the start (left out where the parent passes show-stop false) -->
     <IconButton
       v-if="showStop"
       icon="i-lucide-square"
@@ -47,6 +51,7 @@ const player = usePlayerStore()
       :disabled="player.status === 'loading'"
       @click="player.stop()"
     />
+    <!-- Previous track (or the start of this one, a few seconds in) -->
     <IconButton
       icon="i-lucide-skip-back"
       color="neutral"
@@ -56,6 +61,7 @@ const player = usePlayerStore()
       :aria-keyshortcuts="ariaShortcut('previous')"
       @click="player.previous()"
     />
+    <!-- Play / pause, spinning while the track loads or waits for data -->
     <IconButton
       :icon="player.status === 'loading' || player.buffering ? 'i-lucide-loader-circle' : player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
       :size="size"
@@ -66,6 +72,7 @@ const player = usePlayerStore()
       data-testid="player-toggle"
       @click="player.togglePlay()"
     />
+    <!-- Next track (disabled after the last one, unless the queue loops) -->
     <IconButton
       icon="i-lucide-skip-forward"
       color="neutral"
@@ -76,6 +83,7 @@ const player = usePlayerStore()
       :disabled="!player.hasNext"
       @click="player.next()"
     />
+    <!-- Repeat: off, all, one (library playback only) -->
     <IconButton
       v-if="showModes && player.queueEditable"
       :icon="player.repeat === 'one' ? 'i-lucide-repeat-1' : 'i-lucide-repeat'"

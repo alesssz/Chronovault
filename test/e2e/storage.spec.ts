@@ -10,6 +10,7 @@ import { signUp, uniqueId, uploadTrack } from './helpers'
 test.describe('storage clean-up', () => {
   test('finds and deletes the file of an interrupted upload, and only that', async ({ page }) => {
     await signUp(page)
+    // A title unique to this test.
     const title = `kept-${uniqueId()}`
     await uploadTrack(page, title)
     await page.goto('/')
@@ -23,12 +24,14 @@ test.describe('storage clean-up', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ trackId: crypto.randomUUID(), extension: 'mp3', mimeType: 'audio/mpeg', sizeBytes: body.length }),
       })).json() as { uploadUrl: string }
+      // The file uploaded without registering a track: an orphan.
       const put = await fetch(target.uploadUrl, { method: 'PUT', body, headers: { 'content-type': 'audio/mpeg' } })
       if (!put.ok) throw new Error(`upload failed: ${put.status}`)
     })
 
     await page.getByRole('button', { name: 'User menu' }).click()
     await page.getByRole('menuitem', { name: 'Storage' }).click()
+    // The Storage dialog's report.
     const report = page.getByTestId('storage-report')
     await expect(report).toBeVisible()
     await expect(report.getByTestId('storage-orphan')).toHaveCount(1)

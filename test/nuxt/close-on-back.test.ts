@@ -11,15 +11,20 @@ import { useCloseOnBack } from '~/composables/useCloseOnBack'
 
 /** Stand-in for the browser's CloseWatcher: `back()` plays the user's close request. */
 class FakeCloseWatcher {
+  /** Every watcher made, in order. */
   static instances: FakeCloseWatcher[] = []
+  /** The handler the composable sets. */
   onclose: ((event: Event) => void) | null = null
+  /** destroy() was called. */
   destroyed = false
   /** Already fired its close: a real watcher is inactive from then on. */
   spent = false
+  /** Records itself, like the browser keeps it active. */
   constructor() {
     FakeCloseWatcher.instances.push(this)
   }
 
+  /** The composable dropped it. */
   destroy() {
     this.destroyed = true
   }
@@ -36,10 +41,13 @@ const live = () => FakeCloseWatcher.instances.filter(w => !w.destroyed && !w.spe
 
 /** Runs the composable in its own effect scope, like a component would; returns its state and a stop. */
 function setUp(options: { refuse?: boolean } = {}) {
+  // Whether the overlay is open.
   const open = ref(false)
+  // The overlay's close function (a locked dialog refuses: it stays open).
   const close = vi.fn(() => {
     if (!options.refuse) open.value = false
   })
+  // The composable's scope, stopped to simulate the component going away.
   const scope = effectScope()
   scope.run(() => useCloseOnBack(open, close))
   return { open, close, stop: () => scope.stop() }
@@ -62,6 +70,7 @@ describe('useCloseOnBack', () => {
   })
 
   it('back closes the open overlay', async () => {
+    // An overlay that closes when asked.
     const { open, close } = setUp()
     open.value = true
     await nextTick()
@@ -73,9 +82,11 @@ describe('useCloseOnBack', () => {
   })
 
   it('closing it another way drops the watcher, so back is free again', async () => {
+    // An overlay that closes when asked.
     const { open } = setUp()
     open.value = true
     await nextTick()
+    // The watcher armed by the opening.
     const watcher = live()[0]!
 
     open.value = false
@@ -84,6 +95,7 @@ describe('useCloseOnBack', () => {
   })
 
   it('a refused close (locked dialog) arms a new watcher for the next back press', async () => {
+    // An overlay that refuses to close (a locked dialog).
     const { open, close } = setUp({ refuse: true })
     open.value = true
     await nextTick()
@@ -98,6 +110,7 @@ describe('useCloseOnBack', () => {
   })
 
   it('Esc is left to Nuxt UI: no close from the watcher, re-armed while still open', async () => {
+    // An overlay that closes when asked.
     const { open, close } = setUp()
     open.value = true
     await nextTick()
@@ -111,9 +124,11 @@ describe('useCloseOnBack', () => {
   })
 
   it('leaving the page while open drops the watcher', async () => {
+    // An overlay, and the stop of its scope.
     const { open, stop } = setUp()
     open.value = true
     await nextTick()
+    // The watcher armed by the opening.
     const watcher = live()[0]!
 
     stop()
@@ -122,6 +137,7 @@ describe('useCloseOnBack', () => {
 
   it('does nothing where the browser has no CloseWatcher', async () => {
     vi.stubGlobal('CloseWatcher', undefined)
+    // An overlay that closes when asked.
     const { open, close } = setUp()
     open.value = true
     await nextTick()

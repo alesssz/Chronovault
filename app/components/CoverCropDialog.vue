@@ -52,6 +52,7 @@ watch(() => props.file, (file) => {
   unreadable.value = false
 }, { immediate: true })
 
+// The preview's temporary address is released with the dialog.
 onBeforeUnmount(() => {
   if (src.value) URL.revokeObjectURL(src.value)
 })
@@ -61,6 +62,7 @@ const ready = computed(() => natural.width > 0 && natural.height > 0)
 
 /** Image decoded: read its natural size and start on the centered square. */
 function onImageLoad(event: Event) {
+  // The preview image.
   const img = event.target as HTMLImageElement
   natural.width = img.naturalWidth
   natural.height = img.naturalHeight
@@ -113,6 +115,7 @@ const dragging = ref(false)
 
 /** Distance between the two active pointers (pinch), 0 with fewer. */
 function distance(): number {
+  // The two pointers (fewer than two: no pinch).
   const [a, b] = [...pointers.values()]
   return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
 }
@@ -130,6 +133,7 @@ function onPointerDown(event: PointerEvent) {
 
 /** One pointer drags the image; two pointers pinch to zoom. */
 function onPointerMove(event: PointerEvent) {
+  // Where this pointer was last.
   const previous = pointers.get(event.pointerId)
   if (!previous) return
   if (pointers.size === 1) {
@@ -140,6 +144,7 @@ function onPointerMove(event: PointerEvent) {
   // Two fingers: the zoom follows the change of distance between them.
   const before = distance()
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  // Their distance after the move.
   const after = distance()
   if (before > 0 && after > 0) zoomBy(after / before)
 }
@@ -166,6 +171,7 @@ function onKeydown(event: KeyboardEvent) {
     ArrowUp: [0, -step],
     ArrowDown: [0, step],
   }
+  // The shift for this arrow key, if it is one.
   const move = moves[event.key]
   if (move) moveBy(...move)
   else if (event.key === '+' || event.key === '=') zoomBy(event.shiftKey ? 1.25 : 1.1)
@@ -215,6 +221,7 @@ function confirm() {
           @wheel.prevent="onWheel"
           @keydown="onKeydown"
         >
+          <!-- The picked image, moved and scaled to show the chosen square -->
           <img
             v-if="src"
             :src="src"
@@ -239,6 +246,7 @@ function confirm() {
               :class="{ 'border-r': cell % 3 !== 0, 'border-b': cell <= 6 }"
             />
           </div>
+          <!-- Decoding the image -->
           <div
             v-if="!ready && !unreadable"
             class="absolute inset-0 flex items-center justify-center"
@@ -250,6 +258,7 @@ function confirm() {
           </div>
         </div>
 
+        <!-- Not an image the browser can open -->
         <UAlert
           v-if="unreadable"
           color="error"
@@ -259,6 +268,7 @@ function confirm() {
           description="Use a JPEG, PNG or WebP image."
         />
 
+        <!-- Zoom slider (the wheel and a pinch zoom too) -->
         <div class="flex items-center gap-3">
           <UIcon
             name="i-lucide-zoom-out"
@@ -295,6 +305,7 @@ function confirm() {
         >
           <span class="hidden sm:inline">Reset</span>
         </UButton>
+        <!-- Cancel, and keep this square -->
         <div class="flex gap-2">
           <UButton
             label="Cancel"

@@ -36,14 +36,19 @@ export type TrackStatus = (typeof TRACK_STATUSES)[number]
  * time of the line they introduce.
  */
 export interface SyncedLyricLine {
+  /** When the line starts, in seconds from the start of the track (centisecond precision, as in LRC). */
   time: number
+  /** The line as sung (or the header's name, e.g. "[Chorus]"). */
   text: string
+  /** A section header rather than a sung line: shown as a title, never highlighted as "now". */
   section?: boolean
 }
 
 /** A genre as the API returns it. */
 export interface Genre {
+  /** Row id (uuid), what tracks store in `genreId`. */
   id: string
+  /** The name shown in the filters and the editor. */
   name: string
   /** true when created by the user, false for built-in genres. */
   custom: boolean
@@ -51,45 +56,60 @@ export interface Genre {
 
 /** Lightweight data for lists and the library (no lyrics, peaks or long texts). */
 export interface TrackSummary {
+  /** Row id (uuid); also the file name of its audio and cover in storage. */
   id: string
+  /** The track's title (required, trimmed). */
   title: string
+  /** Who wrote it, as free text ("Chronovault, Ada"); written as artist and composer in downloads. */
   composers: string | null
+  /** Album name, free text. */
   album: string | null
+  /** Year of release or creation. */
   year: number | null
+  /** The genre (built-in or the owner's own), or none. */
   genreId: string | null
+  /** The owner marked it as mastered (a private note: never shared). */
   mastered: boolean
+  /** Who may open its share page (see TrackVisibility). */
   visibility: TrackVisibility
   /** Draft (work in progress) or final version. */
   status: TrackStatus
   /** Measured in the browser at upload time; null when the file could not be decoded. */
   durationSeconds: number | null
-  /** Generated columns: the library shows lyrics badges without loading the lyrics. */
+  /** Generated column: the track has lyrics (plain or synced), so the library shows the badge without loading them. */
   hasLyrics: boolean
+  /** Generated column: the lyrics are synced line by line (the "synced" badge). */
   hasSyncedLyrics: boolean
   /**
    * Cover address, or null when the track has none: /api/covers/tracks/:id?v=…
    * (stable, cached by the browser for a year; `v` changes with the track).
    */
   coverUrl: string | null
-  /** ISO 8601 timestamps. */
+  /** When it was uploaded (ISO 8601): the library's default order, newest first. */
   createdAt: string
+  /** When it last changed (ISO 8601): versions the cover address. */
   updatedAt: string
 }
 
 /** Full track data (editor and player). Only ever returned to the owner. */
 export interface TrackDetail extends TrackSummary {
+  /** Free text about the track, shown on its share page and in the full-screen player. */
   description: string | null
   /** The prompt used to generate the track on Suno: private, never shared. */
   sunoPrompt: string | null
   /** Plain lyrics, section headers included (`[Verse 1]` on their own line). */
   lyrics: string | null
+  /** The lyrics synced line by line (the sync editor's result), or none. */
   lyricsSynced: SyncedLyricLine[] | null
   /** Waveform amplitudes 0..1 (see shared/utils/peaks.ts). */
   peaks: number[] | null
+  /** The audio file's type, e.g. `audio/flac` (WAV uploads are stored as FLAC). */
   mimeType: string
+  /** The audio file's size in bytes (the Storage dialog's totals, the download's progress). */
   sizeBytes: number
-  /** Storage keys: owner-only, used by the editor (cover upload) and the server. */
+  /** Storage key of the audio file (`<userId>/<trackId>.<ext>`): owner-only, used by the server. */
   audioPath: string
+  /** Storage key of the cover, or none: owner-only, used by the editor (cover upload) and the server. */
   coverPath: string | null
 }
 
@@ -99,27 +119,39 @@ export interface TrackDetail extends TrackSummary {
  * status or storage paths.
  */
 export interface SharedTrack extends SharedTrackContent {
+  /** Never 'private': a private track answers like a missing one. */
   visibility: Exclude<TrackVisibility, 'private'>
 }
 
 /** Shareable fields of a track (also used for the tracks of a shared playlist). */
 export interface SharedTrackContent {
+  /** Row id: the share page's address (/t/:id) and what plays are recorded against. */
   id: string
+  /** The track's title. */
   title: string
+  /** Who wrote it, as free text. */
   composers: string | null
+  /** Album name. */
   album: string | null
+  /** Year of release or creation. */
   year: number | null
   /** Genre name (the genre itself may be one of the owner's custom genres). */
   genre: string | null
+  /** Free text about the track. */
   description: string | null
+  /** Plain lyrics, section headers included. */
   lyrics: string | null
+  /** The lyrics synced line by line, or none. */
   lyricsSynced: SyncedLyricLine[] | null
+  /** Waveform amplitudes 0..1, drawn before the audio loads. */
   peaks: number[] | null
+  /** Length in seconds, or null when unknown. */
   durationSeconds: number | null
   /** Drafts are shown to visitors as "Work in progress". */
   status: TrackStatus
   /** Signed Storage URL (6 h) of the cover: visitors have no session for /api/covers. */
   coverUrl: string | null
+  /** When it last changed (ISO 8601). */
   updatedAt: string
 }
 
@@ -128,6 +160,7 @@ export interface SharedTrackContent {
  * The player refreshes it before `expiresAt` when needed (app/stores/player.ts).
  */
 export interface PlaybackSource {
+  /** The streaming address (/api/stream, which redirects to a presigned storage URL). */
   url: string
   /** ISO 8601 expiry (6 hours after signing). */
   expiresAt: string
@@ -135,6 +168,7 @@ export interface PlaybackSource {
 
 /** Where the client uploads an audio file: a presigned PUT URL on the audio storage. */
 export interface AudioUploadTarget {
+  /** The presigned PUT address the browser uploads the file to, straight to storage. */
   uploadUrl: string
   /** Storage key to send back to POST /api/tracks. */
   audioPath: string

@@ -25,6 +25,7 @@ const props = defineProps<{
   busy: boolean
 }>()
 
+// What the panel asks the page to do: save the note typed for the current pick.
 const emit = defineEmits<{
   /** Save the name and comment with the current pick. */
   save: [name: string, comment: string]
@@ -40,6 +41,7 @@ const chosen = computed(() => props.tracks.find(t => t.status === 'final') ?? nu
 const name = ref('')
 /** The voter's comment, as typed. */
 const comment = ref('')
+// The fields follow the pick saved on the server (a reload shows what was sent).
 watch(() => props.state?.pick, (pick) => {
   name.value = pick?.name ?? ''
   comment.value = pick?.comment ?? ''

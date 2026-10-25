@@ -7,6 +7,7 @@
  */
 import type { AnalyticsBreakdownRow } from '~~/shared/types/analytics'
 
+// The breakdown's title, its rows and how to label a row's key.
 const props = defineProps<{
   title: string
   rows: AnalyticsBreakdownRow[]
@@ -26,6 +27,7 @@ const max = computed(() => Math.max(1, ...props.rows.map(r => r.pageviews)))
       {{ title }}
     </h2>
 
+    <!-- Nothing in the period -->
     <p
       v-if="!rows.length"
       class="text-sm text-dimmed"
@@ -33,6 +35,7 @@ const max = computed(() => Math.max(1, ...props.rows.map(r => r.pageviews)))
       No visits yet.
     </p>
 
+    <!-- One row per value: icon, label, page views, and a bar -->
     <ul
       v-else
       class="space-y-2.5"

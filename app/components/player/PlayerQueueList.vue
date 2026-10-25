@@ -41,6 +41,7 @@ function move(i: number, delta: number) {
  * converted to absolute queue positions with `offset`.
  */
 function menuFor(i: number): DropdownMenuItem[][] {
+  // The last position in the list.
   const last = items.value.length - 1
   return [
     [
@@ -66,6 +67,7 @@ function menuFor(i: number): DropdownMenuItem[][] {
       <h3 class="mb-2 text-xs font-semibold uppercase tracking-widest text-muted">
         Now playing
       </h3>
+      <!-- Its cover, title and composers -->
       <div class="flex items-center gap-3">
         <TrackCover
           :url="current.coverUrl"
@@ -104,6 +106,7 @@ function menuFor(i: number): DropdownMenuItem[][] {
         />
       </div>
 
+      <!-- Nothing after the current track -->
       <UEmpty
         v-if="!items.length"
         icon="i-lucide-list-end"
@@ -119,6 +122,7 @@ function menuFor(i: number): DropdownMenuItem[][] {
         class="-mx-2 space-y-0.5"
         data-testid="queue-list"
       >
+        <!-- One row per upcoming track: drag grip, cover, title (plays it), duration, menu -->
         <li
           v-for="(track, i) in items"
           :key="track.id"
@@ -146,6 +150,7 @@ function menuFor(i: number): DropdownMenuItem[][] {
           <span class="hidden text-sm tabular-nums text-muted sm:block">
             {{ formatTime(track.durationSeconds) }}
           </span>
+          <!-- Play now, play next, move up / down, remove -->
           <UDropdownMenu
             :items="menuFor(i)"
             :content="{ align: 'end' }"

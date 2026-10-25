@@ -8,6 +8,7 @@ import { getUnseenFeedback } from '../../services/feedback.service'
  * 200 → UnseenFeedback
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return getUnseenFeedback(db, userId)
 })

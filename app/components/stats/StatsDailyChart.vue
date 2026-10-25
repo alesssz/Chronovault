@@ -58,6 +58,7 @@ function heightOf(day: ChartDay): string {
 /** Short date for the axis and the tooltip, e.g. "Oct 21". */
 // UTC: the server's days are UTC days, whatever the viewer's time zone.
 const dateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+/** A `YYYY-MM-DD` day as "Oct 21". */
 function shortDate(date: string): string {
   return dateFormat.format(new Date(`${date}T00:00:00Z`))
 }

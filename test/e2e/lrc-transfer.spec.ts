@@ -25,17 +25,21 @@ test.describe('synced lyrics transfer', () => {
   test('LRC import from a file and export; synced lyrics travel inside the downloaded file', async ({ page, browser, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await signUp(page)
+    // A title unique to this test.
     const title = `lrc-${uniqueId()}`
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
+    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page).toHaveURL(/\/tracks\/.+\/edit/)
+    // The track's id, from the edit page's address.
     const trackId = page.url().split('/tracks/')[1]!.split('/')[0]!
 
     // Plain lyrics through the API, then a reload so the page shows them.
     await page.evaluate(async ({ id, lyrics }) => {
+      // The lyrics saved through the API, as the editor does.
       const response = await fetch(`/api/tracks/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -48,6 +52,7 @@ test.describe('synced lyrics transfer', () => {
     // --- Import: open an .lrc file in the dialog, apply, save ---
     await page.getByRole('tab', { name: 'Sync' }).click()
     await page.getByRole('button', { name: 'LRC' }).click()
+    // The LRC dialog.
     const dialog = page.getByRole('dialog')
     await dialog.getByTestId('lrc-file-input').setInputFiles({ name: 'song.lrc', mimeType: 'text/plain', buffer: Buffer.from(LRC) })
     await expect(dialog.getByRole('textbox')).toHaveValue(LRC)
@@ -61,8 +66,10 @@ test.describe('synced lyrics transfer', () => {
     await expect(page.getByText('LRC copied').first()).toBeVisible()
     // The Windows clipboard turns line breaks into CRLF (parseLrc reads both).
     expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(LRC)
+    // The next download, started by the button below.
     const lrcDownload = page.waitForEvent('download')
     await dialog.getByTestId('lrc-download').click()
+    // The LRC file saved.
     const lrcFile = await lrcDownload
     expect(lrcFile.suggestedFilename()).toBe(`${title}.lrc`)
     expect(await readFile((await lrcFile.path())!, 'utf8')).toBe(LRC)
@@ -71,20 +78,25 @@ test.describe('synced lyrics transfer', () => {
     // --- The downloaded FLAC carries the sync ---
     const audioDownload = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
+    // The downloaded FLAC, with its tags.
     const flac = await readFile((await (await audioDownload).path())!)
     await expect(page.getByText(/Written in: .*synced lyrics/).first()).toBeVisible()
 
     // --- Uploaded into another account ("production"): the sync comes back ---
     const otherContext = await browser.newContext()
     try {
+      // Another account, in another browser context.
       const other = await otherContext.newPage()
       await signUp(other)
       await other.goto('/tracks/new')
       await other.locator('input[type="file"]').setInputFiles({ name: `${title}.flac`, mimeType: 'audio/flac', buffer: flac })
       await expect(other.locator('[data-testid="upload-item"][data-status="done"]')).toHaveCount(1, { timeout: 30_000 })
 
+      // The uploaded copy's synced lyrics, read back through the API.
       const uploaded = await other.evaluate(async (wanted) => {
+        // The other account's tracks.
         const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
+        // The uploaded one.
         const id = tracks.find(t => t.title === wanted)!.id
         return await (await fetch(`/api/tracks/${id}`)).json() as { lyrics: string, lyricsSynced: unknown }
       }, title)

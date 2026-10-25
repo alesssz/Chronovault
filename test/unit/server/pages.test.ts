@@ -8,6 +8,7 @@ import { PAGE_SIZE, readAllPages } from '~~/server/repositories/pages'
 
 /** A fake paged query over `total` numbered rows, recording the ranges it was asked for. */
 function fakeTable(total: number) {
+  // Every range asked for, in order.
   const ranges: [number, number][] = []
   // `.range(from, to)` is inclusive, like PostgREST's.
   const page = vi.fn(async (from: number, to: number) => {
@@ -19,7 +20,9 @@ function fakeTable(total: number) {
 
 describe('readAllPages', () => {
   it('reads every row of a table longer than one page, in order', async () => {
+    // Two full pages and five rows more.
     const { page, ranges } = fakeTable(2 * PAGE_SIZE + 5)
+    // Every row, read through the pages.
     const rows = await readAllPages(page, 'test.list')
     expect(rows).toHaveLength(2 * PAGE_SIZE + 5)
     expect(rows[0]).toBe(0)
@@ -29,6 +32,7 @@ describe('readAllPages', () => {
 
   it('stops after a short page, and asks once more when the last page is exactly full', async () => {
     expect((await readAllPages(fakeTable(3).page, 'test.list'))).toEqual([0, 1, 2])
+    // A table exactly one page long.
     const full = fakeTable(PAGE_SIZE)
     expect(await readAllPages(full.page, 'test.list')).toHaveLength(PAGE_SIZE)
     // The table ends exactly at a page boundary: an empty page confirms it.
@@ -36,6 +40,7 @@ describe('readAllPages', () => {
   })
 
   it('turns a database error into an HTTP error', async () => {
+    // A query that always fails, as RLS would refuse it.
     const failing = async () => ({ data: null, error: { code: '42501', message: 'denied', details: '', hint: '', name: 'PostgrestError' } })
     await expect(readAllPages(failing, 'test.list')).rejects.toMatchObject({ statusCode: 403 })
   })

@@ -26,7 +26,9 @@ export async function useSharedItem<T>(key: string, load: () => Promise<T>) {
 
 /** What the link preview of a share page shows. */
 export interface ShareMetaOptions {
+  /** A track or a playlist. */
   kind: ShareKind
+  /** Its id (the page address). */
   id: string
   /** Site origin (also known during SSR): previews need absolute URLs. */
   origin: string
@@ -53,9 +55,11 @@ const SHARE_ROUTES: Record<ShareKind, { page: string, cover: string, ogType: 'mu
  * longer available, so every link shared in a chat shows whose music it is.
  */
 export function useShareMeta(options: ShareMetaOptions): void {
+  // The kind's page path, cover route and wording.
   const route = SHARE_ROUTES[options.kind]
   // "Track not available" / "Playlist not available".
   const unavailable = `${route.noun} not available`
+  // Title, description, Open Graph tags and robots, kept up to date as the data changes.
   useSeoMeta({
     title: () => `${options.title() ?? unavailable} · ${APP_NAME}`,
     description: options.description,

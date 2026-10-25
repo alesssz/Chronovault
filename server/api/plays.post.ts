@@ -13,6 +13,7 @@ import { recordPlay } from '../services/feedback.service'
  * 204 · 400 invalid body · 404
  */
 export default defineEventHandler(async (event) => {
+  // The request body, validated against the schema (400 otherwise).
   const play = await readValidated(event, playRecordSchema)
   await recordPlay(await visitorClient(event), play)
   setResponseStatus(event, 204)

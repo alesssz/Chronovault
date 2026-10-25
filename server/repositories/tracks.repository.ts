@@ -42,6 +42,7 @@ export async function listTrackLabels(db: DbClient, userId: string): Promise<Tra
 
 /** One full row, or null when it does not exist or belongs to someone else. */
 export async function findTrackRow(db: DbClient, userId: string, id: string): Promise<TrackRow | null> {
+  // At most one row (the id is the key); none when missing or not the user's.
   const { data, error } = await db.from('tracks').select('*').eq('id', id).eq('user_id', userId).maybeSingle()
   if (error) throw toHttpError(error, 'tracks.find')
   return data
@@ -49,6 +50,7 @@ export async function findTrackRow(db: DbClient, userId: string, id: string): Pr
 
 /** Lightweight query for the player: only the audio file path. */
 export async function findTrackAudioPath(db: DbClient, userId: string, id: string): Promise<string | null> {
+  // Only the column the player needs.
   const { data, error } = await db.from('tracks').select('audio_path').eq('id', id).eq('user_id', userId).maybeSingle()
   if (error) throw toHttpError(error, 'tracks.findAudioPath')
   return data?.audio_path ?? null
@@ -56,6 +58,7 @@ export async function findTrackAudioPath(db: DbClient, userId: string, id: strin
 
 /** Cover path of one of the user's tracks (null: no cover, or not the user's track). */
 export async function findTrackCoverPath(db: DbClient, userId: string, id: string): Promise<string | null> {
+  // Only the cover path.
   const { data, error } = await db.from('tracks').select('cover_path').eq('id', id).eq('user_id', userId).maybeSingle()
   if (error) throw toHttpError(error, 'tracks.findCoverPath')
   return data?.cover_path ?? null
@@ -80,6 +83,7 @@ export async function listTrackFilePaths(
 
 /** Inserts a track and returns the stored row (with defaults and generated columns). */
 export async function insertTrackRow(db: DbClient, row: TablesInsert<'tracks'>): Promise<TrackRow> {
+  // The new row, read back with its defaults and generated columns.
   const { data, error } = await db.from('tracks').insert(row).select('*').single()
   if (error) throw toHttpError(error, 'tracks.insert')
   return data
@@ -92,6 +96,7 @@ export async function updateTrackRow(
   id: string,
   patch: TablesUpdate<'tracks'>,
 ): Promise<TrackRow | null> {
+  // The updated row, or none when nothing matched (missing, or someone else's).
   const { data, error } = await db.from('tracks').update(patch).eq('id', id).eq('user_id', userId).select('*').maybeSingle()
   if (error) throw toHttpError(error, 'tracks.update')
   return data
@@ -107,6 +112,7 @@ export async function deleteTrackRow(
   userId: string,
   id: string,
 ): Promise<Pick<TrackRow, 'audio_path' | 'cover_path'> | null> {
+  // The deleted row's file paths (the caller removes the files), or none when nothing matched.
   const { data, error } = await db
     .from('tracks')
     .delete()

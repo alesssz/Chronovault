@@ -9,6 +9,7 @@ import { signUp, uniqueId, uploadTrack } from './helpers'
 test.describe('saved queue', () => {
   test('a reload resumes the queue; closing the player forgets it', async ({ page }) => {
     await signUp(page)
+    // Two tracks named uniquely for this test.
     const id = uniqueId()
     const [first, second] = [`first-${id}`, `second-${id}`]
     // Long enough not to end during the test.
@@ -17,6 +18,7 @@ test.describe('saved queue', () => {
 
     // Newest first: playing "second" leaves "first" up next.
     await page.getByTestId('track-row').filter({ hasText: second }).getByTestId('track-title').click()
+    // The player bar and its play button (the one on screen).
     const bar = page.getByTestId('player-bar')
     const toggle = bar.locator('[data-testid="player-toggle"]:visible')
     await expect(toggle).toHaveAttribute('aria-label', 'Pause')

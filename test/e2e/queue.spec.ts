@@ -23,6 +23,7 @@ async function expectTooltip(page: Page, target: Locator, text: string) {
 
 /** Opens a library row's menu and picks an item. */
 async function rowAction(page: Page, title: string, action: string) {
+  // The library row of that track.
   const row = page.getByTestId('track-row').filter({ hasText: title })
   await row.getByRole('button', { name: `Actions for ${title}` }).click()
   await page.getByRole('menuitem', { name: action, exact: true }).click()
@@ -31,6 +32,7 @@ async function rowAction(page: Page, title: string, action: string) {
 test.describe('editable queue', () => {
   test('add, play next, reorder, remove, play now and clear', async ({ page }) => {
     await signUp(page)
+    // Three tracks named uniquely for this test.
     const id = uniqueId()
     const [a, b, c] = [`qa-${id}`, `qb-${id}`, `qc-${id}`]
     for (const title of [a, b, c]) await uploadTrack(page, title)
@@ -38,6 +40,7 @@ test.describe('editable queue', () => {
 
     // The library shows the newest first (c, b, a): playing "a" leaves nothing after it.
     await page.getByTestId('track-row').filter({ hasText: a }).getByTestId('track-title').click()
+    // The player bar.
     const bar = page.getByTestId('player-bar')
     await expect(bar.getByTestId('player-title')).toHaveText(a)
 
@@ -51,6 +54,7 @@ test.describe('editable queue', () => {
     // --- The Up next panel ---
     await bar.getByTestId('player-queue').click()
     await expect(page.getByTestId('queue-current')).toHaveText(a)
+    // The titles listed in Up next.
     const titles = page.getByTestId('queue-item-title')
     await expect(titles).toHaveText([b, c])
 
@@ -80,6 +84,7 @@ test.describe('editable queue', () => {
 
   test('shuffle reorders the upcoming tracks and puts them back; repeat one restarts the track', async ({ page }) => {
     await signUp(page)
+    // Five tracks named uniquely for this test.
     const id = uniqueId()
     const titles = ['a', 'b', 'c', 'd', 'e'].map(letter => `s${letter}-${id}`)
     for (const title of titles) await uploadTrack(page, title)
@@ -95,6 +100,7 @@ test.describe('editable queue', () => {
     await expect(page.getByRole('menuitem', { name: 'Play next' })).toBeVisible()
     await page.keyboard.press('Escape')
     await page.getByTestId('track-row').filter({ hasText: first }).getByTestId('track-title').click()
+    // The player bar and its play button (the one on screen: phone and desktop have their own).
     const bar = page.getByTestId('player-bar')
     const toggle = bar.locator('[data-testid="player-toggle"]:visible')
     await expect(toggle).toHaveAttribute('aria-label', 'Pause')
@@ -107,8 +113,10 @@ test.describe('editable queue', () => {
     /** The Up next titles, read from the panel (opened, then closed again). */
     const upNext = async () => {
       await bar.getByTestId('player-queue').click()
+      // The titles listed in Up next, and their text.
       const items = page.getByTestId('queue-item-title')
       await expect(items).toHaveCount(rest.length)
+      // Their text.
       const texts = await items.allTextContents()
       await page.keyboard.press('Escape')
       await expect(page.getByTestId('queue-list')).toBeHidden()
@@ -139,6 +147,7 @@ test.describe('editable queue', () => {
     await repeatButton.click()
     await expect(repeatButton).toHaveAttribute('aria-label', 'Repeat: one')
     await toggle.click()
+    // The elapsed time, to see the track start again.
     const elapsed = bar.getByTestId('player-elapsed')
     await expect(elapsed).toHaveText('0:02')
     await expect(elapsed).toHaveText(/^0:0[01]$/)
@@ -149,6 +158,7 @@ test.describe('editable queue', () => {
     // --- Tablet width: the bar keeps a real waveform (it used to shrink to nothing) ---
     await page.setViewportSize({ width: 820, height: 1180 })
     await expect(shuffleButton).toBeVisible()
+    // Where the waveform is on a tablet-sized screen.
     const waveform = await bar.getByTestId('player-waveform').boundingBox()
     expect(waveform?.width).toBeGreaterThan(120)
 
@@ -159,10 +169,12 @@ test.describe('editable queue', () => {
     // above the button, is inside it. Moving there must close it, so that a
     // click lands on the waveform and not on the tooltip.
     await expectTooltip(page, toggle, 'Play')
+    // A point over the waveform, straight above the play button (where its tooltip would be).
     const x = toggleBox!.x + toggleBox!.width / 2
     const y = waveform!.y + waveform!.height / 2
     await page.mouse.move(x, y)
     await expect(page.getByRole('tooltip')).toHaveCount(0)
+    // The element actually under that point.
     const hit = await page.evaluate(([px, py]) =>
       !!document.elementFromPoint(px!, py!)?.closest('[data-testid="player-waveform"]'), [x, y])
     expect(hit).toBe(true)

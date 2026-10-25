@@ -208,6 +208,7 @@ function resetAll() {
 watch(() => props.active, (active) => {
   if (!active) player.setPlaybackRate(1)
 })
+// Leaving the editor always gives the normal speed back.
 onBeforeUnmount(() => player.setPlaybackRate(1))
 
 // --- Screen kept on while syncing ----------------------------------------------------
@@ -218,6 +219,7 @@ onBeforeUnmount(() => player.setPlaybackRate(1))
 const wakeLock = useWakeLock()
 /** The editor is in use: its tab is shown and the track is in the player. */
 const syncing = computed(() => props.active && isLoaded.value)
+// The screen stays on while syncing (phones), and may sleep again after.
 watch(syncing, (on) => {
   if (!wakeLock.isSupported.value) return
   // Refusals are fine (e.g. battery saver): the screen just behaves as usual.
@@ -235,6 +237,7 @@ function loadInPlayer() {
 // P plays): the player's own shortcuts (Space play/pause, ← / → seek…) wait meanwhile.
 useKeyboardClaim(syncing)
 
+// The editor's own keys (Space stamps, R replays, arrows nudge…), while it is in use.
 useEventListener('keydown', (event: KeyboardEvent) => {
   if (!props.active || !isLoaded.value) return
   // Where the key was pressed: some places keep their keys.
@@ -497,6 +500,7 @@ function applyLrc() {
             'ring-1 ring-inset ring-primary': i === selected,
           }"
       >
+        <!-- A section header: a title, never stamped (it follows the line after it) -->
         <template v-if="row.section">
           <span class="w-20 shrink-0" />
           <span
@@ -504,6 +508,7 @@ function applyLrc() {
             data-testid="sync-section"
           >{{ row.text.slice(1, -1) }}</span>
         </template>
+        <!-- A lyric line: its time (or a dash until stamped), its text, and its nudges -->
         <template v-else>
           <button
             type="button"

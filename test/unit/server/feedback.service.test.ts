@@ -49,9 +49,11 @@ beforeEach(() => {
 const LONG_AGO = '2026-01-01T00:00:00Z'
 
 describe('tallyFeedback', () => {
+  // A group of two drafts: voting open.
   const drafts = [{ id: V1, status: 'draft' as const }, { id: V2, status: 'draft' as const }]
 
   it('counts votes and plays per version, in the group\'s order', () => {
+    // The feedback of three plays and three votes.
     const feedback = tallyFeedback(
       drafts,
       [play(V1, 'l1', true), play(V1, 'l2'), play(V2, 'l1')],
@@ -68,6 +70,7 @@ describe('tallyFeedback', () => {
   })
 
   it('leaves out votes and plays of versions no longer in the group', () => {
+    // Feedback with only a play and a vote for a track outside the group.
     const feedback = tallyFeedback(drafts, [play(OTHER, 'l9')], [vote(OTHER)], LONG_AGO)
     expect(feedback.votes).toBe(0)
     expect(feedback.unseen).toBe(0)
@@ -80,6 +83,7 @@ describe('tallyFeedback', () => {
   })
 
   it('lists the picks that came with a name or a comment, newest first', () => {
+    // Three votes, two of them with words.
     const feedback = tallyFeedback(drafts, [], [
       vote(V1, { name: 'Ada', updated_at: '2026-10-20T10:00:00Z' }),
       vote(V2),
@@ -93,6 +97,7 @@ describe('tallyFeedback', () => {
 
   it('marks what came after the owner\'s last visit, whatever the timestamp format', () => {
     // Postgres writes "+00:00" and microseconds: compared as instants, not as text.
+    // Two votes after the visit, one before, timestamps in Postgres's own format.
     const feedback = tallyFeedback(drafts, [], [
       vote(V1, { name: 'Ada', updated_at: '2026-10-20T10:00:00.123456+00:00' }),
       vote(V2, { name: 'Bo', updated_at: '2026-10-22T10:00:00.5+00:00' }),
@@ -106,13 +111,16 @@ describe('tallyFeedback', () => {
 describe('countUnseen', () => {
   // Two groups: one visited on Oct 21, one never visited (created Oct 20).
   const G2 = '44444444-4444-4444-8444-444444444444'
+  // The groups, as getUnseenFeedback hands them over.
   const groups = [
     { id: GROUP, createdAt: '2026-10-01T00:00:00Z', trackIds: [V1, V2] },
     { id: G2, createdAt: '2026-10-20T00:00:00Z', trackIds: [OTHER] },
   ]
+  // The only recorded visit: the first group, on Oct 21.
   const seen = [{ playlist_id: GROUP, seen_at: '2026-10-21T00:00:00+00:00' }]
 
   it('counts the votes after each group\'s last visit, or after its creation when never visited', () => {
+    // Unseen counts of four votes, before and after each reference instant.
     const unseen = countUnseen(groups, [
       { playlist_id: GROUP, track_id: V1, updated_at: '2026-10-20T09:00:00Z' },
       { playlist_id: GROUP, track_id: V2, updated_at: '2026-10-22T09:00:00Z' },
@@ -123,6 +131,7 @@ describe('countUnseen', () => {
   })
 
   it('ignores votes for versions no longer in the group, and leaves quiet groups out', () => {
+    // Unseen counts of a vote for a track that left the group.
     const unseen = countUnseen(groups, [
       { playlist_id: GROUP, track_id: OTHER, updated_at: '2026-10-22T09:00:00Z' },
     ], seen)
@@ -181,6 +190,7 @@ describe('vote state', () => {
 
   it('returns the new state after a vote', async () => {
     vi.mocked(feedbackRepo.findVoteState).mockResolvedValue({ open: true, is_owner: false, track_id: V2, name: null, comment: null })
+    // The state after the vote, read back.
     const state = await castVote(db, GROUP, { voterId: VOTER, trackId: V2, name: null, comment: null })
     expect(feedbackRepo.castVote).toHaveBeenCalledWith(db, GROUP, { voterId: VOTER, trackId: V2, name: null, comment: null })
     expect(state.pick?.trackId).toBe(V2)
@@ -209,6 +219,7 @@ describe('getVersionFeedback', () => {
     vi.mocked(feedbackRepo.listVoteRows).mockResolvedValue([vote(V1)])
     // Never visited: the group's creation is the reference, so the vote is new.
     vi.mocked(feedbackRepo.findSeenAt).mockResolvedValue(null)
+    // The feedback of that group.
     const feedback = await getVersionFeedback(db, USER, GROUP)
     expect(feedback.unseen).toBe(1)
     expect(feedbackRepo.listPlaylistPlayRows).toHaveBeenCalledWith(db, USER, GROUP)

@@ -14,6 +14,7 @@ const VERSIONS = ['Echo v1', 'Echo v2']
 
 /** The owner's tracks, by title (read through the API from the signed-in page). */
 async function trackIds(page: Page): Promise<Record<string, string>> {
+  // The user's tracks, read through the page (its session goes along).
   const tracks = await page.evaluate(async () => (await (await fetch('/api/tracks')).json() as { id: string, title: string }[]))
   return Object.fromEntries(tracks.map(t => [t.title, t.id]))
 }
@@ -23,6 +24,7 @@ test.describe('listeners\' feedback', () => {
     test.setTimeout(120_000)
     await signUp(page)
     for (const title of VERSIONS) await uploadTrack(page, title)
+    // The versions' ids, by title.
     const ids = await trackIds(page)
 
     // An unlisted group of the two versions, as "Share for feedback" makes it.
@@ -35,8 +37,10 @@ test.describe('listeners\' feedback', () => {
       return (await response.json() as { id: string }).id
     }, [ids['Echo v1'], ids['Echo v2']])
 
+    // A friend without an account, in another browser context.
     const friendContext = await browser.newContext()
     try {
+      // The friend's page.
       const friend = await friendContext.newPage()
       await friend.goto(`/p/${group}`)
       /** A version's row on the public page. */
@@ -78,9 +82,11 @@ test.describe('listeners\' feedback', () => {
 
       // --- The Versions page: votes, plays and the note ---
       await page.goto(`/versions/${group}`)
+      // The group's feedback panel on the owner's page.
       const panel = page.getByTestId('version-feedback')
       await expect(panel.getByTestId('version-feedback-totals')).toHaveText('1 vote · 1 listener')
       await expect(panel.getByTestId('version-feedback-status')).toContainText('Voting is open')
+      // The owner's row of a version.
       const ownerRow = (title: string) => page.getByTestId('playlist-track').filter({ hasText: title })
       await expect(ownerRow('Echo v1').getByTestId('version-tally')).toContainText('0 votes')
       await expect(ownerRow('Echo v1').getByTestId('version-tally')).toContainText('1 play, 1 to the end')
@@ -117,6 +123,7 @@ test.describe('listeners\' feedback', () => {
     await expect(page.getByTestId('stats-listeners')).toHaveText('1')
     await expect(page.getByTestId('stats-own-plays')).toHaveText('0')
     await expect(page.getByTestId('stats-plays-chart').getByTestId('stats-day-bar')).toHaveCount(30)
+    // The group's row on the Statistics page.
     const groupRow = page.getByTestId('stats-item').filter({ hasText: 'Echo – versions' })
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 play')
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 to the end')

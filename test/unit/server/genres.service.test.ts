@@ -10,6 +10,7 @@ vi.mock('~~/server/repositories/genres.repository')
 
 // The repository is mocked: the client is never used.
 const db = {} as DbClient
+// The user (the owner of the custom genre).
 const USER = '11111111-1111-4111-8111-111111111111'
 
 beforeEach(() => {
@@ -31,6 +32,7 @@ describe('listGenres', () => {
 
 describe('createGenre', () => {
   it('returns the existing genre ignoring case and spaces', async () => {
+    // The genre asked for with other case and spaces.
     const genre = await createGenre(db, USER, '  pop ')
     expect(genre).toEqual({ id: 'g1', name: 'Pop', custom: false })
     expect(genresRepo.insertGenreRow).not.toHaveBeenCalled()
@@ -38,6 +40,7 @@ describe('createGenre', () => {
 
   it('creates a new custom genre', async () => {
     vi.mocked(genresRepo.insertGenreRow).mockResolvedValue({ id: 'g3', name: 'Vaporwave', user_id: USER })
+    // A genre that does not exist yet.
     const genre = await createGenre(db, USER, ' Vaporwave ')
     expect(genresRepo.insertGenreRow).toHaveBeenCalledWith(db, USER, 'Vaporwave')
     expect(genre).toEqual({ id: 'g3', name: 'Vaporwave', custom: true })

@@ -25,6 +25,7 @@ const validMetadata = {
 
 describe('trackMetadataSchema', () => {
   it('trims whitespace and turns empty texts into null', () => {
+    // The metadata as the schema outputs it.
     const data = trackMetadataSchema.parse(validMetadata)
     expect(data.title).toBe('Night')
     expect(data.composers).toBeNull()
@@ -34,6 +35,7 @@ describe('trackMetadataSchema', () => {
   })
 
   it('requires a title', () => {
+    // A blank title, checked.
     const result = trackMetadataSchema.safeParse({ ...validMetadata, title: '   ' })
     expect(result.success).toBe(false)
   })

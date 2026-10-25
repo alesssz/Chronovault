@@ -17,17 +17,27 @@ import { resolveAudioMimeType, titleFromFileName } from '~~/shared/utils/audio-f
 
 /** Everything the upload needs to know about a file; becomes the initial track metadata. */
 export interface AudioAnalysis {
+  /** The type the file is stored with (from the browser, or from its extension). */
   mimeType: string
+  /** The title tag, or the file name when there is none. */
   title: string
+  /** The composer tag(s), otherwise the artist. */
   composers: string | null
+  /** The album tag. */
   album: string | null
+  /** The year tag, when it is a plausible year. */
   year: number | null
+  /** The first genre tag (matched to a genre, or created, by the uploader). */
   genre: string | null
+  /** Plain lyrics from the tags. */
   lyrics: string | null
   /** Synced lyrics found in the tags (SYLT frame, or LRC text in a lyrics field). */
   lyricsSynced: SyncedLyricLine[] | null
+  /** Length in seconds: decoded when possible (more reliable than the tags). */
   durationSeconds: number | null
+  /** Waveform amplitudes 0..1, or null when the browser cannot decode the file. */
   peaks: number[] | null
+  /** The front cover found in the tags, as an image file (cropped and converted later). */
   cover: Blob | null
 }
 
@@ -37,9 +47,11 @@ export interface AudioAnalysis {
  * VBR MP3s); the title falls back to the file name.
  */
 export async function analyzeAudioFile(file: File): Promise<AudioAnalysis> {
+  // The storage type (unsupported formats stop here).
   const mimeType = resolveAudioMimeType(file)
   if (!mimeType) throw new Error('Unsupported audio format')
 
+  // Tags and waveform at the same time: they read the file independently.
   const [tags, decoded] = await Promise.all([readTags(file), decodePeaks(file)])
 
   return {
@@ -59,14 +71,23 @@ export async function analyzeAudioFile(file: File): Promise<AudioAnalysis> {
 
 /** Normalized tag values (null when absent). */
 interface Tags {
+  /** The title tag. */
   title: string | null
+  /** The composer tag(s), otherwise the artist. */
   composers: string | null
+  /** The album tag. */
   album: string | null
+  /** The year tag, within 1000–9999. */
   year: number | null
+  /** The first genre tag. */
   genre: string | null
+  /** Plain lyrics. */
   lyrics: string | null
+  /** Synced lyrics. */
   lyricsSynced: SyncedLyricLine[] | null
+  /** The length the container declares (often wrong for VBR MP3s). */
   duration: number | null
+  /** The front cover. */
   cover: Blob | null
 }
 
@@ -87,7 +108,9 @@ const syncedLinesSchema = z.array(syncedLyricLineSchema).min(1).max(2000)
  *   stanzas), otherwise the synced lines' text.
  */
 export function lyricsFromTags(tags: ILyricsTag[] | undefined): { lyrics: string | null, lyricsSynced: SyncedLyricLine[] | null } {
+  // The first tag that carries synced lines with millisecond times.
   const syncedTag = tags?.find(tag => tag.syncText?.length && tag.timeStampFormat === TimestampFormat.milliseconds)
+  // Its lines as synced lyric lines, sorted by time.
   const lines = syncedTag?.syncText
     .filter(line => line.timestamp != null)
     .map(line => ({
@@ -97,10 +120,13 @@ export function lyricsFromTags(tags: ILyricsTag[] | undefined): { lyrics: string
       ...(isSectionHeader(line.text) ? { section: true } : {}),
     }))
     .sort((a, b) => a.time - b.time)
+  // Checked against the API's limits: lines it would refuse drop the sync, not the upload.
   const parsed = syncedLinesSchema.safeParse(lines)
   const lyricsSynced = parsed.success ? parsed.data : null
 
+  // The first tag with plain text (no timestamps).
   const plainTag = tags?.find(tag => !tag.syncText?.length && tag.text?.trim())
+  // Its text, otherwise the synced lines' text one per line.
   const lyrics = plainTag?.text ?? syncedTag?.syncText.map(line => line.text).join('\n') ?? null
   return { lyrics: lyrics?.trim() || null, lyricsSynced }
 }
@@ -113,9 +139,13 @@ export function lyricsFromTags(tags: ILyricsTag[] | undefined): { lyrics: string
  */
 async function readTags(file: File): Promise<Tags> {
   try {
+    // Every tag the container has, normalized by music-metadata, and the format details.
     const { common, format } = await parseBlob(file)
+    // The front cover, or the first picture when none is marked as front.
     const picture = selectCover(common.picture)
+    // Plain and synced lyrics (see lyricsFromTags).
     const { lyrics, lyricsSynced } = lyricsFromTags(common.lyrics)
+    // Composers as written, else the artist.
     const composers = common.composer?.join(', ') || common.artist || null
     return {
       title: common.title?.trim() || null,
@@ -140,6 +170,7 @@ async function readTags(file: File): Promise<Tags> {
  * and ~5x less memory than the original 44.1 kHz).
  */
 async function decodePeaks(file: File): Promise<{ peaks: number[], duration: number } | null> {
+  // The whole file in memory (decoding needs the bytes).
   const buffer = await file.arrayBuffer()
   // Some browsers reject very low sample rates: step up until one works.
   // `buffer.slice(0)`: decodeAudioData detaches (empties) the buffer it gets,
@@ -148,7 +179,9 @@ async function decodePeaks(file: File): Promise<{ peaks: number[], duration: num
     try {
       // A minimal offline context: only used to decode, never to play.
       const context = new OfflineAudioContext(1, 1, sampleRate)
+      // The decoded audio, resampled to this rate.
       const audio = await context.decodeAudioData(buffer.slice(0))
+      // One array of samples per channel.
       const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i))
       return { peaks: computePeaks(channels), duration: audio.duration }
     }

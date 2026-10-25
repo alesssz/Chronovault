@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { buildMergeMessage } from '../../../scripts/lib/merge-message.mjs'
 
+// The script under test.
 const SCRIPT = fileURLToPath(new URL('../../../scripts/merge-main.mjs', import.meta.url))
 
 describe('buildMergeMessage', () => {
@@ -52,6 +53,7 @@ describe('merge-main script', () => {
 
   /** Runs the script in the working copy (stdin is not a terminal). */
   function runScript(...args: string[]) {
+    // The script run as the user would, its output and exit code collected.
     const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: work, encoding: 'utf8' })
     return { code: result.status, output: `${result.stdout}${result.stderr}` }
   }
@@ -71,6 +73,7 @@ describe('merge-main script', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'merge-main-'))
+    // A bare repository standing in for GitHub, and a clone of it to work in.
     const remote = join(root, 'remote.git')
     work = join(root, 'work')
     git(root, 'init', '--bare', '--initial-branch=main', remote)
@@ -86,6 +89,7 @@ describe('merge-main script', () => {
   })
 
   it('does nothing on main', () => {
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(0)
     expect(output).toContain('Already on main')
@@ -94,6 +98,7 @@ describe('merge-main script', () => {
   it('merges a pushed branch, deletes it everywhere and leaves you on an up-to-date main', () => {
     pushedBranch()
 
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -110,6 +115,7 @@ describe('merge-main script', () => {
   it('stops on uncommitted changes', () => {
     pushedBranch()
     writeFileSync(join(work, 'a.txt'), 'changed')
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('uncommitted changes')
@@ -118,6 +124,7 @@ describe('merge-main script', () => {
   it('stops when the branch has never been pushed', () => {
     git(work, 'switch', '-c', 'feat/local')
     commit(work, 'a.txt', 'a', 'Add a')
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('never been pushed')
@@ -126,6 +133,7 @@ describe('merge-main script', () => {
   it('stops when some commits are only local', () => {
     pushedBranch()
     commit(work, 'c.txt', 'c', 'Add c')
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('1 local commit(s) not pushed')
@@ -135,6 +143,7 @@ describe('merge-main script', () => {
   it('stops when the branch has nothing new', () => {
     git(work, 'switch', '-c', 'feat/empty')
     git(work, 'push', '-u', 'origin', 'feat/empty')
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('nothing to merge')
@@ -142,6 +151,7 @@ describe('merge-main script', () => {
 
   it('asks for confirmation, and stops without a terminal to ask in', () => {
     pushedBranch()
+    // The script run without --yes (and no terminal to ask in).
     const { code, output } = runScript()
     expect(code).toBe(1)
     expect(output).toContain('--yes')
@@ -156,6 +166,7 @@ describe('merge-main script', () => {
     git(work, 'push', 'origin', 'main')
     git(work, 'switch', 'feat/thing')
 
+    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code).toBe(1)

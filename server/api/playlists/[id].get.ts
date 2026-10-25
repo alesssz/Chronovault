@@ -6,6 +6,7 @@ import { getPlaylist } from '../../services/playlists.service'
  * 200 → PlaylistDetail; 400 invalid id; 404.
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return getPlaylist(db, userId, requireUuidParam(event))
 })

@@ -23,15 +23,19 @@ test.describe('download with tags', () => {
     // A WAV: stored as a verified FLAC.
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
+    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page).toHaveURL(/\/tracks\/.+\/edit/)
+    // The track's id, from the edit page's address.
     const trackId = page.url().split('/tracks/')[1]!.split('/')[0]!
 
     // Metadata through the API (faster than filling the form), genre by name.
     await page.evaluate(async (id) => {
+      // The built-in genres, to pick one by name.
       const genres = await (await fetch('/api/genres')).json() as { id: string, name: string }[]
+      // The metadata saved through the API.
       const response = await fetch(`/api/tracks/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -56,22 +60,27 @@ test.describe('download with tags', () => {
     // --- Download (fast: no progress toast may flash before the final one) ---
     // Records whether "Preparing download…" ever appears, even for an instant.
     await page.evaluate(() => {
+      // Where the observer records it.
       const w = window as unknown as { progressToastSeen: boolean }
       w.progressToastSeen = false
       new MutationObserver(() => {
         if (document.body.textContent?.includes('Preparing download')) w.progressToastSeen = true
       }).observe(document.body, { childList: true, subtree: true, characterData: true })
     })
+    // The next download, started by the button below.
     const downloadEvent = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
+    // The file saved.
     const download = await downloadEvent
     expect(download.suggestedFilename()).toBe(`Ada Lovelace - ${title}.flac`)
     await expect(page.getByText(`Downloaded ${title}`).first()).toBeVisible()
     // The toast lists exactly what went into the file.
     await expect(page.getByText('Written in: title, artist, album, year, genre, comment, lyrics, cover.').first()).toBeVisible()
 
+    // Its bytes.
     const file = await readFile((await download.path())!)
     expect(file.subarray(0, 4).toString('latin1')).toBe('fLaC')
+    // Its tags and format, read back by music-metadata.
     const { common, format } = await parseBuffer(file, { mimeType: 'audio/flac' })
     expect(format.container).toBe('FLAC')
     expect(common.title).toBe(title)
@@ -93,8 +102,10 @@ test.describe('download with tags', () => {
       await new Promise(resolve => setTimeout(resolve, 1500))
       await route.continue()
     })
+    // The next download (slowed down by the route above).
     const slowDownload = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
+    // The progress toast.
     const progress = page.locator('li', { hasText: 'Preparing download…' })
     await expect(progress).toBeVisible()
     await slowDownload

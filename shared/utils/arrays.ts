@@ -9,6 +9,7 @@
  * array; out-of-range positions return an unchanged copy.
  */
 export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
+  // A new array: the caller's list is never changed.
   const copy = [...list]
   if (from < 0 || from >= copy.length || to < 0 || to >= copy.length) return copy
   // Remove, then insert at the target: the classic array move.

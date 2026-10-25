@@ -15,6 +15,7 @@ const COVER_CACHE_CONTROL = 'private, max-age=31536000, immutable'
 
 /** Sends a cover image with long-lived browser caching (auto-imported by Nitro). */
 export function sendCover(event: H3Event, cover: CoverImageFile): Uint8Array {
+  // The image's type and size, and the year-long private cache.
   setResponseHeaders(event, {
     'content-type': cover.contentType,
     'content-length': cover.bytes.length,

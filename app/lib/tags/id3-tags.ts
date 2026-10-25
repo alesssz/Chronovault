@@ -14,6 +14,7 @@ const ID3V1_SIZE = 128
 
 /** The file without a trailing ID3v1 tag (unchanged when there is none). */
 function withoutId3v1(file: Uint8Array): Uint8Array {
+  // Where an ID3v1 tag would start: it is always the last 128 bytes.
   const start = file.length - ID3V1_SIZE
   const hasV1 = start >= 0 && file[start] === 0x54 && file[start + 1] === 0x41 && file[start + 2] === 0x47 // "TAG"
   return hasV1 ? file.subarray(0, start) : file

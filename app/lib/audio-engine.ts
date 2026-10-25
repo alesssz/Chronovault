@@ -8,13 +8,21 @@ import { clamp } from '~~/shared/utils/numbers'
  * through the player store and receives its events.
  */
 
+/** The events the engine emits, and what each listener receives. */
 export interface AudioEngineEvents {
+  /** The playback position moved (seconds), at most every 50 ms while playing. */
   time: (seconds: number) => void
+  /** The track's length became known or changed (seconds). */
   duration: (seconds: number) => void
+  /** Playback started or resumed. */
   play: () => void
+  /** Playback paused (by the user, the system or the end of a track). */
   pause: () => void
+  /** The track played to its end. */
   ended: () => void
+  /** Waiting for data (true), or playing again once it arrived (false). */
   buffering: (waiting: boolean) => void
+  /** The audio failed, with a message to show. */
   error: (message: string) => void
 }
 
@@ -23,20 +31,31 @@ type Listeners = { [K in keyof AudioEngineEvents]: Set<AudioEngineEvents[K]> }
 
 /** Minimal interface used by the store: lets tests swap in a fake engine. */
 export interface PlaybackEngine {
+  /** The `<audio>` element itself (for casting); null where there is none (tests). */
   readonly element: HTMLAudioElement | null
+  /** Subscribes to an event; returns the function that unsubscribes. */
   on<K extends keyof AudioEngineEvents>(event: K, listener: AudioEngineEvents[K]): () => void
+  /** Starts loading an address (paused). */
   load(src: string): void
   /** Drops the current source: no further requests are made for it. */
   unload(): void
+  /** Plays (rejects when the browser refuses, e.g. without a user gesture). */
   play(): Promise<void>
+  /** Pauses, keeping the position. */
   pause(): void
+  /** Pauses and goes back to the start. */
   stop(): void
+  /** Moves to a position, in seconds. */
   seek(seconds: number): void
+  /** Sets the volume, 0..1. */
   setVolume(volume: number): void
+  /** Mutes or unmutes, keeping the volume. */
   setMuted(muted: boolean): void
   /** Playback speed (1 = normal), keeping the original pitch. */
   setPlaybackRate(rate: number): void
+  /** The current position, in seconds. */
   readonly currentTime: number
+  /** The track's length in seconds (0 while unknown). */
   readonly duration: number
 }
 
@@ -103,6 +122,7 @@ export class AudioEngine implements PlaybackEngine {
     element.addEventListener('waiting', () => this.emit('buffering', true))
     element.addEventListener('playing', () => this.emit('buffering', false))
     element.addEventListener('error', () => {
+      // MediaError code (1-4), 0 when the browser gives none.
       const code = element.error?.code ?? 0
       this.emit('error', MEDIA_ERRORS[code] ?? 'Playback error')
     })
@@ -159,6 +179,7 @@ export class AudioEngine implements PlaybackEngine {
 
   /** Moves to `seconds`, clamped to the track (no upper bound while the duration is unknown). */
   seek(seconds: number): void {
+    // The track's end, or no limit while its length is unknown.
     const max = this.duration || Number.POSITIVE_INFINITY
     this.element.currentTime = clamp(seconds, 0, max)
   }
@@ -191,6 +212,7 @@ export class AudioEngine implements PlaybackEngine {
 
   /** Emits the time only when it changed noticeably (≥ 50 ms). */
   private emitTime(force = false): void {
+    // The element's position right now.
     const t = this.element.currentTime
     if (force || Math.abs(t - this.lastEmittedTime) >= 0.05) {
       this.lastEmittedTime = t

@@ -23,6 +23,7 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
  */
 export function getErrorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined
+  // Both spellings: ofetch errors carry `statusCode`, fetch-like ones `status`.
   const { statusCode, status } = error as { statusCode?: unknown, status?: unknown }
   if (typeof statusCode === 'number') return statusCode
   return typeof status === 'number' ? status : undefined

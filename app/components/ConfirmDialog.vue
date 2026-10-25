@@ -32,6 +32,7 @@ useCloseOnBack(open, () => {
     :description="description"
     :dismissible="!loading"
   >
+    <!-- Cancel, and the confirming action (spinning while it runs; the dialog stays open meanwhile) -->
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton

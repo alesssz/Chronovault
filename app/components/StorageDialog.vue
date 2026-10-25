@@ -55,6 +55,7 @@ const deletableBytes = computed(() => deletable.value.reduce((sum, o) => sum + o
 /** Deletes the deletable orphans (the server rescans first), then shows the new state. */
 async function clean() {
   await cleaning.run(async () => {
+    // How many files went, how much space came back, and how many were kept.
     const result = await storageApi.cleanOrphans()
     toast.add({
       title: `Deleted ${pluralize(result.deletedFiles, 'file')}`,
@@ -79,7 +80,9 @@ function fileName(orphan: OrphanFile) {
     description="Your files, and files left behind by interrupted uploads."
     :dismissible="!cleaning.running"
   >
+    <!-- The report: a spinner while the server scans, an error with a retry, or the numbers -->
     <template #body>
+      <!-- First scan in progress -->
       <div
         v-if="loading && !report"
         class="flex items-center justify-center gap-2 py-10 text-sm text-muted"
@@ -91,6 +94,7 @@ function fileName(orphan: OrphanFile) {
         Scanning your storage…
       </div>
 
+      <!-- The scan failed -->
       <UAlert
         v-else-if="loadError"
         color="error"
@@ -100,11 +104,13 @@ function fileName(orphan: OrphanFile) {
         :actions="[{ label: 'Try again', onClick: load }]"
       />
 
+      <!-- What is stored, then the orphans -->
       <div
         v-else-if="report"
         class="space-y-6"
         data-testid="storage-report"
       >
+        <!-- Usage: audio and covers, size and file count -->
         <dl class="grid grid-cols-2 gap-3">
           <div class="rounded-lg border border-default p-3">
             <dt class="text-xs font-semibold uppercase tracking-widest text-muted">
@@ -131,6 +137,7 @@ function fileName(orphan: OrphanFile) {
         </dl>
 
         <section>
+          <!-- Orphaned files: none, or the list with what will happen to each -->
           <h3 class="mb-2 text-xs font-semibold uppercase tracking-widest text-muted">
             Orphaned files
           </h3>
@@ -186,6 +193,7 @@ function fileName(orphan: OrphanFile) {
       </div>
     </template>
 
+    <!-- Close, and delete the deletable orphans (the server scans again before deleting) -->
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton

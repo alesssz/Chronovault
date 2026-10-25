@@ -11,11 +11,13 @@ export type Random = () => number
 
 /** Anything identified by a track id (queue items). */
 interface WithId {
+  /** The track id. */
   id: string
 }
 
 /** Swaps two positions of an array, in place. */
 function swap<T>(items: T[], i: number, j: number): void {
+  // The item at `i`, put back at `j` once `j`'s item has moved.
   const kept = items[i]!
   items[i] = items[j]!
   items[j] = kept
@@ -23,6 +25,7 @@ function swap<T>(items: T[], i: number, j: number): void {
 
 /** Fisher–Yates: a shuffled copy of `items`, every order equally likely. */
 export function shuffled<T>(items: readonly T[], random: Random = Math.random): T[] {
+  // A copy, shuffled in place below.
   const result = [...items]
   for (let i = result.length - 1; i > 0; i--) swap(result, i, Math.floor(random() * (i + 1)))
   return result
@@ -74,6 +77,7 @@ export function randomUpcomingSlot(queueLength: number, index: number, random: R
  * only one, so no track plays twice in a row.
  */
 export function shuffledRound<T extends WithId>(queue: readonly T[], lastId: string, random: Random = Math.random): T[] {
+  // A plain shuffle of the whole queue.
   const round = shuffled(queue, random)
   if (round.length > 1 && round[0]!.id === lastId) swap(round, 0, 1 + Math.floor(random() * (round.length - 1)))
   return round

@@ -107,6 +107,7 @@ const description = computed(() => player.current?.description?.trim() ?? '')
 const wakeLock = useWakeLock()
 /** The lyrics view is being read along with the music. */
 const readingAlong = computed(() => open.value && lyricsView.value && player.isPlaying)
+// The screen stays on while reading along, and may sleep again after.
 watch(readingAlong, (on) => {
   if (!wakeLock.isSupported.value) return
   // Refusals are fine (e.g. battery saver): the screen just behaves as usual.

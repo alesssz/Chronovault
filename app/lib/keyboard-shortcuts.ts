@@ -24,6 +24,7 @@ export const SEEK_STEP_SECONDS = 5
 
 /** One shortcut, as the help dialog and the buttons' `aria-keyshortcuts` show it. */
 export interface ShortcutInfo {
+  /** What the shortcut does. */
   action: ShortcutAction
   /** The keys, as written on the keyboard ("Shift", "→"…), for the help dialog. */
   keys: string[]
@@ -52,10 +53,15 @@ export function ariaShortcut(action: ShortcutAction): string {
 
 /** The part of a keyboard event that decides the shortcut (a plain object in the tests). */
 export interface KeyPress {
+  /** The key's value (`" "`, `"ArrowLeft"`, `"m"`…), as KeyboardEvent.key gives it. */
   key: string
+  /** Shift is held. */
   shiftKey: boolean
+  /** Ctrl is held (such combinations are left to the browser). */
   ctrlKey: boolean
+  /** Cmd (or the Windows key) is held (left to the browser and the system). */
   metaKey: boolean
+  /** Alt (Option) is held (left to the browser and the system). */
   altKey: boolean
 }
 

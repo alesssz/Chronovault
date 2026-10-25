@@ -20,15 +20,19 @@ export type UploadConversion
 export interface UploadItem {
   /** Unique list key (the same file may be dropped twice). */
   key: string
+  /** The dropped file. */
   file: File
   /** File name at first, then the title read from the tags. */
   title: string
+  /** Where the file is in the pipeline (queued, analyzing, converting, uploading, saving, done, error). */
   status: UploadStatus
   /** 0..1, progress of the WAV → FLAC conversion (encoding + verification). */
   conversionProgress: number
+  /** What the WAV → FLAC step did (null until then, and for other formats). */
   conversion: UploadConversion | null
   /** 0..1, upload progress of the audio file. */
   progress: number
+  /** Why it failed, shown under the file; null otherwise. */
   error: string | null
   /** Set once registered: the page links to the new track's edit page. */
   trackId: string | null
@@ -67,6 +71,7 @@ export function useTrackUploader() {
    */
   function add(files: File[]): void {
     for (const file of files) {
+      // Why the file is refused at once, or null when it can go.
       const invalid = !resolveAudioMimeType(file)
         ? 'Unsupported format'
         : file.size > MAX_AUDIO_BYTES ? 'File too large (max 500 MB)' : null
@@ -121,6 +126,7 @@ export function useTrackUploader() {
   async function findGenreId(name: string | null): Promise<string | null> {
     if (!name) return null
     genres ??= await genresApi.list().catch(() => [])
+    // The tag's genre name, folded like the existing ones for the comparison.
     const wanted = foldCase(name)
     return genres.find(g => foldCase(g.name) === wanted)?.id ?? null
   }
@@ -136,6 +142,7 @@ export function useTrackUploader() {
       if (!userId) throw new Error('Session expired: please sign in again')
 
       item.status = 'analyzing'
+      // Tags, cover, duration and waveform, read in the browser.
       const analysis = await analyzeAudioFile(item.file)
       item.title = analysis.title
 
@@ -145,6 +152,7 @@ export function useTrackUploader() {
       let mimeType = analysis.mimeType
       if (isWavFile(item.file)) {
         item.status = 'converting'
+        // The verified FLAC, or the reason the WAV is kept.
         const result = await convertWavToFlac(item.file, (fraction) => {
           item.conversionProgress = fraction
         })
@@ -163,6 +171,7 @@ export function useTrackUploader() {
       const trackId = crypto.randomUUID()
 
       item.status = 'uploading'
+      // A presigned PUT address in the user's folder.
       const target = await tracksApi.uploadUrl({
         trackId,
         extension: storageExtension(audioFile),
@@ -216,6 +225,7 @@ export function useTrackUploader() {
 
   /** The cover is optional (center-cropped from the tags): if it fails, the track is saved anyway. */
   async function uploadCover(userId: string, trackId: string, source: Blob): Promise<string | null> {
+    // The cover's place in the user's folder, named after the track.
     const path = buildCoverPath(userId, trackId)
     try {
       await covers.upload(path, source)

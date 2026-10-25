@@ -33,7 +33,9 @@ export function useKeyboardClaim(active: MaybeRefOrGetter<boolean>): void {
     claims.value += on ? 1 : -1
   }
 
+  // Claims or releases as `active` changes; `immediate`: active from the start.
   watch(() => toValue(active), set, { immediate: true })
+  // A component that goes away while claiming gives the keys back.
   onBeforeUnmount(() => set(false))
 }
 

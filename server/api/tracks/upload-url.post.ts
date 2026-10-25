@@ -9,7 +9,9 @@ import { createUploadTarget } from '../../services/tracks.service'
  * 200 → AudioUploadTarget (PUT URL valid for 1 hour); 400 invalid or too large.
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user (401 without a session).
   const { userId } = await requireAuth(event)
+  // The request body, validated against the schema (400 otherwise).
   const request = await readValidated(event, audioUploadRequestSchema)
   return createUploadTarget(useAudioStorage(), userId, request)
 })

@@ -25,9 +25,11 @@ async function setCover(page: Page): Promise<void> {
 test.describe('cover cache', () => {
   test('covers have stable, cacheable, owner-only addresses', async ({ page, browser }) => {
     await signUp(page)
+    // A title unique to this test.
     const title = `cache-${uniqueId()}`
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
+    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
@@ -35,8 +37,10 @@ test.describe('cover cache', () => {
 
     // --- The library shows the cover at an app address… ---
     await page.goto('/')
+    // The cover in the library.
     const cover = page.getByRole('img', { name: `Cover of ${title}` }).first()
     await expect(cover).toHaveAttribute('src', /^\/api\/covers\/tracks\/[0-9a-f-]+\?v=/)
+    // Its address.
     const src = (await cover.getAttribute('src'))!
 
     // …served as an image the browser keeps for a year (overriding the /api no-store).
@@ -60,6 +64,7 @@ test.describe('cover cache', () => {
     // --- Only the owner: another user gets 404, a visitor without session 401 ---
     const other = await browser.newContext()
     try {
+      // Another user's page.
       const otherPage = await other.newPage()
       expect((await otherPage.request.get(src)).status()).toBe(401)
       await signUp(otherPage)

@@ -39,6 +39,7 @@ async function logout() {
 const { unseen, refresh: refreshUnseen } = useUnseenFeedback()
 // Back on screen (another app, another tab, the phone unlocked): friends may have voted meanwhile.
 const visibility = useDocumentVisibility()
+// Check the dot again whenever the app comes back on screen.
 watch(visibility, (state) => {
   if (state === 'visible') void refreshUnseen()
 })
@@ -76,6 +77,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
 <template>
   <header class="sticky top-0 z-30 border-b border-default bg-default/80 backdrop-blur">
     <UContainer class="flex h-14 items-center justify-between gap-3">
+      <!-- Left: the logo (home) and the section links -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-4">
         <NuxtLink
           to="/"
@@ -113,6 +115,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
         </nav>
       </div>
 
+      <!-- Right: Add (a labelled button from `sm`, the icon alone on phones), theme, account menu -->
       <div class="flex items-center gap-1">
         <UButton
           to="/tracks/new"
@@ -140,6 +143,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
         </UDropdownMenu>
       </div>
     </UContainer>
+    <!-- The Storage dialog, opened from the account menu -->
     <StorageDialog v-model:open="storageOpen" />
   </header>
 </template>

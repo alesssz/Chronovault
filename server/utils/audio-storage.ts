@@ -24,6 +24,7 @@ export function useAudioStorage(): AudioStorage {
     console.error(`[audio-storage] missing configuration: ${missing.join(', ')}`)
     throw createError({ statusCode: 500, message: 'Audio storage is not configured' })
   }
+  // The whole configuration as the cache key: any change gets a new client.
   const key = JSON.stringify(config)
   if (cached?.key !== key) cached = { key, storage: new AudioStorage(config) }
   return cached.storage

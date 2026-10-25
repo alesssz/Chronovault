@@ -112,6 +112,7 @@ export function createPlayQueue() {
 
   /** Removes `id` from the queue (unless current), keeping `index` on the current track. */
   function detach(id: string): void {
+    // Where the track is in the queue (-1: not there).
     const i = queue.value.findIndex(t => t.id === id)
     if (i === -1 || i === index.value) return
     queue.value = queue.value.filter((_, j) => j !== i)
@@ -127,6 +128,7 @@ export function createPlayQueue() {
   function insertNext(track: QueueItem): 'current' | 'queued' {
     if (queue.value[index.value]?.id === track.id) return 'current'
     detach(track.id)
+    // A copy, so watchers see a new array.
     const updated = [...queue.value]
     updated.splice(index.value + 1, 0, track)
     queue.value = updated
@@ -140,11 +142,13 @@ export function createPlayQueue() {
    * up stays where it is; one already played is moved.
    */
   function append(track: QueueItem, shuffled: boolean): 'current' | 'already-queued' | 'queued' {
+    // Where the track already is in the queue (-1: not there).
     const i = queue.value.findIndex(t => t.id === track.id)
     if (i === index.value) return 'current'
     if (i > index.value) return 'already-queued'
     detach(track.id)
     if (shuffled) {
+      // A copy, so watchers see a new array.
       const updated = [...queue.value]
       updated.splice(randomUpcomingSlot(updated.length, index.value), 0, track)
       queue.value = updated
@@ -158,6 +162,7 @@ export function createPlayQueue() {
 
   /** Moves an upcoming track from position `from` to `to` (absolute queue positions, both after the current track). */
   function move(from: number, to: number): void {
+    // The queue's last position.
     const last = queue.value.length - 1
     if (from === to || from <= index.value || to <= index.value || from > last || to > last) return
     queue.value = moveItem(queue.value, from, to)
@@ -179,6 +184,7 @@ export function createPlayQueue() {
 
   /** Refreshes a queued track after an edit in the editor (title, cover…). */
   function refresh(detail: TrackDetail): void {
+    // Where the edited track is in the queue (-1: not queued).
     const i = queue.value.findIndex(t => t.id === detail.id)
     if (i === -1) return
     // Merge the new summary fields into the queued item, on a copy.
@@ -193,6 +199,7 @@ export function createPlayQueue() {
    * handles that case before calling this.)
    */
   function drop(id: string): void {
+    // Where the track is in the queue (-1: not there).
     const i = queue.value.findIndex(t => t.id === id)
     if (i === -1) return
     queue.value = queue.value.filter(t => t.id !== id)

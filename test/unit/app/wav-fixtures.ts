@@ -6,8 +6,11 @@
 export interface WavFixtureOptions {
   /** Interleaved signed samples. */
   samples: Int32Array
+  /** Number of channels. */
   channels: number
+  /** Bits per sample (8, 16, 24 or 32). */
   bitsPerSample: number
+  /** Samples per second (44.1 kHz by default). */
   sampleRate?: number
   /** 1 = PCM, 3 = IEEE float, 0xFFFE = WAVE_FORMAT_EXTENSIBLE (PCM subformat). */
   formatTag?: number
@@ -28,10 +31,13 @@ function chunk(id: string, body: Uint8Array): Uint8Array {
 
 /** A complete WAV file: RIFF header, `fmt `, optional extra chunk, `data`. */
 export function buildWav(options: WavFixtureOptions): Uint8Array {
+  // The options with their defaults (44.1 kHz, plain PCM, no extra chunk).
   const { samples, channels, bitsPerSample, sampleRate = 44_100, formatTag = 1, extraChunk } = options
+  // Bytes per sample, and per sample frame (all channels).
   const bytesPerSample = bitsPerSample / 8
   const blockAlign = channels * bytesPerSample
 
+  // WAVE_FORMAT_EXTENSIBLE: a longer `fmt ` chunk with the real format inside.
   const extensible = formatTag === 0xFFFE
   // `fmt ` body: 16 bytes, or 40 for WAVE_FORMAT_EXTENSIBLE (with the SubFormat GUID).
   const fmt = new Uint8Array(extensible ? 40 : 16)
@@ -55,6 +61,7 @@ export function buildWav(options: WavFixtureOptions): Uint8Array {
   // 8-bit WAV is unsigned (offset 128); 16/24/32-bit are signed; float is scaled to ±1.
   const d = new DataView(data.buffer)
   samples.forEach((value, i) => {
+    // Where this sample starts in the data.
     const offset = i * bytesPerSample
     if (bitsPerSample === 8) d.setUint8(offset, value + 128)
     else if (bitsPerSample === 16) d.setInt16(offset, value, true)
@@ -107,7 +114,9 @@ export function testSignal(frames: number, channels: number, bitsPerSample: numb
       samples[i] = extremes[i]!
       continue
     }
+    // This frame's time in seconds.
     const t = Math.floor(i / channels) / 44_100
+    // A 440 Hz sine with noise, within -0.9..0.9.
     const value = Math.sin(2 * Math.PI * 440 * t) * 0.6 + (random() * 2 - 1) * 0.3
     samples[i] = Math.max(min, Math.min(max, Math.round(value * max)))
   }

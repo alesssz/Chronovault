@@ -40,6 +40,7 @@ export type CastPromptResult = 'done' | 'cancelled' | 'no-devices' | 'unsupporte
 
 /** What prompt() returns: the outcome, and the browser's own answer when it refused. */
 export interface CastPromptOutcome {
+  /** What happened (see CastPromptResult). */
   result: CastPromptResult
   /**
    * The browser's refusal as it gave it, with how quickly it came, e.g.
@@ -57,6 +58,11 @@ export interface CastPromptOutcome {
  */
 const INSTANT_REFUSAL_MS = 300
 
+/**
+ * Cast state of an `<audio>` element: `available` (a device can be offered),
+ * `state` (disconnected, connecting, connected) and `prompt()` (opens the
+ * browser's device picker). Follows a new element when `element` changes.
+ */
 export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | null | undefined>) {
   /** A device can be offered: show the Cast button. */
   const available = ref(false)
@@ -74,6 +80,7 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
 
   /** Starts following an element's devices and connection; nothing where the API is missing. */
   function watchElement(el: HTMLMediaElement | null | undefined): void {
+    // The element's RemotePlayback object (absent where the API is missing).
     const remote = el?.remote
     if (!remote) return
     watched = remote
@@ -103,6 +110,7 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
     state.value = 'disconnected'
   }
 
+  // A new element (or none): drop the old one's listeners and follow the new one.
   watch(() => toValue(element), (el) => {
     unwatch()
     watchElement(el)
@@ -117,13 +125,16 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
   async function prompt(): Promise<CastPromptOutcome> {
     // No Remote Playback API in this browser (e.g. Firefox).
     if (!watched) return { result: 'unsupported', detail: 'no Remote Playback API' }
+    // When the picker was asked for: an instant refusal means it was never shown.
     const startedAt = performance.now()
     try {
       await watched.prompt()
       return { result: 'done', detail: null }
     }
     catch (error) {
+      // How long the browser took to refuse.
       const elapsed = performance.now() - startedAt
+      // The error's name (NotFoundError, NotAllowedError…) and message, as the browser gave them.
       const name = error instanceof DOMException ? error.name : ''
       const message = error instanceof Error ? error.message : String(error)
       // "Name: message (N ms)": what the browser said, and whether it showed anything first.

@@ -11,7 +11,9 @@ import { getPlaysReport } from '../../services/plays.service'
  * 200 → PlaysReport · 400 invalid `days`
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
+  // The query string, validated against the schema (400 otherwise).
   const { days } = readValidatedQuery(event, analyticsQuerySchema)
   return getPlaysReport(db, userId, days)
 })

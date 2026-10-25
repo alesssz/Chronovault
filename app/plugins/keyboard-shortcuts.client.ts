@@ -27,6 +27,7 @@ export default defineNuxtPlugin(() => {
   /** Actions that make sense held down (each repeat moves a little more). */
   const REPEATABLE: readonly ShortcutAction[] = ['seek-back', 'seek-forward']
 
+  // Every key press on the page, before anything handles it by default.
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     // The shortcut this key press means, if any.
     const action = shortcutFor(event)

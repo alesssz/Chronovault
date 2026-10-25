@@ -14,6 +14,7 @@ import { flacIncompatibility, parseWav } from './wav'
 
 /** Message received from the page. */
 export interface FlacWorkerRequest {
+  /** The whole WAV file, transferred from the page (it is emptied there). */
   buffer: ArrayBuffer
 }
 
@@ -25,12 +26,17 @@ export type FlacWorkerResponse
 
 /** The parts of the worker global scope used here (the DOM lib types `self` as Window). */
 interface WorkerScope {
+  /** Where libflac.js finds its files (set below, before it loads). */
   FLAC_SCRIPT_LOCATION?: Record<string, string>
+  /** The handler of the page's messages. */
   onmessage: ((event: MessageEvent<FlacWorkerRequest>) => void) | null
+  /** Sends a message to the page (transferring buffers, so they are not copied). */
   postMessage: (message: FlacWorkerResponse, transfer?: Transferable[]) => void
+  /** Listens for failures nothing awaited. */
   addEventListener: (type: 'unhandledrejection', listener: (event: PromiseRejectionEvent) => void) => void
 }
 
+// The worker's global scope, typed with just what is used.
 const scope = self as unknown as WorkerScope
 
 // libflac.js looks up its .wasm file through FLAC_SCRIPT_LOCATION: on the global
@@ -55,6 +61,7 @@ function loadFlac(): Promise<FlacLib> {
     const Flac = ((mod as { default?: FlacLib }).default ?? mod) as FlacLib
     if (Flac.isReady()) return Flac
     return new Promise<FlacLib>((resolve, reject) => {
+      // Gives up when libFLAC never says it is ready.
       const timer = setTimeout(() => reject(new Error('The FLAC encoder could not be loaded')), LOAD_TIMEOUT_MS)
       Flac.on('ready', () => {
         clearTimeout(timer)
@@ -68,6 +75,7 @@ function loadFlac(): Promise<FlacLib> {
 // Failures inside libFLAC's own async code (e.g. its WebAssembly not loading)
 // surface as unhandled rejections: report them so the WAV is kept.
 scope.addEventListener('unhandledrejection', (event) => {
+  // The failure's message, whatever was thrown.
   const reason = event.reason instanceof Error ? event.reason.message : String(event.reason)
   scope.postMessage({ type: 'kept', reason: `FLAC encoder error: ${reason}` })
 })
@@ -84,7 +92,9 @@ scope.onmessage = async (event) => {
       return
     }
 
+    // libFLAC, loaded once its WebAssembly is ready.
     const Flac = await loadFlac()
+    // The verified FLAC and its MD5, reporting progress as it goes.
     const { flac, md5 } = await encodeWavToFlac(Flac, wav, info, (value) => {
       scope.postMessage({ type: 'progress', value })
     })

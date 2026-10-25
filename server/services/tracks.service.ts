@@ -32,12 +32,14 @@ export const UPLOAD_URL_TTL = 60 * 60
  * and served (with browser caching) by /api/covers (see mappers/cover-urls.ts).
  */
 export async function listTracks(db: DbClient, userId: string): Promise<TrackSummary[]> {
+  // Summary rows, newest first.
   const rows = await tracksRepo.listTrackRows(db, userId)
   return rows.map(toTrackSummary)
 }
 
 /** Full detail of one of the user's tracks (404 otherwise). */
 export async function getTrack(db: DbClient, userId: string, id: string): Promise<TrackDetail> {
+  // The full row (none when missing or not the user's).
   const row = await tracksRepo.findTrackRow(db, userId, id)
   if (!row) throw notFound()
   return toTrackDetail(row)
@@ -53,6 +55,7 @@ export async function createUploadTarget(
   userId: string,
   request: AudioUploadRequest,
 ): Promise<AudioUploadTarget> {
+  // The key the file will have: built here, from the signed-in user's id.
   const audioPath = buildAudioPath(userId, request.trackId, request.extension)
   return {
     uploadUrl: await audio.presign('PUT', audioPath, UPLOAD_URL_TTL),
@@ -87,6 +90,7 @@ export async function createTrack(
   }
 
   try {
+    // The stored row, with defaults and generated columns.
     const row = await tracksRepo.insertTrackRow(db, toTrackInsert(userId, input))
     return toTrackDetail(row)
   }
@@ -109,6 +113,7 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
     ? (await tracksRepo.findTrackRow(db, userId, id))?.cover_path ?? null
     : null
 
+  // The updated row (none when missing or not the user's).
   const row = await tracksRepo.updateTrackRow(db, userId, id, toTrackUpdate(input))
   if (!row) throw notFound()
 
@@ -122,6 +127,7 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
  * then its audio and cover files, best effort.
  */
 export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: string, id: string): Promise<void> {
+  // The deleted row's file paths (none when nothing was deleted).
   const paths = await tracksRepo.deleteTrackRow(db, userId, id)
   if (!paths) throw notFound()
 
@@ -138,6 +144,7 @@ export async function getPlaybackSource(
   userId: string,
   id: string,
 ): Promise<PlaybackSource> {
+  // Only the audio path (none when missing or not the user's).
   const audioPath = await tracksRepo.findTrackAudioPath(db, userId, id)
   if (!audioPath) throw notFound()
   return playbackSource(audio, audioPath)

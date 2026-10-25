@@ -29,10 +29,12 @@ export interface AuthContext {
  * The claims are verified from the session cookie (JWT signature and expiry).
  */
 export async function requireAuth(event: H3Event): Promise<AuthContext> {
+  // The session's claims, verified (null without a valid session).
   const claims = await serverSupabaseUser(event)
   if (!claims?.sub) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized', message: 'Sign-in required' })
   }
+  // A client carrying the user's token: RLS sees them as themselves.
   const db = await serverSupabaseClient<Database>(event)
   return { userId: claims.sub, db }
 }

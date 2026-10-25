@@ -12,19 +12,25 @@ import { AwsClient } from 'aws4fetch'
  * of the much heavier AWS SDK.
  */
 
+/** Where the audio bucket is and the credentials to sign for it (server runtime config). */
 export interface AudioStorageConfig {
   /** e.g. https://<account-id>.r2.cloudflarestorage.com */
   endpoint: string
   /** `auto` for R2; `local` for the Supabase S3 endpoint. */
   region: string
+  /** The bucket holding the audio files (`chronovault-audio` on R2, `audio` locally). */
   bucket: string
+  /** Access key id of an API token with read and write rights on that bucket. */
   accessKeyId: string
+  /** Its secret: signs every request, and derives the key of the streaming addresses. */
   secretAccessKey: string
 }
 
 /** One object of a bucket listing. */
 export interface ListedObject {
+  /** The object's key: `<userId>/<trackId>.<ext>`. */
   key: string
+  /** Its size in bytes. */
   size: number
   /** ISO timestamp of the last upload. */
   lastModified: string
@@ -32,12 +38,15 @@ export interface ListedObject {
 
 /** What a HEAD request reveals about a stored object. */
 export interface StoredObject {
+  /** Size in bytes (from Content-Length). */
   size: number
+  /** The type it was uploaded with, or null when the storage reports none. */
   contentType: string | null
 }
 
 /** S3-compatible client for the audio bucket: presigned URLs, HEAD, DELETE, LIST. */
 export class AudioStorage {
+  // The signer: credentials and region, shared by every request.
   private readonly client: AwsClient
 
   /**
@@ -63,6 +72,7 @@ export class AudioStorage {
    * the `/` separators are kept.
    */
   objectUrl(key: string): string {
+    // Each segment encoded on its own, so the folder separators stay slashes.
     const encodedKey = key.split('/').map(encodeURIComponent).join('/')
     return `${this.bucketUrl()}/${encodedKey}`
   }
@@ -77,6 +87,7 @@ export class AudioStorage {
     // The lifetime goes in the query string, signed together with the rest.
     const url = new URL(this.objectUrl(key))
     url.searchParams.set('X-Amz-Expires', String(expiresSeconds))
+    // Signed in the query string (`signQuery`): the URL alone is enough to use it.
     const signed = await this.client.sign(new Request(url, { method }), { aws: { signQuery: true } })
     return signed.url
   }
@@ -101,7 +112,9 @@ export class AudioStorage {
    * absolute form (the element's `currentSrc`).
    */
   async streamUrl(key: string, expiresSeconds: number): Promise<string> {
+    // Expiry as unix seconds, part of what is signed.
     const expires = Math.floor(Date.now() / 1000) + expiresSeconds
+    // HMAC of the key and the expiry, made URL-safe.
     const signature = base64Url(await crypto.subtle.sign('HMAC', await this.streamKey(), streamPayload(key, expires)))
     return `/api/stream?${new URLSearchParams({ k: key, e: String(expires), s: signature })}`
   }
@@ -113,6 +126,7 @@ export class AudioStorage {
    */
   async verifyStream(key: string, expires: string, signature: string): Promise<boolean> {
     if (!/^\d{1,12}$/.test(expires) || Number(expires) * 1000 < Date.now()) return false
+    // The signature's bytes, or null when it is not even valid Base64 (forged).
     const bytes = fromBase64Url(signature)
     if (!bytes) return false
     return crypto.subtle.verify('HMAC', await this.streamKey(), bytes, streamPayload(key, Number(expires)))
@@ -141,6 +155,7 @@ export class AudioStorage {
    * declared size before the track is registered.
    */
   async head(key: string): Promise<StoredObject | null> {
+    // A signed HEAD: headers only, no body.
     const response = await this.request('HEAD', key)
     if (response.status === 404) return null
     if (!response.ok) throw new Error(`Audio storage HEAD failed (${response.status})`)
@@ -159,6 +174,7 @@ export class AudioStorage {
   async remove(keys: string[]): Promise<void> {
     await Promise.all(keys.map(async (key) => {
       try {
+        // A signed DELETE of this one object.
         const response = await this.request('DELETE', key)
         if (!response.ok && response.status !== 404) {
           console.error(`[audio-storage.remove] ${key}: HTTP ${response.status}`)
@@ -186,9 +202,12 @@ export class AudioStorage {
       url.searchParams.set('list-type', '2')
       url.searchParams.set('prefix', prefix)
       if (token) url.searchParams.set('continuation-token', token)
+      // Signed in the headers (a server-side request, not a URL to hand out).
       const signed = await this.client.sign(url.toString(), { method: 'GET' })
+      // One page of the listing, as XML.
       const response = await this.fetchImpl(signed)
       if (!response.ok) throw new Error(`Audio storage LIST failed (${response.status})`)
+      // The XML body: entries and, when truncated, the token of the next page.
       const xml = await response.text()
       objects.push(...parseListedObjects(xml))
       token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? xmlValue(xml, 'NextContinuationToken') : null
@@ -203,6 +222,7 @@ export class AudioStorage {
 
   /** Server-side signed request (headers signature) for HEAD and DELETE. */
   private async request(method: 'HEAD' | 'DELETE', key: string): Promise<Response> {
+    // Signed in the headers: the request runs here, on the server.
     const signed = await this.client.sign(this.objectUrl(key), { method })
     return this.fetchImpl(signed)
   }
@@ -252,6 +272,7 @@ export function parseListedObjects(xml: string): ListedObject[] {
   // One entry per <Contents> element; entries without a key are skipped.
   const objects: ListedObject[] = []
   for (const [, body] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    // The object's key; an entry without one is skipped.
     const key = xmlValue(body!, 'Key')
     if (!key) continue
     objects.push({

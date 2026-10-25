@@ -18,6 +18,7 @@
  */
 import { MARK_CORE, MARK_CORE_STOPS, MARK_STROKES, type MarkPaint, type MarkVariant } from '~~/shared/brand'
 
+// Which drawing: `full` unless the parent asks for `small`.
 const props = withDefaults(defineProps<{ variant?: MarkVariant }>(), { variant: 'full' })
 
 /** The strokes of the chosen variant, in drawing order. */

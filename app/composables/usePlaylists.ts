@@ -55,6 +55,7 @@ export function usePlaylists() {
 
   /** Creates a playlist (optionally with tracks) and adds it to the cached list. */
   async function createPlaylist(title: string, trackIds: string[] = []): Promise<PlaylistDetail> {
+    // The new playlist, as the server stored it.
     const created = await playlistsApi.create({ title, trackIds })
     remember(created)
     return created
@@ -63,9 +64,11 @@ export function usePlaylists() {
   /** Appends tracks to a playlist and tells the user how it went. */
   async function addToPlaylist(playlist: Pick<PlaylistSummary, 'id' | 'title'>, trackIds: string[]): Promise<void> {
     try {
+      // The track count before (undefined when the list is not cached: assume all were added).
       const before = data.value.find(p => p.id === playlist.id)?.trackCount
       const updated = await playlistsApi.addTracks(playlist.id, trackIds)
       remember(updated)
+      // How many were really added (tracks already in the playlist are skipped).
       const added = before === undefined ? trackIds.length : updated.trackCount - before
       toast.add(added > 0
         ? { title: `Added to ${playlist.title}`, icon: 'i-lucide-list-plus', color: 'success' }

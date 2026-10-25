@@ -15,6 +15,7 @@ async function load() {
 
 /** In-memory localStorage. */
 function fakeStorage(initial: Record<string, string> = {}) {
+  // The stored values, by key.
   const items = new Map(Object.entries(initial))
   return {
     getItem: (key: string) => items.get(key) ?? null,
@@ -33,8 +34,10 @@ afterEach(() => {
 
 describe('getListenerId', () => {
   it('creates an id once and keeps it in storage', async () => {
+    // An empty storage.
     const storage = fakeStorage()
     vi.stubGlobal('localStorage', storage)
+    // A fresh copy of the module, and the id it makes.
     const { getListenerId } = await load()
     const id = getListenerId()
     expect(id).toMatch(UUID)
@@ -43,15 +46,19 @@ describe('getListenerId', () => {
   })
 
   it('reuses the id of a previous visit', async () => {
+    // An id saved by an earlier visit.
     const saved = '11111111-1111-4111-8111-111111111111'
     vi.stubGlobal('localStorage', fakeStorage({ 'chronovault:listener-id': saved }))
+    // A fresh copy of the module.
     const { getListenerId } = await load()
     expect(getListenerId()).toBe(saved)
   })
 
   it('replaces a corrupted value', async () => {
+    // A storage holding something that is not an id.
     const storage = fakeStorage({ 'chronovault:listener-id': 'not an id' })
     vi.stubGlobal('localStorage', storage)
+    // A fresh copy of the module.
     const { getListenerId } = await load()
     expect(getListenerId()).toMatch(UUID)
     expect(storage.items.get('chronovault:listener-id')).toMatch(UUID)
@@ -59,6 +66,7 @@ describe('getListenerId', () => {
 
   it('keeps one id for the page when storage is missing', async () => {
     vi.stubGlobal('localStorage', undefined)
+    // A fresh copy of the module, and the id it makes without storage.
     const { getListenerId } = await load()
     const id = getListenerId()
     expect(id).toMatch(UUID)
@@ -71,6 +79,7 @@ describe('getListenerId', () => {
         throw new DOMException('blocked', 'SecurityError')
       },
     })
+    // A fresh copy of the module, and the id it makes with storage blocked.
     const { getListenerId } = await load()
     const id = getListenerId()
     expect(id).toMatch(UUID)

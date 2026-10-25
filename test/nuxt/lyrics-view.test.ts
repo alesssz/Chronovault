@@ -14,14 +14,17 @@ const synced = [
 
 describe('LyricsView', () => {
   it('highlights the line matching the playback time', async () => {
+    // The lyrics view at 12 s.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 6 },
     })
+    // The highlighted line.
     const active = wrapper.find('[aria-current="true"]')
     expect(active.text()).toBe('Second line')
   })
 
   it('moves the active line as time advances', async () => {
+    // The lyrics view at the start.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 1 },
     })
@@ -33,9 +36,11 @@ describe('LyricsView', () => {
   })
 
   it('emits seek with the time of the clicked line', async () => {
+    // The lyrics view.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 0 },
     })
+    // One button per synced line.
     const buttons = wrapper.findAll('[data-testid="lyrics-synced"] button')
     await buttons[1]!.trigger('click')
     expect(wrapper.emitted('seek')).toEqual([[5]])
@@ -49,6 +54,7 @@ describe('LyricsView', () => {
       { time: 8, text: '[Verse 1]', section: true },
       { time: 8, text: 'First line' },
     ]
+    // The lyrics view with section headers.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: structured, plain: null, currentTime: 9 },
     })
@@ -57,6 +63,7 @@ describe('LyricsView', () => {
   })
 
   it('without sync shows plain lyrics with section headers', async () => {
+    // The lyrics view with plain lyrics only.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: null, plain: '[Chorus]\nLa la la', currentTime: 0 },
     })
@@ -67,6 +74,7 @@ describe('LyricsView', () => {
   })
 
   it('shows an empty state when there are no lyrics', async () => {
+    // The lyrics view without any lyrics.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: [], plain: null, currentTime: 0 },
     })

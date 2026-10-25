@@ -20,6 +20,7 @@ import {
 
 vi.mock('~~/server/repositories/sharing.repository')
 vi.mock('~~/server/repositories/storage.repository', async (importOriginal) => {
+  // The real module, for its SIGNED_URL_TTL.
   const original = await importOriginal<typeof storageRepo>()
   return { SIGNED_URL_TTL: original.SIGNED_URL_TTL, createSignedUrl: vi.fn(), createSignedUrls: vi.fn() }
 })
@@ -43,6 +44,7 @@ function makeRow(overrides: Partial<SharedTrackRow> = {}): SharedTrackRow {
   }
 }
 
+// The fake signer: the address is just the key, so the tests can read which file was signed.
 const streamUrl = vi.fn(async (key: string) => `/api/stream?k=${key}`)
 /** Fake R2 client: streaming addresses are predictable strings. */
 const audio = { streamUrl } as unknown as AudioStorage
@@ -59,6 +61,7 @@ describe('getSharedTrack', () => {
   it('returns the shareable fields and a signed cover', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(makeRow())
 
+    // The track as its share page gets it.
     const track = await getSharedTrack(db, TRACK)
 
     expect(track).toMatchObject({ id: TRACK, title: 'Artemisia', genre: 'Ambient', coverUrl: 'https://signed/cover' })
@@ -81,6 +84,7 @@ describe('getSharedPlaybackSource', () => {
   it('hands out a streaming address of the audio file for six hours', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(makeRow())
 
+    // The streaming address of the shared track.
     const source = await getSharedPlaybackSource(db, audio, TRACK)
 
     expect(streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)
@@ -131,6 +135,7 @@ describe('shared playlists', () => {
     vi.mocked(findSharedPlaylistRow).mockResolvedValue(playlistRow)
     vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
 
+    // The playlist as its share page gets it.
     const playlist = await getSharedPlaylist(db, PLAYLIST)
 
     expect(playlist.tracks.map(t => t.id)).toEqual([TRACK, PRIVATE])
@@ -155,6 +160,7 @@ describe('shared playlists', () => {
   it('signs the audio of a track (even a private one) only through its playlist', async () => {
     vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
 
+    // The private track's address, asked for through the shared playlist.
     const source = await getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, PRIVATE)
     expect(source.url).toBe(`/api/stream?k=${USER}/${PRIVATE}.flac`)
 

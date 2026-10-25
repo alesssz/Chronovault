@@ -28,6 +28,7 @@ const KEY_STEP = 5
 
 /** Keyboard seeking (the waveform is a focusable slider for screen readers). */
 function onKeydown(event: KeyboardEvent) {
+  // Seconds to move: forward, back, or 0 for any other key.
   const step = event.key === 'ArrowRight' ? KEY_STEP : event.key === 'ArrowLeft' ? -KEY_STEP : 0
   if (!step) return
   event.preventDefault()
@@ -42,6 +43,7 @@ const FLAT_PEAKS = Array.from({ length: 200 }, () => 0.2)
  * peaks: nothing is downloaded or decoded. Theme colors are read at build time.
  */
 function create() {
+  // The app's single <audio>: the waveform shows and drives that playback.
   const media = getAudioEngine().element
   if (!container.value || !media || props.duration <= 0) return
   wavesurfer?.destroy()
@@ -62,7 +64,9 @@ function create() {
   })
 }
 
+// Built once on screen (the width is known), destroyed with the component.
 onMounted(create)
+// The waveform is released with the component (the <audio> itself stays).
 onBeforeUnmount(() => {
   wavesurfer?.destroy()
   wavesurfer = null

@@ -13,7 +13,9 @@ import type { PlayerTrack } from './types'
 export interface TrackSource {
   /** Identifies the source: 'library', 'track:<id>' or 'playlist:<id>'. */
   key: string
+  /** The track's full data (the owner's detail, or the shared fields). */
   get: (id: string) => Promise<PlayerTrack>
+  /** A fresh streaming address of the track. */
   playback: (id: string) => Promise<PlaybackSource>
 }
 
@@ -30,6 +32,7 @@ export function sharedPlaylistSource(playlist: SharedPlaylist): TrackSource {
   return {
     key: `playlist:${playlist.id}`,
     get: async (id) => {
+      // The track, from the playlist already loaded on the page (no request).
       const track = playlist.tracks.find(t => t.id === id)
       if (!track) throw new Error('Track not found in the playlist')
       return track

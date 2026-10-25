@@ -6,6 +6,7 @@ import { listTracks } from '../../services/tracks.service'
  * 200 → TrackSummary[]
  */
 export default defineEventHandler(async (event) => {
+  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return listTracks(db, userId)
 })

@@ -10,20 +10,31 @@ import { clamp } from '~~/shared/utils/numbers'
  * app/plugins/media-session.client.ts.
  */
 
+/** What the media card shows of a track. */
 export interface MediaSessionTrack {
+  /** The track's title. */
   title: string
+  /** Who wrote it (null: the app's name is shown instead). */
   artist: string | null
+  /** The album (null: the app's name is shown instead). */
   album: string | null
+  /** Its cover's address, or null for the fallback artwork. */
   artworkUrl: string | null
 }
 
 /** What the OS controls do: wired to the player store. */
 export interface MediaSessionHandlers {
+  /** Play (the lock-screen button, a media key). */
   play: () => void
+  /** Pause. */
   pause: () => void
+  /** Stop (some systems offer it). */
   stop: () => void
+  /** Previous track. */
   previous: () => void
+  /** Next track. */
   next: () => void
+  /** Move to a position, in seconds (the progress bar). */
   seekTo: (seconds: number) => void
 }
 
@@ -59,6 +70,7 @@ function absolute(src: string): string {
  */
 export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
   if (!supported()) return
+  // The cover in the uploaded format, or the fallback artwork.
   const artwork = track?.artworkUrl
     ? [{ src: track.artworkUrl, sizes: '800x800', type: 'image/webp' }]
     : FALLBACK_ARTWORK

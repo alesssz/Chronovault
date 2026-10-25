@@ -27,12 +27,14 @@ import { removeCoverFiles } from './playback'
 
 /** The user's playlists of one purpose, newest first (cover addresses are stable: nothing to sign). */
 export async function listPlaylists(db: DbClient, userId: string, purpose: PlaylistPurpose): Promise<PlaylistSummary[]> {
+  // The playlists with just enough track data for the cards.
   const rows = await playlistsRepo.listPlaylistRows(db, userId, purpose)
   return rows.map(row => toPlaylistSummary(row, playlistsRepo.orderedTracks(row.playlist_tracks)))
 }
 
 /** One playlist with its tracks in order (404 when missing or not the user's). */
 export async function getPlaylist(db: DbClient, userId: string, id: string): Promise<PlaylistDetail> {
+  // The playlist with every track (none when missing or not the user's).
   const row = await playlistsRepo.findPlaylistRow(db, userId, id)
   if (!row) throw playlistNotFound()
   return toPlaylistDetail(row, playlistsRepo.orderedTracks(row.playlist_tracks))
@@ -44,6 +46,7 @@ export async function getPlaylist(db: DbClient, userId: string, id: string): Pro
  * not the user's), the empty playlist remains and the error is returned.
  */
 export async function createPlaylist(db: DbClient, userId: string, input: PlaylistCreate): Promise<PlaylistDetail> {
+  // The new playlist, still empty.
   const row = await playlistsRepo.insertPlaylistRow(db, toPlaylistInsert(userId, input))
   if (input.trackIds?.length) await playlistsRepo.setPlaylistTrackIds(db, row.id, input.trackIds)
   return getPlaylist(db, userId, row.id)
@@ -63,6 +66,7 @@ export async function updatePlaylist(db: DbClient, userId: string, id: string, i
     ? (await playlistsRepo.findPlaylistRow(db, userId, id))?.cover_path ?? null
     : null
 
+  // The updated row (none when missing or not the user's).
   const row = await playlistsRepo.updatePlaylistRow(db, userId, id, toPlaylistUpdate(input))
   if (!row) throw playlistNotFound()
 
@@ -72,6 +76,7 @@ export async function updatePlaylist(db: DbClient, userId: string, id: string, i
 
 /** Deletes the playlist and its custom cover. Its tracks stay in the library. */
 export async function deletePlaylist(db: DbClient, userId: string, id: string): Promise<void> {
+  // The deleted row's cover path, or none when nothing was deleted.
   const deleted = await playlistsRepo.deletePlaylistRow(db, userId, id)
   if (!deleted) throw playlistNotFound()
   await removeCoverFiles(db, [deleted.cover_path])
@@ -86,8 +91,10 @@ export async function setPlaylistTracks(db: DbClient, userId: string, id: string
 
 /** Appends tracks to the playlist; tracks already in it are left where they are. */
 export async function addPlaylistTracks(db: DbClient, userId: string, id: string, trackIds: string[]): Promise<PlaylistDetail> {
+  // The track ids already in the playlist, in order (null: no such playlist).
   const current = await playlistsRepo.findPlaylistTrackIds(db, userId, id)
   if (current === null) throw playlistNotFound()
+  // Only the tracks not in it yet, in the order given.
   const added = trackIds.filter(trackId => !current.includes(trackId))
   if (added.length > 0) {
     if (current.length + added.length > MAX_PLAYLIST_TRACKS) {

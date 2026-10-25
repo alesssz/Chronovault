@@ -19,10 +19,12 @@ export function useSortableList<T>(
   items: Ref<T[]>,
   onMove: (from: number, to: number) => void,
 ): void {
+  // SortableJS on the list, dragged by the handles only.
   useSortable(el, items, {
     handle: '[data-drag-handle]',
     animation: 150,
     onUpdate: (event: SortableEvent) => {
+      // Where the item was and where it was dropped.
       const { oldIndex: from, newIndex: to } = event
       if (from == null || to == null || from === to) return
       moveArrayElement(items, from, to, event)
