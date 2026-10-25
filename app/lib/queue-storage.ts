@@ -10,8 +10,10 @@
  * queue was saved has a new versioned URL). The saved queue belongs to one
  * user: another account signing in on the same browser never sees it.
  */
+import { STORAGE_KEYS } from '~/lib/storage-keys'
 
-const KEY = 'chronoplayer:queue'
+/** localStorage key of the saved queue (JSON, see SavedQueue). */
+const KEY = STORAGE_KEYS.queue
 /** Format version written; an unknown format is discarded rather than misread. */
 const VERSION = 2
 /** Formats still read: version 1 is a queue without shuffle (no originalTrackIds). */

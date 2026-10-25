@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ariaShortcut } from '~/lib/keyboard-shortcuts'
+import { STORAGE_KEYS } from '~/lib/storage-keys'
 
 /**
  * Full-screen player: cover, waveform, controls and synced lyrics.
@@ -92,7 +93,7 @@ const isPhone = useMediaQuery('(width < 48rem)')
 /** The track has lyrics to show (synced or plain): the Lyrics button appears. */
 const hasLyrics = computed(() => !!(player.current?.lyricsSynced?.length || player.current?.lyrics?.trim()))
 /** Phones: the lyrics view was chosen, remembered on this device like the volume. */
-const lyricsChosen = useLocalStorage('chronoplayer:lyrics-view', false)
+const lyricsChosen = useLocalStorage(STORAGE_KEYS.lyricsView, false)
 /** The phones' lyrics view is showing: chosen, on a phone, for a track that has lyrics. */
 const lyricsView = computed(() => isPhone.value && hasLyrics.value && lyricsChosen.value)
 /** The track's description, under the controls in the phones' normal view ('' when there is none). */

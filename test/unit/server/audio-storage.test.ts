@@ -9,7 +9,7 @@ import { AudioStorage } from '~~/server/repositories/audio-storage'
 const config = {
   endpoint: 'https://account123.r2.cloudflarestorage.com/',
   region: 'auto',
-  bucket: 'chronoplayer-audio',
+  bucket: 'chronovault-audio',
   accessKeyId: 'AKIDEXAMPLE',
   secretAccessKey: 'secret',
 }
@@ -18,7 +18,7 @@ describe('AudioStorage', () => {
   it('builds path-style object URLs', () => {
     const storage = new AudioStorage(config)
     expect(storage.objectUrl('user-1/track 1.flac'))
-      .toBe('https://account123.r2.cloudflarestorage.com/chronoplayer-audio/user-1/track%201.flac')
+      .toBe('https://account123.r2.cloudflarestorage.com/chronovault-audio/user-1/track%201.flac')
   })
 
   it('presigns URLs with query-string SigV4 and the requested lifetime', async () => {
@@ -26,7 +26,7 @@ describe('AudioStorage', () => {
     // Parse the presigned URL to check each SigV4 query parameter.
     const url = new URL(await storage.presign('PUT', 'user-1/track-1.flac', 3600))
 
-    expect(url.origin + url.pathname).toBe('https://account123.r2.cloudflarestorage.com/chronoplayer-audio/user-1/track-1.flac')
+    expect(url.origin + url.pathname).toBe('https://account123.r2.cloudflarestorage.com/chronovault-audio/user-1/track-1.flac')
     expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256')
     expect(url.searchParams.get('X-Amz-Expires')).toBe('3600')
     expect(url.searchParams.get('X-Amz-Credential')).toMatch(/^AKIDEXAMPLE\/\d{8}\/auto\/s3\/aws4_request$/)
@@ -80,7 +80,7 @@ describe('AudioStorage', () => {
     expect(objects[0]).toEqual({ key: 'user-1/a.flac', size: 7, lastModified: '2026-10-01T10:00:00.000Z' })
     // The two LIST requests: prefix on the first, continuation token on the second.
     const first = new URL((fetchImpl.mock.calls[0]![0] as Request).url)
-    expect(first.pathname).toBe('/chronoplayer-audio')
+    expect(first.pathname).toBe('/chronovault-audio')
     expect(first.searchParams.get('list-type')).toBe('2')
     expect(first.searchParams.get('prefix')).toBe('user-1/')
     const second = new URL((fetchImpl.mock.calls[1]![0] as Request).url)

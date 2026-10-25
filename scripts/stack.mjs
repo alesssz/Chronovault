@@ -77,7 +77,7 @@ async function docker() {
     return 1
   }
   console.log(`\n✔ Chronovault is running in Docker: ${DOCKER_APP_URL}`)
-  console.log('  Demo user: demo@chronoplayer.local / chronoplayer')
+  console.log('  Demo user: demo@chronovault.local / chronovault')
   console.log('  Logs: docker compose logs -f app · Stop everything: pnpm stop')
   return 0
 }

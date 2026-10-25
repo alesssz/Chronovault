@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Seed for LOCAL development only (run by `supabase db reset`).
--- Creates a demo user:  demo@chronoplayer.local / chronoplayer
+-- Creates a demo user:  demo@chronovault.local / chronovault
 --
 -- A reset wipes the local database (every account and track): it only runs
 -- with an explicit `pnpm db:reset` / `make db-reset`. New migrations are
@@ -17,8 +17,8 @@ insert into auth.users (
   '00000000-0000-0000-0000-000000000000',
   '11111111-1111-4111-8111-111111111111',
   'authenticated', 'authenticated',
-  'demo@chronoplayer.local',
-  extensions.crypt('chronoplayer', extensions.gen_salt('bf')),
+  'demo@chronovault.local',
+  extensions.crypt('chronovault', extensions.gen_salt('bf')),
   now(),
   '{"provider": "email", "providers": ["email"]}', '{}',
   now(), now(), '', '', '', ''
@@ -30,6 +30,6 @@ insert into auth.identities (
   gen_random_uuid(),
   '11111111-1111-4111-8111-111111111111',
   '11111111-1111-4111-8111-111111111111',
-  '{"sub": "11111111-1111-4111-8111-111111111111", "email": "demo@chronoplayer.local"}',
+  '{"sub": "11111111-1111-4111-8111-111111111111", "email": "demo@chronovault.local"}',
   'email', now(), now(), now()
 );

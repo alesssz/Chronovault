@@ -1106,8 +1106,8 @@ describe('shuffle', () => {
   it('a server-rendered page does not overwrite the remembered settings', () => {
     // This browser's storage: a volume and modes saved by an earlier visit.
     const stored = new Map<string, string>([
-      ['chronoplayer:volume', '0.4'],
-      ['chronoplayer:playback-modes', JSON.stringify({ shuffle: true, repeat: 'one' })],
+      ['chronovault:volume', '0.4'],
+      ['chronovault:playback-modes', JSON.stringify({ shuffle: true, repeat: 'one' })],
     ])
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => stored.get(key) ?? null,

@@ -307,7 +307,7 @@ and next to `VOLUME_KEY`:
 
 ```ts
 /** localStorage key of shuffle and repeat (remembered like the volume). */
-const MODES_KEY = 'chronoplayer:playback-modes'
+const MODES_KEY = 'chronovault:playback-modes'
 /** Repeat modes in the order the button cycles through them. */
 const REPEAT_MODES: readonly RepeatMode[] = ['off', 'all', 'one']
 ```

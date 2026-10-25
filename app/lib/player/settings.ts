@@ -9,12 +9,13 @@
  * device.
  */
 import { clamp } from '~~/shared/utils/numbers'
+import { STORAGE_KEYS } from '~/lib/storage-keys'
 import type { RepeatMode } from './types'
 
 /** localStorage key of the volume, remembered across visits like shuffle and repeat. */
-const VOLUME_KEY = 'chronoplayer:volume'
+const VOLUME_KEY = STORAGE_KEYS.volume
 /** localStorage key of shuffle and repeat (remembered like the volume). */
-const MODES_KEY = 'chronoplayer:playback-modes'
+const MODES_KEY = STORAGE_KEYS.playbackModes
 
 /** Repeat modes in the order the button cycles through them. */
 export const REPEAT_MODES: readonly RepeatMode[] = ['off', 'all', 'one']

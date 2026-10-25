@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — plays and version votes
+-- Chronovault — plays and version votes
 --
 -- Plays: a track counts as played once someone has really listened to it
 -- (30 seconds, or half of a shorter track; "completed" at 90%). Plays are

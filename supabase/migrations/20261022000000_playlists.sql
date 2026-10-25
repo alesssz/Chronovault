@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — playlists
+-- Chronovault — playlists
 --
 -- A playlist is an ordered list of its owner's tracks. Like tracks, it is
 -- 'private', 'unlisted' or 'public'. Sharing a playlist shares everything in

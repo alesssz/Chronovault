@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — Row Level Security
+-- Chronovault — Row Level Security
 -- General rule: users read and modify only their own data.
 -- Exceptions: built-in genres (readable by everyone) and 'public' tracks.
 -- 'unlisted' tracks are readable by id only, through get_shared_track().

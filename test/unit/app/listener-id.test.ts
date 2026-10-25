@@ -39,22 +39,22 @@ describe('getListenerId', () => {
     const id = getListenerId()
     expect(id).toMatch(UUID)
     expect(getListenerId()).toBe(id)
-    expect(storage.items.get('chronoplayer:listener-id')).toBe(id)
+    expect(storage.items.get('chronovault:listener-id')).toBe(id)
   })
 
   it('reuses the id of a previous visit', async () => {
     const saved = '11111111-1111-4111-8111-111111111111'
-    vi.stubGlobal('localStorage', fakeStorage({ 'chronoplayer:listener-id': saved }))
+    vi.stubGlobal('localStorage', fakeStorage({ 'chronovault:listener-id': saved }))
     const { getListenerId } = await load()
     expect(getListenerId()).toBe(saved)
   })
 
   it('replaces a corrupted value', async () => {
-    const storage = fakeStorage({ 'chronoplayer:listener-id': 'not an id' })
+    const storage = fakeStorage({ 'chronovault:listener-id': 'not an id' })
     vi.stubGlobal('localStorage', storage)
     const { getListenerId } = await load()
     expect(getListenerId()).toMatch(UUID)
-    expect(storage.items.get('chronoplayer:listener-id')).toMatch(UUID)
+    expect(storage.items.get('chronovault:listener-id')).toMatch(UUID)
   })
 
   it('keeps one id for the page when storage is missing', async () => {

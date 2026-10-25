@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — public sharing
+-- Chronovault — public sharing
 --
 -- Other people (signed in or not) can only reach a track through
 -- get_shared_track(id), and only when it is 'unlisted' or 'public'.
