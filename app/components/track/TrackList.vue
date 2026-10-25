@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import type { ComponentPublicInstance } from 'vue'
+import { useWindowVirtualizer } from '@tanstack/vue-virtual'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 
 /**
@@ -14,6 +16,17 @@ import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
  * title toggles it instead of playing; the cover still plays, so versions
  * can be listened to while choosing. The page owns the selected ids
  * (`v-model:selected`) and the actions on them.
+ *
+ * Virtual scroll: only the rows on screen (and a margin around them) are in
+ * the page, so a library of thousands of tracks scrolls as lightly as one
+ * of twenty. The list keeps the height of all its rows, so the page scrolls
+ * (and comes back to where it was) as if they were all there; every row
+ * measures its real height as it appears. Everything else works on the
+ * whole list as before: search, filters and sorting (the page), "select
+ * all", and playing from a row with the visible list as the queue. The
+ * browser's own find (Ctrl+F) only sees the rows in the page: the library
+ * has its own search. Screen readers hear each row's place in the whole
+ * list (`aria-posinset` / `aria-setsize`).
  */
 const props = defineProps<{
   /** Already filtered and sorted by the page. */
@@ -109,16 +122,87 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
 
 /** Genre names resolved once per render instead of in the template. */
 const rows = computed(() => props.tracks.map(track => ({ track, genre: props.genreName(track.genreId) })))
+
+// --- Virtual scroll ---------------------------------------------------------------------
+/** Rows drawn beyond the edges of the screen, so a quick scroll never shows a gap. */
+const OVERSCAN = 10
+
+/** The list: rows are placed inside it, from its top. */
+const listEl = ref<HTMLElement | null>(null)
+/**
+ * Distance from the top of the page to the list (the filters and the toolbar
+ * are above it): the virtualizer follows the window's scroll, so it counts
+ * in page coordinates.
+ */
+const listTop = ref(0)
+
+/**
+ * A row's height before it is measured: the cover (3rem) and its padding
+ * (2 × 0.625rem), plus the 1px border, at the page's current root size (17px
+ * on phones, 20px from `sm`). Close to the real one, so the page's height
+ * (and the scroll position restored when coming back) is right from the start.
+ */
+function estimateRowHeight(): number {
+  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  return Math.round(rem * 4.25) + 1
+}
+
+// The rows to draw for the current scroll position, out of all of them.
+const virtualizer = useWindowVirtualizer(computed(() => ({
+  count: rows.value.length,
+  estimateSize: estimateRowHeight,
+  overscan: OVERSCAN,
+  scrollMargin: listTop.value,
+  // Each row is its track: its measured height follows it through sorting and filtering.
+  getItemKey: (index: number) => rows.value[index]!.track.id,
+})))
+
+/** The rows in the page: each with its track, its position in the whole list and its offset in the list. */
+const visibleRows = computed(() => virtualizer.value.getVirtualItems().map(item => ({
+  ...rows.value[item.index]!,
+  index: item.index,
+  top: item.start - listTop.value,
+})))
+
+/** Where the list starts on the page; again whenever something above it changes height. */
+function measureListTop() {
+  if (listEl.value) listTop.value = listEl.value.getBoundingClientRect().top + window.scrollY
+}
+onMounted(measureListTop)
+// The page's height changes with whatever moves the list (filters wrapping, the selection bar).
+useResizeObserver(() => document.body, measureListTop)
+
+/** Lets the virtualizer measure a row's real height when it is drawn (and when it changes). */
+function measureRow(el: Element | ComponentPublicInstance | null) {
+  if (el instanceof Element) virtualizer.value.measureElement(el)
+}
 </script>
 
 <template>
-  <!-- One row per track: checkbox (selection mode), cover (play), title, details, badges, duration, menu -->
-  <ul class="divide-y divide-default">
+  <!--
+    One row per track: checkbox (selection mode), cover (play), title, details, badges,
+    duration, menu. Only the rows on screen are drawn (virtual scroll): the list keeps the
+    height of all of them, and each drawn row sits at its place in it.
+  -->
+  <ul
+    ref="listEl"
+    class="relative"
+    :style="{ height: `${virtualizer.getTotalSize()}px` }"
+  >
     <li
-      v-for="{ track, genre } in rows"
+      v-for="{ track, genre, index, top } in visibleRows"
       :key="track.id"
-      class="group flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-elevated/50 sm:px-3"
-      :class="{ 'bg-primary/5': isCurrent(track) || (selectable && isSelected(track)) }"
+      :ref="measureRow"
+      :data-index="index"
+      :aria-posinset="index + 1"
+      :aria-setsize="rows.length"
+      class="group absolute inset-x-0 top-0 flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-elevated/50 sm:px-3"
+      :class="{
+        'bg-primary/5': isCurrent(track) || (selectable && isSelected(track)),
+        // A divider between rows, as before (none under the last one: the card's own edge is there).
+        'border-b border-default': index < rows.length - 1,
+      }"
+      :style="{ transform: `translateY(${top}px)` }"
       data-testid="track-row"
     >
       <UCheckbox

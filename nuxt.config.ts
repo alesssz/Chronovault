@@ -117,6 +117,7 @@ export default defineNuxtConfig({
     // visit to the page that imports them, and reloads it.
     optimizeDeps: {
       include: [
+        '@tanstack/vue-virtual',
         '@vercel/analytics/nuxt/runtime',
         '@vueuse/integrations/useSortable',
         'browser-id3-writer',

@@ -20,11 +20,11 @@ const BROWSER_SOURCES = ['app', 'shared']
 /**
  * Packages the browser imports that are left out of pre-bundling on purpose by someone else, so
  * they never trigger a reload and must not be listed:
- * - `vue`: Nuxt excludes it (with vue-router, nuxt/app and its other own packages) in its client
- *   environment (`@nuxt/vite-builder`, `clientEnvironment`), to keep a single copy of Vue;
+ * - `vue` and `vue-router`: Nuxt excludes them (with nuxt/app and its other own packages) in its
+ *   client environment (`@nuxt/vite-builder`, `clientEnvironment`), to keep a single copy of each;
  * - `pinia`: `@pinia/nuxt` adds it to `optimizeDeps.exclude`.
  */
-const EXCLUDED_ELSEWHERE = new Set(['vue', 'pinia'])
+const EXCLUDED_ELSEWHERE = new Set(['vue', 'vue-router', 'pinia'])
 
 afterAll(() => {
   vi.unstubAllGlobals()

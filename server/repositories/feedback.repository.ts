@@ -1,8 +1,8 @@
-import type { PostgrestError } from '@supabase/supabase-js'
 import type { Tables } from '~~/shared/types/database.types'
 import type { PlayRecord, VersionVote } from '~~/shared/schemas/feedback'
 import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
+import { readAllPages } from './pages'
 
 /**
  * Access to the listeners' feedback: the `plays` and `version_votes`
@@ -37,33 +37,6 @@ export interface VoteStateRow {
 
 /** Columns read from `plays`. */
 const PLAY_COLUMNS = 'track_id, playlist_id, listener, listener_id, completed, played_on'
-
-/**
- * Most rows PostgREST returns per request (`max_rows` in supabase/config.toml,
- * the same default on Supabase Cloud). Longer results are cut silently, so the
- * reads below fetch page after page.
- */
-export const PAGE_SIZE = 1000
-
-/**
- * Every row of a query, read PAGE_SIZE at a time. `page` runs the query for
- * one range of rows; it must order them by a unique key, or pages could
- * overlap or skip rows.
- */
-async function readAllPages<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null, error: PostgrestError | null }>,
-  context: string,
-): Promise<T[]> {
-  // Rows of the pages read so far.
-  const rows: T[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await page(from, from + PAGE_SIZE - 1)
-    if (error) throw toHttpError(error, context)
-    rows.push(...(data ?? []))
-    // A short page is the last one.
-    if (!data || data.length < PAGE_SIZE) return rows
-  }
-}
 
 // --- Writes (anyone, checked in SQL) -------------------------------------------------
 

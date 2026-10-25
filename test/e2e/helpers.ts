@@ -1,6 +1,7 @@
 /**
  * End-to-end helpers: WAV files generated on the fly, throwaway accounts,
- * uploads, and waiting for a save to really reach the server.
+ * uploads (one through the page, or hundreds straight through the API for a
+ * large library), and waiting for a save to really reach the server.
  */
 import { expect, type Locator, type Page } from '@playwright/test'
 
@@ -120,4 +121,57 @@ export async function clickAndWaitForApi(page: Page, control: Locator, request: 
     r.request().method() === request.method && request.path.test(new URL(r.url()).pathname))
   await control.click()
   expect((await response).ok()).toBe(true)
+}
+
+/**
+ * Fills the signed-in user's library with `count` tracks ("Track 001", "Track 002"…, created in
+ * that order, so the newest is the last number) straight through the API, as the upload page
+ * does but without the page: upload address, PUT of a tiny WAV, then the track. Several at a time:
+ * hundreds of tracks take seconds, where uploading them one by one through the page would take
+ * minutes. The tracks have no cover, peaks or tags.
+ */
+export async function seedLibrary(page: Page, count: number): Promise<void> {
+  // The file is the same for every track: a valid 0.1-second WAV, base64 so it crosses into the page.
+  const wav = makeWav({ seconds: 0.1 }).toString('base64')
+  await page.evaluate(async ({ count, wav }) => {
+    // Decoded once in the page.
+    const bytes = Uint8Array.from(atob(wav), c => c.charCodeAt(0))
+    /** One track: upload address, file, then the track itself; any step failing throws. */
+    async function attempt(n: number) {
+      const id = crypto.randomUUID()
+      const post = (url: string, body: unknown) => fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const target = await (await post('/api/tracks/upload-url', {
+        trackId: id, extension: 'wav', mimeType: 'audio/wav', sizeBytes: bytes.length,
+      })).json() as { uploadUrl: string, audioPath: string }
+      const upload = await fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': 'audio/wav' }, body: bytes })
+      if (!upload.ok) throw new Error(`Track ${n}: upload failed (${upload.status})`)
+      const response = await post('/api/tracks', {
+        id, title: `Track ${String(n).padStart(3, '0')}`, audioPath: target.audioPath,
+        mimeType: 'audio/wav', sizeBytes: bytes.length, durationSeconds: 0.1,
+      })
+      if (!response.ok) throw new Error(`Track ${n} not created: ${response.status}`)
+    }
+    /**
+     * One track, tried up to three times: hundreds of quick uploads now and then meet a
+     * passing storage error, which must not fail a test about something else.
+     */
+    async function create(n: number) {
+      for (let tries = 1; ; tries++) {
+        try {
+          return await attempt(n)
+        }
+        catch (err) {
+          if (tries === 3) throw err
+        }
+      }
+    }
+    // In batches: in order (Track 001 first), a few requests at a time.
+    for (let start = 1; start <= count; start += 10) {
+      await Promise.all(Array.from({ length: Math.min(10, count - start + 1) }, (_, i) => create(start + i)))
+    }
+  }, { count, wav })
 }
