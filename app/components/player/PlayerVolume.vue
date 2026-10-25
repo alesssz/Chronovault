@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { pageControlsVolume } from '~/lib/audio-engine'
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
 
 /**
  * Mute button + volume slider. The slider shows 0 while muted; moving it
@@ -17,6 +18,9 @@ import { pageControlsVolume } from '~/lib/audio-engine'
  * volume and the page plays at full level: a second level here would only
  * multiply with theirs, so only the mute button is shown, in both layouts
  * (on iPhone and iPad the page could not set the volume anyway).
+ *
+ * The mute button announces its keyboard shortcut, M, to screen readers
+ * (aria-keyshortcuts, app/lib/keyboard-shortcuts.ts).
  */
 withDefaults(defineProps<{
   /** Speaker button + popover instead of an inline slider. */
@@ -81,6 +85,7 @@ const level = computed({
             color="neutral"
             variant="ghost"
             :label="player.muted ? 'Unmute' : 'Mute'"
+            :aria-keyshortcuts="ariaShortcut('mute')"
             @click="player.toggleMute()"
           />
         </div>
@@ -98,6 +103,7 @@ const level = computed({
       color="neutral"
       variant="ghost"
       :label="player.muted ? 'Unmute' : 'Mute'"
+      :aria-keyshortcuts="ariaShortcut('mute')"
       @click="player.toggleMute()"
     />
     <USlider

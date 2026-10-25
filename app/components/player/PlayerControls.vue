@@ -4,8 +4,11 @@
  * bound to the player store. Used by the player bar and the full-screen view
  * (`size` differs). The play button turns into a spinner while loading or
  * buffering; shuffle and repeat appear only for library playback. Every
- * button is an IconButton: its label is also its tooltip.
+ * button is an IconButton: its label is also its tooltip. Previous, play and
+ * next announce their keyboard shortcut to screen readers (aria-keyshortcuts).
  */
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
+
 withDefaults(defineProps<{
   size?: 'md' | 'lg' | 'xl'
   showStop?: boolean
@@ -50,6 +53,7 @@ const player = usePlayerStore()
       variant="ghost"
       :size="size"
       label="Previous track"
+      :aria-keyshortcuts="ariaShortcut('previous')"
       @click="player.previous()"
     />
     <IconButton
@@ -58,6 +62,7 @@ const player = usePlayerStore()
       class="rounded-full"
       :ui="{ leadingIcon: player.status === 'loading' || player.buffering ? 'animate-spin' : '' }"
       :label="player.isPlaying ? 'Pause' : 'Play'"
+      :aria-keyshortcuts="ariaShortcut('toggle-play')"
       data-testid="player-toggle"
       @click="player.togglePlay()"
     />
@@ -67,6 +72,7 @@ const player = usePlayerStore()
       variant="ghost"
       :size="size"
       label="Next track"
+      :aria-keyshortcuts="ariaShortcut('next')"
       :disabled="!player.hasNext"
       @click="player.next()"
     />

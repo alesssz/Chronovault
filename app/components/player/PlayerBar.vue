@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
+
 /**
  * Bottom player bar, always visible while something is loaded (rendered by
  * the default layout, so it survives page changes).
@@ -37,6 +39,9 @@
  * for the next track, right for the previous one, up for the full-screen
  * view. The cover and title follow the finger sideways and fade a little,
  * so the gesture shows before it commits.
+ *
+ * The Expand button announces its keyboard shortcut, F, to screen readers
+ * (aria-keyshortcuts); the controls' own are in PlayerControls.
  */
 const player = usePlayerStore()
 
@@ -197,6 +202,7 @@ const track = computed(() => player.displayTrack)
             color="neutral"
             variant="ghost"
             label="Expand player"
+            :aria-keyshortcuts="ariaShortcut('full-screen')"
             class="hidden lg:inline-flex"
             data-testid="player-expand"
             @click="player.setExpanded(true)"

@@ -31,5 +31,7 @@ const player = usePlayerStore()
 
     <!-- The full-screen view of the page's player (opened from SharePlayer or the mini player) -->
     <PlayerExpanded shared />
+    <!-- The list of keyboard shortcuts (the ? key: the share pages have no account menu) -->
+    <KeyboardShortcutsDialog />
   </div>
 </template>

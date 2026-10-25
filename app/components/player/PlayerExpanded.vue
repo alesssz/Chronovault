@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ariaShortcut } from '~/lib/keyboard-shortcuts'
+
 /**
  * Full-screen player: cover, waveform, controls and synced lyrics.
  * It is just a different view of the same store: opening or closing it
@@ -133,6 +135,7 @@ useHead({ htmlAttrs: { class: computed(() => (open.value ? 'player-expanded' : '
 const track = computed(() => player.displayTrack)
 /** "Album · Year · Genre" line (only the parts that are set; a shared track names its genre itself). */
 const meta = computed(() => {
+  // The loaded track's full data (none while it loads).
   const t = player.current
   return t ? joinParts([t.album, t.year, t.genre ?? genres?.genreName(t.genreId) ?? null]) : ''
 })
@@ -151,7 +154,8 @@ const meta = computed(() => {
       <!--
         The view itself: it paints the background, so the pull-down moves all of it (rounded while
         pulled). `tabindex="-1"`: it takes the focus when the view opens (see onOpenAutoFocus),
-        without being a tab stop.
+        without being a tab stop. `data-player-shortcuts`: a dialog, yet the player's keyboard
+        shortcuts work in it (app/lib/keyboard-shortcuts.ts).
       -->
       <div
         ref="view"
@@ -159,6 +163,7 @@ const meta = computed(() => {
         class="flex h-full flex-col bg-default outline-none"
         :class="{ 'rounded-t-2xl': swipe.offset.value > 0 }"
         :style="viewStyle"
+        data-player-shortcuts
         data-testid="player-expanded"
       >
         <!-- Top bar: collapse, title, Cast (when a device is around), Up next and edit buttons (the last two: library only) -->
@@ -168,6 +173,7 @@ const meta = computed(() => {
             color="neutral"
             variant="ghost"
             label="Collapse player"
+            :aria-keyshortcuts="ariaShortcut('full-screen')"
             @click="open = false"
           />
           <span class="text-xs font-medium uppercase tracking-widest text-muted">Now playing</span>

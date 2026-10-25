@@ -2,7 +2,8 @@
 /**
  * Header of the signed-in app: logo, section links (Library, Playlists,
  * Versions: the groups of versions shared for feedback), "Add" (upload),
- * light/dark switch and the account menu (Statistics, Storage, Sign out).
+ * light/dark switch and the account menu (Statistics, Storage, Keyboard
+ * shortcuts, Sign out).
  * On phones the logo shows only its icon and the section links only theirs.
  *
  * A dot on "Versions" says that friends voted or commented on a group since
@@ -24,6 +25,7 @@ const toast = useToast()
 /** Stops playback (no audio for a signed-out user), signs out and goes to the sign-in page. */
 async function logout() {
   player.close()
+  // Supabase's answer: an error leaves the user signed in.
   const { error } = await supabase.auth.signOut()
   if (error) {
     toast.add({ title: 'Sign-out failed', description: error.message, color: 'error' })
@@ -54,14 +56,17 @@ const sections = [
 
 /** The Storage dialog (usage and clean-up of orphaned files). */
 const storageOpen = ref(false)
+/** The list of keyboard shortcuts (also opened by the ? key). */
+const shortcutsOpen = useShortcutsHelp()
 
-/** Account menu: who is signed in, Statistics, Storage, Sign out. */
+/** Account menu: who is signed in, Statistics, Storage, Keyboard shortcuts, Sign out. */
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
   [
     // Visits to the share links (pages/stats.vue).
     { label: 'Statistics', icon: 'i-lucide-chart-column', to: '/stats' },
     { label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) },
+    { label: 'Keyboard shortcuts', icon: 'i-lucide-keyboard', onSelect: () => (shortcutsOpen.value = true) },
   ],
   [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout }],
 ])
