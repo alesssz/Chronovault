@@ -9,7 +9,8 @@ import { z } from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 definePageMeta({ layout: 'auth' })
-useSeoMeta({ title: 'Sign in · ChronoPlayer' })
+// Browser tab title: "Sign in · Chronovault".
+usePageTitle('Sign in')
 
 // Supabase Auth runs in the browser: sign-in and sign-up set the session cookies.
 const supabase = useSupabaseClient()

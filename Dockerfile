@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# ChronoPlayer — production image of the Nuxt app (Supabase runs separately).
+# Chronovault — production image of the Nuxt app (Supabase runs separately).
 # Built and started by `pnpm docker` / `make docker` through compose.yaml.
 
 ARG NODE_VERSION=24

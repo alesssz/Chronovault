@@ -11,11 +11,16 @@ export function themeColor(variable: string, fallback: string): string {
 /**
  * Colors of every waveform (player, public pages, sync editor), read from
  * the current theme: rebuild the waveform after a light/dark switch.
+ * The played part is spectral blue (the secondary colour), like the strings
+ * of the logo; the fallbacks are the dark theme's values.
  */
 export function waveformColors(): { waveColor: string, progressColor: string, cursorColor: string } {
   return {
-    waveColor: themeColor('--ui-border-accented', '#3f3f46'),
-    progressColor: themeColor('--ui-primary', '#f97316'),
-    cursorColor: themeColor('--ui-text-highlighted', '#fafafa'),
+    // The part still to play: the theme's accented border (night 700 in the dark theme).
+    waveColor: themeColor('--ui-border-accented', '#323b5c'),
+    // The part already played.
+    progressColor: themeColor('--ui-secondary', '#66d6ff'),
+    // The playhead.
+    cursorColor: themeColor('--ui-text-highlighted', '#ffffff'),
   }
 }

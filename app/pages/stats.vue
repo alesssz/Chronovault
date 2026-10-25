@@ -20,7 +20,8 @@
 import { ANALYTICS_PERIODS, type AnalyticsItem, type AnalyticsPeriod, type PlaysItem } from '~~/shared/types/analytics'
 import { analyticsApi } from '~/services/api'
 
-useSeoMeta({ title: 'Statistics · ChronoPlayer' })
+// Browser tab title: "Statistics · Chronovault".
+usePageTitle('Statistics')
 
 /** Selected period; changing it reloads both reports. */
 const days = ref<AnalyticsPeriod>(30)
@@ -362,7 +363,7 @@ function isPrivateNow(visibility: string): boolean {
 
       <!-- What is (not) counted -->
       <p class="text-xs text-dimmed">
-        Views: openings of your /t/ and /p/ pages by visitors who are not signed in, from Vercel Web Analytics (no cookies, nobody identified); data can take a few minutes to appear. Plays: counted by ChronoPlayer when a visitor listens for 30 seconds (or half a shorter track), once a day per listener; "to the end" means 90% of the track. A listener is a browser, identified only by a random id. Your own plays are counted apart.
+        Views: openings of your /t/ and /p/ pages by visitors who are not signed in, from Vercel Web Analytics (no cookies, nobody identified); data can take a few minutes to appear. Plays: counted by Chronovault when a visitor listens for 30 seconds (or half a shorter track), once a day per listener; "to the end" means 90% of the track. A listener is a browser, identified only by a random id. Your own plays are counted apart.
       </p>
     </div>
   </UContainer>

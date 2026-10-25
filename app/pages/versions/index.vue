@@ -5,7 +5,8 @@
  * friends to pick the best), kept apart from the curated playlists. Groups
  * are only created from the library selection, so there is no "New" button.
  */
-useSeoMeta({ title: 'Versions · ChronoPlayer' })
+// Browser tab title: "Versions · Chronovault".
+usePageTitle('Versions')
 
 // The cached list of groups (shared with the group pages and "Share for feedback").
 const { items: groups, status, refresh } = usePlaylistList('versions')

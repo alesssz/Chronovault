@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { sharedApi } from '~/services/api'
+import { APP_NAME } from '~~/shared/brand'
 
 /**
  * Public page of a track shared by link ('unlisted' or 'public'): no account
@@ -25,11 +26,11 @@ const meta = computed(() => {
   const t = track.value
   return t ? joinParts([t.album, t.year, t.genre]) : ''
 })
-/** Preview text: the description, or composers and album/year/genre. */
+/** Preview text: the description, or composers and album/year/genre, or else "Listen on Chronovault". */
 const previewText = computed(() => {
   const t = track.value
   if (!t) return 'This track is not available.'
-  return truncate(t.description?.trim() || joinParts([t.composers, meta.value]) || 'Listen on ChronoPlayer', 200)
+  return truncate(t.description?.trim() || joinParts([t.composers, meta.value]) || `Listen on ${APP_NAME}`, 200)
 })
 
 useShareMeta({

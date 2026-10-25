@@ -1,3 +1,4 @@
+import { APP_NAME, FALLBACK_COVER } from '~~/shared/brand'
 import { clamp } from '~~/shared/utils/numbers'
 
 /**
@@ -31,17 +32,13 @@ function supported(): boolean {
   return typeof navigator !== 'undefined' && 'mediaSession' in navigator
 }
 
-/** Shown where a track has no artist or album, so the media card always says which app is playing. */
-export const APP_NAME = 'ChronoPlayer'
-
 /**
- * The app icon, for tracks without a cover: without any artwork Android
- * shows an empty or generic tile on the lock screen. The PWA icons in
- * public/ (two sizes: the system picks the closest).
+ * The artwork for tracks without a cover: the Chronovault artwork, the same
+ * fallback cover the app shows (without any artwork Android shows an empty or
+ * generic tile on the lock screen). A WebP square, like the uploaded covers.
  */
-const APP_ARTWORK: MediaImage[] = [
-  { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
-  { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+const FALLBACK_ARTWORK: MediaImage[] = [
+  { src: FALLBACK_COVER.app, sizes: `${FALLBACK_COVER.size}x${FALLBACK_COVER.size}`, type: 'image/webp' },
 ]
 
 /**
@@ -56,15 +53,15 @@ function absolute(src: string): string {
 
 /**
  * Shows the track (or nothing) on the lock screen and in the media
- * notification. Covers are 800×800 WebP; a track without one shows the app
- * icon, and a missing artist or album reads "ChronoPlayer", so the card
- * always shows the track and the app.
+ * notification. Covers are 800×800 WebP; a track without one shows the
+ * Chronovault artwork, and a missing artist or album reads "Chronovault"
+ * (APP_NAME), so the card always shows the track and whose music it is.
  */
 export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
   if (!supported()) return
   const artwork = track?.artworkUrl
     ? [{ src: track.artworkUrl, sizes: '800x800', type: 'image/webp' }]
-    : APP_ARTWORK
+    : FALLBACK_ARTWORK
   navigator.mediaSession.metadata = track
     ? new MediaMetadata({
         title: track.title,

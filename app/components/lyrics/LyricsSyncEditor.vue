@@ -286,7 +286,7 @@ function openLrc() {
   lrcOpen.value = true
 }
 
-/** Copies the dialog's LRC text to the clipboard (export, e.g. to paste it into another ChronoPlayer). */
+/** Copies the dialog's LRC text to the clipboard (export, e.g. to paste it into another Chronovault). */
 async function copyLrc() {
   if (await copyText(lrcText.value)) {
     toast.add({ title: 'LRC copied', icon: 'i-lucide-copy', color: 'success' })

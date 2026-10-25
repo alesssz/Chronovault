@@ -1,9 +1,9 @@
 /**
- * End-to-end, moving synced lyrics between ChronoPlayers (e.g. from the
+ * End-to-end, moving synced lyrics between Chronovaults (e.g. from the
  * local app to production):
  *  - the LRC dialog opens an .lrc file, and exports by copy and download;
  *  - a downloaded FLAC carries the synced lyrics, and uploading it again
- *    (here into another account, standing in for another ChronoPlayer)
+ *    (here into another account, standing in for another Chronovault)
  *    brings them back.
  */
 import { readFile } from 'node:fs/promises'

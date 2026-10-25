@@ -191,7 +191,7 @@ export function useTrackUploader() {
         year: analysis.year,
         genreId: await findGenreId(analysis.genre),
         lyrics: analysis.lyrics,
-        // Synced lyrics in the tags (e.g. a file downloaded from ChronoPlayer) are kept.
+        // Synced lyrics in the tags (e.g. a file downloaded from Chronovault) are kept.
         lyricsSynced: analysis.lyricsSynced,
         audioPath: target.audioPath,
         coverPath,

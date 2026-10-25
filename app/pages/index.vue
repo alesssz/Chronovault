@@ -14,7 +14,8 @@ import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistsApi, tracksApi } from '~/services/api'
 import { feedbackPlaylistTitle } from '~/lib/feedback-playlist'
 
-useSeoMeta({ title: 'Library · ChronoPlayer' })
+// Browser tab title: "Library · Chronovault".
+usePageTitle('Library')
 
 // Playing, and dropping deleted tracks from the queue.
 const player = usePlayerStore()

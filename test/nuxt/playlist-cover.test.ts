@@ -1,9 +1,11 @@
 /**
- * PlaylistCover: custom cover, 2×2 mosaic, single cover, placeholder.
+ * PlaylistCover: custom cover, 2×2 mosaic, single cover, and the Chronovault
+ * artwork when there is nothing to show.
  */
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import PlaylistCover from '~/components/playlist/PlaylistCover.vue'
+import { FALLBACK_COVER } from '~~/shared/brand'
 
 /** More covers than a mosaic uses (4). */
 const covers = ['/a.webp', '/b.webp', '/c.webp', '/d.webp', '/e.webp']
@@ -27,8 +29,11 @@ describe('PlaylistCover', () => {
     expect(wrapper.findAll('img').map(img => img.attributes('src'))).toEqual(['/a.webp'])
   })
 
-  it('shows a placeholder for an empty playlist', async () => {
+  it('shows the artwork for an empty playlist', async () => {
     const wrapper = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [], title: 'Mix' } })
-    expect(wrapper.find('img').exists()).toBe(false)
+    const images = wrapper.findAll('img')
+    expect(images.map(img => img.attributes('src'))).toEqual([FALLBACK_COVER.app])
+    // Decorative: not the playlist's cover.
+    expect(images[0]!.attributes('alt')).toBe('')
   })
 })

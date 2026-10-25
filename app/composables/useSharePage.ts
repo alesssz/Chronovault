@@ -1,4 +1,5 @@
 import type { ShareKind } from './useShareLink'
+import { APP_NAME, FALLBACK_COVER } from '~~/shared/brand'
 
 /**
  * Building blocks of the public share pages (/t/:id and /p/:id), which are
@@ -33,7 +34,7 @@ export interface ShareMetaOptions {
   title: () => string | null
   /** Preview text (already cut to a reasonable length). */
   description: () => string
-  /** There is an image for the preview (a cover). */
+  /** The item has its own image for the preview (a cover); otherwise the preview shows the Chronovault artwork. */
   hasImage: () => boolean
   /** Public items may be indexed; unlisted ones are for whoever has the link. */
   isPublic: () => boolean
@@ -45,21 +46,27 @@ const SHARE_ROUTES: Record<ShareKind, { page: string, cover: string, ogType: 'mu
   playlist: { page: '/p/', cover: '/api/shared/playlists/', ogType: 'music.playlist', noun: 'Playlist' },
 }
 
-/** Title, description, Open Graph tags and robots rule of a share page. */
+/**
+ * Title, description, Open Graph tags and robots rule of a share page. The
+ * preview always has an image: the item's cover, or the Chronovault artwork
+ * (FALLBACK_COVER.preview) for an item without one, or a link that is no
+ * longer available, so every link shared in a chat shows whose music it is.
+ */
 export function useShareMeta(options: ShareMetaOptions): void {
   const route = SHARE_ROUTES[options.kind]
   // "Track not available" / "Playlist not available".
   const unavailable = `${route.noun} not available`
   useSeoMeta({
-    title: () => `${options.title() ?? unavailable} · ChronoPlayer`,
+    title: () => `${options.title() ?? unavailable} · ${APP_NAME}`,
     description: options.description,
     ogTitle: () => options.title() ?? unavailable,
     ogDescription: options.description,
     ogType: route.ogType,
-    ogSiteName: 'ChronoPlayer',
+    ogSiteName: APP_NAME,
     ogUrl: `${options.origin}${route.page}${options.id}`,
-    // A stable address that redirects to a fresh signed URL: previews are cached for long.
-    ogImage: () => (options.hasImage() ? `${options.origin}${route.cover}${options.id}/cover` : undefined),
+    // The cover: a stable address that redirects to a fresh signed URL (previews are cached for long).
+    // Without one, the artwork, a static file of the app.
+    ogImage: () => (options.hasImage() ? `${options.origin}${route.cover}${options.id}/cover` : `${options.origin}${FALLBACK_COVER.preview}`),
     twitterCard: 'summary',
     // Unlisted items are for whoever has the link: keep them out of search engines.
     robots: () => (options.isPublic() ? 'index, follow' : 'noindex, nofollow'),

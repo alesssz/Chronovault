@@ -25,7 +25,7 @@ export interface WebAnalyticsConfig {
   teamId: string
 }
 
-/** Grouping dimensions used by ChronoPlayer (the API supports more). */
+/** Grouping dimensions used by Chronovault (the API supports more). */
 export type WebAnalyticsDimension = 'day' | 'environment' | 'requestPath' | 'referrerHostname' | 'country' | 'deviceType'
 
 /** One aggregated row: the group's value (or the day) and its counts. */

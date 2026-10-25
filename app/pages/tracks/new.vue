@@ -8,7 +8,8 @@
 import type { UploadConversion, UploadStatus } from '~/composables/useTrackUploader'
 import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 
-useSeoMeta({ title: 'Upload tracks · ChronoPlayer' })
+// Browser tab title: "Upload tracks · Chronovault".
+usePageTitle('Upload tracks')
 
 const { items, pending, completed, add, remove, clearFinished } = useTrackUploader()
 /** Files chosen in the drop zone (moved to the queue right away). */

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Checks that this computer has everything ChronoPlayer needs, and says how
+ * Checks that this computer has everything Chronovault needs, and says how
  * to fix what is missing, on macOS, Windows or Linux:
  *
  *   node scripts/doctor.mjs     works before anything is installed (only Node needed)
@@ -121,7 +121,7 @@ report(existsSync(join(root, '.env')) ? 'ok' : 'info', existsSync(join(root, '.e
 
 // --- Report ---------------------------------------------------------------------------------
 const icons = { ok: '✔', warn: '⚠', fail: '✖', info: 'ℹ' }
-console.log(`ChronoPlayer doctor · ${osName} (${process.arch})\n`)
+console.log(`Chronovault doctor · ${osName} (${process.arch})\n`)
 for (const { level, label, fix } of results) {
   console.log(`${icons[level]} ${label}`)
   if (fix && level !== 'ok') console.log(`    → ${fix}`)

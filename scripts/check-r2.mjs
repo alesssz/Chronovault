@@ -118,7 +118,7 @@ finally {
   report(del.ok || del.status === 404, `Delete (HTTP ${del.status})`)
 }
 
-console.log(failures ? `\n✖ ${failures} check(s) failed.` : '\n✔ R2 is ready for ChronoPlayer.')
+console.log(failures ? `\n✖ ${failures} check(s) failed.` : '\n✔ R2 is ready for Chronovault.')
 // exitCode instead of process.exit(): exiting while sockets are still closing
 // crashes Node 24 on Windows (libuv assertion).
 process.exitCode = failures ? 1 : 0

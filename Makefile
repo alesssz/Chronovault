@@ -1,5 +1,5 @@
 # =============================================================================
-# ChronoPlayer — project commands
+# Chronovault (codename ChronoPlayer) — project commands
 # Usage: make <command>     (make help for the full list)
 # On Windows: run from Git Bash (GNU Make: winget install ezwinports.make) or WSL.
 # New computer: make doctor (or node scripts/doctor.mjs) lists what is missing.
@@ -16,7 +16,7 @@ PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
 
 help: ## Show this list
-	@echo "ChronoPlayer - available commands:"
+	@echo "Chronovault - available commands:"
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
