@@ -1,6 +1,7 @@
 /**
  * End-to-end, the player of the share pages (which have no player bar): previous / next on a
- * shared playlist, the volume, the full-screen view without the owner's tools, the mini player
+ * shared playlist, the volume (a slider with a mouse; on a phone mute alone, at full level whatever
+ * was saved), the full-screen view without the owner's tools, the mini player
  * that takes over at the bottom of a phone screen once the page's player is scrolled away, and
  * playback going on with the screen off: the page hidden and no frames drawn, the next track
  * still starts by itself and its play is still counted.
@@ -110,6 +111,24 @@ test.describe('share page player', () => {
 
     // --- A visitor on a phone: the mini player once the page's player is scrolled away ---
     const phone = await browser.newContext({ viewport: { width: 412, height: 700 }, isMobile: true, hasTouch: true })
+    // A low volume saved on this phone by an older version of the app, and a recorder of every
+    // level the page gives an audio element: on a touch screen it must play at full volume.
+    await phone.addInitScript(() => {
+      localStorage.setItem('chronoplayer:volume', '0.3')
+      const recorder = window as unknown as { __volumes: number[] }
+      recorder.__volumes = []
+      const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume')!
+      Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
+        configurable: true,
+        get() {
+          return volume.get!.call(this)
+        },
+        set(value: number) {
+          recorder.__volumes.push(value)
+          volume.set!.call(this, value)
+        },
+      })
+    })
     try {
       const visitor = await phone.newPage()
       await visitor.goto(url)
@@ -129,7 +148,16 @@ test.describe('share page player', () => {
       await mini.getByTestId('shared-mini-toggle').click()
       await expect(mini.getByTestId('shared-mini-toggle')).toHaveAccessibleName('Pause')
       await mini.getByTestId('shared-mini-open').click()
-      await expect(visitor.getByTestId('player-expanded')).toBeVisible()
+      const expanded = visitor.getByTestId('player-expanded')
+      await expect(expanded).toBeVisible()
+
+      // The volume on a touch screen: mute alone, here and in the full-screen view; no slider.
+      await expect(expanded.getByRole('button', { name: 'Mute' })).toBeVisible()
+      await expect(visitor.getByRole('slider', { name: 'Volume' })).toHaveCount(0)
+      // The page plays at full level: the 0.3 saved on the device is never applied.
+      const levels = await visitor.evaluate(() => (window as unknown as { __volumes: number[] }).__volumes)
+      expect(levels.length).toBeGreaterThan(0)
+      expect(levels.every(level => level === 1)).toBe(true)
     }
     finally {
       await phone.close()

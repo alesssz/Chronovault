@@ -16,7 +16,7 @@
 import { computed, ref, shallowRef } from 'vue'
 import type { PlaybackSource } from '~~/shared/types/track'
 import { clamp } from '~~/shared/utils/numbers'
-import { getAudioEngine, type PlaybackEngine } from '~/lib/audio-engine'
+import { getAudioEngine, pageControlsVolume, type PlaybackEngine } from '~/lib/audio-engine'
 import { getErrorMessage } from '~/utils/errors'
 import { readStoredVolume, storeVolume } from './settings'
 import type { TrackSource } from './sources'
@@ -57,8 +57,12 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   const currentTime = ref(0)
   /** From the track data at first, then from the audio element once known. */
   const duration = ref(0)
-  /** 0..1, restored from the previous visit. */
-  const volume = ref(readStoredVolume())
+  /**
+   * 0..1, restored from the previous visit where the page offers a volume of
+   * its own; always 1 on touch screens, where the hardware buttons own it
+   * (pageControlsVolume): a low level saved there could not be raised again.
+   */
+  const volume = ref(pageControlsVolume() ? readStoredVolume() : 1)
   /** Mute is separate from the volume, so unmuting brings the old level back. */
   const muted = ref(false)
   /** Playback speed (1 = normal); slowed down while syncing lyrics. */
