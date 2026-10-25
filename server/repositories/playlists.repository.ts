@@ -4,6 +4,7 @@ import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 import { TRACK_SUMMARY_COLUMNS, type TrackSummaryRow } from '../mappers/track'
 import type { PlaylistRow, PlaylistTrackStatsRow } from '../mappers/playlist'
+import { readAllPages } from './pages'
 
 /**
  * Access to the `playlists` and `playlist_tracks` tables. RLS limits every
@@ -36,9 +37,9 @@ export function orderedTracks<T>(entries: PlaylistEntry<T>[]): T[] {
   return [...entries].sort(byPosition).flatMap(e => (e.tracks ? [e.tracks] : []))
 }
 
-/** The user's playlists of one purpose (curated playlists or version groups), newest first. */
+/** All the user's playlists of one purpose (curated playlists or version groups), newest first, read in pages. */
 export async function listPlaylistRows(db: DbClient, userId: string, purpose: PlaylistPurpose): Promise<PlaylistListRow[]> {
-  const { data, error } = await db
+  return readAllPages((from, to) => db
     .from('playlists')
     // Track id and updated_at build the mosaic's cover addresses.
     .select('*, playlist_tracks(position, tracks(id, cover_path, duration_seconds, visibility, updated_at))')
@@ -46,9 +47,10 @@ export async function listPlaylistRows(db: DbClient, userId: string, purpose: Pl
     // Playlists page or Versions page: served by the (user_id, purpose, created_at) index.
     .eq('purpose', purpose)
     .order('created_at', { ascending: false })
-    .overrideTypes<PlaylistListRow[], { merge: false }>()
-  if (error) throw toHttpError(error, 'playlists.list')
-  return data
+    // A stable order for the pages, even for playlists made in the same instant.
+    .order('id')
+    .range(from, to)
+    .overrideTypes<PlaylistListRow[], { merge: false }>(), 'playlists.list')
 }
 
 /** One playlist with its tracks, or null when it does not exist or is not the user's. */
@@ -80,11 +82,14 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
 /** What the Statistics page shows of a playlist (and needs for its cover address). */
 export type PlaylistLabelRow = Pick<PlaylistRow, 'id' | 'title' | 'visibility' | 'cover_path' | 'updated_at'>
 
-/** Title, visibility and custom cover of every playlist of the user (Statistics page). */
+/** Title, visibility and custom cover of every playlist of the user (Statistics page), read in pages. */
 export async function listPlaylistLabels(db: DbClient, userId: string): Promise<PlaylistLabelRow[]> {
-  const { data, error } = await db.from('playlists').select('id, title, visibility, cover_path, updated_at').eq('user_id', userId)
-  if (error) throw toHttpError(error, 'playlists.listLabels')
-  return data
+  return readAllPages((from, to) => db
+    .from('playlists')
+    .select('id, title, visibility, cover_path, updated_at')
+    .eq('user_id', userId)
+    .order('id')
+    .range(from, to), 'playlists.listLabels')
 }
 
 /** Custom cover path of one of the user's playlists (null: none, or not the user's playlist). */
@@ -94,11 +99,20 @@ export async function findPlaylistCoverPath(db: DbClient, userId: string, id: st
   return data?.cover_path ?? null
 }
 
-/** Custom cover paths of the user's playlists (storage clean-up). */
+/**
+ * Custom cover paths of the user's playlists (storage clean-up). All of
+ * them, read in pages: a path missing here would make its cover look
+ * orphaned, and the clean-up would delete it.
+ */
 export async function listPlaylistCoverPaths(db: DbClient, userId: string): Promise<string[]> {
-  const { data, error } = await db.from('playlists').select('cover_path').eq('user_id', userId).not('cover_path', 'is', null)
-  if (error) throw toHttpError(error, 'playlists.listCoverPaths')
-  return data.flatMap(row => (row.cover_path ? [row.cover_path] : []))
+  const rows = await readAllPages((from, to) => db
+    .from('playlists')
+    .select('cover_path')
+    .eq('user_id', userId)
+    .not('cover_path', 'is', null)
+    .order('id')
+    .range(from, to), 'playlists.listCoverPaths')
+  return rows.flatMap(row => (row.cover_path ? [row.cover_path] : []))
 }
 
 /** Inserts a playlist (no tracks yet) and returns the stored row. */

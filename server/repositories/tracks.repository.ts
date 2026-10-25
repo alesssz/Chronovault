@@ -1,6 +1,7 @@
 import type { TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
+import { readAllPages } from './pages'
 import { TRACK_SUMMARY_COLUMNS, type TrackRow, type TrackSummaryRow } from '../mappers/track'
 
 /**
@@ -12,17 +13,18 @@ import { TRACK_SUMMARY_COLUMNS, type TrackRow, type TrackSummaryRow } from '../m
  * errors (`toHttpError`); business rules live in the services.
  */
 
-/** The user's library, newest first (summary columns only: no lyrics or peaks). */
+/** The user's whole library, newest first (summary columns only: no lyrics or peaks), read in pages. */
 export async function listTrackRows(db: DbClient, userId: string): Promise<TrackSummaryRow[]> {
-  const { data, error } = await db
+  return readAllPages((from, to) => db
     .from('tracks')
     .select(TRACK_SUMMARY_COLUMNS)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
+    // Tracks uploaded together can share a timestamp: the id makes the order (and the pages) stable.
+    .order('id')
+    .range(from, to)
     // The column list is a runtime string: tell the typed client what it returns.
-    .overrideTypes<TrackSummaryRow[], { merge: false }>()
-  if (error) throw toHttpError(error, 'tracks.list')
-  return data
+    .overrideTypes<TrackSummaryRow[], { merge: false }>(), 'tracks.list')
 }
 
 /** What the Statistics page shows of a track (and needs for its cover address). */
@@ -30,9 +32,12 @@ export type TrackLabelRow = Pick<TrackRow, 'id' | 'title' | 'visibility' | 'cove
 
 /** Title, visibility and cover of every track of the user (Statistics page). */
 export async function listTrackLabels(db: DbClient, userId: string): Promise<TrackLabelRow[]> {
-  const { data, error } = await db.from('tracks').select('id, title, visibility, cover_path, updated_at').eq('user_id', userId)
-  if (error) throw toHttpError(error, 'tracks.listLabels')
-  return data
+  return readAllPages((from, to) => db
+    .from('tracks')
+    .select('id, title, visibility, cover_path, updated_at')
+    .eq('user_id', userId)
+    .order('id')
+    .range(from, to), 'tracks.listLabels')
 }
 
 /** One full row, or null when it does not exist or belongs to someone else. */
@@ -56,14 +61,21 @@ export async function findTrackCoverPath(db: DbClient, userId: string, id: strin
   return data?.cover_path ?? null
 }
 
-/** Storage paths of every file the user's tracks use (storage clean-up). */
+/**
+ * Storage paths of every file the user's tracks use (storage clean-up). All
+ * of them, read in pages: a path missing here would make its file look
+ * orphaned, and the clean-up would delete a track's audio.
+ */
 export async function listTrackFilePaths(
   db: DbClient,
   userId: string,
 ): Promise<Pick<TrackRow, 'audio_path' | 'cover_path'>[]> {
-  const { data, error } = await db.from('tracks').select('audio_path, cover_path').eq('user_id', userId)
-  if (error) throw toHttpError(error, 'tracks.listFilePaths')
-  return data
+  return readAllPages((from, to) => db
+    .from('tracks')
+    .select('audio_path, cover_path')
+    .eq('user_id', userId)
+    .order('id')
+    .range(from, to), 'tracks.listFilePaths')
 }
 
 /** Inserts a track and returns the stored row (with defaults and generated columns). */
