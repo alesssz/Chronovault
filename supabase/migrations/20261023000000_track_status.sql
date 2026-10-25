@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — draft and final tracks
+-- Chronovault — draft and final tracks
 --
 -- A track is a 'draft' (a work in progress: e.g. one of several Suno
 -- versions sent to friends to choose from) or 'final' (the chosen version).

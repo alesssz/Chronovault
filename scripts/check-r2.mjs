@@ -43,7 +43,7 @@ const origins = process.argv.slice(2).length ? process.argv.slice(2) : ['http://
 // Signs requests exactly like the app (aws4fetch, SigV4).
 const client = new AwsClient({ ...config, service: 's3' })
 // A throwaway object, deleted at the end whatever happens.
-const key = `_chronoplayer-check/${Date.now()}.bin`
+const key = `_chronovault-check/${Date.now()}.bin`
 // Path-style URL of the test object, like AudioStorage.objectUrl().
 const objectUrl = `${config.endpoint}/${config.bucket}/${key}`
 // 4 KB of known bytes: the range check below expects bytes 100-109.

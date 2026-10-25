@@ -12,12 +12,12 @@ test.describe('authentication', () => {
   })
 
   test('signs in with the seeded demo user', async ({ page }) => {
-    await signIn(page, 'demo@chronoplayer.local', 'chronoplayer')
+    await signIn(page, 'demo@chronovault.local', 'chronovault')
   })
 
   test('wrong credentials show an error', async ({ page }) => {
     await page.goto('/login')
-    await page.getByRole('textbox', { name: 'Email' }).fill('demo@chronoplayer.local')
+    await page.getByRole('textbox', { name: 'Email' }).fill('demo@chronovault.local')
     await page.locator('input[name="password"]').fill('wrong-password')
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText('Sign-in failed').first()).toBeVisible()

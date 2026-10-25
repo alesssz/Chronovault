@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — internal functions out of the API
+-- Chronovault — internal functions out of the API
 --
 -- Every function in the `public` schema can be called through the Data API
 -- (`POST /rest/v1/rpc/<name>`) by whoever holds `execute` on it, and

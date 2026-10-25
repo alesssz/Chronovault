@@ -73,7 +73,7 @@ test.describe('library with many tracks', () => {
     // --- Playing from a row queues the whole library (saved on the device) ---
     await rows.nth(3).getByTestId('track-title').click()
     await expect(page.getByTestId('player-bar')).toBeVisible()
-    await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem('chronoplayer:queue') ?? '{}') as { trackIds?: string[] }).trackIds?.length))
+    await expect.poll(() => page.evaluate(() => (JSON.parse(localStorage.getItem('chronovault:queue') ?? '{}') as { trackIds?: string[] }).trackIds?.length))
       .toBe(COUNT)
     // Out of the way for the next step: the player bar covers the bottom of the page.
     await page.getByRole('button', { name: 'Close player' }).click()

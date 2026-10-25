@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
 
 /** The localStorage key the module uses. */
-const KEY = 'chronoplayer:queue'
+const KEY = 'chronovault:queue'
 
 /** In-memory localStorage (the unit tests run in Node). */
 function memoryStorage(): Storage {

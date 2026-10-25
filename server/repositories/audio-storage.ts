@@ -127,7 +127,7 @@ export class AudioStorage {
   private streamKey(): Promise<CryptoKey> {
     this.streamKeyPromise ??= crypto.subtle.importKey(
       'raw',
-      new TextEncoder().encode(`chronoplayer-stream:${this.config.secretAccessKey}`),
+      new TextEncoder().encode(`chronovault-stream:${this.config.secretAccessKey}`),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign', 'verify'],

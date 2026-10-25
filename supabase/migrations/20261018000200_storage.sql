@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — Storage
+-- Chronovault — Storage
 -- Private buckets; files are only readable through signed URLs.
 -- Path convention: <user_id>/<track_id>.<ext>
 --   audio  → audio/<user_id>/<track_id>.flac

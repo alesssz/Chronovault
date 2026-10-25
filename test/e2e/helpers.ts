@@ -57,7 +57,7 @@ export function uniqueId(): string {
 /** Signs up a new user (email confirmation is disabled locally). */
 export async function signUp(page: Page): Promise<string> {
   // A throwaway account, unique per test.
-  const email = `e2e-${uniqueId()}@chronoplayer.test`
+  const email = `e2e-${uniqueId()}@chronovault.test`
   await page.goto('/login')
   await page.getByRole('button', { name: 'Sign up' }).click()
   await page.getByRole('textbox', { name: 'Email' }).fill(email)

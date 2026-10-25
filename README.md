@@ -2,7 +2,7 @@
 
 *The Sound of Time Remembering Itself.*
 
-The music library and player of **Chronovault**, a Suno artist exploring history through sound (metal, folk, cinematic), made to keep its tracks and share them. The app carries the project's name and look: the portal logo, gold and spectral blue on night blue, and the Chronovault artwork wherever a track has no cover of its own ([5.6](#56-brand-and-theme)). The code keeps its working name, **ChronoPlayer**, in technical identifiers only: the repository, the npm package, the Docker project, the R2 bucket, the browser-storage keys and the demo account.
+The music library and player of **Chronovault**, a Suno artist exploring history through sound (metal, folk, cinematic), made to keep its tracks and share them. The app carries the project's name and look: the portal logo, gold and spectral blue on night blue, and the Chronovault artwork wherever a track has no cover of its own ([5.6](#56-brand-and-theme)). It was first called ChronoPlayer: every name, from the repository to the storage bucket, now says Chronovault, and what browsers had saved under the old name moves to the new one by itself ([7.15](#715-where-each-piece-of-data-lives)).
 
 A personal music library in the browser. Upload your tracks, play them with an interactive waveform, manage their metadata (composers, genre, Suno prompt, mastering status…), sync the lyrics line by line to watch them scroll while you listen, organize tracks in playlists and share tracks or playlists through a link.
 
@@ -11,7 +11,7 @@ It works on desktop and smartphones and can be installed as a PWA. It runs entir
 ```bash
 pnpm install     # once
 pnpm local       # Docker Desktop must be open → http://localhost:3000
-                 # demo account: demo@chronoplayer.local / chronoplayer
+                 # demo account: demo@chronovault.local / chronovault
 ```
 
 ---
@@ -73,7 +73,7 @@ pnpm install       # installs dependencies (the package store lives in .pnpm-sto
 pnpm local         # Supabase in Docker + .env + Nuxt dev server
 ```
 
-Open **http://localhost:3000** and sign in with **`demo@chronoplayer.local` / `chronoplayer`** (or create an account: email confirmation is off locally).
+Open **http://localhost:3000** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally).
 
 | I want to… | Command |
 |---|---|
@@ -247,9 +247,9 @@ flowchart LR
 
 | Piece | `pnpm local` | `pnpm docker` | Production |
 |---|---|---|---|
-| Nuxt app | Dev server on the host, :3000 | Compose service `app` (project `chronoplayer`), :8080 | Vercel |
+| Nuxt app | Dev server on the host, :3000 | Compose service `app` (project `chronovault`), :8080 | Vercel |
 | Postgres, Auth, Storage (covers) | Supabase CLI containers (:54321) | Same Supabase containers, reached via `host.docker.internal` | Supabase Cloud |
-| Audio files | Supabase's local S3 endpoint, bucket `audio` | Same | Cloudflare R2, bucket `chronoplayer-audio` |
+| Audio files | Supabase's local S3 endpoint, bucket `audio` | Same | Cloudflare R2, bucket `chronovault-audio` |
 | Config file | `.env` | `.env.docker` | Vercel environment variables |
 
 The local database and the production database are **completely separate**: accounts, tracks and playlists created locally never appear online, and vice versa.
@@ -363,7 +363,7 @@ After changing the mark, the colours or the artwork: `pnpm generate:brand`, then
 ## 6. Project structure
 
 ```
-ChronoPlayer/                         # The repository keeps the working name; the app is Chronovault
+Chronovault/
 ├── app/                              # Frontend (Nuxt 4 srcDir)
 │   ├── app.vue · error.vue           # Root component · fatal error page
 │   ├── app.config.ts                 # Nuxt UI theme: gold, spectral blue, night blue (5.6)
@@ -407,6 +407,7 @@ ChronoPlayer/                         # The repository keeps the working name; t
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
 │   │   ├── listener-id.ts            #   this browser's random id, for plays and votes
+│   │   ├── storage-keys.ts           #   every localStorage key, and the move from the former chronoplayer: names
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
 │   │   ├── haptics.ts                #   short vibrations as touch feedback (Android)
@@ -425,7 +426,7 @@ ChronoPlayer/                         # The repository keeps the working name; t
 │   │   ├── stats.vue                 # Statistics (visits and plays of the share links)
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
-│   ├── plugins/                      # media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
+│   ├── plugins/                      # 00.storage-keys.client.ts (moves keys saved under the former name, first) · media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
 │   │                                 #   · play-counter.client.ts (reports plays, 7.16) · keyboard-shortcuts.client.ts (7.5)
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: puts together the parts in lib/player/ behind one API
@@ -718,7 +719,7 @@ The queue lives in the player store (`app/stores/player.ts`, its queue part in `
 
 - **HEAD** is answered by the app: `200` with the file's type, size and `Accept-Ranges`, read from the storage with a HEAD the server signs. Chrome sends this request before casting, and a presigned GET URL refuses any other method (`403`): with it, the Cast button could never work;
 - **GET** gets a `302` to a presigned GET of the file, valid as long as the address: the audio, range requests included, still comes straight from the storage, never through the app's server;
-- **the signature** is an HMAC-SHA-256 of the key and the expiry, with a key derived from the storage secret (`chronoplayer-stream:` + the secret: nothing more to configure). A cast device has no session, so the address itself carries the permission; an altered key or expiry, a forged signature or an expired address get `403`, without telling whether the file exists. Answers carry `Access-Control-Allow-Origin: *` (a cast device's player runs on another origin) and `Cache-Control: no-store`.
+- **the signature** is an HMAC-SHA-256 of the key and the expiry, with a key derived from the storage secret (`chronovault-stream:` + the secret: nothing more to configure). A cast device has no session, so the address itself carries the permission; an altered key or expiry, a forged signature or an expired address get `403`, without telling whether the file exists. Answers carry `Access-Control-Allow-Origin: *` (a cast device's player runs on another origin) and `Cache-Control: no-store`.
 
 The cost is one small function call per load or seek of a track (the redirect), instead of none.
 
@@ -768,7 +769,7 @@ flowchart LR
   - one track at a time: *Download .lrc* here, *Open file* + *Apply* + *Save* there;
   - with the audio: download the track (FLAC or MP3 carry the sync, [7.11](#711-downloading-a-track)) and upload that file there: the upload reads the sync back with the rest of the metadata. Description, Suno prompt, visibility and mastering status do not travel this way.
 - **While playing**, the active line is found with a binary search (`findActiveLineIndex`, never a header) and scrolled into view; scrolling by hand pauses auto-scroll for 4 seconds. `LyricsView` scrolls inside its own box (`h-full`), so its parent must give it a definite height: otherwise the box grows with the text and auto-scroll moves whatever scrolls around it.
-- **Where the lyrics show in the full-screen player** (`PlayerExpanded.vue`): from `md` in the right column, beside the cover. On phones they used to sit under the controls, in the one scrolling column, where they could never fill the screen and their auto-scroll dragged the whole view along; now the phones' normal view shows the track's description there instead, and the **lyrics view** (top-bar button, shown when the track has lyrics) gives them the screen: a small cover and title on top, `LyricsView size="large"` in a box that fills the rest (its lines fade out at the edges, a CSS mask), the waveform and previous / play / next at the bottom. The choice is kept in `localStorage` (`chronoplayer:lyrics-view`); a track without lyrics shows the normal view whatever the choice. While the lyrics view is open and the music plays, the screen is kept on (Screen Wake Lock, VueUse `useWakeLock`, as in the sync editor): reading along means not touching the phone. Paused, or back on the cover, the screen behaves as usual again. The phone/wide switch is a media query in JavaScript (`useMediaQuery`), not CSS, so only one layout, and one waveform, is ever mounted.
+- **Where the lyrics show in the full-screen player** (`PlayerExpanded.vue`): from `md` in the right column, beside the cover. On phones they used to sit under the controls, in the one scrolling column, where they could never fill the screen and their auto-scroll dragged the whole view along; now the phones' normal view shows the track's description there instead, and the **lyrics view** (top-bar button, shown when the track has lyrics) gives them the screen: a small cover and title on top, `LyricsView size="large"` in a box that fills the rest (its lines fade out at the edges, a CSS mask), the waveform and previous / play / next at the bottom. The choice is kept in `localStorage` (`chronovault:lyrics-view`); a track without lyrics shows the normal view whatever the choice. While the lyrics view is open and the music plays, the screen is kept on (Screen Wake Lock, VueUse `useWakeLock`, as in the sync editor): reading along means not touching the phone. Paused, or back on the cover, the screen behaves as usual again. The phone/wide switch is a media query in JavaScript (`useMediaQuery`), not CSS, so only one layout, and one waveform, is ever mounted.
 
 ### 7.10 Deleting a track
 
@@ -920,9 +921,11 @@ sequenceDiagram
 | Playlists, groups of versions and their order | Postgres `playlists` (`purpose` tells them apart), `playlist_tracks` | Owner (RLS); shared ones via `get_shared_playlist*` |
 | Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`) | Anyone holding a streaming address or the presigned URL it redirects to, both issued by the server and expiring |
 | Covers | Supabase Storage `covers` (private) | The owner, through `/api/covers/…` (and a copy in their browser cache); visitors of shared pages, through signed URLs issued under the storage policies |
-| Volume | Browser `localStorage` (`chronoplayer:volume`; the keys keep the codename, so renaming never drops saved settings) | That browser only; used with a mouse or trackpad only (touch screens play at full level) |
-| Lyrics view on or off (phones' full-screen player) | Browser `localStorage` (`chronoplayer:lyrics-view`) | That browser only |
-| Play queue (track ids, current track, position) | Browser `localStorage` (`chronoplayer:queue`) | That browser, for the signed-in user only |
+| Volume | Browser `localStorage` (`chronovault:volume`, like every key of the app: `lib/storage-keys.ts`; keys saved under the former `chronoplayer:` names are moved there on the first visit) | That browser only; used with a mouse or trackpad only (touch screens play at full level) |
+| Lyrics view on or off (phones' full-screen player) | Browser `localStorage` (`chronovault:lyrics-view`) | That browser only |
+| Play queue (track ids, current track, position) | Browser `localStorage` (`chronovault:queue`) | That browser, for the signed-in user only |
+| Shuffle and repeat | Browser `localStorage` (`chronovault:playback-modes`) | That browser only |
+| Listener id (a random id, for plays and votes) | Browser `localStorage` (`chronovault:listener-id`) | Sent with plays and votes; identifies nothing but the browser |
 | Visits to the share pages | Vercel Web Analytics (aggregated, no cookies) | The owner, through `/api/analytics` (the server holds the Vercel token) |
 | R2 credentials, Vercel token | Server environment only | The server |
 
@@ -1135,7 +1138,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | Bucket | Where | Content | Access |
 |---|---|---|---|
 | `covers` | Supabase Storage (private) | `<userId>/<trackId>.webp`, `<userId>/playlists/<playlistId>.webp` | Write: own folder only. Read (sign): own files, or files of shared items |
-| `chronoplayer-audio` | Cloudflare R2 (private) | `<userId>/<trackId>.<ext>` | Only through streaming addresses and presigned URLs issued by the server |
+| `chronovault-audio` | Cloudflare R2 (private) | `<userId>/<trackId>.<ext>` | Only through streaming addresses and presigned URLs issued by the server |
 | `audio` | Local Supabase only | Same layout as R2 | Stand-in for R2 in development (S3 protocol) |
 
 ### 8.5 Security guarantees
@@ -1233,7 +1236,7 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `SUPABASE_KEY` | browser + server | **Public** key (publishable / anon) |
 | `NUXT_AUDIO_STORAGE_ENDPOINT` | server only | S3 endpoint: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` in production, `http://127.0.0.1:54321/storage/v1/s3` locally |
 | `NUXT_AUDIO_STORAGE_REGION` | server only | `auto` for R2, `local` locally |
-| `NUXT_AUDIO_STORAGE_BUCKET` | server only | `chronoplayer-audio` on R2, `audio` locally |
+| `NUXT_AUDIO_STORAGE_BUCKET` | server only | `chronovault-audio` on R2, `audio` locally |
 | `NUXT_AUDIO_STORAGE_ACCESS_KEY_ID` | server only | R2 API token key id |
 | `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | server only | R2 API token secret — **never commit it** |
 | `NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS` | server only, optional | Orphaned files younger than this are never deleted (default `24`; the e2e server uses `0`) |
@@ -1310,7 +1313,7 @@ It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwrig
    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
    ZSH
    source ~/.zshrc
-   cd <path>/ChronoPlayer
+   cd <path>/Chronovault
    nvm install          # reads .nvmrc → Node 24
    nvm use
    ```
@@ -1410,7 +1413,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 ### 11.5 Local data
 
 - Data survives `pnpm stop` and restarts: it lives in Docker volumes.
-- The **demo user** (`demo@chronoplayer.local` / `chronoplayer`) is created by `supabase/seed.sql` when the database is first created or reset.
+- The **demo user** (`demo@chronovault.local` / `chronovault`) is created by `supabase/seed.sql` when the database is first created or reset.
 - **New migrations: `pnpm db:migrate`** (or `make db-migrate`) applies them and keeps every account and track. `pnpm db:reset` rebuilds the database from scratch and **deletes all local data** — use it only when you mean it.
 - Local and production data are separate (see [5.3](#53-where-everything-runs)).
 
@@ -1439,7 +1442,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Level | Tool | Where | What it covers |
 |---|---|---|---|
-| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, shared helpers (plurals, labels, clamping, list moves, byte arrays), cover crop geometry, Zod schemas (incl. playlist purpose: set at creation only, `playlist` by default), mappers (incl. cover addresses and the shared-track fields common to both public pages); presigned playback URLs and cover removal; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data, plays per day and page with own plays apart, votes and plays tallied per version, new votes since the owner's last visit per group and per comment, a visit recorded up to the copy seen, never beyond now nor back) with mocked repositories; **when listening becomes a play** (`play-tracker.ts`: 30 s or half, completed at 90%, seeks, pauses and slowed-down playback not counted) and the **listener id** (kept, replaced when corrupted, one per page without storage); the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (the next track asked for ahead: when, and started in the same call as the end without a new request, replaced when Up next changes, not while paused, with repeat one or for a shuffled round, asked again when about to expire or failed, forgotten on close; queue and queue editing, races, expired URLs, shared sources, shuffle and repeat in every mode, settings kept across server-rendered pages), the **volume-support probe** (iOS ignores the volume set from JavaScript) and **who gets a volume slider** (a mouse or trackpad, never a touch screen or an iPad), the **streaming addresses** (built with the key and expiry, accepted until they expire, refused when the file, the expiry, the signature or the secret differ), **haptics** (pattern passed on, silent without the Vibration API or when refused), the **media card** (cover or the Chronovault artwork, "Chronovault" for a missing artist or album, absolute artwork addresses) and the **play-order rules of shuffle** (`queue-order.ts`, seeded random); the **keyboard shortcuts' keys** (every key and case, nothing with Ctrl / Cmd / Alt, the table the help and the buttons read); the **audio engine's position with the page hidden** (no frames: reported from `timeupdate`); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **lists read in pages** (`readAllPages`: past 1000 rows, a last page exactly full, errors); the **brand kept in one piece** (`brand.test.ts`: the CSS scales and `BRAND_COLORS` agree, the theme colour and the name reach the head and the manifest, every icon they name and the fallback cover exist, the favicon draws the current mark); **`vite.optimizeDeps.include` complete** (every package the browser imports listed, nothing stale; the import scanner itself on static, multi-line, side-effect, dynamic, type-only and aliased imports); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
+| Unit | Vitest (Node) | `test/unit/` | LRC parsing and serialization, active-line lookup, peaks, paths, formats, shared helpers (plurals, labels, clamping, list moves, byte arrays), cover crop geometry, Zod schemas (incl. playlist purpose: set at creation only, `playlist` by default), mappers (incl. cover addresses and the shared-track fields common to both public pages); presigned playback URLs and cover removal; **services** (tracks, genres, playlists, sharing, storage clean-up, covers, statistics incl. demo data, plays per day and page with own plays apart, votes and plays tallied per version, new votes since the owner's last visit per group and per comment, a visit recorded up to the copy seen, never beyond now nor back) with mocked repositories; **when listening becomes a play** (`play-tracker.ts`: 30 s or half, completed at 90%, seeks, pauses and slowed-down playback not counted) and the **listener id** (kept, replaced when corrupted, one per page without storage), the **move of saved keys** from the former `chronoplayer:` names (every one moved and removed, a newer value kept, other keys untouched, a second run harmless); the **R2 client** (incl. paginated listing) and the **Vercel Analytics client** (request, rows, errors that never show the token) with a fake fetch; the **player store** with a fake engine (the next track asked for ahead: when, and started in the same call as the end without a new request, replaced when Up next changes, not while paused, with repeat one or for a shuffled round, asked again when about to expire or failed, forgotten on close; queue and queue editing, races, expired URLs, shared sources, shuffle and repeat in every mode, settings kept across server-rendered pages), the **volume-support probe** (iOS ignores the volume set from JavaScript) and **who gets a volume slider** (a mouse or trackpad, never a touch screen or an iPad), the **streaming addresses** (built with the key and expiry, accepted until they expire, refused when the file, the expiry, the signature or the secret differ), **haptics** (pattern passed on, silent without the Vibration API or when refused), the **media card** (cover or the Chronovault artwork, "Chronovault" for a missing artist or album, absolute artwork addresses) and the **play-order rules of shuffle** (`queue-order.ts`, seeded random); the **keyboard shortcuts' keys** (every key and case, nothing with Ctrl / Cmd / Alt, the table the help and the buttons read); the **audio engine's position with the page hidden** (no frames: reported from `timeupdate`); **tags for downloads** (FLAC, MP3, WAV written and read back with music-metadata, audio bytes unchanged, previous tags replaced, file names; synced lyrics written and read back as the upload reads them); **lists read in pages** (`readAllPages`: past 1000 rows, a last page exactly full, errors); the **brand kept in one piece** (`brand.test.ts`: the CSS scales and `BRAND_COLORS` agree, the theme colour and the name reach the head and the manifest, every icon they name and the fallback cover exist, the favicon draws the current mark); **`vite.optimizeDeps.include` complete** (every package the browser imports listed, nothing stale; the import scanner itself on static, multi-line, side-effect, dynamic, type-only and aliased imports); **WAV → FLAC** with real libFLAC round trips (8/16/24-bit, mono/stereo, full-scale extremes) checked by a second, independent decoder and Node's MD5 |
 | Components | Vitest + `@nuxt/test-utils` (happy-dom) | `test/nuxt/` | `useRemotePlayback` with a fake RemotePlayback (available when a device is reported or the browser can only look when asked, not without the API or when refused, connection state, picker outcomes including an instant refusal taken for a browser that cannot cast, the browser's own answer passed on with how fast it came, watch cancelled on unmount and on a new element), `useCloseOnBack` with a fake CloseWatcher (back closes, closing another way drops the watcher, a refused close re-arms it, Esc is left to Nuxt UI, nothing without the API), `LyricsView`, `TrackCover` (the artwork, without alternative text, for a track without a cover), `TrackList` (incl. draft badge and selection mode), `PlaylistCover` (custom cover, mosaic, single cover, the artwork when there is nothing), `IconButton` (its label names the button, the rest reaches `UButton`, no visible text), **when a key stays with its element** (`targetKeepsKey` on real DOM: text fields, Space on buttons but not on the waveform, arrows on sliders and menus, letters in menus, dialogs but the player's view) |
 | Scripts | Vitest (Node) | `test/unit/scripts/` | **`merge:main`** run against throwaway git repositories (a bare repository as the remote): merge and clean-up, every refusal, conflicts; the merge message. **`doctor`**: Node version ranges, the pinned pnpm, Playwright's browser folder per OS, the macOS/Windows fixes |
 | Database | pgTAP (`supabase test db`) | `supabase/tests/database/` | RLS across two users and an anonymous visitor, table privileges, constraints, generated columns, sharing functions (fields never exposed, draft/final status and playlist purpose returned), new tracks start as drafts, playlists (curated by default), storage policies; **plays and votes** (where a play may be recorded, own plays kept apart, once a day per listener, votes only on shared groups and never by the owner, closed once a version is final, readable by the owner only, internal helpers not callable); **function privileges** (exactly which functions `anon` and `authenticated` may call, policy helpers out of the API schema and still working); **feedback seen** (the owner's visits: owner only) — 114 tests |
@@ -1453,7 +1456,7 @@ E2E_DEV=1 pnpm test:e2e   # end-to-end against the dev server (:3000)
 make ci                   # everything the CI runs
 ```
 
-- E2E tests generate WAV files on the fly and register throwaway users (`e2e-…@chronoplayer.test`) in the local database; they do not touch your own data.
+- E2E tests generate WAV files on the fly and register throwaway users (`e2e-…@chronovault.test`) in the local database; they do not touch your own data.
 - **Wait for the server, not for a toast, before relying on a save.** A success toast stays on screen for a few seconds, so after a second save with the same message ("Changes saved", "Cover updated") the toast assertion passes before the request has finished. `clickAndWaitForApi(page, control, { method, path })` (`test/e2e/helpers.ts`) clicks and waits for that request's successful response.
 - **Many tracks: `seedLibrary(page, count)`** (`test/e2e/helpers.ts`) makes them through the API, a tiny WAV each, ten at a time ("Track 001", "Track 002"…): hundreds take seconds, where uploading them through the page would take minutes. Use `uploadTrack` when the upload itself is under test.
 - pgTAP tests run inside a transaction that is rolled back: they never change the database.
@@ -1484,7 +1487,7 @@ make ci                   # everything the CI runs
 Dashboard labels may change slightly over time.
 
 1. **R2 Object Storage**: enable R2 (Cloudflare may ask for a payment method even within the free tier).
-2. **Create bucket** `chronoplayer-audio`, location *Automatic*, storage class *Standard*. Keep public access **disabled**.
+2. **Create bucket** `chronovault-audio`, location *Automatic*, storage class *Standard*. Keep public access **disabled**.
 3. **Bucket → Settings → CORS policy** (the browser uploads with PUT and streams with GET + `Range`):
    ```json
    [
@@ -1498,7 +1501,7 @@ Dashboard labels may change slightly over time.
    ]
    ```
    Origins must include the scheme (`https://`) and no trailing slash.
-4. **Manage API tokens → Create API token**: permission *Object Read & Write*, restricted to `chronoplayer-audio`. Copy the *Access Key ID*, the *Secret Access Key* (shown once) and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The "Token value" is not needed.
+4. **Manage API tokens → Create API token**: permission *Object Read & Write*, restricted to `chronovault-audio`. Copy the *Access Key ID*, the *Secret Access Key* (shown once) and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The "Token value" is not needed.
 5. Copy `.env.r2.example` to `.env.r2`, fill it in and run `pnpm r2:check`: every line must be ✔.
 
 ### 13.3 Vercel

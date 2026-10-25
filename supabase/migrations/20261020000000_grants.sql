@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — explicit table privileges
+-- Chronovault — explicit table privileges
 --
 -- Supabase projects can be created with or without "Automatically expose new
 -- tables" (default grants to the anon/authenticated roles). These grants make

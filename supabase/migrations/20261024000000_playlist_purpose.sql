@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — version groups
+-- Chronovault — version groups
 --
 -- "Share for feedback" in the library puts 2-3 versions of a song (Suno
 -- drafts) into an unlisted playlist whose link goes to friends. Those groups

@@ -55,7 +55,7 @@ When the source is not the library (`sourceKey !== librarySource.key`), shuffle 
 
 ## Persistence
 
-- **Modes:** saved in `localStorage` under `chronoplayer:playback-modes` as `{ shuffle, repeat }`, read and written like the volume (try/catch; invalid or missing values → off). Volume, shuffle and repeat are `skipHydrate` refs: a server-rendered page (`/t`, `/p`) must not replace them with the server's defaults. The store comment that calls the volume "the only player setting remembered across visits" is updated.
+- **Modes:** saved in `localStorage` under `chronovault:playback-modes` as `{ shuffle, repeat }`, read and written like the volume (try/catch; invalid or missing values → off). Volume, shuffle and repeat are `skipHydrate` refs: a server-rendered page (`/t`, `/p`) must not replace them with the server's defaults. The store comment that calls the volume "the only player setting remembered across visits" is updated.
 - **Saved queue:** `app/lib/queue-storage.ts` moves to format **version 2**, adding an optional `originalTrackIds: string[]` written once the queue has been shuffled (it survives turning shuffle off, see State). Version 1 is still read, as a queue without shuffle; any other version is discarded, as today. On restore, `originalTrackIds` goes through the same filter as the queue (tracks deleted since are dropped), and `restoreQueue` takes it as an optional argument. The persistence plugin's save watcher also watches `shuffle` and `originalOrder`, so toggling shuffle saves the queue at once.
 - If a saved queue restores without `originalTrackIds` while the stored mode says shuffle on (e.g. a version 1 queue), shuffle starts with `originalOrder` = the restored queue as it is: turning it off then keeps that order.
 

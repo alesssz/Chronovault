@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — feedback seen
+-- Chronovault — feedback seen
 --
 -- When friends vote or leave a comment on a group of versions, the owner
 -- should notice without opening every group: the app shows a dot on

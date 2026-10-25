@@ -8,9 +8,10 @@
  * visitor then counts as a new listener, and could vote again: acceptable
  * among friends). For the owner the server ignores it and uses the session.
  */
+import { STORAGE_KEYS } from '~/lib/storage-keys'
 
-/** localStorage key of the id. */
-const KEY = 'chronoplayer:listener-id'
+/** localStorage key of the id (an id saved under the former name is moved there: see storage-keys.ts). */
+const KEY = STORAGE_KEYS.listenerId
 /** The shape of a UUID, to drop a corrupted stored value. */
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
 

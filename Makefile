@@ -1,5 +1,5 @@
 # =============================================================================
-# Chronovault (codename ChronoPlayer) — project commands
+# Chronovault — project commands
 # Usage: make <command>     (make help for the full list)
 # On Windows: run from Git Bash (GNU Make: winget install ezwinports.make) or WSL.
 # New computer: make doctor (or node scripts/doctor.mjs) lists what is missing.
@@ -42,7 +42,7 @@ doctor: ## Check this computer's prerequisites (Node, pnpm, Docker…) and print
 setup: install db-start env db-types ## First run: dependencies, local DB, .env, types
 	@echo ""
 	@echo "✔ Ready. Start the app with: make dev"
-	@echo "  Demo user: demo@chronoplayer.local / chronoplayer"
+	@echo "  Demo user: demo@chronovault.local / chronovault"
 
 install: ## Install dependencies
 	$(PNPM) install

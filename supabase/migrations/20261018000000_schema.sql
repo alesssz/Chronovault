@@ -1,5 +1,5 @@
 -- =============================================================================
--- ChronoPlayer — base schema
+-- Chronovault — base schema
 -- Tables: genres, tracks. Files (audio, covers) live in Storage:
 -- the database only stores their paths.
 --

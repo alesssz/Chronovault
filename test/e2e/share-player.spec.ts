@@ -114,7 +114,7 @@ test.describe('share page player', () => {
     // A low volume saved on this phone by an older version of the app, and a recorder of every
     // level the page gives an audio element: on a touch screen it must play at full volume.
     await phone.addInitScript(() => {
-      localStorage.setItem('chronoplayer:volume', '0.3')
+      localStorage.setItem('chronovault:volume', '0.3')
       const recorder = window as unknown as { __volumes: number[] }
       recorder.__volumes = []
       const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume')!
