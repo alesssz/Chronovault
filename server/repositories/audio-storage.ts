@@ -1,4 +1,5 @@
 import { AwsClient } from 'aws4fetch'
+import { isSafeStorageKey } from '~~/shared/utils/storage-paths'
 
 /**
  * Audio file storage on an S3-compatible service: Cloudflare R2 in production,
@@ -70,8 +71,13 @@ export class AudioStorage {
    * Path style works with both R2 and the Supabase S3 endpoint (virtual-host
    * style would need DNS per bucket). Each key segment is URL-encoded but
    * the `/` separators are kept.
+   *
+   * Every signed request (presigned URLs, HEAD, DELETE) is built here, so
+   * this is where a key with `..` or an empty segment is refused: URL parsing
+   * would resolve it to another file, and the signature would cover that one.
    */
   objectUrl(key: string): string {
+    if (!isSafeStorageKey(key)) throw new Error(`Refused unsafe storage key: ${JSON.stringify(key)}`)
     // Each segment encoded on its own, so the folder separators stay slashes.
     const encodedKey = key.split('/').map(encodeURIComponent).join('/')
     return `${this.bucketUrl()}/${encodedKey}`

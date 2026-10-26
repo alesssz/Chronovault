@@ -69,7 +69,7 @@ insert into auth.users (id, instance_id, aud, role, email) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@test.local');
 insert into public.tracks (id, user_id, title, audio_path, mime_type, size_bytes) values
   ('a1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Track',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1.flac', 'audio/flac', 1);
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.flac', 'audio/flac', 1);
 insert into public.playlists (id, user_id, title) values
   ('c1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'List');
 

@@ -142,8 +142,8 @@ select throws_ok(
 );
 
 select lives_ok(
-  $$ insert into public.tracks (title, audio_path, mime_type, size_bytes)
-     values ('B''s track', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1.mp3', 'audio/mpeg', 1) $$,
+  $$ insert into public.tracks (id, title, audio_path, mime_type, size_bytes)
+     values ('b1111111-1111-4111-8111-111111111111', 'B''s track', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1111111-1111-4111-8111-111111111111.mp3', 'audio/mpeg', 1) $$,
   'B creates own tracks (user_id defaults to auth.uid())'
 );
 

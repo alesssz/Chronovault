@@ -1,4 +1,5 @@
 import type { DbClient } from '../utils/auth'
+import { isSafeStorageKey } from '~~/shared/utils/storage-paths'
 import { toHttpError } from '../utils/errors'
 
 /**
@@ -6,7 +7,14 @@ import { toHttpError } from '../utils/errors'
  * reachable through signed URLs, and the storage RLS policies decide who may
  * sign them (the owner, or anyone for files of shared tracks/playlists).
  * Audio files live on Cloudflare R2 instead (see audio-storage.ts).
+ * A path with `..` or an empty segment is never passed on (isSafeStorageKey),
+ * whatever the database holds.
  */
+
+/** Throws (500, logged) on a path that could name another file than it says. */
+function assertSafePath(path: string, context: string): void {
+  if (!isSafeStorageKey(path)) throw toHttpError({ message: `unsafe storage key ${JSON.stringify(path)}` }, context)
+}
 
 /**
  * Lifetime of signed URLs for audio streaming and covers (seconds): 6 hours,
@@ -15,8 +23,9 @@ import { toHttpError } from '../utils/errors'
  */
 export const SIGNED_URL_TTL = 6 * 60 * 60
 
-/** Signs one file; throws (500) when the file is missing or not readable by this client. */
+/** Signs one file; throws (500) when the file is missing, not readable by this client, or its path unsafe. */
 export async function createSignedUrl(db: DbClient, bucket: string, path: string): Promise<string> {
+  assertSafePath(path, `storage.sign:${bucket}`)
   // One signed URL, valid SIGNED_URL_TTL seconds.
   const { data, error } = await db.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL)
   if (error) throw toHttpError({ message: error.message }, `storage.sign:${bucket}`)
@@ -24,15 +33,17 @@ export async function createSignedUrl(db: DbClient, bucket: string, path: string
 }
 
 /**
- * Signs URLs in bulk (one request for a whole library page); paths that fail
- * are simply left out, so a missing cover never breaks the list.
+ * Signs URLs in bulk (one request for a whole library page); paths that fail,
+ * or are unsafe, are simply left out, so a missing cover never breaks the list.
  */
 export async function createSignedUrls(db: DbClient, bucket: string, paths: string[]): Promise<Map<string, string>> {
   // path → signed URL; a cover that fails is simply missing from the map.
   const result = new Map<string, string>()
-  if (paths.length === 0) return result
+  // Unsafe paths are left out like failing ones (a missing cover, never a broken list).
+  const safe = paths.filter(isSafeStorageKey)
+  if (safe.length === 0) return result
   // One request for every path; each entry has its URL or its own error.
-  const { data, error } = await db.storage.from(bucket).createSignedUrls(paths, SIGNED_URL_TTL)
+  const { data, error } = await db.storage.from(bucket).createSignedUrls(safe, SIGNED_URL_TTL)
   if (error) {
     console.error(`[storage.signMany:${bucket}]`, error)
     return result
@@ -81,9 +92,14 @@ export async function listFolderFiles(db: DbClient, bucket: string, folder: stri
 
 /**
  * Downloads a file (with this client's rights: storage RLS applies), or null
- * when it is missing or not readable.
+ * when it is missing, not readable, or its path unsafe.
  */
 export async function downloadObject(db: DbClient, bucket: string, path: string): Promise<Blob | null> {
+  // A path that could name another file: refused (logged), like a missing one.
+  if (!isSafeStorageKey(path)) {
+    console.error(`[storage.download:${bucket}] unsafe storage key ${JSON.stringify(path)}`)
+    return null
+  }
   // The file's bytes, or an error when it is missing or not readable by this client.
   const { data, error } = await db.storage.from(bucket).download(path)
   if (error) {
@@ -93,10 +109,16 @@ export async function downloadObject(db: DbClient, bucket: string, path: string)
   return data
 }
 
-/** Best-effort removal: a failure here must not block the main operation. */
+/** Best-effort removal: a failure here must not block the main operation; unsafe paths are skipped. */
 export async function removeObjects(db: DbClient, bucket: string, paths: string[]): Promise<void> {
-  if (paths.length === 0) return
+  // Unsafe paths are never sent (logged instead).
+  const safe = paths.filter((path) => {
+    if (isSafeStorageKey(path)) return true
+    console.error(`[storage.remove:${bucket}] unsafe storage key ${JSON.stringify(path)}`)
+    return false
+  })
+  if (safe.length === 0) return
   // One request for every path; missing files are not an error.
-  const { error } = await db.storage.from(bucket).remove(paths)
+  const { error } = await db.storage.from(bucket).remove(safe)
   if (error) console.error(`[storage.remove:${bucket}]`, error)
 }

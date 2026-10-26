@@ -22,6 +22,24 @@ describe('AudioStorage', () => {
       .toBe('https://account123.r2.cloudflarestorage.com/chronovault-audio/user-1/track%201.flac')
   })
 
+  it('refuses to sign or touch a key that URL parsing would resolve to another file', async () => {
+    // Every request is mocked: none may be sent.
+    const fetchImpl = vi.fn()
+    // The client under test, on the fake fetch.
+    const storage = new AudioStorage(config, fetchImpl)
+    // Another user's file, reached through a dot segment.
+    const forged = 'user-1/../user-2/track-2.flac'
+    expect(() => storage.objectUrl(forged)).toThrow(/unsafe storage key/)
+    await expect(storage.presign('GET', forged, 60)).rejects.toThrow(/unsafe storage key/)
+    await expect(storage.head(forged)).rejects.toThrow(/unsafe storage key/)
+    // Removal is best effort: logged, never sent.
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await storage.remove([forged])
+    expect(log).toHaveBeenCalled()
+    expect(fetchImpl).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
   it('presigns URLs with query-string SigV4 and the requested lifetime', async () => {
     // The client under test (presigning is local: no request).
     const storage = new AudioStorage(config)

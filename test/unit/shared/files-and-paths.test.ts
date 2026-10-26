@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/shared/utils/audio-files'
-import { buildAudioPath, buildCoverPath, isTrackPath } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, buildCoverPath, buildPlaylistCoverPath, isSafeStorageKey, isTrackPath } from '~~/shared/utils/storage-paths'
 import { computePeaks } from '~~/shared/utils/peaks'
 
 // Fixed ids and the storage paths they lead to (the format checks only care about the shape).
@@ -57,6 +57,24 @@ describe('storage paths', () => {
     expect(isTrackPath(`${USER}/other-track.mp3`, USER, TRACK)).toBe(false)
     expect(isTrackPath(`${USER}/sub/${TRACK}.mp3`, USER, TRACK)).toBe(false)
     expect(isTrackPath(`${USER}/${TRACK}`, USER, TRACK)).toBe(false)
+  })
+
+  it('calls safe only the keys that name one file by a plain path', () => {
+    // Every path the app builds is safe.
+    expect(isSafeStorageKey(buildAudioPath(USER, TRACK, 'flac'))).toBe(true)
+    expect(isSafeStorageKey(buildPlaylistCoverPath(USER, TRACK))).toBe(true)
+    // URL parsing would resolve these to another file than they name.
+    expect(isSafeStorageKey(`${USER}/../other/${TRACK}.flac`)).toBe(false)
+    expect(isSafeStorageKey(`${USER}/./${TRACK}.flac`)).toBe(false)
+    expect(isSafeStorageKey(`../${TRACK}.flac`)).toBe(false)
+    // Empty segments, backslashes and control characters.
+    expect(isSafeStorageKey(`${USER}//${TRACK}.flac`)).toBe(false)
+    expect(isSafeStorageKey(`/${USER}/${TRACK}.flac`)).toBe(false)
+    expect(isSafeStorageKey(`${USER}\\..\\${TRACK}.flac`)).toBe(false)
+    expect(isSafeStorageKey(`${USER}/${TRACK}\u0000.flac`)).toBe(false)
+    expect(isSafeStorageKey('')).toBe(false)
+    // Dots inside a name are fine.
+    expect(isSafeStorageKey(`${USER}/${TRACK}..flac`)).toBe(true)
   })
 })
 
