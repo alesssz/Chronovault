@@ -3,7 +3,7 @@
  * page shows demo data: it must say so, and be built around the user's
  * real items. The API itself is checked for auth and validation.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 test.describe('statistics', () => {

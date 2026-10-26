@@ -3,7 +3,7 @@
  * addresses (/api/covers/...) that the browser may keep for a year, the
  * address changes only when the cover does, and only the owner can read it.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
 
 // A 1×1 PNG: the crop editor turns it into the stored WebP cover.

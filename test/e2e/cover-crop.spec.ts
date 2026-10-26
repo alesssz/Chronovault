@@ -3,7 +3,7 @@
  * editor, and the stored cover is really the part the user chose (checked
  * on the pixels of the uploaded WebP).
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 test.describe('cover cropping', () => {

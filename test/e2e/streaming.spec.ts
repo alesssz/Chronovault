@@ -4,7 +4,7 @@
  * URL answered it 403, and Chrome closed its device picker), GET reaches the audio through a
  * redirect, with range requests, and a forged or altered address is refused.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 test.describe('streaming address', () => {

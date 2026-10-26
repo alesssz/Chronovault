@@ -6,7 +6,7 @@
  * playback going on with the screen off: the page hidden and no frames drawn, the next track
  * still starts by itself and its play is still counted.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack, waitForHydration } from './helpers'
 
 /**

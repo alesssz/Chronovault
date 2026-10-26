@@ -6,7 +6,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { parseBuffer } from 'music-metadata'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 /** A valid 1×1 PNG, used as the cover. */

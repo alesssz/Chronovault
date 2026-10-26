@@ -4,7 +4,7 @@
  * deleted, while the files of real tracks are left untouched.
  * The e2e server runs with NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS=0 (see playwright.config.ts).
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 test.describe('storage clean-up', () => {

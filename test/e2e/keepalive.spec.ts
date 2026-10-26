@@ -3,7 +3,7 @@
  * like Vercel Cron calls it (no session cookie), it gets through to Postgres as the anonymous
  * role and answers 200.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test.describe('keep-alive', () => {
   test('reaches the database without a session', async ({ request }) => {
