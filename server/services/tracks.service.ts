@@ -18,7 +18,7 @@ import { expiresIn, playbackSource, removeCoverFiles } from './playback'
  * Audio files live on the S3-compatible audio storage (Cloudflare R2);
  * covers live in Supabase Storage.
  *
- * Upload sequence (see README → Data flows → Uploading a track):
+ * Upload sequence (see docs/07-data-flows.md, 7.3 Uploading a track):
  *   1. createUploadTarget → presigned PUT URL
  *   2. the browser uploads the file straight to R2
  *   3. createTrack → checks the stored file, then inserts the row

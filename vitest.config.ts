@@ -65,7 +65,7 @@ export default defineConfig({
       // repositories, components and pages are covered end to end by
       // Playwright, which this report does not count. Each value is the
       // folder's coverage when set, rounded down: raise it when tests raise
-      // the coverage, never lower it to let a change through (README 12).
+      // the coverage, never lower it to let a change through (docs/12-testing.md).
       thresholds: {
         'shared/**': { lines: 100, statements: 99, functions: 100, branches: 97 },
         'server/services/**': { lines: 96, statements: 95, functions: 95, branches: 89 },
