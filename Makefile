@@ -8,7 +8,7 @@
 SHELL := bash
 .DEFAULT_GOAL := help
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
-        db-start db-stop db-status db-reset db-migrate db-types db-migration db-lint db-test db-studio \
+        db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
         check ci clean clean-all merge doctor
 
@@ -81,12 +81,18 @@ db-migrate: ## Apply new migrations to the local DB, keeping its data
 db-types: ## Regenerate TypeScript types from the schema
 	$(PNPM) db:types
 
+db-types-check: ## Fail when the committed types differ from the schema (run by CI)
+	$(PNPM) db:types:check
+
 db-migration: ## New migration: make db-migration name=description
 	@test -n "$(name)" || { echo "Usage: make db-migration name=description"; exit 1; }
 	$(SUPABASE) migration new $(name)
 
-db-lint: ## Static analysis of the schema (security and performance)
+db-lint: ## Type check of the SQL functions (plpgsql); fails on any warning
 	$(PNPM) db:lint
+
+db-advisors: ## Supabase's security and performance advisors; fails on warnings
+	$(PNPM) db:advisors
 
 db-test: ## pgTAP tests for RLS and constraints
 	$(SUPABASE) test db
@@ -130,15 +136,15 @@ test-coverage: ## Tests with a coverage report; fails below the floors in vitest
 
 check: lint typecheck test-coverage ## Quick checks before a commit (tests with the coverage floors)
 
-ci: check db-lint db-test test-e2e ## Everything the CI runs
+ci: check db-lint db-advisors db-types-check db-test test-e2e ## Everything the CI runs
 
 # --- Git ----------------------------------------------------------------------
 
 # Make treats anything starting with "--" as one of its own options, so the
 # script's --yes cannot be written after the target: it is a variable instead
-# (make merge yes=1 → pnpm merge:main --yes).
-merge: ## Merge the current branch into main (asks first; make merge yes=1 skips the question), delete it, back on main
-	$(PNPM) merge:main $(if $(yes),--yes)
+# (make merge yes=1 → pnpm merge:main --yes; make merge checks=0 → --no-checks).
+merge: ## Run pnpm check, merge the current branch into main (asks first; yes=1 skips the question, checks=0 the checks), delete it
+	$(PNPM) merge:main $(if $(yes),--yes) $(if $(filter 0,$(checks)),--no-checks)
 
 # --- Cleanup ------------------------------------------------------------------
 

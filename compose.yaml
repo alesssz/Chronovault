@@ -10,7 +10,12 @@ services:
     ports:
       # Host 8180 (DOCKER_APP_URL in scripts/stack.mjs) → Nuxt's 3000 in the container (Dockerfile).
       - "8180:3000"
-    env_file: .env.docker
+    # Written by `pnpm docker`. Optional, so that compose commands that need no
+    # app settings (`pnpm stop`, `make docker-logs`) also work for someone who
+    # only ever used `pnpm local` and so has no .env.docker.
+    env_file:
+      - path: .env.docker
+        required: false
     extra_hosts:
       # Lets the server reach Supabase on the host through host.docker.internal.
       - "host.docker.internal:host-gateway"

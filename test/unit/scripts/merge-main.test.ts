@@ -2,6 +2,10 @@
  * `pnpm merge:main` (scripts/merge-main.mjs), run for real against throwaway
  * git repositories: a bare repository plays GitHub, a clone plays the
  * developer's working copy. Also the merge message builder.
+ *
+ * The checks the script runs before merging (`pnpm check`) are replaced,
+ * through MERGE_MAIN_CHECK_COMMAND, by a command that exits with a chosen
+ * code: these repositories hold no project to check.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -51,10 +55,22 @@ describe('merge-main script', () => {
     git(cwd, 'config', 'commit.gpgsign', 'false')
   }
 
-  /** Runs the script in the working copy (stdin is not a terminal). */
+  /** A check command that exits with `code` (the real `pnpm check` needs a project, which these repositories are not). */
+  const checkExiting = (code: number) => `"${process.execPath}" -e "process.exit(${code})"`
+
+  /** Runs the script in the working copy (stdin is not a terminal), with checks that pass unless told otherwise. */
   function runScript(...args: string[]) {
+    return runScriptWithChecks(checkExiting(0), ...args)
+  }
+
+  /** Runs the script with `checkCommand` as its checks. */
+  function runScriptWithChecks(checkCommand: string, ...args: string[]) {
     // The script run as the user would, its output and exit code collected.
-    const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: work, encoding: 'utf8' })
+    const result = spawnSync(process.execPath, [SCRIPT, ...args], {
+      cwd: work,
+      encoding: 'utf8',
+      env: { ...process.env, MERGE_MAIN_CHECK_COMMAND: checkCommand },
+    })
     return { code: result.status, output: `${result.stdout}${result.stderr}` }
   }
 
@@ -110,6 +126,31 @@ describe('merge-main script', () => {
     expect(git(work, 'rev-parse', 'main')).toBe(git(work, 'rev-parse', 'origin/main'))
     expect(git(work, 'branch', '--list', 'feat/thing')).toBe('')
     expect(remoteBranches()).not.toContain('feat/thing')
+  }, 30_000)
+
+  it('runs the checks before merging, and merges nothing when they fail', () => {
+    pushedBranch()
+
+    // The script run with --yes, its checks failing.
+    const { code, output } = runScriptWithChecks(checkExiting(1), '--yes')
+
+    expect(code).toBe(1)
+    expect(output).toContain('The checks failed')
+    // Nothing merged or deleted: still on the branch, main untouched.
+    expect(currentBranch()).toBe('feat/thing')
+    expect(git(work, 'log', '-1', '--format=%s', 'origin/main')).toBe('Initial commit')
+    expect(remoteBranches()).toContain('feat/thing')
+  }, 30_000)
+
+  it('merges without running the checks with --no-checks', () => {
+    pushedBranch()
+
+    // Checks that would fail, skipped.
+    const { code, output } = runScriptWithChecks(checkExiting(1), '--yes', '--no-checks')
+
+    expect(code, output).toBe(0)
+    expect(output).toContain('Checks skipped')
+    expect(currentBranch()).toBe('main')
   }, 30_000)
 
   it('stops on uncommitted changes', () => {

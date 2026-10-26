@@ -8,9 +8,11 @@ Every task gets its own branch from `main`, with a short English name and a type
 git switch main && git pull
 git switch -c feat/<name>
 # … work, commit, push …
-git push -u origin feat/<name>     # Vercel builds a preview deployment of the branch
-pnpm merge:main                    # or: make merge
+git push -u origin feat/<name>     # CI runs on the branch; Vercel builds a preview deployment
+pnpm merge:main                    # or: make merge (runs pnpm check first)
 ```
+
+**CI runs on every pushed branch** (`.github/workflows/ci.yml`), not only on `main`: branches are merged locally and `main` deploys to production as soon as it is pushed, so the branch's run is the check that comes before production. Look at it on GitHub (the Actions tab, or the mark next to the branch's last commit) before merging; GitHub emails you when a run fails. The database and end-to-end tests run only there; `pnpm merge:main` runs the quick ones itself.
 
 `pnpm merge:main` (`scripts/merge-main.mjs`):
 
@@ -22,6 +24,7 @@ pnpm merge:main                    # or: make merge
 | GitHub has commits on the branch you don't have | Stops: pull first |
 | Your local `main` has unpushed commits | Stops |
 | Nothing new compared to `main` | Stops |
+| `pnpm check` fails (lint, typecheck, tests with the coverage floors), run on the branch before anything else | Stops, nothing merged: fix, push, run again. `pnpm merge:main --no-checks` (or `make merge checks=0`) skips them, e.g. for a docs-only branch |
 | Ready | Shows the commits and the merge message, asks `[y/N]` (`pnpm merge:main --yes` or `make merge yes=1` skip the question) |
 | Confirmed | Updates `main`, merges with a merge commit (`--no-ff`), pushes `main` (production deploy on Vercel), deletes the branch on GitHub and locally, leaves you on `main` in sync |
 | Merge conflicts | The merge is aborted and you are back on your branch, unchanged: merge `main` into it, fix, push, run again |

@@ -1,17 +1,25 @@
 # Continuous integration: two jobs, the second only when the first passes.
 #   quality           lint, typecheck, Vitest with the coverage floors (no database needed)
-#   database-and-e2e  local Supabase in the runner, schema lint, pgTAP, Playwright
+#   database-and-e2e  local Supabase in the runner, schema checks, pgTAP, Playwright
+#
+# Runs on every push to any branch, not only main: branches are merged into
+# main locally (pnpm merge:main) and main deploys to production on push, so
+# a branch's run is the only check that comes before production.
 name: CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ['**']
 
-# A new push cancels the run still going for the same branch.
+# Read-only token: the jobs only check out the code and run checks.
+permissions:
+  contents: read
+
+# On a branch, a new push cancels the run still going: only the latest commit matters.
+# On main every merge keeps its run, so no commit that reaches production goes unchecked.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   quality:
@@ -19,12 +27,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # pnpm at the version pinned in package.json (packageManager), Node at the one in .nvmrc.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # The pnpm store is cached between runs, keyed on the lockfile.
           cache: pnpm
+      # Exactly the lockfile's versions: a lockfile out of step with package.json fails here.
       - run: pnpm install --frozen-lockfile
+      # ESLint with the stylistic rules, then vue-tsc over app, server and shared code.
       - run: pnpm lint
       - run: pnpm typecheck
       # Vitest with coverage: fails when a folder drops below its floor (vitest.config.ts).
@@ -35,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: quality
     steps:
+      # Same setup as the quality job (each job runs on a fresh machine).
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
@@ -43,14 +56,28 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # Only the services the tests need (no Studio, mail catcher, analytics…): faster startup.
+      # The whole local stack in Docker, every migration applied (supabase/migrations), the seed
+      # loaded. Only the services the tests need (no Studio, mail catcher, analytics…): faster
+      # startup. postgres-meta is left out too: `supabase gen types` (db:types:check below) runs
+      # its own one-off container; if that step ever fails to connect, start it here instead.
       - name: Start local Supabase
         run: pnpm exec supabase start -x studio,imgproxy,mailpit,postgres-meta,vector,logflare,supavisor
+      # Writes .env from that stack (Supabase URL and key, its S3 endpoint as the audio storage):
+      # the production build the end-to-end tests run reads it.
       - run: pnpm env:local
+      # Schema checks, each failing the run: SQL functions' types, Supabase's security and
+      # performance advisors, and the committed TypeScript types against the migrations.
       - run: pnpm db:lint
+      - run: pnpm db:advisors
+      - run: pnpm db:types:check
+      # pgTAP (supabase/tests/database): RLS, privileges, sharing functions, caps, storage paths.
       - run: pnpm test:db
 
+      # Chromium and the system libraries it needs (the tests use no other browser).
       - run: pnpm exec playwright install --with-deps chromium
+      # Playwright on a production build (playwright.config.ts). CI=true: a failed test is retried
+      # once, the report is written for GitHub (annotations) and as HTML, and the server is always
+      # built fresh instead of reusing one already running.
       - run: pnpm test:e2e
         env:
           CI: true

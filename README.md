@@ -35,7 +35,7 @@ Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `ch
 | Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
 | Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
 | Run all checks before a commit | `make check` (lint, types, unit tests with the coverage floors) |
-| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`), see [14.1](docs/14-conventions.md#141-git-workflow) |
+| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`): runs `pnpm check` first, see [14.1](docs/14-conventions.md#141-git-workflow) |
 | Check a new computer's prerequisites | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`), see [11.1](docs/11-local-development.md#from-a-blank-computer) |
 
 ---

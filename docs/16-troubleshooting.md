@@ -2,6 +2,9 @@
 
 | Problem | Solution |
 |---|---|
+| `pnpm merge:main`: `The checks failed` | `pnpm check` failed on the branch (lint, typecheck, or a test or coverage floor): nothing was merged. Fix it, commit, push, run again. For a branch that cannot break the checks (docs only), `pnpm merge:main --no-checks` |
+| CI: `database.types.ts is out of date with the migrations` | A migration changed the schema but the generated types were not regenerated: `pnpm db:migrate`, then `pnpm db:types`, commit the file |
+| CI: `db:advisors` or `db:lint` fails | A migration added something Supabase flags (a table without RLS, a function with an unsafe `search_path`…) or a SQL function with a type error. Run `pnpm db:advisors` / `pnpm db:lint` locally to read the details and the remediation link |
 | `Current version of Node.js … is unsupported` | Upgrade Node to 24.11+ (`nvm install 24`) |
 | `pnpm: command not found` (e.g. from `make docker`) | pnpm is not installed for the Node in use: `npm i -g pnpm@12.14.0 --allow-scripts=pnpm`. With nvm (or nvm-windows), repeat it after installing a new Node version |
 | `Cannot find native binding` / `postinstall: nuxt prepare exited with status 1` | Node is too old (e.g. Homebrew's 22.9): `pnpm install` skipped rolldown's native package. Switch to Node 24 (`nvm use`, or `nvm use 24` on Windows), then `pnpm install` again |

@@ -2,8 +2,9 @@
 /**
  * Merges the current branch into main, then cleans up.
  *
- *   pnpm merge:main          asks for confirmation before merging
- *   pnpm merge:main --yes    no confirmation (e.g. scripts)
+ *   pnpm merge:main               asks for confirmation before merging
+ *   pnpm merge:main --yes         no confirmation (e.g. scripts)
+ *   pnpm merge:main --no-checks   skips `pnpm check` (e.g. a docs-only branch)
  *   make merge
  *
  * What it does, in order:
@@ -11,11 +12,15 @@
  *   2. Stops when the branch is not ready: uncommitted changes, never pushed,
  *      local commits not pushed yet, remote commits not pulled yet, nothing
  *      new compared to main, or a local main with unpushed commits.
- *   3. Shows the commits and the merge message, and asks for confirmation.
- *   4. Updates main from GitHub, merges with a merge commit (--no-ff) whose
+ *   3. Runs `pnpm check` (lint, typecheck, tests with the coverage floors) on
+ *      the branch and stops if it fails: main deploys to production as soon
+ *      as it is pushed, so this is the last check before it. The database
+ *      and end-to-end tests run on GitHub, on every pushed branch (CI).
+ *   4. Shows the commits and the merge message, and asks for confirmation.
+ *   5. Updates main from GitHub, merges with a merge commit (--no-ff) whose
  *      message lists every commit of the branch, and pushes main.
- *   5. Deletes the branch on GitHub and locally.
- *   6. Leaves you on main, in sync with GitHub.
+ *   6. Deletes the branch on GitHub and locally.
+ *   7. Leaves you on main, in sync with GitHub.
  *
  * Nothing is left half-done: a merge conflict is aborted and you are taken
  * back to your branch; if pushing main fails, the branch is kept.
@@ -29,6 +34,10 @@ const MAIN = 'main'
 /** The GitHub remote. */
 const REMOTE = 'origin'
 const assumeYes = process.argv.includes('--yes') || process.argv.includes('-y')
+/** `--no-checks`: merge without running the checks first. */
+const skipChecks = process.argv.includes('--no-checks')
+/** The checks run before merging; the tests replace them (their throwaway repositories hold no project). */
+const CHECK_COMMAND = process.env.MERGE_MAIN_CHECK_COMMAND || 'pnpm check'
 
 /** An expected stop: the message is printed and the command exits with code 1. */
 class Stop extends Error {}
@@ -117,6 +126,20 @@ async function run() {
     .split('\n')
     .filter(Boolean)
   if (subjects.length === 0) throw new Stop(`"${branch}" has no commits that ${MAIN} doesn't already have: nothing to merge.`)
+
+  // --- Checks --------------------------------------------------------------------------
+  // On the branch as pushed (the working tree is clean): main goes live when pushed.
+  if (skipChecks) {
+    console.log(`▸ Checks skipped (--no-checks).`)
+  }
+  else {
+    console.log(`▸ Running the checks (${CHECK_COMMAND})…`)
+    // Through a shell: on Windows `pnpm` is `pnpm.cmd`, which only a shell finds; the output is shown live.
+    if (spawnSync(CHECK_COMMAND, { shell: true, stdio: 'inherit' }).status !== 0) {
+      throw new Stop(`The checks failed: fix them, push, then run this again (or merge anyway with --no-checks). Nothing was merged.`)
+    }
+    console.log(`✔ Checks passed.`)
+  }
 
   // --- Confirmation --------------------------------------------------------------------
   const message = buildMergeMessage(branch, subjects)

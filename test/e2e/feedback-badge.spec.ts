@@ -5,7 +5,7 @@
  * also after a reload (the visit is stored on the server); a changed vote brings it back.
  */
 import { expect, test, type Browser, type Page } from './fixtures'
-import { signUp, uploadTrack } from './helpers'
+import { signUp, uploadTrack, waitForHydration } from './helpers'
 
 /** The friend's side: opens the group's link in a fresh browser and picks a version, with a note. */
 async function friendVotes(browser: Browser, group: string, version: string, note: string) {
@@ -15,6 +15,8 @@ async function friendVotes(browser: Browser, group: string, version: string, not
     // The friend's page.
     const friend = await context.newPage()
     await friend.goto(`/p/${group}`)
+    // A server-rendered page: clicks before hydration do nothing.
+    await waitForHydration(friend)
     await friend.getByTestId('shared-playlist-track').filter({ hasText: version }).getByRole('button', { name: `Pick ${version}` }).click()
     await friend.getByTestId('version-vote-comment').fill(note)
     await friend.getByTestId('version-vote-save').click()

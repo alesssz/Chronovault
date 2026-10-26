@@ -6,10 +6,16 @@
  * (`supabase gen types ... > file`) would truncate it whenever the database
  * is not running.
  *
- * Usage:  pnpm db:types   or   make db-types
+ * With `--check` nothing is written: the script fails (exit 1) when the
+ * committed file differs from what the schema gives, i.e. a migration was
+ * added without `pnpm db:types`. CI runs it after applying the migrations,
+ * since a stale file still typechecks and the query then fails at runtime.
+ *
+ * Usage:  pnpm db:types         or   make db-types         (write the file)
+ *         pnpm db:types:check   or   make db-types-check   (compare only)
  */
 import { execSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // Where the generated types go.
@@ -33,6 +39,16 @@ catch (error) {
 if (!output.includes('export type Database')) {
   console.error('✖ Unexpected output from `supabase gen types`: file left untouched.')
   process.exit(1)
+}
+
+// Compare only: the committed file must be exactly what the schema gives.
+if (process.argv.includes('--check')) {
+  if (readFileSync(target, 'utf8') !== output) {
+    console.error('✖ shared/types/database.types.ts is out of date with the migrations: run pnpm db:types and commit it.')
+    process.exit(1)
+  }
+  console.log('✔ Database types match the schema')
+  process.exit(0)
 }
 
 writeFileSync(target, output)
