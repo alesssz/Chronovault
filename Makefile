@@ -22,10 +22,10 @@ help: ## Show this list
 
 # --- One-command start --------------------------------------------------------
 
-local: ## Start everything for development: Supabase, .env, Nuxt (http://localhost:3000)
+local: ## Start everything for development: Supabase, .env, Nuxt (http://localhost:3100)
 	$(PNPM) local
 
-docker: ## Start everything in Docker: Supabase + the app container (http://localhost:8080)
+docker: ## Start everything in Docker: Supabase + the app container (http://localhost:8180)
 	$(PNPM) docker
 
 stop: ## Stop the app container and Supabase (data is kept)
@@ -52,13 +52,13 @@ env: ## Create/update .env from the local Supabase stack
 
 # --- Development --------------------------------------------------------------
 
-dev: ## Start Nuxt in development (http://localhost:3000)
+dev: ## Start Nuxt in development (http://localhost:3100)
 	$(PNPM) dev
 
 build: ## Production build
 	$(PNPM) build
 
-preview: build ## Run the production build locally
+preview: build ## Run the production build locally (http://localhost:3100)
 	$(PNPM) preview
 
 # --- Database (local Supabase, requires Docker) -------------------------------

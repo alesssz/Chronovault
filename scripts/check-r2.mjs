@@ -11,7 +11,7 @@
  *   NUXT_AUDIO_STORAGE_ENDPOINT, NUXT_AUDIO_STORAGE_REGION, NUXT_AUDIO_STORAGE_BUCKET,
  *   NUXT_AUDIO_STORAGE_ACCESS_KEY_ID, NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY
  *
- * Usage:  pnpm r2:check [origin ...]     (default origin: http://localhost:3000)
+ * Usage:  pnpm r2:check [origin ...]     (default origin: http://localhost:3100)
  */
 import { existsSync } from 'node:fs'
 import { AwsClient } from 'aws4fetch'
@@ -40,7 +40,7 @@ if (missing.length) {
 }
 
 // Origins whose CORS access is checked (the sites the app is served from).
-const origins = process.argv.slice(2).length ? process.argv.slice(2) : ['http://localhost:3000']
+const origins = process.argv.slice(2).length ? process.argv.slice(2) : ['http://localhost:3100']
 // Signs requests exactly like the app (aws4fetch, SigV4).
 const client = new AwsClient({ ...config, service: 's3' })
 // A throwaway object, deleted at the end whatever happens.

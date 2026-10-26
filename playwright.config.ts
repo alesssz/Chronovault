@@ -4,11 +4,11 @@ import { defineConfig, devices } from '@playwright/test'
  * End-to-end tests: they run the real app against the local Supabase stack.
  * Prerequisites: `make db-start` (Docker) and the .env file (`make env`).
  *
- * By default they run on a production build (port 3100): faster and closer
- * to the deployed app. With E2E_DEV=1 they use the dev server (port 3000).
+ * By default they run on a production build (port 3200): faster and closer
+ * to the deployed app. With E2E_DEV=1 they use the dev server (port 3100).
  */
 const useDev = process.env.E2E_DEV === '1'
-const PORT = Number(process.env.E2E_PORT ?? (useDev ? 3000 : 3100))
+const PORT = Number(process.env.E2E_PORT ?? (useDev ? 3100 : 3200))
 /** Every page.goto("/…") is relative to this. */
 const baseURL = `http://localhost:${PORT}`
 
@@ -43,7 +43,7 @@ export default defineConfig({
   ],
   webServer: {
     // The production server reads its runtime config (audio storage keys…) from the environment.
-    command: useDev ? `pnpm dev --port ${PORT}` : 'pnpm build && node --env-file=.env .output/server/index.mjs',
+    command: useDev ? `pnpm exec nuxt dev --port ${PORT}` : 'pnpm build && node --env-file=.env .output/server/index.mjs',
     // Storage clean-up without the 24-hour safety delay, so the e2e test can delete the orphans it creates.
     env: { PORT: String(PORT), NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS: '0' },
     url: `${baseURL}/api/health`,
