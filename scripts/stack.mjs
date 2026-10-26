@@ -2,8 +2,8 @@
 /**
  * One command to run the whole stack. Docker Desktop must already be running.
  *
- *   pnpm local    Supabase + .env + Nuxt dev server (http://localhost:3000)
- *   pnpm docker   Supabase + the app built and run in a container (http://localhost:8080)
+ *   pnpm local    Supabase + .env + Nuxt dev server (http://localhost:3100)
+ *   pnpm docker   Supabase + the app built and run in a container (http://localhost:8180)
  *   pnpm stop     stops the app container and Supabase (data is kept)
  *
  * The same commands are available as `make local`, `make docker`, `make stop`.
@@ -20,8 +20,8 @@ import {
   writeEnvFile,
 } from './lib/local-stack.mjs'
 
-/** Where the app container answers (compose.yaml maps 8080 → 3000). */
-const DOCKER_APP_URL = 'http://localhost:8080'
+/** Where the app container answers (compose.yaml maps 8180 → 3000). */
+const DOCKER_APP_URL = 'http://localhost:8180'
 
 /**
  * Inside the app container 127.0.0.1 is the container itself: Supabase is
@@ -49,7 +49,7 @@ async function local() {
     ...localAudioStorageEnv(status),
   })
   console.log('✔ .env updated')
-  console.log('▸ Starting Nuxt on http://localhost:3000  (Ctrl+C stops the app; `pnpm stop` stops Supabase too)\n')
+  console.log('▸ Starting Nuxt on http://localhost:3100  (Ctrl+C stops the app; `pnpm stop` stops Supabase too)\n')
   return runInherited('pnpm dev')
 }
 

@@ -10,7 +10,7 @@ It works on desktop and smartphones and can be installed as a PWA. It runs entir
 
 ```bash
 pnpm install     # once
-pnpm local       # Docker Desktop must be open → http://localhost:3000
+pnpm local       # Docker Desktop must be open → http://localhost:3100
                  # demo account: demo@chronovault.local / chronovault
 ```
 
@@ -66,19 +66,19 @@ pnpm local       # Docker Desktop must be open → http://localhost:3000
 
 ## 2. Quick start
 
-**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12, Docker Desktop (running). Details in [11.1](#111-prerequisites). **Setting up a new computer (macOS or Windows)?** Run `node scripts/doctor.mjs` and follow the [checklist from a blank computer](#from-a-blank-computer): it covers every step that is easy to forget.
+**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12, Docker Desktop (running). Details in [11.1](#111-prerequisites). **Setting up a new computer (macOS or Windows)?** Run `node scripts/doctor.mjs` and follow the [checklist from a blank computer](#from-a-blank-computer): it covers every step that is easy to forget. **Ran Chronovault on http://localhost:3000 before?** The ports have changed: follow [Updating a computer set up before the port change](#updating-a-computer-set-up-before-the-port-change) once.
 
 ```bash
 pnpm install       # installs dependencies (the package store lives in .pnpm-store/)
 pnpm local         # Supabase in Docker + .env + Nuxt dev server
 ```
 
-Open **http://localhost:3000** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally).
+Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally).
 
 | I want to… | Command |
 |---|---|
-| Develop with hot reload | `pnpm local` (or `make local`) → http://localhost:3000 |
-| Run the production build in a container | `pnpm docker` (or `make docker`) → http://localhost:8080 |
+| Develop with hot reload | `pnpm local` (or `make local`) → http://localhost:3100 |
+| Run the production build in a container | `pnpm docker` (or `make docker`) → http://localhost:8180 |
 | Stop everything (data is kept) | `pnpm stop` (or `make stop`) |
 | Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
 | Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
@@ -94,8 +94,8 @@ Open **http://localhost:3000** and sign in with **`demo@chronovault.local` / `ch
 
 | Command | What it does | App URL |
 |---|---|---|
-| `pnpm local` / `make local` | Checks Docker → starts Supabase (if not running) → writes `.env` → runs the Nuxt **dev server** in the foreground. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops Nuxt; Supabase keeps running. | http://localhost:3000 |
-| `pnpm docker` / `make docker` | Checks Docker → starts Supabase → writes `.env.docker` → builds the **production image** and starts the container in the background → waits until `/api/health` answers. | http://localhost:8080 |
+| `pnpm local` / `make local` | Checks Docker → starts Supabase (if not running) → writes `.env` → runs the Nuxt **dev server** in the foreground. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops Nuxt; Supabase keeps running. | http://localhost:3100 |
+| `pnpm docker` / `make docker` | Checks Docker → starts Supabase → writes `.env.docker` → builds the **production image** and starts the container in the background → waits until `/api/health` answers. | http://localhost:8180 |
 | `pnpm stop` / `make stop` | Removes the app container and stops Supabase. **Data is kept** (Docker volumes) for the next start. | |
 | `make docker-logs` | Follows the app container logs (`docker compose logs -f app`). | |
 
@@ -106,8 +106,8 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | Script | What it does |
 |---|---|
 | `pnpm local` · `pnpm docker` · `pnpm stop` | The whole stack, see above (`scripts/stack.mjs`) |
-| `pnpm dev` | Nuxt dev server only (Supabase and `.env` must already be there) |
-| `pnpm build` · `pnpm preview` | Production build (`.output/`) · serve it locally |
+| `pnpm dev` | Nuxt dev server only, on http://localhost:3100 (Supabase and `.env` must already be there) |
+| `pnpm build` · `pnpm preview` | Production build (`.output/`) · serve it locally, on http://localhost:3100 |
 | `pnpm lint` · `pnpm lint:fix` | ESLint, formatting rules included · with automatic fixes |
 | `pnpm typecheck` | vue-tsc over app, server, shared and config files |
 | `pnpm test` | All Vitest tests (unit + components) |
@@ -247,7 +247,7 @@ flowchart LR
 
 | Piece | `pnpm local` | `pnpm docker` | Production |
 |---|---|---|---|
-| Nuxt app | Dev server on the host, :3000 | Compose service `app` (project `chronovault`), :8080 | Vercel |
+| Nuxt app | Dev server on the host, :3100 | Compose service `app` (project `chronovault`), :8180 | Vercel |
 | Postgres, Auth, Storage (covers) | Supabase CLI containers (:54321) | Same Supabase containers, reached via `host.docker.internal` | Supabase Cloud |
 | Audio files | Supabase's local S3 endpoint, bucket `audio` | Same | Cloudflare R2, bucket `chronovault-audio` |
 | Config file | `.env` | `.env.docker` | Vercel environment variables |
@@ -1329,9 +1329,9 @@ It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwrig
 4. **Dependencies and the local stack.** The first run downloads the Supabase Docker images (a few GB, several minutes):
    ```bash
    pnpm install
-   make local           # → http://localhost:3000
+   make local           # → http://localhost:3100
    ```
-5. **Docker mode only** (`make docker`, http://localhost:8080): the browser must resolve `host.docker.internal`, and Docker Desktop for Mac never adds it to the hosts file (its setting exists only on Windows). Once per machine, with your password:
+5. **Docker mode only** (`make docker`, http://localhost:8180): the browser must resolve `host.docker.internal`, and Docker Desktop for Mac never adds it to the hosts file (its setting exists only on Windows). Once per machine, with your password:
    ```bash
    echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
    ```
@@ -1368,10 +1368,10 @@ Use **PowerShell** for the installs and **Git Bash** for the project commands: t
 5. **Dependencies and the local stack**, from Git Bash. The first run downloads the Supabase Docker images (a few GB, several minutes):
    ```bash
    pnpm install
-   pnpm local           # or make local → http://localhost:3000
+   pnpm local           # or make local → http://localhost:3100
    ```
    pnpm keeps its store inside the project (`.pnpm-store/`): hard links only work within one drive, so it never creates a store at the root of your drive.
-6. **Docker mode only** (`pnpm docker`, http://localhost:8080): the browser must resolve `host.docker.internal`. Docker Desktop for Windows adds it to the hosts file when *Settings → General → "Add the \*.docker.internal names to the host's /etc/hosts file"* is on (the default). Check with `ping host.docker.internal`. If it does not answer, turn the setting on, or open Notepad **as administrator** and add this line at the end of `C:\Windows\System32\drivers\etc\hosts`:
+6. **Docker mode only** (`pnpm docker`, http://localhost:8180): the browser must resolve `host.docker.internal`. Docker Desktop for Windows adds it to the hosts file when *Settings → General → "Add the \*.docker.internal names to the host's /etc/hosts file"* is on (the default). Check with `ping host.docker.internal`. If it does not answer, turn the setting on, or open Notepad **as administrator** and add this line at the end of `C:\Windows\System32\drivers\etc\hosts`:
    ```
    127.0.0.1 host.docker.internal
    ```
@@ -1380,6 +1380,76 @@ Use **PowerShell** for the installs and **Git Bash** for the project commands: t
 
 The Supabase CLI is a dev dependency: no global install needed. pnpm keeps its package store in the project (`.pnpm-store/`, git-ignored, see `pnpm-workspace.yaml`); `node_modules` holds hard links to it, so the space is not used twice even if Explorer counts it twice.
 
+#### Updating a computer set up before the port change
+
+The app used to answer on **3000** (dev), **8080** (Docker) and **3100** (e2e); it now uses **3100**, **8180** and **3200** ([11.4](#114-local-services)). A computer that ran the old ports needs these steps once. The commands are the same on **macOS** (Terminal) and **Windows** (Git Bash), run in the project folder; where the two differ, both are given.
+
+The port change itself loses no data: accounts, tracks, playlists and audio files live in Supabase's Docker volumes, named after the Supabase project, not after any port. What can leave them behind is the project's earlier rename from `chronoplayer` to `chronovault`: step 3 finds out and moves them.
+
+1. **Stop everything, before pulling:**
+   ```bash
+   pnpm stop
+   ```
+   The Supabase ports did not change, so a stack left running would be reused as it is, with Auth still on the old `site_url`: `supabase/config.toml` is read only when Supabase starts. `pnpm stop` also removes the Docker-mode app container, still published on 8080. Data is kept.
+2. **Update the code and the dependencies:**
+   ```bash
+   git switch main && git pull
+   pnpm install
+   ```
+3. **The project's old name: stack and data.** Before the rename the Supabase project was `chronoplayer`, and its stack used volumes of its own: `supabase_db_chronoplayer` (the database) and `supabase_storage_chronoplayer` (audio files and covers). The `chronovault` stack does not see them.
+   1. **Stop the old stack, if it is still there.** Its containers hold the same ports, and `pnpm local` would fail with `Bind for 0.0.0.0:54322 failed: port is already allocated`.
+      ```bash
+      docker ps -a --format "{{.Names}}" | grep chronoplayer
+      ```
+      If it prints anything:
+      ```bash
+      pnpm exec supabase stop --project-id chronoplayer
+      ```
+      This keeps the volumes.
+   2. **Find where the data is.** List the Supabase volumes with their size:
+      ```bash
+      docker system df -v | grep -E "^supabase_(db|storage)_"
+      ```
+      A database nobody used is about 70 MB, with an empty storage volume (0 B). The volumes with your tracks are the ones whose storage holds hundreds of MB or more.
+      - **No `chronoplayer` volumes**, or nothing in them you need: the data is already in the `chronovault` volumes, or there is none. Go to step 4.
+      - **The data is in the `chronoplayer` volumes, and `chronovault` has nothing you need** (missing, or a fresh database): copy it across, step 3.3.
+      - **Both hold data you need**: stop here. The copy replaces the target, and merging two databases is not covered by these steps.
+   3. **Copy the data into the `chronovault` volumes.** Both stacks must be stopped (step 1 and step 3.1). For each volume the command empties the `chronovault` one, then copies the `chronoplayer` one into it with owners and permissions, which Postgres needs. The source is mounted read-only (`:ro`) and stays untouched, so the copy can be repeated.
+      ```bash
+      pnpm db:start && pnpm db:stop    # creates the chronovault volumes, if missing, the way Supabase labels them
+      for v in db storage; do
+        MSYS_NO_PATHCONV=1 docker run --rm \
+          -v supabase_${v}_chronoplayer:/from:ro \
+          -v supabase_${v}_chronovault:/to \
+          alpine sh -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'
+      done
+      ```
+      `MSYS_NO_PATHCONV=1` is for Git Bash on Windows, which would otherwise rewrite `/from` and `/to` as Windows paths. On macOS it does nothing. Starting and stopping Supabase first matters: a volume that `docker run` creates has no Supabase labels, and `supabase stop --no-backup` (below) would not find it.
+
+      Then check, in step 5, that the tracks are there and play. If Supabase does not start, the old volumes are unchanged: `pnpm exec supabase stop --no-backup` deletes the `chronovault` volumes, and `pnpm local` starts afresh.
+4. **Free port 3100.** It used to be the e2e port: a production server left running by `make test-e2e` would still hold it, and Nuxt would then quietly start on another port, where sign-in redirects do not work.
+   - **macOS:** `lsof -nP -iTCP:3100 -sTCP:LISTEN` lists it; stop it with `kill <PID>`.
+   - **Windows:** `netstat -ano | findstr :3100` gives its PID (last column); stop it with `taskkill /PID <PID> /F`.
+5. **Start:**
+   ```bash
+   pnpm local           # → http://localhost:3100
+   ```
+   `.env` holds no app port, and `pnpm local` rewrites it anyway. Docker mode: `pnpm docker` → http://localhost:8180.
+
+   If you copied the data in step 3.3, check it now: sign in with your own account, open the library, play a track and look at a cover. Supabase Studio (http://127.0.0.1:54323) → *Table Editor* → `tracks` shows the rows too.
+6. **In the browser:**
+   - Update bookmarks: `localhost:3000` → `localhost:3100`, `localhost:8080` → `localhost:8180`.
+   - What the app keeps in `localStorage` is tied to the port, so on the new address it starts afresh: play queue, volume, shuffle and repeat, lyrics view. The session is a cookie, which ignores the port: you stay signed in if the database is the same one, otherwise sign in again.
+   - If you installed the PWA from the old address, uninstall it (Chrome or Edge: open the installed app → **⋮** → *Uninstall*) and install it again from http://localhost:3100.
+   - Clear the old addresses, so their service worker cannot serve stale Chronovault files to another project that now uses 3000 or 8080: open http://localhost:3000 (and :8080) → DevTools → *Application* → *Storage* → **Clear site data**. Or, in Chrome or Edge, `chrome://serviceworker-internals` (`edge://serviceworker-internals`) → *Unregister* next to those addresses.
+7. **R2 (only if local development uses R2):** add `"http://localhost:3100"` to `AllowedOrigins` in the bucket's CORS policy ([13.2](#132-cloudflare-r2-audio-files)), then `pnpm r2:check`. The bucket is shared: once is enough for every computer.
+8. **Delete the old volumes, last.** Only once step 5 showed your tracks in the new stack, or you know nothing in the old volumes is needed. There is no way back:
+   ```bash
+   docker volume rm supabase_db_chronoplayer supabase_storage_chronoplayer
+   ```
+
+Nothing else changes: the hosts-file entry for `host.docker.internal`, Node, pnpm and Docker stay as they are.
+
 ### 11.2 Step by step (what `pnpm local` automates)
 
 ```bash
@@ -1387,14 +1457,14 @@ pnpm install
 pnpm db:start        # first time: pulls the Supabase Docker images (a few minutes)
 pnpm env:local       # writes .env from `supabase status`
 pnpm db:types        # optional: regenerate database types
-pnpm dev             # http://localhost:3000
+pnpm dev             # http://localhost:3100
 ```
 
 or `make setup` followed by `make dev`.
 
 ### 11.3 How the Docker mode works
 
-Supabase always runs in the containers managed by the Supabase CLI. `pnpm docker` builds the app image from the `Dockerfile` (multi-stage: dependencies and build in the first stage, only the self-contained `.output/` in the final `node:24-alpine` image, run as the unprivileged `node` user, with a health check on `/api/health`) and starts it with `compose.yaml` on port 8080.
+Supabase always runs in the containers managed by the Supabase CLI. `pnpm docker` builds the app image from the `Dockerfile` (multi-stage: dependencies and build in the first stage, only the self-contained `.output/` in the final `node:24-alpine` image, run as the unprivileged `node` user, with a health check on `/api/health`) and starts it with `compose.yaml` on port 8180.
 
 Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. The browser uses the same URLs (including the presigned audio URLs), so the host must resolve that name too: Docker Desktop on Windows adds it to the hosts file, on macOS it has to be added once by hand (see [Troubleshooting](#16-troubleshooting)). The script writes them to `.env.docker`. The image is rebuilt on every `pnpm docker` (the pnpm store is a build cache, so rebuilds are fast).
 
@@ -1402,13 +1472,23 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 | Service | URL |
 |---|---|
-| App (dev) · App (Docker) | http://localhost:3000 · http://localhost:8080 |
+| App (dev) · App (Docker) | http://localhost:3100 · http://localhost:8180 |
 | Supabase API | http://127.0.0.1:54321 |
 | Supabase Studio (tables, users, files, SQL editor) | http://127.0.0.1:54323 |
 | Mailpit (emails sent by local Auth) | http://127.0.0.1:54324 |
 | Postgres (direct) | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 
 `pnpm db:status` prints all URLs and keys.
+
+The app's ports are the common defaults plus 100, so they do not collide with other local projects that keep 3000 or 8080: **3100** dev (was 3000), **8180** Docker (was 8080), **3200** e2e (was 3100). A computer that ran the old ones: see [Updating a computer set up before the port change](#updating-a-computer-set-up-before-the-port-change). To change one, update every place it is written:
+
+| Port | Where |
+|---|---|
+| 3100 (dev, and `pnpm preview`) | `package.json` (`dev` and `preview` scripts, `--port`), `supabase/config.toml` (`site_url`, `additional_redirect_urls`), `playwright.config.ts` (`E2E_DEV=1`), `scripts/stack.mjs` (start-up message), `scripts/check-r2.mjs` (default origin), the R2 CORS policy ([13.2](#132-cloudflare-r2-audio-files)) |
+| 8180 (Docker) | `compose.yaml` (`ports`), `scripts/stack.mjs` (`DOCKER_APP_URL`) |
+| 3200 (e2e) | `playwright.config.ts` |
+
+Plus the `Makefile` help texts and this README. The dev port goes on the command line, not in `devServer.port` in `nuxt.config.ts`: the Nuxt test environment reads that config too, and a fixed port there makes the component test suites time out when they run in parallel. Inside the app container Nuxt still listens on 3000 (`Dockerfile`); only the host side changes.
 
 ### 11.5 Local data
 
@@ -1451,8 +1531,8 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 ```bash
 make test                 # unit + components (seconds)
 make db-test              # database (local Supabase running)
-make test-e2e             # end-to-end on a production build (:3100) + local Supabase
-E2E_DEV=1 pnpm test:e2e   # end-to-end against the dev server (:3000)
+make test-e2e             # end-to-end on a production build (:3200) + local Supabase
+E2E_DEV=1 pnpm test:e2e   # end-to-end against the dev server (:3100)
 make ci                   # everything the CI runs
 ```
 
@@ -1461,7 +1541,7 @@ make ci                   # everything the CI runs
 - **Many tracks: `seedLibrary(page, count)`** (`test/e2e/helpers.ts`) makes them through the API, a tiny WAV each, ten at a time ("Track 001", "Track 002"…): hundreds take seconds, where uploading them through the page would take minutes. Use `uploadTrack` when the upload itself is under test.
 - pgTAP tests run inside a transaction that is rolled back: they never change the database.
 - **Projects:** `chromium` (desktop) runs every spec except `responsive.spec.ts`; `phone` (Pixel 7 emulation) and `tablet` (820×1180, touch) run only that one, since the other specs drive the desktop layout. Run a single one with `--project phone`.
-- Locally Playwright reuses a server already running on :3100 — stop it first, or it may test an old build.
+- Locally Playwright reuses a server already running on :3200 — stop it first, or it may test an old build.
 - **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest; job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure.
 
 ---
@@ -1492,7 +1572,7 @@ Dashboard labels may change slightly over time.
    ```json
    [
      {
-       "AllowedOrigins": ["http://localhost:3000", "https://<your-domain>"],
+       "AllowedOrigins": ["http://localhost:3100", "https://<your-domain>"],
        "AllowedMethods": ["GET", "HEAD", "PUT"],
        "AllowedHeaders": ["content-type", "range"],
        "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
@@ -1646,6 +1726,7 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 | `npm warn install-scripts … pnpm@12.14.0` | Harmless: pnpm works without its install script. `npm i -g pnpm@12.14.0 --allow-scripts=pnpm` silences it and uses the native binary |
 | "Docker is not running" | Open Docker Desktop and wait for the engine; if it hangs while starting, use **Restart** from its tray menu. Windows: if it complains about WSL, run `wsl --update` in an administrator PowerShell |
 | `supabase start` fails | Docker must be running; `pnpm db:stop`, then try again |
+| `supabase start`: `Bind for 0.0.0.0:54322 failed: port is already allocated` | Another Supabase stack holds the ports: `docker ps` shows it (`supabase_db_<project>`). Often this very project under its old name: `pnpm exec supabase stop --project-id chronoplayer` (its data stays in Docker volumes) |
 | Always sent back to `/login` locally | `.env` missing or stale: `make env`, then restart the dev server |
 | `pnpm docker`: sign-in fails with `ERR_NAME_NOT_RESOLVED` on `host.docker.internal` | The host must resolve `host.docker.internal`. **macOS:** `echo "127.0.0.1 host.docker.internal" \| sudo tee -a /etc/hosts` (Docker Desktop for Mac never adds it). **Windows:** Docker Desktop → Settings → General → "Add the *.docker.internal names to the host's /etc/hosts file", or add `127.0.0.1 host.docker.internal` to `C:\Windows\System32\drivers\etc\hosts` with Notepad run as administrator. Or use `pnpm local`, which needs neither |
 | Forgot the local login | Use the demo account, or look at Authentication → Users in Studio (http://127.0.0.1:54323) |
@@ -1663,9 +1744,10 @@ R2 accepts uploads only from the origins in its CORS policy: uploads from a Verc
 | First page load in `make dev` is very slow | Expected: Vite compiles dependencies on the first request |
 | Dev server: `Vite discovered new dependencies at runtime`, then the page reloads | A package the browser imports is missing from `vite.optimizeDeps.include` in `nuxt.config.ts` ([10.3](#103-notable-nuxtconfigts-settings)): add the names the message lists. `pnpm test` names it too, before the dev server does |
 | Vercel: a deployment is **Blocked** | The commit author's email is not one of your GitHub account's (e.g. a work computer's global git identity). Use your own for this repository: `git config user.email <your GitHub email>`. For every personal project in one folder, add to `~/.gitconfig` `[includeIf "gitdir:~/Projects/others/"]` with `path = ~/.gitconfig-personal`, a file holding your `[user]` name and email. Then push a new commit: it deploys everything before it, so the blocked ones need nothing else |
-| E2E tests test an old version | A server is still running on :3100: stop it, Playwright then builds afresh |
+| `pnpm local` starts Nuxt on a port other than 3100, or sign-in redirects go to the wrong address | Something else holds 3100 (often a server left by the e2e tests, which used 3100 before the port change): free it as in [Updating a computer set up before the port change](#updating-a-computer-set-up-before-the-port-change), step 4 |
+| E2E tests test an old version | A server is still running on :3200: stop it, Playwright then builds afresh |
 | Every e2e test fails at once with `browserType.launch: Executable doesn't exist` | Playwright's Chromium is missing (new computer, or a Playwright update): `pnpm exec playwright install chromium`. `make test-e2e` does it for you (macOS: `~/Library/Caches/ms-playwright`, Windows: `%LOCALAPPDATA%\ms-playwright`) |
-| Browser console: `preload … not used because it is a cross-world service worker resource mismatch` | Harmless: the PWA service worker serves files Chrome had already preloaded. Absent in `make local` (no service worker in development); DevTools → Application → Service workers → "Bypass for network" hides it on :8080 |
+| Browser console: `preload … not used because it is a cross-world service worker resource mismatch` | Harmless: the PWA service worker serves files Chrome had already preloaded. Absent in `make local` (no service worker in development); DevTools → Application → Service workers → "Bypass for network" hides it on :8180 |
 | Browser console: errors from `VM123:…` scripts (e.g. `reading 'startTime'` in `reportAllChanges`) | A browser extension, not the app (app files are `/_nuxt/….js`). A private window, without extensions, confirms it |
 | `git commit`: "Permission denied" on Windows | An antivirus may lock files in `.git`: add the project folder to its exclusions |
 | `make` not found on Windows | `winget install ezwinports.make`, then reopen Git Bash; or use the equivalent `pnpm` commands |

@@ -8,7 +8,8 @@ services:
     build: .
     image: chronovault:local
     ports:
-      - "8080:3000"
+      # Host 8180 (DOCKER_APP_URL in scripts/stack.mjs) → Nuxt's 3000 in the container (Dockerfile).
+      - "8180:3000"
     env_file: .env.docker
     extra_hosts:
       # Lets the server reach Supabase on the host through host.docker.internal.
