@@ -38,6 +38,9 @@ export default defineConfig({
           name: 'nuxt',
           include: ['test/nuxt/**/*.test.ts'],
           environment: 'nuxt',
+          // Each file boots Nuxt in a beforeAll hook: a few seconds on an idle
+          // machine, past the default 10 s on a busy one (a shared CI runner).
+          hookTimeout: 60_000,
           environmentOptions: {
             nuxt: {
               domEnvironment: 'happy-dom',
