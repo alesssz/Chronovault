@@ -188,7 +188,7 @@ function isPrivateNow(visibility: string): boolean {
       variant="subtle"
       icon="i-lucide-settings"
       title="Page views are not configured"
-      description="Enable Web Analytics on the Vercel project, then set NUXT_ANALYTICS_TOKEN and NUXT_ANALYTICS_PROJECT_ID (and NUXT_ANALYTICS_TEAM_ID for a team project) in its environment variables and redeploy. See the README, section 13.6."
+      description="Enable Web Analytics on the Vercel project, then set NUXT_ANALYTICS_TOKEN and NUXT_ANALYTICS_PROJECT_ID (and NUXT_ANALYTICS_TEAM_ID for a team project) in its environment variables and redeploy. See docs/13-deployment.md, section 13.6."
       class="mb-6"
       data-testid="stats-unconfigured"
     />

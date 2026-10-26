@@ -1,0 +1,161 @@
+# 8. Data model and security
+
+## 8.1 Entities
+
+```mermaid
+erDiagram
+  AUTH_USERS ||--o{ TRACKS : owns
+  AUTH_USERS ||--o{ GENRES : "creates (custom)"
+  GENRES |o--o{ TRACKS : classifies
+  AUTH_USERS ||--o{ PLAYLISTS : owns
+  PLAYLISTS ||--o{ PLAYLIST_TRACKS : contains
+  TRACKS ||--o{ PLAYLIST_TRACKS : "appears in"
+  TRACKS ||--o{ PLAYS : "is played"
+  PLAYLISTS ||--o{ VERSION_VOTES : "collects"
+  PLAYLISTS ||--o| FEEDBACK_SEEN : "last visit"
+  TRACKS ||--o{ VERSION_VOTES : "is picked"
+
+  TRACKS {
+    uuid id PK
+    uuid user_id FK
+    text title "1-200 chars"
+    text composers
+    uuid genre_id FK
+    smallint year "1000-9999"
+    text album
+    text description
+    text suno_prompt "never shared"
+    boolean mastered "never shared"
+    enum visibility "private | unlisted | public"
+    enum status "draft | final (new: draft)"
+    text lyrics
+    jsonb lyrics_synced "[{time, text, section?}]"
+    boolean has_lyrics "generated"
+    boolean has_synced_lyrics "generated"
+    text audio_path "userId/trackId.ext, unique"
+    text cover_path "userId/trackId.webp"
+    text mime_type
+    bigint size_bytes
+    real duration_seconds
+    jsonb peaks "1000 values 0..1"
+    timestamptz created_at
+    timestamptz updated_at "trigger"
+  }
+  GENRES {
+    uuid id PK
+    uuid user_id FK "NULL = built-in"
+    text name "unique per owner, case-insensitive"
+  }
+  PLAYLISTS {
+    uuid id PK
+    uuid user_id FK
+    enum purpose "playlist | versions"
+    text title
+    text description
+    enum visibility "private | unlisted | public"
+    text cover_path "userId/playlists/playlistId.webp"
+    timestamptz created_at
+    timestamptz updated_at "trigger"
+  }
+  PLAYLIST_TRACKS {
+    uuid playlist_id PK, FK "cascade"
+    uuid track_id PK, FK "cascade"
+    integer position
+  }
+  PLAYS {
+    bigint id PK
+    uuid owner_id FK "the track's owner"
+    uuid track_id FK "cascade"
+    uuid playlist_id "heard through it; no FK: kept after a deletion"
+    enum listener "visitor | owner"
+    uuid listener_id "browser id, or the owner's user id"
+    date played_on "UTC; one row per track, context, listener, day"
+    boolean completed "90% listened"
+  }
+  FEEDBACK_SEEN {
+    uuid playlist_id PK, FK "cascade"
+    timestamptz seen_at "owner's last visit to the group"
+  }
+  VERSION_VOTES {
+    uuid playlist_id PK, FK "cascade"
+    uuid voter_id PK "browser id"
+    uuid track_id FK "the version picked, cascade"
+    text name "optional, 1-60"
+    text comment "optional, 1-1000"
+    timestamptz updated_at "trigger"
+  }
+```
+
+Constraints worth knowing: file paths must start with the owner's id; the owner of a track or playlist can never change (trigger); a track appears at most once per playlist; a listener counts once per track, context and day; a browser has one vote per group; deleting a user deletes everything they own.
+
+## 8.2 Migrations
+
+Applied in order from `supabase/migrations/`. An applied migration's statements are never edited: later migrations alter what earlier ones created.
+
+| File | Content |
+|---|---|
+| `20261018000000_schema.sql` | Visibility enum; `genres` and `tracks`; constraints, indexes, `updated_at` and owner-change triggers; 26 built-in genres |
+| `20261018000100_rls.sql` | RLS on `genres` and `tracks`; first version of `get_shared_track` |
+| `20261018000200_storage.sql` | Private buckets `covers` (10 MB, images) and `audio` (500 MB, used locally only); storage policies; `is_shared_track_file` |
+| `20261020000000_grants.sql` | Explicit table privileges for `anon` and `authenticated` (independent of the project's default grants) |
+| `20261021000000_public_sharing.sql` | `tracks` becomes owner-only; `get_shared_track` returns shareable fields only |
+| `20261022000000_playlists.sql` | `playlists`, `playlist_tracks`, their RLS; `set_playlist_tracks`; `get_shared_playlist(_tracks)`; storage sharing extended to playlists |
+| `20261023000000_track_status.sql` | `tracks.status` (`draft` / `final`: existing tracks final, new ones draft); the sharing functions return it |
+| `20261024000000_playlist_purpose.sql` | `playlists.purpose` (`playlist` / `versions`; existing unlisted "… – versions" playlists become groups); index by purpose; `get_shared_playlist` returns it |
+| `20261024120000_plays_and_votes.sql` | `plays` and `version_votes`, readable by the owner only; `record_play`, `cast_version_vote`, `withdraw_version_vote`, `get_version_vote` and their internal helpers (revoked from `anon` and `authenticated` explicitly) |
+| `20261024130000_private_helpers.sql` | Internal functions out of the API: the policy helpers `is_shared_track_file` and `owns_playlist` move to the unexposed `private` schema (`set_playlist_tracks` recreated to call the latter there), `set_playlist_tracks` for signed-in users only, the trigger functions callable by nobody |
+| `20261025000000_feedback_seen.sql` | `feedback_seen`: the owner's last visit to each group of versions (new feedback), owner only |
+| `20261026000000_anonymous_write_caps.sql` | Caps on anonymous writes: `record_play` counts at most 100 different visitors per track and day, `cast_version_vote` takes at most 50 votes per group; past them `53400` (→ `429`). Index on a track's visitors per day |
+
+## 8.3 Database functions
+
+| Function | Security | Purpose |
+|---|---|---|
+| `get_shared_track(id)` | definer | Shareable fields of a non-private track (nothing for private ones) |
+| `get_shared_playlist(id)` | definer | A non-private playlist's title, description, cover, visibility, purpose |
+| `get_shared_playlist_tracks(id)` | definer | Shareable fields of every track of a non-private playlist, in order (private tracks included) |
+| `private.is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
+| `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction (RLS applies); signed-in users only |
+| `private.owns_playlist(id)` | invoker | RLS helper for `playlist_tracks` and `version_votes` |
+| `record_play(track, playlist, listener, completed)` | definer | Counts a play where the caller can listen (shared track page, shared playlist containing it, own track); the owner, recognised by the session, gets `owner` plays; at most 100 different visitors per track and day (`53400` → `429`) |
+| `cast_version_vote(group, track, voter, name, comment)` · `withdraw_version_vote(group, voter)` | definer | A visitor's pick in a shared group of versions: the version must belong to it; `403` for the owner, `409` once a version is final, `429` for a new voter in a group that has 50 votes already |
+| `get_version_vote(group, voter)` | definer | Voting open, whether the caller owns the group, and this browser's own pick (never anyone else's) |
+| `shared_group_owner(id)` · `version_voting_open(id)` · `check_version_voting(id, voter)` | definer, internal | Helpers of the vote functions; not callable through the API |
+| `set_updated_at()` · `prevent_owner_change()` | trigger | Timestamps · immutable owner (no role may call them directly) |
+
+*Security definer* functions bypass RLS, so each one filters on visibility itself and selects explicit columns; all have an empty `search_path`. **What the API offers.** Every function of the `public` schema the caller may execute is callable through the Data API (`POST /rest/v1/rpc/<name>`), and Supabase's default privileges grant `execute` on new functions there to `anon` and `authenticated` explicitly, so `revoke … from public` alone does not hide one. The rules:
+
+- a function meant for the API stays in `public`, granted to the roles that need it (`get_shared_*`, plays, votes: both roles; `set_playlist_tracks`: `authenticated`);
+- an internal helper of other functions stays in `public` but is revoked from `anon` and `authenticated` by name (the vote helpers): the definer functions that call it run as its owner;
+- a **helper of policies** cannot be revoked, since the policies run as the requesting role and need `execute`: it lives in the **`private` schema**, which the API does not expose (`[api] schemas` in `supabase/config.toml`, the same default on Supabase Cloud), with `usage` granted to the roles whose policies call it. Policies refer to a function by its identity, so moving one keeps them working; function bodies refer to it by name and must be updated.
+
+`function_privileges.test.sql` lists exactly what each role may call in `public`: a new function exposed by mistake fails the tests.
+
+## 8.4 Storage
+
+| Bucket | Where | Content | Access |
+|---|---|---|---|
+| `covers` | Supabase Storage (private) | `<userId>/<trackId>.webp`, `<userId>/playlists/<playlistId>.webp` | Write: own folder only. Read (sign): own files, or files of shared items |
+| `chronovault-audio` | Cloudflare R2 (private) | `<userId>/<trackId>.<ext>` | Only through streaming addresses and presigned URLs issued by the server |
+| `audio` | Local Supabase only | Same layout as R2 | Stand-in for R2 in development (S3 protocol) |
+
+## 8.5 Security guarantees
+
+Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-end tests:
+
+- A user reads, changes and deletes only their own tracks, genres and playlists. Nobody can create items for someone else or change an item's owner.
+- Playlists can only contain the owner's own tracks.
+- Anonymous visitors cannot read any table; through the API they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner, and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
+- A private track inside a shared playlist is reachable only through that playlist.
+- Plays and votes are written only through their functions, only where the caller can listen or vote; the owner's plays are kept apart by the session, and only the owner reads plays and votes. A visitor sees their own pick, never anyone else's. The owner's visits to their groups (`feedback_seen`) are theirs alone.
+- **Anonymous writes are capped** in the database functions themselves (`20261026000000_anonymous_write_caps.sql`): at most 100 different visitors per track and UTC day in `record_play`, at most 50 votes per group in `cast_version_vote`; past them `53400`, answered `429`. A visitor is only a browser id the server cannot check, so without caps a script making up a new id per request could inflate the statistics, flood a group with votes and comments, and grow the tables up to the Free plan's limit (where every write of the app fails). The caps are in SQL, not in the app's server, because `anon` may call these functions straight through the Data API with the public key; and they are per track and per group, not per IP, because requests through the app reach Supabase from the server's address. A transaction-scoped advisory lock per track (per group) keeps parallel requests from all taking the last place.
+- Files can be uploaded only into one's own folder, and read only when they are one's own or belong to shared items.
+- Every bucket is private: files are reachable only through expiring signed URLs. The R2 keys exist only on the server.
+- The public Supabase key (`SUPABASE_KEY`) can live in the browser: protection comes from the policies, not from hiding the key. The service key is never used.
+- API errors never include SQL messages or stack traces (logged server-side only).
+- **Security headers** on every response (`routeRules` in `nuxt.config.ts`): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `Strict-Transport-Security` (two years; browsers ignore it over plain HTTP, so localhost and Docker are unaffected) and a `Permissions-Policy` turning off camera, microphone and geolocation.
+- **Content Security Policy** on every HTML page of a production build (`server/plugins/content-security-policy.ts`, built by `server/utils/content-security-policy.ts`). Scripts run only from the site itself or with the page's **nonce**, drawn for each response and written into the inline scripts Nuxt adds (colour mode, payload); a script slipped in through user content (lyrics, descriptions, comments) would not run. The page may talk only to the site, Supabase and the audio storage, both origins read from the runtime config (so one build fits local, Docker and Vercel), and may not be framed by another site (`frame-ancestors 'none'`). Styles allow `'unsafe-inline'` (Vue's style bindings), and `https://www.gstatic.com` is allowed for the Cast SDK of the temporary `/cast-test` page only. The dev server sends no policy: its hot reload injects scripts of its own.
+
+---
+
+← [7. Data flows](07-data-flows.md) · [Contents](../README.md#documentation) · [9. API reference](09-api-reference.md) →

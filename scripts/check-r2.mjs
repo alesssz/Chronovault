@@ -104,7 +104,7 @@ try {
     // The origin R2 allows for it (or `*`), null when none.
     const putAllowed = putPreflight.headers.get('access-control-allow-origin')
     report(putPreflight.ok && (putAllowed === origin || putAllowed === '*'), `CORS upload from ${origin}`,
-      `Add "${origin}" to AllowedOrigins and PUT to AllowedMethods in the bucket CORS policy (see README).`)
+      `Add "${origin}" to AllowedOrigins and PUT to AllowedMethods in the bucket CORS policy (see docs/13-deployment.md, 13.2).`)
 
     // The preflight before streaming: may this origin GET with a Range header?
     const getPreflight = await fetch(await presign('GET'), {
@@ -114,7 +114,7 @@ try {
     // The origin R2 allows for it (or `*`), null when none.
     const getAllowed = getPreflight.headers.get('access-control-allow-origin')
     report(getPreflight.ok && (getAllowed === origin || getAllowed === '*'), `CORS streaming / waveform from ${origin}`,
-      `Allow GET and the "range" header for "${origin}" in the bucket CORS policy (see README).`)
+      `Allow GET and the "range" header for "${origin}" in the bucket CORS policy (see docs/13-deployment.md, 13.2).`)
   }
 }
 finally {

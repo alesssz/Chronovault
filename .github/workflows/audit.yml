@@ -1,0 +1,52 @@
+# Dependency audit: `pnpm audit` against the advisory database, every week
+# and whenever the dependencies change. A new advisory fails the run, and
+# GitHub emails the repository owner about a failed scheduled run.
+#
+# Why not GitHub's Dependabot alerts: the dependency graph does not read
+# pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version, then
+# the packages), so it sees no npm dependency at all and raises no alert.
+# pnpm reads its own lockfile. Advisories reviewed and left out, each with
+# its reason, are in pnpm-workspace.yaml (auditConfig.ignoreGhsas).
+#
+# The job summary also lists the outdated packages, to plan updates
+# (docs/11-local-development.md, 11.6); that list never fails the run.
+name: Audit
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC.
+    - cron: '0 6 * * 1'
+  # Run by hand from the Actions tab.
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
+  pull_request:
+    paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # Installed so that `pnpm outdated` compares what is really resolved.
+      - run: pnpm install --frozen-lockfile
+
+      - name: Outdated packages (job summary)
+        # `pnpm outdated` exits 1 when anything is outdated: informative only.
+        run: |
+          {
+            echo '### Outdated packages'
+            echo '```'
+            pnpm outdated || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Audit
+        run: pnpm audit

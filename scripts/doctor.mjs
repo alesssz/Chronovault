@@ -11,7 +11,7 @@
  * Docker mode, Playwright's Chromium for e2e tests, GNU Make. Informative
  * (ℹ): the local Supabase stack and the .env file.
  *
- * It only reads: nothing is installed or changed. README → 11.1 has the
+ * It only reads: nothing is installed or changed. docs/11-local-development.md (11.1) has the
  * full checklist for a new computer.
  */
 import { lookup } from 'node:dns/promises'

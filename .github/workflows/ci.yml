@@ -1,5 +1,5 @@
 # Continuous integration: two jobs, the second only when the first passes.
-#   quality           lint, typecheck, Vitest (no database needed)
+#   quality           lint, typecheck, Vitest with the coverage floors (no database needed)
 #   database-and-e2e  local Supabase in the runner, schema lint, pgTAP, Playwright
 name: CI
 
@@ -27,7 +27,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      # Vitest with coverage: fails when a folder drops below its floor (vitest.config.ts).
+      - run: pnpm test:coverage
 
   database-and-e2e:
     name: Database and end-to-end tests

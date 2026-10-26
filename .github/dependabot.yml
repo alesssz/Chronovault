@@ -5,7 +5,7 @@
 # npm packages are left out on purpose: GitHub's dependency graph does not
 # read pnpm 12 lockfiles made of two YAML documents (ours), so Dependabot
 # would see no package to update. Their security is watched by
-# .github/workflows/audit.yml, and updates are made by hand (README 11.6).
+# .github/workflows/audit.yml, and updates are made by hand (docs/11-local-development.md, 11.6).
 version: 2
 updates:
   - package-ecosystem: github-actions

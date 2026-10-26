@@ -1,0 +1,122 @@
+# 6. Project structure
+
+```
+Chronovault/
+├── app/                              # Frontend (Nuxt 4 srcDir)
+│   ├── app.vue · error.vue           # Root component · fatal error page
+│   ├── app.config.ts                 # Nuxt UI theme: gold, spectral blue, night blue (5.6)
+│   ├── assets/css/main.css           # Tailwind + Nuxt UI, fonts and colour scales, base scale, room for the player bar
+│   ├── components/
+│   │   ├── AppHeader.vue · ConfirmDialog.vue · StorageDialog.vue · CoverCropDialog.vue · DragHandle.vue
+│   │   ├── AppLogo.vue · AppMark.vue  # the Chronovault logo (mark + name + tagline) · the mark alone (5.6)
+│   │   ├── KeyboardShortcutsDialog.vue  # the list of the player's keyboard shortcuts (the ? key)
+│   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
+│   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
+│   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
+│   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
+│   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog,
+│   │   │                             #   PlaylistEditor (owner page of both purposes), PlaylistGrid (cards),
+│   │   │                             #   PlaylistVersionFeedback (a group's votes, plays and comments)
+│   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
+│   │   │                             #   ShareVersionVote (a group's vote panel) (public pages)
+│   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
+│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
+│   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
+│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
+│   │                                 #   useAsyncTask, useEditForm, useCoverEditor, useCoverStorage, useSortableList,
+│   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),
+│   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
+│   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17),
+│   │                                 #   useUnseenFeedback (new votes: the dot on "Versions", 7.17),
+│   │                                 #   useKeyboardShortcuts (useKeyboardClaim, useShortcutsHelp: 7.5),
+│   │                                 #   usePageTitle (browser tab titles: "Library · Chronovault")
+│   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages + full-screen view)
+│   ├── lib/                          # Browser code without Vue
+│   │   ├── audio-engine.ts           #   the single <audio> element and its events
+│   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks
+│   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
+│   │   ├── bytes.ts                  #   concatBytes, asciiAt (binary file code)
+│   │   ├── image.ts                  #   crop geometry, square WebP covers
+│   │   ├── queue-storage.ts          #   saved play queue (localStorage)
+│   │   ├── queue-order.ts            #   shuffle rules: shuffle, unshuffle, new round
+│   │   ├── player/                   #   the player store's parts (7.5): queue.ts (queue and order) · playback.ts
+│   │   │                             #   (loaded track, engine, expired URLs) · sources.ts · settings.ts · types.ts
+│   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
+│   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
+│   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
+│   │   ├── listener-id.ts            #   this browser's random id, for plays and votes
+│   │   ├── storage-keys.ts           #   every localStorage key, and the move from the former chronoplayer: names
+│   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
+│   │   ├── save-file.ts              #   hands a file built in the browser to the user
+│   │   ├── haptics.ts                #   short vibrations as touch feedback (Android)
+│   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
+│   │   ├── media-session.ts · theme.ts  #   lock-screen card · waveform colours from the theme
+│   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
+│   ├── pages/
+│   │   ├── index.vue                 # Library
+│   │   ├── login.vue · confirm.vue   # Sign-in / sign-up · auth callback
+│   │   ├── tracks/new.vue            # Upload
+│   │   ├── tracks/[id]/edit.vue      # Track editor (details, lyrics, sync)
+│   │   ├── playlists/index.vue       # Playlists
+│   │   ├── playlists/[id].vue        # Playlist editor (PlaylistEditor)
+│   │   ├── versions/index.vue        # Versions (groups made by "Share for feedback")
+│   │   ├── versions/[id].vue         # Group of versions (PlaylistEditor)
+│   │   ├── stats.vue                 # Statistics (visits and plays of the share links)
+│   │   ├── t/[id].vue                # Public track page (SSR)
+│   │   └── p/[id].vue                # Public playlist page (SSR)
+│   ├── plugins/                      # 00.storage-keys.client.ts (moves keys saved under the former name, first) · media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
+│   │                                 #   · play-counter.client.ts (reports plays, 7.16) · keyboard-shortcuts.client.ts (7.5)
+│   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
+│   ├── stores/player.ts              # Player store: puts together the parts in lib/player/ behind one API
+│   └── utils/                        # errors (human-readable messages) · clipboard · visibility (labels, icons) · playlist-purpose
+├── server/                           # Backend (Nitro)
+│   ├── api/                          # HTTP routes (see section 9)
+│   ├── services/                     # tracks · genres · playlists · sharing · storage-cleanup · covers · analytics (+ analytics-demo)
+│   │                                 #   · plays (Statistics) · feedback (plays, votes, new feedback)
+│   │                                 #   · playback (streaming addresses, cover file removal)
+│   ├── repositories/                 # tracks · genres · playlists · sharing · storage (covers) · audio-storage (R2, signed streaming addresses) · web-analytics (Vercel API) · keepalive · feedback (plays, votes, visits)
+│   │                                 #   · pages (readAllPages: lists past PostgREST's 1000 rows)
+│   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
+│   ├── plugins/                      # content-security-policy.ts (the pages' CSP and its nonce, 8.5)
+│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
+│                                     #   · content-security-policy (the policy, built from the runtime config)
+├── shared/                           # Pure code used by client and server
+│   ├── brand.ts                      # Name, tagline, colours, fallback cover, the mark's geometry (5.6)
+│   ├── schemas/                      # track.ts · playlist.ts · analytics.ts · feedback.ts (Zod)
+│   ├── types/                        # track.ts · playlist.ts · storage.ts · analytics.ts · database.types.ts (generated)
+│   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time · text · numbers · arrays
+├── supabase/
+│   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
+│   ├── migrations/                   # Versioned schema (section 8.2)
+│   ├── seed.sql                      # Local demo user
+│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql
+├── test/
+│   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts and brand checks)
+│   ├── nuxt/                         # Vitest in a Nuxt environment: components
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
+│                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts
+├── scripts/
+│   ├── stack.mjs                     # pnpm local / docker / stop
+│   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
+│   ├── setup-env.mjs                 # pnpm env:local
+│   ├── gen-types.mjs                 # pnpm db:types
+│   ├── check-r2.mjs                  # pnpm r2:check
+│   ├── doctor.mjs                    # pnpm doctor (prerequisites check) · lib/doctor-checks.mjs
+│   ├── merge-main.mjs                # pnpm merge:main
+│   ├── lib/merge-message.mjs         # cumulative merge commit message
+│   └── generate-brand.mjs            # pnpm generate:brand (favicon, PWA icons, fallback cover)
+├── brand/chronovault.jpg             # The Chronovault artwork: source of the fallback cover
+├── docs/                             # This documentation: 01-features.md … 16-troubleshooting.md, one file per section (index in README.md)
+│   └── superpowers/                  # Design specs and implementation plans of past features (kept as written then)
+├── public/                           # Favicon, PWA icons, fallback cover (generated, see 5.6)
+├── Dockerfile · compose.yaml · .dockerignore
+├── Makefile · package.json · pnpm-workspace.yaml
+├── nuxt.config.ts · vitest.config.ts · playwright.config.ts · eslint.config.mjs · tsconfig.json
+├── .env.example · .env.r2.example    # Templates (the real .env files are git-ignored)
+└── .github/                          # workflows/ci.yml (checks, 12) · workflows/audit.yml (weekly dependency audit, 11.6)
+                                      #   · dependabot.yml (GitHub Actions updates only, 11.6)
+```
+
+---
+
+← [5. Architecture](05-architecture.md) · [Contents](../README.md#documentation) · [7. Data flows](07-data-flows.md) →

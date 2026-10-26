@@ -10,7 +10,7 @@ let cached: { key: string, storage: AudioStorage } | null = null
 
 /**
  * The audio storage configured through runtime config
- * (`NUXT_AUDIO_STORAGE_*` environment variables, see README → Environment variables).
+ * (`NUXT_AUDIO_STORAGE_*` environment variables, see docs/10-configuration.md, 10.1 Environment variables).
  *
  * A missing setting is a deployment mistake: it is logged by name and the
  * request fails with a generic 500, so secrets never reach the response.
