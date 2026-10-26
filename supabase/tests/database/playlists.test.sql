@@ -21,17 +21,17 @@ insert into auth.users (id, instance_id, aud, role, email) values
 
 insert into public.tracks (id, user_id, title, audio_path, cover_path, mime_type, size_bytes, visibility, suno_prompt, mastered) values
   ('a1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Private A',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1.flac', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1.webp', 'audio/flac', 1, 'private', 'secret prompt', true),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.flac', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp', 'audio/flac', 1, 'private', 'secret prompt', true),
   ('a2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Unlisted A',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2.flac', null, 'audio/flac', 1, 'unlisted', null, false),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2222222-2222-4222-8222-222222222222.flac', null, 'audio/flac', 1, 'unlisted', null, false),
   ('b1111111-1111-4111-8111-111111111111', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Track B',
-   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1.flac', null, 'audio/flac', 1, 'private', null, false);
+   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1111111-1111-4111-8111-111111111111.flac', null, 'audio/flac', 1, 'private', null, false);
 
 insert into public.playlists (id, user_id, title, visibility, cover_path) values
   ('c1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Private list', 'private',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c1.webp'),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c1111111-1111-4111-8111-111111111111.webp'),
   ('c2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Shared list', 'unlisted',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2.webp');
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp');
 
 insert into public.playlist_tracks (playlist_id, track_id, position) values
   ('c1111111-1111-4111-8111-111111111111', 'a1111111-1111-4111-8111-111111111111', 0),
@@ -39,9 +39,9 @@ insert into public.playlist_tracks (playlist_id, track_id, position) values
   ('c2222222-2222-4222-8222-222222222222', 'a1111111-1111-4111-8111-111111111111', 1);
 
 insert into storage.objects (bucket_id, name) values
-  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1.webp'),
-  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c1.webp'),
-  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2.webp');
+  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp'),
+  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c1111111-1111-4111-8111-111111111111.webp'),
+  ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp');
 
 -- -----------------------------------------------------------------------------
 -- Table privileges
@@ -189,8 +189,8 @@ select is_empty(
 
 select results_eq(
   $$ select name from storage.objects where bucket_id = 'covers' and name like 'aaaaaaaa%' order by name $$,
-  $$ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1.webp'),
-            ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2.webp') $$,
+  $$ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp'),
+            ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp') $$,
   'visitors read the covers of shared playlists and of the tracks in them, nothing else'
 );
 

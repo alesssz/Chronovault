@@ -32,8 +32,8 @@ erDiagram
     jsonb lyrics_synced "[{time, text, section?}]"
     boolean has_lyrics "generated"
     boolean has_synced_lyrics "generated"
-    text audio_path "userId/trackId.ext, unique"
-    text cover_path "userId/trackId.webp"
+    text audio_path "exactly userId/id.ext, unique"
+    text cover_path "exactly userId/id.webp"
     text mime_type
     bigint size_bytes
     real duration_seconds
@@ -53,7 +53,7 @@ erDiagram
     text title
     text description
     enum visibility "private | unlisted | public"
-    text cover_path "userId/playlists/playlistId.webp"
+    text cover_path "exactly userId/playlists/id.webp"
     timestamptz created_at
     timestamptz updated_at "trigger"
   }
@@ -106,6 +106,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261024130000_private_helpers.sql` | Internal functions out of the API: the policy helpers `is_shared_track_file` and `owns_playlist` move to the unexposed `private` schema (`set_playlist_tracks` recreated to call the latter there), `set_playlist_tracks` for signed-in users only, the trigger functions callable by nobody |
 | `20261025000000_feedback_seen.sql` | `feedback_seen`: the owner's last visit to each group of versions (new feedback), owner only |
 | `20261026000000_anonymous_write_caps.sql` | Caps on anonymous writes: `record_play` counts at most 100 different visitors per track and day, `cast_version_vote` takes at most 50 votes per group; past them `53400` (→ `429`). Index on a track's visitors per day |
+| `20261026120000_storage_path_rules.sql` | Storage paths are exactly the ones the app builds: `tracks.audio_path` `<user_id>/<id>.<extension>`, `tracks.cover_path` `<user_id>/<id>.webp`, `playlists.cover_path` `<user_id>/playlists/<id>.webp` (they only had to start with the owner's folder, so a `..` could name another user's file) |
 
 ## 8.3 Database functions
 
@@ -145,11 +146,12 @@ Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-e
 
 - A user reads, changes and deletes only their own tracks, genres and playlists. Nobody can create items for someone else or change an item's owner.
 - Playlists can only contain the owner's own tracks.
-- Anonymous visitors cannot read any table; through the API they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner, and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
+- Anonymous visitors cannot read any table; through the API they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner's account (only the storage keys of the files, which start with the owner's id: the server signs files by them), and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
 - A private track inside a shared playlist is reachable only through that playlist.
 - Plays and votes are written only through their functions, only where the caller can listen or vote; the owner's plays are kept apart by the session, and only the owner reads plays and votes. A visitor sees their own pick, never anyone else's. The owner's visits to their groups (`feedback_seen`) are theirs alone.
 - **Anonymous writes are capped** in the database functions themselves (`20261026000000_anonymous_write_caps.sql`): at most 100 different visitors per track and UTC day in `record_play`, at most 50 votes per group in `cast_version_vote`; past them `53400`, answered `429`. A visitor is only a browser id the server cannot check, so without caps a script making up a new id per request could inflate the statistics, flood a group with votes and comments, and grow the tables up to the Free plan's limit (where every write of the app fails). The caps are in SQL, not in the app's server, because `anon` may call these functions straight through the Data API with the public key; and they are per track and per group, not per IP, because requests through the app reach Supabase from the server's address. A transaction-scoped advisory lock per track (per group) keeps parallel requests from all taking the last place.
 - Files can be uploaded only into one's own folder, and read only when they are one's own or belong to shared items.
+- **A row names only its own files, by the exact paths the app builds** (`20261026120000_storage_path_rules.sql`): `tracks.audio_path` is `<user_id>/<id>.<extension>`, `tracks.cover_path` `<user_id>/<id>.webp`, `playlists.cover_path` `<user_id>/playlists/<id>.webp`, enforced by check constraints, since a signed-in user may write their own rows straight through the Data API without the app's server. Before that only the first folder was checked, and a path such as `<own id>/../<other id>/<track>.flac` passed: URL parsing resolves the `..` when the server signs it, so the signature covered another user's file (delete the forged track, and the server deleted the victim's audio). The server also refuses to sign or touch any key with an empty, `.` or `..` segment (`isSafeStorageKey`, `shared/utils/storage-paths.ts`), whatever the database holds.
 - Every bucket is private: files are reachable only through expiring signed URLs. The R2 keys exist only on the server.
 - The public Supabase key (`SUPABASE_KEY`) can live in the browser: protection comes from the policies, not from hiding the key. The service key is never used.
 - API errors never include SQL messages or stack traces (logged server-side only).

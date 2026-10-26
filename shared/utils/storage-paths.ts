@@ -6,15 +6,30 @@
  *                                                      <userId>/playlists/<playlistId>.webp
  *
  * The first folder is always the owner's id: the storage RLS policies
- * (upload only into your own folder) and the `tracks` / `playlists` table
- * constraints (paths must start with `user_id`) both rely on this rule.
- * Ids are random UUIDs, so paths cannot be guessed.
+ * (upload only into your own folder) rely on this rule, and the `tracks` /
+ * `playlists` table constraints accept exactly these shapes, with the row's
+ * own ids (…_storage_path_rules.sql), so a row can only name its own files.
+ * Ids are random UUIDs, so paths cannot be guessed. The builders below are
+ * the only source of paths; isSafeStorageKey guards the server's signing.
  */
 
 /** Bucket of the audio files (the R2 bucket in production, a local Supabase bucket in development). */
 export const AUDIO_BUCKET = 'audio'
 /** Supabase Storage bucket of track and playlist covers. */
 export const COVERS_BUCKET = 'covers'
+
+/**
+ * True when a storage key names one file by a plain path: no empty, `.` or
+ * `..` segment, no backslash, no control character. URL parsing resolves
+ * `a/../b` to `b`, so signing such a key would grant another file than the
+ * one named; the server refuses to sign or touch one, whatever the database
+ * holds (its constraints already allow only the shapes built below).
+ */
+export function isSafeStorageKey(key: string): boolean {
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what is refused
+  if (!key || key.includes('\\') || /[\u0000-\u001F\u007F]/.test(key)) return false
+  return key.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..')
+}
 
 /** `<userId>/<trackId>.<ext>`; the extension is normalized (no dot, lower case). */
 export function buildAudioPath(userId: string, trackId: string, extension: string): string {

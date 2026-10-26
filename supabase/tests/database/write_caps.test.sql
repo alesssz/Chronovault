@@ -24,13 +24,13 @@ insert into auth.users (id, instance_id, aud, role, email) values
 
 insert into public.tracks (id, user_id, title, audio_path, mime_type, size_bytes, visibility, status) values
   ('71111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Track 1',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/t1.flac', 'audio/flac', 1, 'unlisted', 'draft'),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/71111111-1111-4111-8111-111111111111.flac', 'audio/flac', 1, 'unlisted', 'draft'),
   ('72222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Track 2',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/t2.flac', 'audio/flac', 1, 'unlisted', 'final'),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/72222222-2222-4222-8222-222222222222.flac', 'audio/flac', 1, 'unlisted', 'final'),
   ('a1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Song (v1)',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/v1.flac', 'audio/flac', 1, 'private', 'draft'),
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.flac', 'audio/flac', 1, 'private', 'draft'),
   ('a2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Song (v2)',
-   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/v2.flac', 'audio/flac', 1, 'private', 'draft');
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2222222-2222-4222-8222-222222222222.flac', 'audio/flac', 1, 'private', 'draft');
 
 insert into public.playlists (id, user_id, title, visibility, purpose) values
   ('c1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Song – versions', 'unlisted', 'versions');
