@@ -78,10 +78,16 @@ const menu = computed<DropdownMenuItem[][]>(() => [
   <header class="sticky top-0 z-30 border-b border-default bg-default/80 backdrop-blur">
     <UContainer class="flex h-14 items-center justify-between gap-3">
       <!-- Left: the logo (home) and the section links -->
-      <div class="flex min-w-0 items-center gap-1 sm:gap-4">
+      <div class="flex min-w-0 items-center gap-3 sm:gap-4">
+        <!--
+          The logo, linking home. `flex` makes the link exactly as tall as the logo: as a plain
+          block it would set the logo on a line of text, with room for descenders underneath, and
+          the logo would sit a few pixels above the section links.
+        -->
         <NuxtLink
           to="/"
           :aria-label="`${APP_NAME} home`"
+          class="flex"
         >
           <AppLogo compact />
         </NuxtLink>
@@ -90,7 +96,11 @@ const menu = computed<DropdownMenuItem[][]>(() => [
           class="flex items-center gap-1"
           aria-label="Sections"
         >
-          <!-- One link per section; the name shows from `sm`, the icon alone on phones -->
+          <!--
+            One link per section; the name shows from `sm`, the icon alone on phones, in a square
+            like the icon buttons on the right (`max-sm:px-1.5`: the hidden name would otherwise
+            keep the padding of a labelled button).
+          -->
           <UButton
             v-for="link in sections"
             :key="link.to"
@@ -102,7 +112,7 @@ const menu = computed<DropdownMenuItem[][]>(() => [
             active-color="primary"
             active-variant="soft"
             :active="link.active()"
-            class="relative"
+            class="relative max-sm:px-1.5"
           >
             <span class="hidden sm:inline">{{ link.label }}</span>
             <!-- Something new in the section: a dot on the top right corner (on the icon, on phones) -->
