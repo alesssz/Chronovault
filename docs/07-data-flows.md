@@ -82,6 +82,7 @@ sequenceDiagram
   end
   B->>N: POST /api/tracks {id, metadata, audioPath, coverPath, peaks…}
   N->>N: Zod validation · paths must be <userId>/<trackId>.*
+  N->>D: id already registered? same file: 201 with it · another file: 409
   N->>R: HEAD: file there, with exactly the declared size?
   N->>D: INSERT tracks (RLS: user_id = auth.uid())
   N-->>B: 201 TrackDetail
@@ -102,6 +103,8 @@ sequenceDiagram
 | Cover conversion/upload fails | The track is saved without a cover |
 | Stored file missing or of a different size | The server deletes it and refuses the track (400) |
 | Database insert fails | The server deletes the audio, the browser deletes the cover |
+| The registration is sent twice (a retry after a lost response, a double submit, two tabs) | The repeat gets `201` with the track already registered, and its file is never deleted: the server looks for the id first, and when two identical requests race, the one that loses the insert (unique violation, `409`) leaves the file to the winner |
+| An upload address is asked for an id already registered | `409`: a registered track's file can never be overwritten |
 | Browser closed between the upload and the registration | The file stays in R2 unused: an orphan, removed from the Storage dialog ([7.12](#712-storage-clean-up)) |
 
 ## 7.4 Lossless WAV → FLAC conversion

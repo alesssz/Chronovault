@@ -104,7 +104,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `trackCoverUrlOf`, `playlistCoverUrlOf` | `mappers/cover-urls.ts` | Cacheable cover address of a row, or null (mappers, statistics) |
 | `toSharedTrackContent` | `mappers/track.ts` | Shareable fields of a track: the public track page and each track of a public playlist |
 | `byPosition` | `repositories/playlists.repository.ts` | Playlist order of embedded and RPC rows |
-| `badRequest`, `notFound`, `playlistNotFound`, `toHttpError` | `utils/errors.ts` | Consistent HTTP errors |
+| `badRequest`, `notFound`, `playlistNotFound`, `conflict` (+ `isConflict`), `toHttpError` | `utils/errors.ts` | Consistent HTTP errors |
 
 **Frontend (`app/`):**
 

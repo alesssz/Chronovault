@@ -1,6 +1,8 @@
 /**
  * Tracks service with mocked repositories and a fake audio storage: upload targets, registration
- * checks (paths, stored size, clean-up on failure), updates, deletion and playback URLs.
+ * checks (paths, stored size, clean-up on failure), repeated registrations (the same request
+ * answered with the track, a registered track's file never deleted nor overwritten), updates,
+ * deletion and playback URLs.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackRow } from '~~/server/mappers/track'
@@ -97,7 +99,7 @@ describe('createUploadTarget', () => {
   it('signs an upload URL inside the user folder', async () => {
     // Before the call: the expiry must be at least an hour after this.
     const before = Date.now()
-    const target = await createUploadTarget(storage(), USER, {
+    const target = await createUploadTarget(db, storage(), USER, {
       trackId: TRACK, extension: 'flac', mimeType: 'audio/flac', sizeBytes: 10,
     })
 
@@ -105,6 +107,15 @@ describe('createUploadTarget', () => {
     expect(audio.presign).toHaveBeenCalledWith('PUT', AUDIO, UPLOAD_URL_TTL)
     expect(target.uploadUrl).toBe(`https://r2.test/${AUDIO}?method=PUT`)
     expect(new Date(target.expiresAt).getTime()).toBeGreaterThanOrEqual(before + UPLOAD_URL_TTL * 1000)
+  })
+
+  it('gives no upload address for a track already registered: its file is never overwritten', async () => {
+    vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(AUDIO)
+
+    await expect(createUploadTarget(db, storage(), USER, {
+      trackId: TRACK, extension: 'flac', mimeType: 'audio/flac', sizeBytes: 10,
+    })).rejects.toMatchObject({ statusCode: 409 })
+    expect(audio.presign).not.toHaveBeenCalled()
   })
 })
 
@@ -153,6 +164,34 @@ describe('createTrack', () => {
     await expect(createTrack(db, storage(), USER, createInput)).rejects.toThrow('database down')
 
     expect(audio.remove).toHaveBeenCalledWith([AUDIO])
+  })
+
+  it('answers a repeated registration with the track already there, touching nothing', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+
+    // The answer to the repeated request.
+    const track = await createTrack(db, storage(), USER, createInput)
+
+    expect(track.id).toBe(TRACK)
+    expect(audio.head).not.toHaveBeenCalled()
+    expect(tracksRepo.insertTrackRow).not.toHaveBeenCalled()
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
+  it('refuses an id already registered with another file (409), touching nothing', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ audio_path: `${USER}/${TRACK}.mp3` }))
+
+    await expect(createTrack(db, storage(), USER, createInput)).rejects.toMatchObject({ statusCode: 409 })
+    expect(audio.head).not.toHaveBeenCalled()
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
+  it('keeps the file when an identical request running alongside registered the track first', async () => {
+    // The unique violation, as toHttpError maps it.
+    vi.mocked(tracksRepo.insertTrackRow).mockRejectedValue(Object.assign(new Error('Item already exists'), { statusCode: 409 }))
+
+    await expect(createTrack(db, storage(), USER, createInput)).rejects.toMatchObject({ statusCode: 409 })
+    expect(audio.remove).not.toHaveBeenCalled()
   })
 })
 
