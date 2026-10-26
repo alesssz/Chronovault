@@ -4,7 +4,7 @@
  * the group shows up on the Versions page, not among the playlists; the
  * chosen one is marked final from the group; the others are deleted in one go.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** Three Suno versions of the same song (the WAV file name becomes the title). */

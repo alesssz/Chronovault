@@ -10,7 +10,7 @@
  * Measured in the page, on one clock: the player's audio element is wrapped as it is created
  * (its `ended` and `playing` events), and so is `fetch` (the playback requests).
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** Simulated latency of the deployed API, per request (see the test). */

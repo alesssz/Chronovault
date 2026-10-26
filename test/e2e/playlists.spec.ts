@@ -2,7 +2,7 @@
  * End-to-end, playlists: create from a track's menu, add, reorder (persisted), play all, share;
  * a visitor plays private tracks inside the playlist only; private again → 404.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
 // The playlist page saves its details with PATCH /api/playlists/:id.

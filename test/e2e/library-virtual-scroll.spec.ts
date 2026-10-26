@@ -5,7 +5,7 @@
  * row work on the whole library; and coming back from a track's page restores the place in the
  * list.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { seedLibrary, signUp } from './helpers'
 
 /** Tracks in the library: well beyond what a screen shows. */

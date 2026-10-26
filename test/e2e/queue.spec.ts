@@ -6,7 +6,7 @@
  * above the controls, never covered by their tooltips once the pointer moves
  * onto it.
  */
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 /**

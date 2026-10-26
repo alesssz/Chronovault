@@ -3,7 +3,7 @@
  * with exactly the same samples), playback, editing, cover, synced lyrics tools, full-screen
  * view, deletion, and rejected files.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { FLACDecoder } from '@wasm-audio-decoders/flac'
 import { makeWav, signUp, uniqueId, uploadTrack, type WavOptions } from './helpers'
 

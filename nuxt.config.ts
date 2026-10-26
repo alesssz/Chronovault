@@ -98,6 +98,23 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Security headers on every response, pages, API and static files alike.
+    // The Content Security Policy needs a nonce per page, so it is sent by
+    // server/plugins/content-security-policy.ts instead.
+    '/**': {
+      headers: {
+        // Files are only ever read as the type the server declares.
+        'x-content-type-options': 'nosniff',
+        // Other sites see where a visitor came from, never the full address.
+        'referrer-policy': 'strict-origin-when-cross-origin',
+        // No other site may show the app in a frame (CSP frame-ancestors for current browsers).
+        'x-frame-options': 'DENY',
+        // HTTPS only for two years; ignored over plain HTTP (localhost, Docker).
+        'strict-transport-security': 'max-age=63072000',
+        // Browser features the app never uses stay off, even for injected code.
+        'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+      },
+    },
     // App pages are personal and use browser APIs (Web Audio, File):
     // they are rendered on the client only. The public share pages (/t/:id
     // for tracks, /p/:id for playlists) are server-rendered, so link previews

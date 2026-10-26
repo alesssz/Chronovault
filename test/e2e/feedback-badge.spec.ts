@@ -4,7 +4,7 @@
  * marked, and the dot goes at once; once the owner leaves the group, the card is quiet again,
  * also after a reload (the visit is stored on the server); a changed vote brings it back.
  */
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Browser, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** The friend's side: opens the group's link in a fresh browser and picks a version, with a note. */

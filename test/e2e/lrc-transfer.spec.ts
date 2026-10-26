@@ -7,7 +7,7 @@
  *    brings them back.
  */
 import { readFile } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
 
 /** Plain lyrics of the track, with a section header. */

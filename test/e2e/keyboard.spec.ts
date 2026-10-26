@@ -5,7 +5,7 @@
  * something else: typing in the search box, Space on a focused button (it clicks it once, not
  * twice), and the lyrics sync editor, which keeps Space to stamp a line.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** "1:05" → 65: the times the player bar shows. */

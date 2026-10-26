@@ -6,7 +6,7 @@
  * Statistics page counts the friend's play, apart from the owner's own. The APIs refuse what
  * they must (plays of tracks the caller cannot hear, the owner's vote).
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** Two versions of the same song (3-second WAVs: a play at 1.5 s, completed at 2.7 s). */

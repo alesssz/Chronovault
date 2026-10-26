@@ -3,7 +3,7 @@
  * same track, paused at the same position, and the same upcoming tracks;
  * closing the player forgets it.
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
 
 test.describe('saved queue', () => {
