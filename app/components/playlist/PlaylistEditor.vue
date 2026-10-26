@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, FormSubmitEvent } from '@nuxt/ui'
-import type { PlaylistDetail, PlaylistPurpose, VersionFeedback, VersionTally } from '~~/shared/types/playlist'
+import type { PlaylistDetail, PlaylistPurpose } from '~~/shared/types/playlist'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistMetadataSchema, type PlaylistMetadata, type PlaylistMetadataInput } from '~~/shared/schemas/playlist'
 import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
@@ -20,7 +20,7 @@ import { getErrorMessage } from '~/utils/errors'
  * or draft from its menu, since picking one is what the group is for, and
  * shows the friends' feedback (votes, plays, notes: PlaylistVersionFeedback),
  * the new ones marked; leaving the page records the visit, so they stop
- * being new (see "New feedback" below).
+ * being new (useVersionFeedback). Each row of the list is a PlaylistTrackRow.
  * Opened under the other purpose's address (e.g. an old /playlists/:id link of
  * a group), the page moves to the right one.
  */
@@ -105,6 +105,11 @@ async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
 const descriptionPlaceholder = isVersions
   ? 'A note for your listeners, e.g. “Which one do you prefer?”'
   : 'What is this playlist about?'
+
+// --- Feedback (groups of versions) ---------------------------------------------------
+// Votes, visitors' plays and notes, reloaded after changes that alter them; the visit
+// is recorded when the owner leaves (see useVersionFeedback). Inert for a playlist.
+const { feedback, load: loadFeedback, tallyOf } = useVersionFeedback(props.id, isVersions)
 
 // --- Tracks: play, reorder, remove ------------------------------------------------------
 /**
@@ -204,52 +209,6 @@ function menuFor(track: TrackSummary, index: number): DropdownMenuItem[][] {
     ],
     [{ label: `Remove from ${info.noun}`, icon: 'i-lucide-list-x', color: 'error', onSelect: () => removeTrack(track) }],
   ]
-}
-
-// --- Feedback (groups of versions) ---------------------------------------------------
-/** Votes, visitors' plays and notes of the group; null for a playlist, or until loaded. */
-const feedback = ref<VersionFeedback | null>(null)
-
-/** (Re)loads the feedback of a group; a failure just leaves the panel out. */
-async function loadFeedback() {
-  if (!isVersions) return
-  try {
-    feedback.value = await playlistsApi.feedback(props.id)
-  }
-  catch {
-    feedback.value = null
-  }
-}
-// The feedback, once the page is on screen (groups only: loadFeedback checks).
-onMounted(loadFeedback)
-
-// --- New feedback: seen when the owner leaves the group ---------------------------------
-// Opening the group drops its badge and its share of the header's dot at once; the
-// server learns of the visit only when the owner leaves (page closed, hidden or left
-// for another one), so the comments that were new keep their "New" mark for the whole
-// visit, even when the feedback reloads. The visit covers what was on screen: the group
-// is seen up to when its feedback was last read (`asOf`), so a vote that arrived while
-// the owner looked at an older copy stays new. Groups only: playlists get no votes.
-const unseenFeedback = isVersions ? useUnseenFeedback() : null
-// The dot and the card's badge go away at once, before the visit is recorded.
-onMounted(() => unseenFeedback?.clearLocally(props.id))
-/** Records the visit (idempotent: hiding the page and then leaving it sends it twice, harmlessly). */
-function markFeedbackSeen() {
-  // No feedback on screen (not loaded, or failed): nothing was seen.
-  if (feedback.value) void unseenFeedback?.markSeen(props.id, feedback.value.asOf)
-}
-// Leaving the page in the app records the visit.
-onBeforeUnmount(markFeedbackSeen)
-// Hidden (another tab or app, the phone locked) or closed: the visit counts as done.
-useEventListener(document, 'visibilitychange', () => {
-  if (document.visibilityState === 'hidden') markFeedbackSeen()
-})
-// Closing the tab or leaving the site records it too.
-useEventListener(window, 'pagehide', markFeedbackSeen)
-
-/** A version's votes and plays, for the line under its title (null: no feedback loaded). */
-function tallyOf(track: TrackSummary): VersionTally | null {
-  return feedback.value?.versions.find(v => v.trackId === track.id) ?? null
 }
 
 // Drag and drop (mouse and touch) through the handle of each row; the new order saves at once.
@@ -490,97 +449,16 @@ async function onDelete() {
             class="divide-y divide-default rounded-lg border border-default"
           >
             <!-- One row per track; the one in the player is highlighted -->
-            <li
+            <PlaylistTrackRow
               v-for="(track, index) in tracks"
               :key="track.id"
-              class="flex items-center gap-2 px-2 py-2 sm:gap-3"
-              :class="{ 'bg-primary/5': isCurrent(track) }"
-              data-testid="playlist-track"
-            >
-              <!-- Drag to reorder (mouse or touch) -->
-              <DragHandle />
-              <TrackCover
-                :url="track.coverUrl"
-                :title="track.title"
-                class="size-10"
-              />
-              <!-- Title and composers: click to play (or pause/resume the current one) -->
-              <button
-                type="button"
-                class="min-w-0 flex-1 cursor-pointer text-left"
-                data-testid="playlist-track-title"
-                @click="isCurrent(track) ? player.togglePlay() : player.playTrack(track, tracks)"
-              >
-                <span
-                  class="flex items-center gap-1.5 truncate font-medium"
-                  :class="{ 'text-primary': isCurrent(track) }"
-                >
-                  <span class="truncate">{{ track.title }}</span>
-                  <!-- Private tracks become audible when the playlist is shared -->
-                  <UIcon
-                    v-if="track.visibility === 'private'"
-                    name="i-lucide-lock"
-                    class="size-3.5 shrink-0 text-dimmed"
-                    aria-label="Private track"
-                  />
-                  <!-- Work in progress (e.g. one of several versions) -->
-                  <UBadge
-                    v-if="track.status === 'draft'"
-                    label="Draft"
-                    color="warning"
-                    variant="subtle"
-                    size="sm"
-                    class="shrink-0"
-                  />
-                  <!-- In a group, the chosen version stands out -->
-                  <UBadge
-                    v-else-if="isVersions"
-                    label="Final"
-                    color="success"
-                    variant="subtle"
-                    size="sm"
-                    class="shrink-0"
-                    data-testid="version-final"
-                  />
-                </span>
-                <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
-                <!-- Groups: the friends' votes and plays of this version -->
-                <span
-                  v-if="tallyOf(track)"
-                  class="flex items-center gap-3 text-xs tabular-nums text-muted"
-                  data-testid="version-tally"
-                >
-                  <span class="flex items-center gap-1">
-                    <UIcon
-                      name="i-lucide-heart"
-                      class="size-3"
-                    />{{ pluralize(tallyOf(track)!.votes, 'vote') }}
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <UIcon
-                      name="i-lucide-headphones"
-                      class="size-3"
-                    />{{ pluralize(tallyOf(track)!.plays, 'play') }}, {{ tallyOf(track)!.completed }} to the end
-                  </span>
-                </span>
-              </button>
-              <!-- Duration (hidden on phones) -->
-              <span class="hidden text-sm tabular-nums text-muted sm:block">
-                {{ formatTime(track.durationSeconds) }}
-              </span>
-              <!-- "⋮" menu: queue, move, final/draft (groups), edit, download, remove -->
-              <UDropdownMenu
-                :items="menuFor(track, index)"
-                :content="{ align: 'end' }"
-              >
-                <IconButton
-                  icon="i-lucide-ellipsis-vertical"
-                  color="neutral"
-                  variant="ghost"
-                  :label="`Actions for ${track.title}`"
-                />
-              </UDropdownMenu>
-            </li>
+              :track="track"
+              :current="isCurrent(track)"
+              :version="isVersions"
+              :tally="tallyOf(track.id)"
+              :menu="menuFor(track, index)"
+              @play="isCurrent(track) ? player.togglePlay() : player.playTrack(track, tracks)"
+            />
           </ol>
         </section>
 

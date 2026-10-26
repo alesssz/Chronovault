@@ -4,13 +4,13 @@
  *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering, draft/final
  *   Lyrics  → plain lyrics with [Section] headers
  *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
- * Cover and deletion live in the side column and save immediately; the
- * form saves everything else with "Save" and warns about unsaved changes.
+ * Cover and deletion live in the side column (TrackEditSidebar) and save
+ * immediately; the form saves everything else with "Save" and warns about
+ * unsaved changes.
  */
 import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
 import type { TrackDetail } from '~~/shared/types/track'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
-import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { tracksApi } from '~/services/api'
 
 // The track id comes from the route.
@@ -22,8 +22,6 @@ const id = route.params.id as string
 const player = usePlayerStore()
 // Success and failure messages.
 const toast = useToast()
-// The genre list, and creating a genre typed in the select.
-const { genres, createGenre } = useGenres()
 
 // The track (an error when missing or someone else's).
 const { data: track, error } = await useAsyncData(`track-${id}`, () => tracksApi.get(id))
@@ -67,33 +65,13 @@ const { state, dirty } = form
 /** The save request (spinner on "Save"). */
 const saving = useAsyncTask()
 
-// Components emit undefined when cleared: the schema expects null.
+// The number input emits undefined when cleared (or NaN): the schema expects null.
 const year = computed({
   get: () => state.year ?? undefined,
   set: (value: number | null | undefined) => {
     state.year = value == null || Number.isNaN(value) ? null : value
   },
 })
-/** Same as `year`, for the genre select. */
-const genreId = computed({
-  get: () => state.genreId ?? undefined,
-  set: (value: string | null | undefined) => {
-    state.genreId = value ?? null
-  },
-})
-
-/** Genre options for the select menu (built-in and custom, sorted by name). */
-const genreItems = computed(() => genres.value.map(g => ({ label: g.name, value: g.id })))
-
-/** Creating a custom genre from the genre menu. */
-const creatingGenre = useAsyncTask()
-
-/** "Create" in the genre menu: creates the custom genre and selects it. */
-async function onCreateGenre(name: string) {
-  await creatingGenre.run(async () => {
-    state.genreId = (await createGenre(name)).id
-  }, 'Genre not created')
-}
 
 /** Open tab: details, lyrics or sync. */
 const tab = ref('details')
@@ -104,7 +82,7 @@ const tabs: TabsItem[] = [
   { label: 'Sync', value: 'sync', slot: 'sync', icon: 'i-lucide-timer' },
 ]
 
-/** Keeps the page and the player (title, cover, lyrics) in sync with the saved track. */
+/** Keeps the page and the player (title, cover, lyrics) in sync with the saved track (form or cover). */
 function applyServerTrack(updated: TrackDetail) {
   track.value = updated
   player.syncTrack(updated)
@@ -129,30 +107,9 @@ function onFormError() {
   toast.add({ title: 'Check the highlighted fields', color: 'error' })
 }
 
-// --- Cover -----------------------------------------------------------------------
-// Picked and cropped → `<userId>/<trackId>.webp` in Storage → PATCH coverPath (saved at once).
-const cover = useCoverEditor({
-  path: userId => buildCoverPath(userId, id),
-  save: async coverPath => applyServerTrack(await tracksApi.update(id, { coverPath })),
-})
-
-// --- Deletion --------------------------------------------------------------------
-/** The delete confirmation dialog. */
-const deleteOpen = ref(false)
-/** The delete request (spinner in the dialog). */
-const deleting = useAsyncTask()
-
-/** Deletes the track (and its files), stops it if playing, back to the library. */
-async function onDelete() {
-  // True once the track is deleted; false when the request failed (the task showed the error).
-  const deleted = await deleting.run(async () => {
-    await tracksApi.remove(id)
-    player.removeTrack(id)
-  }, 'Delete failed')
-  if (!deleted) return
-  // No "unsaved changes" warning when leaving a deleted track.
+/** The side column deleted the track: no "unsaved changes" warning, back to the library. */
+async function onDeleted() {
   form.markSaved()
-  deleteOpen.value = false
   toast.add({ title: 'Track deleted', icon: 'i-lucide-trash-2' })
   await navigateTo('/')
 }
@@ -162,11 +119,6 @@ const { download, isDownloading } = useTrackDownload()
 
 /** This track is in the player (Play/Pause button state). */
 const isCurrent = computed(() => player.current?.id === id)
-
-// --- Sharing -----------------------------------------------------------------------
-// Based on the saved visibility: a change only applies once saved.
-/** Saved visibility is unlisted/public: show the share link. */
-const isShared = computed(() => !!track.value && track.value.visibility !== 'private')
 </script>
 
 <template>
@@ -226,61 +178,11 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
     <!-- Two columns from `md`: the side column, then the form; one column on phones -->
     <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
       <!-- Side column: cover (saved at once), file info, sharing, deletion -->
-      <aside class="space-y-6">
-        <TrackCoverPicker
-          :url="track.coverUrl"
-          :title="track.title"
-          :busy="cover.busy"
-          @select="cover.select"
-          @remove="cover.remove"
-        />
-
-        <!-- Technical data of the stored file -->
-        <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-          <dt class="text-muted">
-            Duration
-          </dt>
-          <dd class="text-right tabular-nums">
-            {{ formatTime(track.durationSeconds) }}
-          </dd>
-          <dt class="text-muted">
-            Format
-          </dt>
-          <dd class="text-right">
-            {{ track.mimeType.replace('audio/', '').toUpperCase() }}
-          </dd>
-          <dt class="text-muted">
-            Size
-          </dt>
-          <dd class="text-right">
-            {{ formatBytes(track.sizeBytes) }}
-          </dd>
-          <dt class="text-muted">
-            Uploaded
-          </dt>
-          <dd class="text-right">
-            {{ new Date(track.createdAt).toLocaleDateString() }}
-          </dd>
-        </dl>
-
-        <!-- Sharing: link of the public page, or how to get one -->
-        <ShareLinkBox
-          :id="id"
-          kind="track"
-          :shared="isShared"
-          :title="track?.title"
-        />
-
-        <!-- Deletion, after a confirmation (below) -->
-        <UButton
-          label="Delete track"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          block
-          @click="deleteOpen = true"
-        />
-      </aside>
+      <TrackEditSidebar
+        :track="track"
+        @updated="applyServerTrack"
+        @deleted="onDeleted"
+      />
 
       <!-- Main column: the form, its fields in three tabs (Save in the header submits it by its id) -->
       <UForm
@@ -356,16 +258,7 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
                 name="genreId"
                 help="Type a new name to create a custom genre."
               >
-                <USelectMenu
-                  v-model="genreId"
-                  :items="genreItems"
-                  value-key="value"
-                  create-item
-                  clear
-                  placeholder="Select a genre"
-                  class="w-full"
-                  @create="onCreateGenre"
-                />
+                <TrackGenreSelect v-model="state.genreId" />
               </UFormField>
 
               <UFormField
@@ -481,15 +374,5 @@ const isShared = computed(() => !!track.value && track.value.visibility !== 'pri
         </UTabs>
       </UForm>
     </div>
-
-    <!-- Delete confirmation -->
-    <ConfirmDialog
-      v-model:open="deleteOpen"
-      title="Delete this track?"
-      :description="`“${track.title}” and its files will be permanently deleted.`"
-      confirm-label="Delete"
-      :loading="deleting.running"
-      @confirm="onDelete"
-    />
   </UContainer>
 </template>
