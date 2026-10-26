@@ -4,10 +4,11 @@
  * owner sees it all on the Versions page, cannot vote on their own group, and closes the vote by
  * marking a version final; the friend then sees the chosen version and no more hearts. The
  * Statistics page counts the friend's play, apart from the owner's own. The APIs refuse what
- * they must (plays of tracks the caller cannot hear, the owner's vote).
+ * they must (plays of tracks the caller cannot hear, the owner's vote), and past the caps on
+ * anonymous writes (100 visitors per track a day, 50 votes per group) answer 429.
  */
 import { expect, test, type Page } from './fixtures'
-import { signUp, uploadTrack } from './helpers'
+import { seedLibrary, signUp, uploadTrack } from './helpers'
 
 /** Two versions of the same song (3-second WAVs: a play at 1.5 s, completed at 2.7 s). */
 const VERSIONS = ['Echo v1', 'Echo v2']
@@ -127,5 +128,65 @@ test.describe('listeners\' feedback', () => {
     const groupRow = page.getByTestId('stats-item').filter({ hasText: 'Echo – versions' })
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 play')
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 to the end')
+  })
+
+  test('the caps on anonymous writes: 100 visitors per track a day, 50 votes per group', async ({ page, browser }) => {
+    test.setTimeout(120_000)
+    await signUp(page)
+    // Two drafts, straight through the API ("Track 001", "Track 002").
+    await seedLibrary(page, 2)
+    // Their ids, by title.
+    const ids = await trackIds(page)
+    const [first, second] = [ids['Track 001']!, ids['Track 002']!]
+
+    // An unlisted group of the two, as "Share for feedback" makes it.
+    const group = await page.evaluate(async (trackIds) => {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Crowded – versions', purpose: 'versions', visibility: 'unlisted', trackIds }),
+      })
+      return (await response.json() as { id: string }).id
+    }, [first, second])
+
+    // Visitors without an account, in another browser context.
+    const visitorsContext = await browser.newContext()
+    try {
+      // The visitors' API client (no session).
+      const api = visitorsContext.request
+
+      // --- Plays: 100 different visitors of the first version today, then no more ---
+      for (let i = 0; i < 100; i++) {
+        // Each request a new browser id, as a script would make up.
+        const response = await api.post('/api/plays', { data: { trackId: first, playlistId: group, listenerId: crypto.randomUUID() } })
+        expect(response.status(), `visitor ${i + 1}`).toBe(204)
+      }
+      expect((await api.post('/api/plays', { data: { trackId: first, playlistId: group, listenerId: crypto.randomUUID() } })).status()).toBe(429)
+      // The cap is per track: the other version still counts new visitors.
+      expect((await api.post('/api/plays', { data: { trackId: second, playlistId: group, listenerId: crypto.randomUUID() } })).status()).toBe(204)
+
+      // --- Votes: 50 visitors vote, the group is full ---
+      for (let i = 0; i < 50; i++) {
+        // Each vote a new voter id.
+        const response = await api.put(`/api/shared/playlists/${group}/vote`, { data: { voterId: crypto.randomUUID(), trackId: first } })
+        expect(response.status(), `vote ${i + 1}`).toBe(200)
+      }
+
+      // A 51st friend on the page: told the group is full, and their heart stays off.
+      const friend = await visitorsContext.newPage()
+      await friend.goto(`/p/${group}`)
+      // The second version's row on the public page.
+      const row = friend.getByTestId('shared-playlist-track').filter({ hasText: 'Track 002' })
+      await row.getByRole('button', { name: 'Pick Track 002' }).click()
+      await expect(friend.getByText('This group is full').first()).toBeVisible()
+      await expect(row.getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'false')
+    }
+    finally {
+      await visitorsContext.close()
+    }
+
+    // The owner's page counts exactly the votes the cap let in.
+    await page.goto(`/versions/${group}`)
+    await expect(page.getByTestId('version-feedback').getByTestId('version-feedback-totals')).toContainText('50 votes')
   })
 })
