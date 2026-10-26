@@ -44,7 +44,7 @@ export default defineNuxtPlugin(() => {
   function report(trackId: string, completed: boolean) {
     playsApi
       .record({ trackId, playlistId: playlistIdOf(player.sourceKey), listenerId: getListenerId(), completed })
-      // Not counted, nothing else to do: the listener must never notice.
+      // Not counted (an error, or 429 past the daily cap of visitors), nothing else to do: the listener must never notice.
       .catch(() => {})
   }
 })

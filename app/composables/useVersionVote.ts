@@ -1,4 +1,5 @@
 import type { VersionVoteState } from '~~/shared/types/playlist'
+import { MAX_GROUP_VOTES } from '~~/shared/schemas/feedback'
 import { getListenerId } from '~/lib/listener-id'
 import { sharedApi } from '~/services/api'
 
@@ -13,7 +14,8 @@ import { sharedApi } from '~/services/api'
  * vote buttons.
  *
  * Failures show a toast; "voting is closed" (409, the owner chose a final
- * version meanwhile) reloads the state, so the buttons go away.
+ * version meanwhile) reloads the state, so the buttons go away; a full
+ * group (429, MAX_GROUP_VOTES votes already) says so in plain words.
  */
 export function useVersionVote(playlistId: string, isGroup: () => boolean) {
   // Failure messages.
@@ -46,9 +48,14 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
       return true
     }
     catch (err) {
-      if (getErrorStatus(err) === 409) {
+      // The status tells the expected refusals apart from real failures.
+      const status = getErrorStatus(err)
+      if (status === 409) {
         toast.add({ title: 'Voting is closed', description: 'The final version has just been chosen.', color: 'neutral' })
         await load()
+      }
+      else if (status === 429) {
+        toast.add({ title: 'This group is full', description: `It already has ${MAX_GROUP_VOTES} votes, the most it takes.`, color: 'neutral' })
       }
       else {
         toast.add({ title: failureTitle, description: getErrorMessage(err), color: 'error' })

@@ -36,6 +36,9 @@ export function toHttpError(error: DbError, context: string) {
     'P0002': { statusCode: 404, message: 'Item not found' },
     // object_not_in_prerequisite_state, raised by the vote functions once a version is final
     '55000': { statusCode: 409, message: 'Voting is closed' },
+    // configuration_limit_exceeded, raised by the plays and votes functions past
+    // their caps (…_anonymous_write_caps.sql): 100 visitors per track a day, 50 votes per group
+    '53400': { statusCode: 429, message: 'Limit reached' },
     // PostgREST: `.single()` found no row
     'PGRST116': { statusCode: 404, message: 'Item not found' },
   }

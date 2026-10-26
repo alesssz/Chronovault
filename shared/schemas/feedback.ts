@@ -12,6 +12,11 @@ import { optionalText } from './track'
 export const MAX_VOTER_NAME = 60
 /** Longest comment a voter can leave. */
 export const MAX_VOTE_COMMENT = 1000
+/**
+ * Most votes a group of versions takes; past it a new voter gets 429
+ * (cast_version_vote, …_anonymous_write_caps.sql, which holds the real cap).
+ */
+export const MAX_GROUP_VOTES = 50
 
 /**
  * Body of POST /api/plays. The player sends it once a track has really been
