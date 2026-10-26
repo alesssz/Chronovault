@@ -36,7 +36,6 @@ export const playlistsApi = {
   create: (body: PlaylistCreateInput) => $fetch<PlaylistDetail>('/api/playlists', { method: 'POST', body }),
   update: (id: string, body: PlaylistUpdateInput) => $fetch<PlaylistDetail>(`/api/playlists/${id}`, { method: 'PATCH', body }),
   remove: (id: string) => $fetch<null>(`/api/playlists/${id}`, { method: 'DELETE' }),
-  /** Replaces the tracks, in order (reorder and remove). */
   /** Votes, plays and comments of a group of versions (Versions page). */
   feedback: (id: string) => $fetch<VersionFeedback>(`/api/playlists/${id}/feedback`),
   /** Feedback that came after the owner's last visit to each group (dot on "Versions", card badges). */
@@ -48,6 +47,7 @@ export const playlistsApi = {
    */
   markFeedbackSeen: (id: string, at: string) =>
     $fetch<null>(`/api/playlists/${id}/feedback/seen`, { method: 'POST', body: { at } satisfies FeedbackSeenInput, keepalive: true }),
+  /** Replaces the tracks, in order (reorder and remove). */
   setTracks: (id: string, trackIds: string[]) =>
     $fetch<PlaylistDetail>(`/api/playlists/${id}/tracks`, { method: 'PUT', body: { trackIds } }),
   /** Appends tracks; those already in the playlist are skipped. */
