@@ -21,3 +21,21 @@ allowBuilds:
 peerDependencyRules:
   allowedVersions:
     '@vercel/analytics>vue-router': '5'
+
+# Advisories `pnpm audit` (and the weekly audit workflow) leave out: each one
+# has no fixed version within reach and cannot be exploited here. None of
+# these packages reaches the production build (.output). Check each removal
+# condition when the audit runs, and drop the line as soon as it holds.
+auditConfig:
+  ignoreGhsas:
+    # node-forge ≤1.4.0, RSA PKCS#1 v1.5 signature verification too lenient
+    # (high). Only listhen, Nuxt's dev server, uses it, to make a self-signed
+    # certificate: it never verifies a signature. No patched release exists.
+    # Remove once node-forge publishes a fix (or listhen drops it).
+    - GHSA-86w9-cpqp-85rv
+    # esbuild <0.28.1, arbitrary file read through esbuild's own dev server
+    # on Windows (low). Only fontless (fonts of @nuxt/ui, at build time) uses
+    # esbuild here, and only its `transform`, never that server. @nuxt/ui
+    # 4.12 still pins @nuxt/fonts 0.14 → fontless 0.2 → esbuild ^0.27.
+    # Remove once @nuxt/ui moves to @nuxt/fonts 1.x (fontless 1.x).
+    - GHSA-g7r4-m6w7-qqqr

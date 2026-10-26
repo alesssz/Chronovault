@@ -473,7 +473,8 @@ Chronovault/
 ├── Makefile · package.json · pnpm-workspace.yaml
 ├── nuxt.config.ts · vitest.config.ts · playwright.config.ts · eslint.config.mjs · tsconfig.json
 ├── .env.example · .env.r2.example    # Templates (the real .env files are git-ignored)
-└── .github/workflows/ci.yml
+└── .github/                          # workflows/ci.yml (checks, 12) · workflows/audit.yml (weekly dependency audit, 11.6)
+                                      #   · dependabot.yml (GitHub Actions updates only, 11.6)
 ```
 
 ---
@@ -1510,6 +1511,17 @@ Plus the `Makefile` help texts and this README. The dev port goes on the command
 2. Then `pnpm check`, and the end-to-end tests on a production build (`pnpm test:e2e`): the waveform (wavesurfer.js), tag reading (music-metadata) and the PWA are only really exercised there.
 3. Major versions one at a time, each with the same checks.
 
+**Security advisories: `pnpm audit`.** It checks the lockfile against the advisory database, and `.github/workflows/audit.yml` runs it on GitHub every Monday at 06:00 UTC and whenever `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml` change (also by hand, from the Actions tab). A new advisory fails the run, and GitHub emails you about a failed scheduled run; its job summary also lists the outdated packages. Then, on a branch: `pnpm update` when the fix is within the ranges (an indirect dependency included, e.g. `pnpm update serialize-javascript`), or a version change as in steps 1–3. When no fix is within reach and the issue cannot be exploited here, list the advisory under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with its reason and the condition to remove it, as for the two there now:
+
+| Advisory | Package | Why it is left out | Remove when |
+|---|---|---|---|
+| GHSA-86w9-cpqp-85rv (high) | `node-forge` ≤1.4.0, via `listhen` | Nuxt's dev server uses it only to make a self-signed certificate, never to verify a signature; no fixed release exists | `node-forge` publishes a fix |
+| GHSA-g7r4-m6w7-qqqr (low) | `esbuild` 0.27, via `@nuxt/ui` → `@nuxt/fonts` 0.14 → `fontless` 0.2 | The flaw is in esbuild's own dev server on Windows; fontless only calls `transform`, at build time | `@nuxt/ui` moves to `@nuxt/fonts` 1.x |
+
+Neither package reaches the production build (`.output`).
+
+**Why not GitHub's Dependabot alerts:** GitHub's dependency graph does not read pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version first, then the packages), so it sees no npm dependency and raises no alert, and Dependabot could not open npm updates either. It is set up (`.github/dependabot.yml`) for the GitHub Actions of the workflows only: one grouped pull request a week, checked by CI. npm updates stay manual, as above.
+
 **Versions younger than a day are not installed.** pnpm 12 has a supply-chain protection on by default (`minimumReleaseAge`, 24 hours): a compromised release is usually found and pulled within hours, so pnpm waits. A new release (e.g. of the Supabase CLI, which announces itself in the terminal) is simply skipped by `pnpm update` until it is a day old. Asking for it by name (`pnpm add -D pkg@x.y.z`) installs it anyway, but pnpm then writes a `minimumReleaseAgeExclude` list into `pnpm-workspace.yaml`: do not commit it, wait a day instead.
 
 **Peer warnings accepted on purpose** (`peerDependencyRules` in `pnpm-workspace.yaml`, so `pnpm install` stays quiet): `@vercel/analytics` 2.0.1, the latest stable, declares `vue-router ^4`, while Nuxt 4 brings vue-router 5. The part the app uses (`injectAnalytics`) only calls Nuxt's router (`useRouter`, `useRoute`, `afterEach`), unchanged in 5, and Vercel's own 2.1 betas already accept `^4 || ^5`. When a stable `@vercel/analytics` declares vue-router 5, update it and remove the rule; `pnpm peers check` lists any other mismatch.
@@ -1551,7 +1563,7 @@ make ci                   # everything the CI runs
 - pgTAP tests run inside a transaction that is rolled back: they never change the database.
 - **Projects:** `chromium` (desktop) runs every spec except `responsive.spec.ts`; `phone` (Pixel 7 emulation) and `tablet` (820×1180, touch) run only that one, since the other specs drive the desktop layout. Run a single one with `--project phone`.
 - Locally Playwright reuses a server already running on :3200 — stop it first, or it may test an old build.
-- **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest; job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure.
+- **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest; job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure. A second workflow, `.github/workflows/audit.yml`, audits the dependencies every Monday and whenever they change ([11.6](#116-updating-dependencies)).
 
 ---
 
