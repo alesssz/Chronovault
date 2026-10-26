@@ -70,7 +70,7 @@ export default defineConfig({
         'shared/**': { lines: 100, statements: 99, functions: 100, branches: 97 },
         'server/services/**': { lines: 96, statements: 95, functions: 95, branches: 89 },
         'server/mappers/**': { lines: 100, statements: 92, functions: 100, branches: 80 },
-        'app/lib/**': { lines: 75, statements: 72, functions: 72, branches: 67 },
+        'app/lib/**': { lines: 76, statements: 74, functions: 74, branches: 70 },
         'app/stores/**': { lines: 94, statements: 93, functions: 94, branches: 85 },
       },
     },

@@ -1,18 +1,7 @@
 <script setup lang="ts">
 import type { SyncedLyricLine, TrackSummary } from '~~/shared/types/track'
-import {
-  buildSyncedLines,
-  formatLrcTimestamp,
-  parseLrc,
-  roundToCentiseconds,
-  serializeLrc,
-  syncRowsFromLines,
-  syncRowsFromLyrics,
-  type SyncRow,
-} from '~~/shared/utils/lyrics'
-import { lrcFileName } from '~/lib/tags/track-tags'
-import { saveFile } from '~/lib/save-file'
-import { HAPTIC, haptic } from '~/lib/haptics'
+import { buildSyncedLines, formatLrcTimestamp, syncRowsFromLines, syncRowsFromLyrics } from '~~/shared/utils/lyrics'
+import { createLyricsSync } from '~/lib/lyrics-sync'
 
 /**
  * Manual "tap to sync": while the track plays, press Space (or ↓) at the
@@ -26,6 +15,10 @@ import { HAPTIC, haptic } from '~/lib/haptics'
  * shows a draggable marker per synced line.
  * Section headers ([Intro], [Verse 1]…) are kept: they take the time of the
  * line right after them, so they never need stamping.
+ *
+ * What each action does to the rows (stamp, undo, replay, nudge…) lives in
+ * lib/lyrics-sync.ts; this component is the screen around it: buttons, keys,
+ * the rows, and the LRC import / export dialog (LyricsLrcDialog).
  *
  * Phones have no keyboard and little height: there, Stamp line and Undo
  * leave the controls row for a bar pinned to the bottom of the screen, just
@@ -53,41 +46,32 @@ const model = defineModel<SyncedLyricLine[] | null>({ required: true })
 
 // Times come from the player position; the editor also seeks and changes speed.
 const player = usePlayerStore()
-// LRC import errors, copy confirmations.
-const toast = useToast()
 
 /** Speeds offered while syncing (pitch is preserved). */
 const SPEEDS = [0.5, 0.75, 1] as const
-/** Seconds played before a line's start when replaying it. */
-const REPLAY_PREROLL = 1
 /** Step of the ←/→ fine adjustment, in seconds. */
 const NUDGE_STEP = 0.05
 
+/** Syncing needs this track in the player: times come from its position. */
+const isLoaded = computed(() => player.current?.id === props.track.id)
+
 /**
- * Editor rows: lyric lines (with a time once stamped) and section headers.
- * The source of truth while editing; `model` is derived from it.
+ * The rows and their actions, starting from the existing synced lines when
+ * there are some, otherwise from the plain lyrics (nothing synced yet).
  */
-const rows = ref<SyncRow[]>(initialRows())
-
-/** Existing synced lines when there are some, otherwise the plain lyrics (nothing synced yet). */
-function initialRows(): SyncRow[] {
-  return model.value?.length ? syncRowsFromLines(model.value) : syncRowsFromLyrics(props.lyrics)
-}
-
-/** Rebuilds the rows from the lyrics, keeping the times of lines already synced. */
-function reloadFromLyrics() {
-  // The lines synced so far: their times go to the same lines of the new lyrics.
-  const available = rows.value.filter(r => !r.section && r.time != null)
-  rows.value = syncRowsFromLyrics(props.lyrics).map((row) => {
-    if (row.section) return row
-    // The same text among them (the first one left, for repeated lines such as a chorus).
-    const i = available.findIndex(r => r.text === row.text)
-    if (i === -1) return row
-    // Taken out, so a repeated line gives its time to one new line only.
-    const [match] = available.splice(i, 1)
-    return { ...row, time: match!.time }
-  })
-}
+const {
+  rows, selected, lyricRows, syncedCount, cursor, playingIndex,
+  stamp, select, replay, moveLine, undo, nudge, seekTo, resetAll, reloadFromLyrics, replaceWith,
+} = createLyricsSync(
+  model.value?.length ? syncRowsFromLines(model.value) : syncRowsFromLyrics(props.lyrics),
+  {
+    get loaded() { return isLoaded.value },
+    get currentTime() { return player.currentTime },
+    get playing() { return player.isPlaying },
+    seek: seconds => player.seek(seconds),
+    play: () => void player.play(),
+  },
+)
 
 // Every change to the rows updates the form model (saved with the track).
 watch(rows, (value) => {
@@ -95,114 +79,6 @@ watch(rows, (value) => {
   const lines = buildSyncedLines(value)
   model.value = lines.length ? lines : null
 }, { deep: true })
-
-/** Syncing needs this track in the player: times come from its position. */
-const isLoaded = computed(() => player.current?.id === props.track.id)
-/** Rows that need a time (section headers never do). */
-const lyricRows = computed(() => rows.value.filter(r => !r.section))
-/** "N / M lines synced" counter. */
-const syncedCount = computed(() => lyricRows.value.filter(r => r.time != null).length)
-/** Next lyric line to sync (section headers are skipped). */
-const cursor = computed(() => {
-  // The first lyric line without a time.
-  const i = rows.value.findIndex(r => !r.section && r.time == null)
-  return i === -1 ? rows.value.length : i
-})
-/** Lyric line currently playing (last one with time ≤ current position). */
-const playingIndex = computed(() => {
-  if (!isLoaded.value) return -1
-  // Last stamped lyric line whose time has passed.
-  let found = -1
-  rows.value.forEach((r, i) => {
-    if (!r.section && r.time != null && r.time <= player.currentTime) found = i
-  })
-  return found
-})
-
-/** Row selected for replay and fine adjustment (the last stamped one by default). */
-const selected = ref<number | null>(null)
-
-/** Gives the next unsynced line the current playback time (Space / ↓). */
-function stamp() {
-  if (!isLoaded.value || cursor.value >= rows.value.length) return
-  // The line being stamped.
-  const index = cursor.value
-  rows.value[index]!.time = roundToCentiseconds(player.currentTime)
-  selected.value = index
-  // Felt in the hand: the tap landed (keyboard stamps too, on a phone with a keyboard).
-  haptic(HAPTIC.tick)
-}
-
-/** Selects a lyric row; when it is synced, playback jumps to it. */
-function select(i: number) {
-  if (rows.value[i]?.section) return
-  selected.value = i
-  seekTo(i)
-}
-
-/** Plays the selected line (or the one playing) again from just before its start. */
-function replay() {
-  // The selected line, or else the one playing (none: nothing to replay).
-  const index = selected.value ?? (playingIndex.value >= 0 ? playingIndex.value : null)
-  // That line's start, if it has one.
-  const time = index == null ? null : rows.value[index]?.time
-  if (!isLoaded.value || time == null) return
-  player.seek(Math.max(0, time - REPLAY_PREROLL))
-  if (!player.isPlaying) void player.play()
-}
-
-/** Moves the start of a line (after dragging its marker on the waveform). */
-function moveLine(i: number, time: number) {
-  // The dragged line (a section header has no time to move).
-  const row = rows.value[i]
-  if (!row || row.section) return
-  row.time = Math.max(0, time)
-  selected.value = i
-}
-
-/** Clears the last synced line and jumps back to just before the previous one (↑). */
-function undo() {
-  // The last line stamped, the one to undo.
-  const last = syncedBefore(cursor.value)
-  if (last < 0) return
-  rows.value[last]!.time = null
-  if (selected.value === last) selected.value = null
-  // A different feel from a stamp: two short ticks.
-  haptic(HAPTIC.undo)
-  // The synced line before the undone one: playback goes back to just before it.
-  const previous = syncedBefore(last)
-  if (isLoaded.value) player.seek(Math.max(0, (rows.value[previous]?.time ?? 0) - 1))
-}
-
-/** Index of the last synced lyric line before row `index` (section headers skipped), -1 when none. */
-function syncedBefore(index: number): number {
-  // Walks back from the row before `index`.
-  let i = index - 1
-  while (i >= 0 && (rows.value[i]!.section || rows.value[i]!.time == null)) i--
-  return i
-}
-
-/** Shifts a line's start by `delta` seconds (←/→), never below 0. */
-function nudge(i: number, delta: number) {
-  // The line to shift (only a synced one has a start).
-  const row = rows.value[i]
-  if (row?.time == null) return
-  row.time = Math.max(0, roundToCentiseconds(row.time + delta))
-}
-
-/** Moves playback to a synced line's start. */
-function seekTo(i: number) {
-  // The line's start (none: nothing to jump to).
-  const time = rows.value[i]?.time
-  if (isLoaded.value && time != null) player.seek(time)
-}
-
-/** Clears every time and goes back to the start of the track. */
-function resetAll() {
-  rows.value = rows.value.map(r => ({ ...r, time: null }))
-  selected.value = null
-  if (isLoaded.value) player.seek(0)
-}
 
 // The slower speed is a syncing aid: normal speed again when leaving the editor.
 watch(() => props.active, (active) => {
@@ -274,67 +150,8 @@ watch(cursor, (i) => {
   rowRefs.value[Math.min(i, rowRefs.value.length - 1)]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 })
 
-// --- LRC import / export ---------------------------------------------------------
+/** The LRC import / export dialog (LyricsLrcDialog) is open. */
 const lrcOpen = ref(false)
-// The Android back button closes the LRC dialog without applying it.
-useCloseOnBack(lrcOpen, () => {
-  lrcOpen.value = false
-})
-/** Text of the LRC dialog (export prefill, or what the user pastes). */
-const lrcText = ref('')
-
-/** Opens the LRC dialog, prefilled with the current sync (export). */
-function openLrc() {
-  lrcText.value = model.value?.length ? serializeLrc(model.value) : ''
-  lrcOpen.value = true
-}
-
-/** Copies the dialog's LRC text to the clipboard (export, e.g. to paste it into another Chronovault). */
-async function copyLrc() {
-  if (await copyText(lrcText.value)) {
-    toast.add({ title: 'LRC copied', icon: 'i-lucide-copy', color: 'success' })
-  }
-  else {
-    // Clipboard refused (permissions): the text is still there to select by hand.
-    toast.add({ title: 'Could not copy', description: 'Select the text and copy it by hand', color: 'warning' })
-  }
-}
-
-/** Saves the dialog's LRC text as "Composers - Title.lrc" (export). */
-function downloadLrc() {
-  saveFile(new Blob([lrcText.value], { type: 'text/plain;charset=utf-8' }), lrcFileName(props.track))
-}
-
-/** Hidden file input behind "Open file". */
-const lrcFileInput = ref<HTMLInputElement | null>(null)
-
-/**
- * Loads a chosen .lrc file into the dialog (import). It is not applied yet:
- * the user sees it and confirms with Apply, like pasted text.
- */
-async function openLrcFile(event: Event) {
-  // The hidden file input that was used.
-  const input = event.target as HTMLInputElement
-  // The chosen file (none: the choice was cancelled).
-  const file = input.files?.[0]
-  // Cleared so choosing the same file again fires `change` again.
-  input.value = ''
-  if (!file) return
-  lrcText.value = await file.text()
-}
-
-/** Replaces the rows with the pasted LRC (import); invalid text leaves everything unchanged. */
-function applyLrc() {
-  // The lines the pasted text holds.
-  const parsed = parseLrc(lrcText.value)
-  if (!parsed.length && lrcText.value.trim()) {
-    toast.add({ title: 'No valid lines', description: 'Use the [mm:ss.xx] text format', color: 'error' })
-    return
-  }
-  rows.value = syncRowsFromLines(parsed)
-  selected.value = null
-  lrcOpen.value = false
-}
 </script>
 
 <template>
@@ -447,7 +264,7 @@ function applyLrc() {
           variant="ghost"
           size="sm"
           :disabled="!lyrics"
-          @click="reloadFromLyrics"
+          @click="reloadFromLyrics(lyrics)"
         />
         <UButton
           label="LRC"
@@ -455,7 +272,7 @@ function applyLrc() {
           color="neutral"
           variant="ghost"
           size="sm"
-          @click="openLrc"
+          @click="lrcOpen = true"
         />
         <UButton
           label="Reset"
@@ -591,79 +408,12 @@ function applyLrc() {
       />
     </div>
 
-    <!-- LRC import / export dialog -->
-    <UModal
+    <!-- LRC import / export dialog: prefilled with the current sync, Apply replaces it -->
+    <LyricsLrcDialog
       v-model:open="lrcOpen"
-      title="LRC lyrics"
-      description="Import: paste LRC text or open an .lrc file, then Apply. Export: copy or download the text below. Section headers such as [Verse 1] are kept."
-    >
-      <template #body>
-        <UTextarea
-          v-model="lrcText"
-          :rows="14"
-          autoresize
-          :maxrows="20"
-          class="w-full font-mono"
-          placeholder="[00:10.00] [Verse 1]&#10;[00:12.34] First line"
-        />
-      </template>
-      <template #footer>
-        <div class="flex w-full flex-wrap items-center justify-between gap-2">
-          <!-- Import from a file · export by copy or download -->
-          <div class="flex flex-wrap gap-1">
-            <UButton
-              label="Open file"
-              icon="i-lucide-folder-open"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              data-testid="lrc-open"
-              @click="lrcFileInput?.click()"
-            />
-            <input
-              ref="lrcFileInput"
-              type="file"
-              accept=".lrc,.txt,text/plain"
-              class="hidden"
-              data-testid="lrc-file-input"
-              @change="openLrcFile"
-            >
-            <UButton
-              label="Copy"
-              icon="i-lucide-copy"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="!lrcText.trim()"
-              data-testid="lrc-copy"
-              @click="copyLrc"
-            />
-            <UButton
-              label="Download .lrc"
-              icon="i-lucide-download"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="!lrcText.trim()"
-              data-testid="lrc-download"
-              @click="downloadLrc"
-            />
-          </div>
-          <!-- Close, or replace the sync with the text above (kept on the right when the footer wraps) -->
-          <div class="ml-auto flex gap-2">
-            <UButton
-              label="Cancel"
-              color="neutral"
-              variant="ghost"
-              @click="lrcOpen = false"
-            />
-            <UButton
-              label="Apply"
-              @click="applyLrc"
-            />
-          </div>
-        </div>
-      </template>
-    </UModal>
+      :track="track"
+      :lines="model"
+      @apply="replaceWith"
+    />
   </div>
 </template>

@@ -13,14 +13,17 @@ Chronovault/
 │   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
-│   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync), LyricsSyncTimeline (markers)
+│   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync: the screen around lib/lyrics-sync.ts),
+│   │   │                             #   LyricsSyncTimeline (markers), LyricsLrcDialog (LRC import / export)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog,
-│   │   │                             #   PlaylistEditor (owner page of both purposes), PlaylistGrid (cards),
+│   │   │                             #   PlaylistEditor (owner page of both purposes) + PlaylistTrackRow (one row of its list),
+│   │   │                             #   PlaylistGrid (cards),
 │   │   │                             #   PlaylistVersionFeedback (a group's votes, plays and comments)
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
 │   │   │                             #   ShareVersionVote (a group's vote panel) (public pages)
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
-│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker
+│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (cover, file,
+│   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
 │   │                                 #   useAsyncTask, useEditForm, useCoverEditor, useCoverStorage, useSortableList,
@@ -28,6 +31,7 @@ Chronovault/
 │   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
 │   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17),
 │   │                                 #   useUnseenFeedback (new votes: the dot on "Versions", 7.17),
+│   │                                 #   useVersionFeedback (a group's feedback on its owner page, the visit recorded: 7.17),
 │   │                                 #   useKeyboardShortcuts (useKeyboardClaim, useShortcutsHelp: 7.5),
 │   │                                 #   usePageTitle (browser tab titles: "Library · Chronovault")
 │   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages + full-screen view)
@@ -41,6 +45,7 @@ Chronovault/
 │   │   ├── queue-order.ts            #   shuffle rules: shuffle, unshuffle, new round
 │   │   ├── player/                   #   the player store's parts (7.5): queue.ts (queue and order) · playback.ts
 │   │   │                             #   (loaded track, engine, expired URLs) · sources.ts · settings.ts · types.ts
+│   │   ├── lyrics-sync.ts            #   the sync editor's rows and actions: stamp, undo, replay, nudge… (7.9)
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
