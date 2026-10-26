@@ -3,7 +3,7 @@ import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/sch
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
 import { buildAudioPath, isTrackPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
-import { badRequest, notFound } from '../utils/errors'
+import { badRequest, conflict, isConflict, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
 import type { AudioStorage } from '../repositories/audio-storage'
 import * as tracksRepo from '../repositories/tracks.repository'
@@ -19,9 +19,9 @@ import { expiresIn, playbackSource, removeCoverFiles } from './playback'
  * covers live in Supabase Storage.
  *
  * Upload sequence (see docs/07-data-flows.md, 7.3 Uploading a track):
- *   1. createUploadTarget → presigned PUT URL
+ *   1. createUploadTarget → presigned PUT URL (never for an id already registered)
  *   2. the browser uploads the file straight to R2
- *   3. createTrack → checks the stored file, then inserts the row
+ *   3. createTrack → checks the stored file, then inserts the row (safe to repeat)
  */
 
 /** Lifetime of a presigned upload URL (the upload must start within it). */
@@ -48,13 +48,18 @@ export async function getTrack(db: DbClient, userId: string, id: string): Promis
 /**
  * Presigned URL the browser uploads the audio file to, inside the user's folder.
  * The path is built here from the user id, never taken from the client, so a
- * client cannot upload into someone else's folder.
+ * client cannot upload into someone else's folder. An id already registered
+ * gets no upload address (409): its file must never be overwritten.
  */
 export async function createUploadTarget(
+  db: DbClient,
   audio: AudioStorage,
   userId: string,
   request: AudioUploadRequest,
 ): Promise<AudioUploadTarget> {
+  if (await tracksRepo.findTrackAudioPath(db, userId, request.trackId)) {
+    throw conflict('This track is already registered')
+  }
   // The key the file will have: built here, from the signed-in user's id.
   const audioPath = buildAudioPath(userId, request.trackId, request.extension)
   return {
@@ -68,6 +73,10 @@ export async function createUploadTarget(
  * Registers an uploaded track. Paths must point into the user's folder and
  * to this track id; the file must exist with the declared size. A mismatched
  * file is deleted; so is the file when the insert fails (no orphans).
+ *
+ * Safe to repeat (a retry after a lost response, a double submit): a track
+ * already registered with this file is returned as it is, and a registered
+ * track's file is never deleted, not even when two identical requests race.
  */
 export async function createTrack(
   db: DbClient,
@@ -77,6 +86,14 @@ export async function createTrack(
 ): Promise<TrackDetail> {
   assertTrackPath(input.audioPath, userId, input.id, 'audio')
   if (input.coverPath) assertTrackPath(input.coverPath, userId, input.id, 'cover')
+
+  // Already registered: the same file is a repeated request (answered with the
+  // track), another one a clash (409). Either way storage is left alone.
+  const existing = await tracksRepo.findTrackRow(db, userId, input.id)
+  if (existing) {
+    if (existing.audio_path === input.audioPath) return toTrackDetail(existing)
+    throw conflict('This track is already registered with another file')
+  }
 
   // The client uploads the file straight to storage before calling the API:
   // make sure it is there, and that it is the file that was declared.
@@ -95,8 +112,10 @@ export async function createTrack(
     return toTrackDetail(row)
   }
   catch (error) {
-    // No orphaned audio when the track could not be registered.
-    await audio.remove([input.audioPath])
+    // No orphaned audio when the track could not be registered; but on a unique
+    // violation (409) an identical request running alongside registered it first,
+    // and the file is that track's now: it stays.
+    if (!isConflict(error)) await audio.remove([input.audioPath])
     throw error
   }
 }

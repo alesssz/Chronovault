@@ -68,3 +68,13 @@ export function playlistNotFound() {
 export function badRequest(message: string) {
   return createError({ statusCode: 400, message })
 }
+
+/** 409 for a request that clashes with what already exists (e.g. a track id already registered). */
+export function conflict(message: string) {
+  return createError({ statusCode: 409, message })
+}
+
+/** True for a 409 from the API's own errors, e.g. a unique violation (23505) mapped by toHttpError. */
+export function isConflict(error: unknown): boolean {
+  return (error as { statusCode?: unknown } | null)?.statusCode === 409
+}
