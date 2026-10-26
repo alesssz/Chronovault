@@ -125,10 +125,10 @@ test-e2e: ## End-to-end tests (Playwright, requires db-start; installs its Chrom
 	$(PNPM) exec playwright install chromium
 	$(PNPM) test:e2e
 
-test-coverage: ## Tests with a coverage report
+test-coverage: ## Tests with a coverage report; fails below the floors in vitest.config.ts
 	$(PNPM) test:coverage
 
-check: lint typecheck test ## Quick checks before a commit
+check: lint typecheck test-coverage ## Quick checks before a commit (tests with the coverage floors)
 
 ci: check db-lint db-test test-e2e ## Everything the CI runs
 
