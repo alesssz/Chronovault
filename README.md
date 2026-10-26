@@ -82,7 +82,7 @@ Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `ch
 | Stop everything (data is kept) | `pnpm stop` (or `make stop`) |
 | Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
 | Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
-| Run all checks before a commit | `make check` (lint, types, unit tests) |
+| Run all checks before a commit | `make check` (lint, types, unit tests with the coverage floors) |
 | Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`), see [14.1](#141-git-workflow) |
 | Check a new computer's prerequisites | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`), see [11.1](#from-a-blank-computer) |
 
@@ -112,10 +112,10 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm typecheck` | vue-tsc over app, server, shared and config files |
 | `pnpm test` | All Vitest tests (unit + components) |
 | `pnpm test:unit` · `pnpm test:nuxt` | Unit tests only · component tests only |
-| `pnpm test:watch` · `pnpm test:coverage` | Watch mode · coverage report in `coverage/` |
+| `pnpm test:watch` · `pnpm test:coverage` | Watch mode · totals in the terminal, per-file report in `coverage/index.html`, failing below the floors ([12](#12-testing)) |
 | `pnpm test:db` | pgTAP database tests (local Supabase must be running) |
 | `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright end-to-end tests · in UI mode |
-| `pnpm check` | lint + typecheck + test |
+| `pnpm check` | lint + typecheck + test:coverage (the tests, with the coverage floors) |
 | `pnpm db:start` · `db:stop` · `db:status` | Start / stop the local Supabase stack · print its URLs and keys |
 | `pnpm db:migrate` | **Apply new migrations to the local database, keeping its data** |
 | `pnpm db:reset` | Recreate the local database from migrations + seed — **deletes every local account and track** |
@@ -147,7 +147,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make db-link ref=<project-ref>` · `make db-push` | Link Supabase Cloud · push migrations to it |
 | `make lint` · `lint-fix` · `typecheck` | Code quality |
 | `make test` · `test-unit` · `test-nuxt` · `test-e2e` · `test-coverage` | Tests |
-| `make check` | lint + typecheck + test: quick checks before a commit |
+| `make check` | lint + typecheck + test-coverage: quick checks before a commit |
 | `make ci` | Everything the CI runs (adds `db-lint`, `db-test`, `test-e2e`) |
 | `make doctor` | `pnpm doctor` |
 | `make merge` · `make merge yes=1` | `pnpm merge:main`: merge the current branch into `main` and clean up · without the confirmation question (make cannot take `--yes`: it would read it as its own option) |
@@ -1555,6 +1555,17 @@ E2E_DEV=1 pnpm test:e2e   # end-to-end against the dev server (:3100)
 make ci                   # everything the CI runs
 ```
 
+- **Coverage floors** (`coverage.thresholds` in `vitest.config.ts`): `pnpm test:coverage`, run by `pnpm check` / `make check` and by CI, fails when a folder's coverage drops below its floor, naming the folder, the measure and both numbers. Only the folders whose main guard is the unit tests have one; each floor is the folder's coverage when it was set, rounded down:
+
+  | Folder | Lines | Statements | Functions | Branches |
+  |---|---|---|---|---|
+  | `shared/` | 100 | 99 | 100 | 97 |
+  | `server/services/` | 96 | 95 | 95 | 89 |
+  | `server/mappers/` | 100 | 92 | 100 | 80 |
+  | `app/lib/` (the player's logic included) | 75 | 72 | 72 | 67 |
+  | `app/stores/` (the player store) | 94 | 93 | 94 | 85 |
+
+  Routes (`server/api/`), repositories, components, pages and composables have none: Playwright covers them end to end, and this report counts Vitest only (the whole project shows about 42% of lines, far below what the tests really exercise). New code in a guarded folder comes with its tests, or the floor stops it. **Raise a floor** when tests raise its folder's coverage (the terminal shows only the totals; open `coverage/index.html` for each folder and file); **never lower one** to let a change through, unless code was moved out on purpose, and then say so in the commit.
 - E2E tests generate WAV files on the fly and register throwaway users (`e2e-…@chronovault.test`) in the local database; they do not touch your own data.
 - **Wait for the server, not for a toast, before relying on a save.** A success toast stays on screen for a few seconds, so after a second save with the same message ("Changes saved", "Cover updated") the toast assertion passes before the request has finished. `clickAndWaitForApi(page, control, { method, path })` (`test/e2e/helpers.ts`) clicks and waits for that request's successful response.
 - **Many tracks: `seedLibrary(page, count)`** (`test/e2e/helpers.ts`) makes them through the API, a tiny WAV each, ten at a time ("Track 001", "Track 002"…): hundreds take seconds, where uploading them through the page would take minutes. Use `uploadTrack` when the upload itself is under test.
@@ -1563,7 +1574,7 @@ make ci                   # everything the CI runs
 - pgTAP tests run inside a transaction that is rolled back: they never change the database.
 - **Projects:** `chromium` (desktop) runs every spec except `responsive.spec.ts`; `phone` (Pixel 7 emulation) and `tablet` (820×1180, touch) run only that one, since the other specs drive the desktop layout. Run a single one with `--project phone`.
 - Locally Playwright reuses a server already running on :3200 — stop it first, or it may test an old build.
-- **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest; job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure. A second workflow, `.github/workflows/audit.yml`, audits the dependencies every Monday and whenever they change ([11.6](#116-updating-dependencies)).
+- **CI** (`.github/workflows/ci.yml`): job 1 runs lint, typecheck and Vitest with the coverage floors (`pnpm test:coverage`); job 2 starts a trimmed Supabase in the runner and runs `db:lint`, pgTAP and Playwright, uploading the report on failure. A second workflow, `.github/workflows/audit.yml`, audits the dependencies every Monday and whenever they change ([11.6](#116-updating-dependencies)).
 
 ---
 

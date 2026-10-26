@@ -57,6 +57,22 @@ export default defineConfig({
       provider: 'v8',
       include: ['shared/**/*.ts', 'server/**/*.ts', 'app/**/*.{ts,vue}'],
       exclude: ['shared/types/database.types.ts'],
+      // The terminal (and CI's log) gets the totals only; per-file numbers are in coverage/index.html.
+      reporter: ['text-summary', 'html'],
+      // Floors for `pnpm test:coverage` (run by CI): it fails when a folder's
+      // coverage drops below them. Only where unit tests are the main guard
+      // (pure code, services, mappers, the player's logic); routes,
+      // repositories, components and pages are covered end to end by
+      // Playwright, which this report does not count. Each value is the
+      // folder's coverage when set, rounded down: raise it when tests raise
+      // the coverage, never lower it to let a change through (README 12).
+      thresholds: {
+        'shared/**': { lines: 100, statements: 99, functions: 100, branches: 97 },
+        'server/services/**': { lines: 96, statements: 95, functions: 95, branches: 89 },
+        'server/mappers/**': { lines: 100, statements: 92, functions: 100, branches: 80 },
+        'app/lib/**': { lines: 75, statements: 72, functions: 72, branches: 67 },
+        'app/stores/**': { lines: 94, statements: 93, functions: 94, branches: 85 },
+      },
     },
   },
 })
