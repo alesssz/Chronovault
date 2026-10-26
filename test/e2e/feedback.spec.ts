@@ -8,7 +8,7 @@
  * anonymous writes (100 visitors per track a day, 50 votes per group) answer 429.
  */
 import { expect, test, type Page } from './fixtures'
-import { seedLibrary, signUp, uploadTrack } from './helpers'
+import { seedLibrary, signUp, uploadTrack, waitForHydration } from './helpers'
 
 /** Two versions of the same song (3-second WAVs: a play at 1.5 s, completed at 2.7 s). */
 const VERSIONS = ['Echo v1', 'Echo v2']
@@ -44,6 +44,8 @@ test.describe('listeners\' feedback', () => {
       // The friend's page.
       const friend = await friendContext.newPage()
       await friend.goto(`/p/${group}`)
+      // A server-rendered page: clicks before hydration do nothing.
+      await waitForHydration(friend)
       /** A version's row on the public page. */
       const friendRow = (title: string) => friend.getByTestId('shared-playlist-track').filter({ hasText: title })
 
@@ -175,6 +177,8 @@ test.describe('listeners\' feedback', () => {
       // A 51st friend on the page: told the group is full, and their heart stays off.
       const friend = await visitorsContext.newPage()
       await friend.goto(`/p/${group}`)
+      // A server-rendered page: clicks before hydration do nothing.
+      await waitForHydration(friend)
       // The second version's row on the public page.
       const row = friend.getByTestId('shared-playlist-track').filter({ hasText: 'Track 002' })
       await row.getByRole('button', { name: 'Pick Track 002' }).click()
