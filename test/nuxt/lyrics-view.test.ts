@@ -1,5 +1,6 @@
 /**
- * LyricsView in the Nuxt environment: active line, click to seek, section headers, plain lyrics.
+ * LyricsView in the Nuxt environment: active line, click to seek, section headers, plain lyrics,
+ * and the empty state (the hint to add lyrics for the owner only).
  */
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
@@ -79,5 +80,16 @@ describe('LyricsView', () => {
       props: { synced: [], plain: null, currentTime: 0 },
     })
     expect(wrapper.text()).toContain('No lyrics')
+  })
+
+  it('without lyrics, invites the owner to add some, but not a share page\'s visitor', async () => {
+    // The owner's view, then a visitor's (public pages pass `shared`).
+    const owner = await mountSuspended(LyricsView, { props: { synced: null, plain: null, currentTime: 0 } })
+    const visitor = await mountSuspended(LyricsView, { props: { synced: null, plain: null, currentTime: 0, shared: true } })
+
+    expect(owner.text()).toContain('No lyrics')
+    expect(owner.text()).toContain('edit page')
+    expect(visitor.text()).toContain('No lyrics')
+    expect(visitor.text()).not.toContain('edit page')
   })
 })

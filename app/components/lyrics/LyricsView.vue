@@ -15,6 +15,9 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  *
  * `size="large"`: one step bigger, for the phones' lyrics view of the
  * full-screen player, where the lyrics have the whole screen to themselves.
+ *
+ * `shared`: on a share page's full-screen view, a track without lyrics shows
+ * "No lyrics" alone: the hint to add some is for the owner, who alone can.
  */
 const props = withDefaults(defineProps<{
   synced: SyncedLyricLine[] | null
@@ -22,7 +25,9 @@ const props = withDefaults(defineProps<{
   currentTime: number
   /** Text size: 'default' (beside the cover) or 'large' (lyrics on their own). */
   size?: 'default' | 'large'
-}>(), { size: 'default' })
+  /** Shown to a share page's visitor: no hint to add lyrics, which only the owner can do. */
+  shared?: boolean
+}>(), { size: 'default', shared: false })
 
 // A line was clicked: jump to its time.
 const emit = defineEmits<{ seek: [seconds: number] }>()
@@ -129,12 +134,12 @@ watch(activeIndex, (index) => {
       </p>
     </div>
 
-    <!-- No lyrics at all -->
+    <!-- No lyrics at all (the hint to add some is for the owner only) -->
     <UEmpty
       v-else
       icon="i-lucide-mic-off"
       title="No lyrics"
-      description="Add lyrics from the track's edit page."
+      :description="shared ? undefined : 'Add lyrics from the track\'s edit page.'"
       class="h-full"
     />
   </div>
