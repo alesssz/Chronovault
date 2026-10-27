@@ -32,7 +32,8 @@ import { STORAGE_KEYS } from '~/lib/storage-keys'
  *
  * Shared pages: the public layout mounts it too (`shared`), so visitors of a
  * share link get the same view, opened from their page's player. There the
- * owner's tools stay out: no "Edit track", and the genre comes with the
+ * owner's tools stay out: no "Edit track", no hint to add lyrics to a track
+ * without any (LyricsView's `shared`), and the genre comes with the
  * shared track itself (the genre list is the signed-in owner's: asking for
  * it would only fail). Up next, shuffle and repeat already hide themselves
  * outside library playback (`queueEditable`).
@@ -254,6 +255,7 @@ const meta = computed(() => {
               :plain="player.current?.lyrics ?? null"
               :current-time="player.currentTime"
               size="large"
+              :shared="shared"
               @seek="player.seek"
             />
           </div>
@@ -361,6 +363,7 @@ const meta = computed(() => {
               :synced="player.current?.lyricsSynced ?? null"
               :plain="player.current?.lyrics ?? null"
               :current-time="player.currentTime"
+              :shared="shared"
               @seek="player.seek"
             />
           </section>
