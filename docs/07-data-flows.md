@@ -74,7 +74,7 @@ sequenceDiagram
   B->>B: trackId = crypto.randomUUID()
   B->>N: POST /api/tracks/upload-url {trackId, extension, mimeType, size}
   N->>N: build key <userId>/<trackId>.<ext> (never from the client)
-  N-->>B: presigned PUT URL (valid 1 hour)
+  N-->>B: presigned PUT URL (valid 1 hour, for this file only: its size and type are signed)
   B->>R: PUT the file (progress bar, up to 3 attempts)
   opt cover found in the tags
     B->>B: center crop + resize → WebP 800×800
@@ -100,6 +100,7 @@ sequenceDiagram
 | Audio not decodable in the browser | No waveform peaks (a flat placeholder is drawn), upload continues |
 | FLAC conversion impossible or not verified | The original WAV is uploaded, with the reason shown |
 | Network error or 5xx during the PUT | Retried twice, with growing delays |
+| A file of another size or type than declared sent to the address | Refused by the storage (`403`): the address's signature holds the declared size and type, so it stores that file only, never retried |
 | Cover conversion/upload fails | The track is saved without a cover |
 | Stored file missing or of a different size | The server deletes it and refuses the track (400) |
 | Database insert fails | The server deletes the audio, the browser deletes the cover |

@@ -36,7 +36,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm db:types:check` | Fail when the committed `database.types.ts` differs from the schema (a migration added without `pnpm db:types`); writes nothing |
 | `pnpm db:push` | Apply pending migrations to the linked Supabase Cloud project |
 | `pnpm env:local` | Write `.env` from the running local stack |
-| `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload, range streaming, size check, CORS, delete |
+| `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete |
 | `pnpm generate:brand` | Regenerate the brand images in `public/` (favicon, PWA icons, fallback cover) from `shared/brand.ts` and `brand/chronovault.jpg` ([5.6](05-architecture.md#56-brand-and-theme)) |
 | `pnpm doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs` |
 | `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, then merge it into `main`, push, delete the branch locally and on GitHub, end on an up-to-date `main` ([14.1](14-conventions.md#141-git-workflow)) |

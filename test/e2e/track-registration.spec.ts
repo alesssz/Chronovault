@@ -3,6 +3,7 @@
  * repeated POST /api/tracks answers with the track already there and its file stays in storage,
  * playable; and no upload address is handed out for an id already registered, so its file can
  * never be overwritten. Run against the real storage: the bug this guards against deleted it.
+ * An upload address also takes only the file it was asked for: its size and type are signed.
  */
 import { expect, test } from './fixtures'
 import { makeWav, signUp } from './helpers'
@@ -56,5 +57,34 @@ test.describe('registering a track twice', () => {
     expect(result.again).toBe(409)
     // And the file is still there.
     expect(result.stored).toBe(200)
+  })
+
+  test('an upload address takes only the file it was asked for (size and type are signed)', async ({ page }) => {
+    await signUp(page)
+
+    // An address for a 1000-byte FLAC, then PUTs of other files and of that one.
+    const statuses = await page.evaluate(async () => {
+      // A JSON POST through the page (its session cookie goes along).
+      const target = await (await fetch('/api/tracks/upload-url', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trackId: crypto.randomUUID(), extension: 'flac', mimeType: 'audio/flac', sizeBytes: 1000 }),
+      })).json() as { uploadUrl: string }
+      /** PUTs `size` bytes of type `type` to the address and answers the status. */
+      const put = (size: number, type: string) =>
+        fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': type }, body: new Uint8Array(size) }).then(r => r.status)
+      return {
+        // A much larger file than declared (e.g. trying to store more than the limit).
+        larger: await put(5000, 'audio/flac'),
+        // The declared size, another type.
+        otherType: await put(1000, 'audio/mpeg'),
+        // Exactly the file declared.
+        declared: await put(1000, 'audio/flac'),
+      }
+    })
+
+    expect(statuses.larger).toBe(403)
+    expect(statuses.otherType).toBe(403)
+    expect(statuses.declared).toBe(200)
   })
 })

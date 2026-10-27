@@ -27,6 +27,14 @@ export interface AudioStorageConfig {
   secretAccessKey: string
 }
 
+/** The one file a presigned PUT may store: the browser must send exactly these headers. */
+export interface SignedUpload {
+  /** Content-Length, in bytes. */
+  size: number
+  /** Content-Type, the type the file is stored and served with. */
+  contentType: string
+}
+
 /** One object of a bucket listing. */
 export interface ListedObject {
   /** The object's key: `<userId>/<trackId>.<ext>`. */
@@ -87,14 +95,25 @@ export class AudioStorage {
    * Presigned URL valid for `expiresSeconds` (checked when a request starts:
    * a download already in progress is not cut off at expiry).
    * The signature travels in the query string, so the browser can use the
-   * URL directly in `<audio src>` or an XHR PUT without extra headers.
+   * URL directly in `<audio src>` or an XHR PUT.
+   *
+   * `upload` (PUT): the file's exact size and type are signed too, so the
+   * storage accepts that file only: a PUT of any other size or type no longer
+   * matches the signature (403). Unsigned, the 500 MB limit held only when the
+   * track was registered, and anyone signed in could fill the storage with
+   * files never registered (clean-up is by hand).
    */
-  async presign(method: 'GET' | 'PUT', key: string, expiresSeconds: number): Promise<string> {
+  async presign(method: 'GET' | 'PUT', key: string, expiresSeconds: number, upload?: SignedUpload): Promise<string> {
     // The lifetime goes in the query string, signed together with the rest.
     const url = new URL(this.objectUrl(key))
     url.searchParams.set('X-Amz-Expires', String(expiresSeconds))
-    // Signed in the query string (`signQuery`): the URL alone is enough to use it.
-    const signed = await this.client.sign(new Request(url, { method }), { aws: { signQuery: true } })
+    // Signed in the query string (`signQuery`): the URL alone is enough to use it. aws4fetch leaves
+    // Content-Length and Content-Type out of a signature unless asked (`allHeaders`).
+    const signed = await this.client.sign(url.toString(), {
+      method,
+      headers: upload ? { 'content-length': String(upload.size), 'content-type': upload.contentType } : undefined,
+      aws: { signQuery: true, allHeaders: !!upload },
+    })
     return signed.url
   }
 

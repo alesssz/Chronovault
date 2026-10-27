@@ -30,6 +30,10 @@ export function toHttpError(error: DbError, context: string) {
     '23514': { statusCode: 400, message: 'Invalid data' },
     // invalid_text_representation, e.g. a malformed uuid
     '22P02': { statusCode: 400, message: 'Invalid data' },
+    // untranslatable_character / character_not_in_repertoire: a NUL (U+0000) in text or jsonb.
+    // The schemas refuse it first (`safeText()`, shared/schemas/track.ts); this is the safety net.
+    '22P05': { statusCode: 400, message: 'Invalid data' },
+    '22021': { statusCode: 400, message: 'Invalid data' },
     // insufficient_privilege: an RLS policy refused the row
     '42501': { statusCode: 403, message: 'Operation not allowed' },
     // no_data_found, raised by our own functions (set_playlist_tracks, record_play, votes)
