@@ -8,7 +8,10 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  *
  * It scrolls inside its own box, which takes the height its parent gives
  * it (`h-full`): the parent must have a definite height, or the box grows
- * with the text and auto-scroll moves the page around it instead.
+ * with the text and has nothing to scroll. Auto-scroll moves that box only,
+ * never the page around it: on the share pages the box sits in the page's
+ * flow, and a visitor scrolling up to the track list or the vote buttons
+ * must not be pulled back to the lyrics at every new line.
  *
  * `size="large"`: one step bigger, for the phones' lyrics view of the
  * full-screen player, where the lyrics have the whole screen to themselves.
@@ -55,7 +58,14 @@ function onUserScroll() {
 // Keep the active line in the middle of the box (unless the user is scrolling).
 watch(activeIndex, (index) => {
   if (index < 0 || Date.now() - userScrolledAt.value < AUTO_SCROLL_PAUSE) return
-  lineRefs.value[index]?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  // The active line and the box it scrolls in.
+  const line = lineRefs.value[index]
+  const box = container.value
+  if (!line || !box) return
+  // The box's own scroll only: scrollIntoView would also scroll every scrollable ancestor, the
+  // page included. Where the line sits inside the box's content, minus half the box's height.
+  const offset = line.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop
+  box.scrollTo({ top: offset - (box.clientHeight - line.clientHeight) / 2, behavior: 'smooth' })
 })
 </script>
 

@@ -18,7 +18,9 @@ import { createLyricsSync } from '~/lib/lyrics-sync'
  *
  * What each action does to the rows (stamp, undo, replay, nudge…) lives in
  * lib/lyrics-sync.ts; this component is the screen around it: buttons, keys,
- * the rows, and the LRC import / export dialog (LyricsLrcDialog).
+ * the rows, and the LRC import / export dialog (LyricsLrcDialog). The playback
+ * time it shows is LyricsSyncClock, so that the editor does not render again
+ * on every frame; the detailed waveform waits for the editor to be shown.
  *
  * Phones have no keyboard and little height: there, Stamp line and Undo
  * leave the controls row for a bar pinned to the bottom of the screen, just
@@ -54,6 +56,19 @@ const NUDGE_STEP = 0.05
 
 /** Syncing needs this track in the player: times come from its position. */
 const isLoaded = computed(() => player.current?.id === props.track.id)
+
+/**
+ * The detailed waveform is built from the first time the editor is shown, then
+ * kept. It downloads and decodes the whole audio file (tens of MB), and the edit
+ * page mounts this editor hidden with its Sync tab: without this, opening the
+ * page of the track playing paid for it even when Sync was never opened. Kept
+ * afterwards, so going back and forth between tabs decodes the file only once.
+ */
+const timelineShown = ref(props.active)
+// The first time the editor is shown, the waveform is built (and stays from then on).
+watch(() => props.active, (active) => {
+  if (active) timelineShown.value = true
+})
 
 /**
  * The rows and their actions, starting from the existing synced lines when
@@ -187,7 +202,7 @@ const lrcOpen = ref(false)
           label="Back 5 seconds"
           @click="player.seek(player.currentTime - 5)"
         />
-        <span class="w-20 text-center font-mono text-sm tabular-nums">{{ formatLrcTimestamp(player.currentTime) }}</span>
+        <LyricsSyncClock />
         <UButton
           icon="i-lucide-corner-down-left"
           label="Stamp line"
@@ -234,8 +249,9 @@ const lrcOpen = ref(false)
         </div>
       </div>
 
-      <!-- Detailed waveform with one draggable marker per synced line -->
+      <!-- Detailed waveform with one draggable marker per synced line (from the first time the editor is shown) -->
       <LyricsSyncTimeline
+        v-if="timelineShown"
         :key="track.id"
         :rows="rows"
         :selected="selected"

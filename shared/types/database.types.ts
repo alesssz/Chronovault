@@ -169,7 +169,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "cast_version_vote":
+            "append_playlist_tracks":
+{ Args: { "p_playlist_id": string,"p_track_ids": (string)[] }; Returns: undefined
+                           },
+"cast_version_vote":
 { Args: { "p_comment": string,"p_name": string,"p_playlist_id": string,"p_track_id": string,"p_voter_id": string }; Returns: undefined
                            },
 "check_version_voting":

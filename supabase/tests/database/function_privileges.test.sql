@@ -38,10 +38,10 @@ select is(
     order by 1
   ),
   array[
-    'cast_version_vote', 'get_shared_playlist', 'get_shared_playlist_tracks', 'get_shared_track',
-    'get_version_vote', 'record_play', 'set_playlist_tracks', 'withdraw_version_vote'
+    'append_playlist_tracks', 'cast_version_vote', 'get_shared_playlist', 'get_shared_playlist_tracks',
+    'get_shared_track', 'get_version_vote', 'record_play', 'set_playlist_tracks', 'withdraw_version_vote'
   ],
-  'signed-in users can call the same, plus set_playlist_tracks'
+  'signed-in users can call the same, plus set_playlist_tracks and append_playlist_tracks'
 );
 
 -- -----------------------------------------------------------------------------

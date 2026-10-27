@@ -2,7 +2,8 @@
  * State of an edit form saved with a "Save" button (track editor, playlist
  * page): the reactive values bound to the inputs, whether they differ from
  * the last saved ones, and a confirmation before leaving the page with
- * unsaved changes.
+ * unsaved changes: for a page of the app (the router) and for leaving the app
+ * itself (reload, closed tab: the browser's own beforeunload question).
  *
  * "Dirty" compares JSON snapshots: forms are small, and it catches every
  * kind of change (texts, numbers, arrays of synced lines) without a deep watcher.
@@ -29,6 +30,11 @@ export function useEditForm<T extends object>(initial: T) {
   // Leaving with unsaved changes asks first (returning false cancels the navigation).
   onBeforeRouteLeave(() => {
     if (dirty.value && !window.confirm('You have unsaved changes. Leave anyway?')) return false
+  })
+  // So does leaving the app itself: a reload (pull-to-refresh on a phone), closing the tab or the
+  // installed app. The browser shows its own question; its text cannot be set.
+  useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
+    if (dirty.value) event.preventDefault()
   })
 
   return { state, dirty, markSaved, reset }

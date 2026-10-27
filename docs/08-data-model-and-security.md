@@ -107,6 +107,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261025000000_feedback_seen.sql` | `feedback_seen`: the owner's last visit to each group of versions (new feedback), owner only |
 | `20261026000000_anonymous_write_caps.sql` | Caps on anonymous writes: `record_play` counts at most 100 different visitors per track and day, `cast_version_vote` takes at most 50 votes per group; past them `53400` (→ `429`). Index on a track's visitors per day |
 | `20261026120000_storage_path_rules.sql` | Storage paths are exactly the ones the app builds: `tracks.audio_path` `<user_id>/<id>.<extension>`, `tracks.cover_path` `<user_id>/<id>.webp`, `playlists.cover_path` `<user_id>/playlists/<id>.webp` (they only had to start with the owner's folder, so a `..` could name another user's file) |
+| `20261027000000_playlist_track_writes.sql` | Writes to a playlist's list that overlap: `set_playlist_tracks` locks the playlist's row first (two replacements at once clashed with `23505`), and the new `append_playlist_tracks` appends in one locked step (an append was a read and a rewrite, so two at once lost a track) |
 
 ## 8.3 Database functions
 
@@ -116,7 +117,8 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `get_shared_playlist(id)` | definer | A non-private playlist's title, description, cover, visibility, purpose |
 | `get_shared_playlist_tracks(id)` | definer | Shareable fields of every track of a non-private playlist, in order (private tracks included) |
 | `private.is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
-| `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction (RLS applies); signed-in users only |
+| `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction, the playlist's row locked first (RLS applies); signed-in users only |
+| `append_playlist_tracks(id, ids[])` | invoker | Appends tracks at the end, in order, skipping those already there, in one locked step (RLS applies); signed-in users only |
 | `private.owns_playlist(id)` | invoker | RLS helper for `playlist_tracks` and `version_votes` |
 | `record_play(track, playlist, listener, completed)` | definer | Counts a play where the caller can listen (shared track page, shared playlist containing it, own track); the owner, recognised by the session, gets `owner` plays; at most 100 different visitors per track and day (`53400` → `429`) |
 | `cast_version_vote(group, track, voter, name, comment)` · `withdraw_version_vote(group, voter)` | definer | A visitor's pick in a shared group of versions: the version must belong to it; `403` for the owner, `409` once a version is final, `429` for a new voter in a group that has 50 votes already |
@@ -126,7 +128,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 
 *Security definer* functions bypass RLS, so each one filters on visibility itself and selects explicit columns; all have an empty `search_path`. **What the API offers.** Every function of the `public` schema the caller may execute is callable through the Data API (`POST /rest/v1/rpc/<name>`), and Supabase's default privileges grant `execute` on new functions there to `anon` and `authenticated` explicitly, so `revoke … from public` alone does not hide one. The rules:
 
-- a function meant for the API stays in `public`, granted to the roles that need it (`get_shared_*`, plays, votes: both roles; `set_playlist_tracks`: `authenticated`);
+- a function meant for the API stays in `public`, granted to the roles that need it (`get_shared_*`, plays, votes: both roles; `set_playlist_tracks` and `append_playlist_tracks`: `authenticated`);
 - an internal helper of other functions stays in `public` but is revoked from `anon` and `authenticated` by name (the vote helpers): the definer functions that call it run as its owner;
 - a **helper of policies** cannot be revoked, since the policies run as the requesting role and need `execute`: it lives in the **`private` schema**, which the API does not expose (`[api] schemas` in `supabase/config.toml`, the same default on Supabase Cloud), with `usage` granted to the roles whose policies call it. Policies refer to a function by its identity, so moving one keeps them working; function bodies refer to it by name and must be updated.
 

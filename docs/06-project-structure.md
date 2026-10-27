@@ -14,7 +14,8 @@ Chronovault/
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync: the screen around lib/lyrics-sync.ts),
-│   │   │                             #   LyricsSyncTimeline (markers), LyricsLrcDialog (LRC import / export)
+│   │   │                             #   LyricsSyncTimeline (markers), LyricsLrcDialog (LRC import / export),
+│   │   │                             #   LyricsSyncClock (the editor's playback time, rendered alone)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog,
 │   │   │                             #   PlaylistEditor (owner page of both purposes) + PlaylistTrackRow (one row of its list),
 │   │   │                             #   PlaylistGrid (cards),
@@ -98,7 +99,7 @@ Chronovault/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts and brand checks)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
 │                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop

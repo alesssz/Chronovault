@@ -59,6 +59,16 @@ export function useTrackUploader() {
   const running = ref(false)
   /** Genre list, loaded once per page to match the genre tag to a genre id. */
   let genres: Genre[] | null = null
+  /**
+   * The page went away (left after confirming, with files still queued): the
+   * file in progress finishes, but no other starts. Nothing would show their
+   * progress or their errors, and coming back to the page starts a new list,
+   * whose own queue would have run beside this one.
+   */
+  let stopped = false
+  onBeforeUnmount(() => {
+    stopped = true
+  })
 
   /** Files still to process or in progress (the page warns before closing while > 0). */
   const pending = computed(() => items.value.filter(i => i.status !== 'done' && i.status !== 'error').length)
@@ -113,7 +123,7 @@ export function useTrackUploader() {
     try {
       // Always take the first queued item: files added meanwhile are picked up too.
       let item: UploadItem | undefined
-      while ((item = items.value.find(i => i.status === 'queued'))) {
+      while (!stopped && (item = items.value.find(i => i.status === 'queued'))) {
         await process(item)
       }
     }

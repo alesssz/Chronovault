@@ -113,7 +113,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `useAsyncTask` | composable | Every button that calls the API: a `running` flag for the spinner, failures as an error toast |
 | `usePlaylistList(purpose)` | composable | The cached list of playlists or of groups of versions, kept in sync by the pages that change them (`remember`, `forget`) |
 | `<PlaylistEditor>`, `<PlaylistGrid>` | components | Owner page and card grid of both purposes: Playlists and Versions |
-| `useEditForm` | composable | Track editor, playlist page: form state, "unsaved changes" and the leave-page confirmation |
+| `useEditForm` | composable | Track editor, playlist page: form state, "unsaved changes" and the confirmation before leaving the page or the app (reload, closed tab) |
 | `useCoverEditor` + `useCoverStorage` | composables | Cover pickers (crop → WebP → Storage → `PATCH coverPath`), and the covers found in tags during an upload |
 | `useSortableList` + `<DragHandle>` | composable + component | Drag and drop of the playlist page and the "Up next" panel |
 | `useSharedItem`, `useShareMeta` | composables | Public pages: SSR load with `404`/`500`, link-preview tags |
@@ -123,7 +123,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `usePageTitle` | composable | Every page's browser tab title: "Library · Chronovault" (the name from `shared/brand.ts`) |
 | `<AppLogo>`, `<AppMark>` | components | The logo (mark + name, optionally the tagline) in the headers and on the sign-in page; the mark alone, drawn from the shared geometry |
 | `APP_NAME`, `FALLBACK_COVER`, `BRAND_COLORS`, `MARK_STROKES` | `shared/brand.ts` | The brand for code: the name wherever it is written, the fallback cover, the colours of the manifest and icons, the mark's geometry ([5.6](#56-brand-and-theme)) |
-| `player.displayTrack` | store getter | What the bar, the full-screen view and the queue show while a track loads |
+| `player.displayTrack` | store getter | What the bar, the full-screen view and the queue show: during a change of track (and after a failed load) the track being moved to, never the one before it |
 | `VISIBILITY_INFO`, `VISIBILITY_ITEMS` | `app/utils/visibility.ts` | Labels, explanations and icons of the three visibilities |
 | `PLAYLIST_PURPOSE_INFO`, `playlistPath` | `app/utils/playlist-purpose.ts` | Section, address and wording of each playlist purpose ("playlist"/"track", "group"/"version") |
 | `copyText` | `app/utils/clipboard.ts` | Clipboard with a fallback (share links, LRC export) |

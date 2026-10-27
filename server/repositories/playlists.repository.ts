@@ -169,3 +169,14 @@ export async function setPlaylistTrackIds(db: DbClient, id: string, trackIds: st
   const { error } = await db.rpc('set_playlist_tracks', { p_playlist_id: id, p_track_ids: trackIds })
   if (error) throw toHttpError(error, 'playlists.setTracks')
 }
+
+/**
+ * Appends tracks at the end of the list, in the given order, skipping those
+ * already in it: one step in the database, the playlist locked meanwhile, so
+ * appends at the same moment all land (a read here, then setPlaylistTrackIds,
+ * lost one of two).
+ */
+export async function appendPlaylistTrackIds(db: DbClient, id: string, trackIds: string[]): Promise<void> {
+  const { error } = await db.rpc('append_playlist_tracks', { p_playlist_id: id, p_track_ids: trackIds })
+  if (error) throw toHttpError(error, 'playlists.appendTracks')
+}
