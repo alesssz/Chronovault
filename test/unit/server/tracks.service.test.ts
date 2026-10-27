@@ -104,7 +104,8 @@ describe('createUploadTarget', () => {
     })
 
     expect(target.audioPath).toBe(AUDIO)
-    expect(audio.presign).toHaveBeenCalledWith('PUT', AUDIO, UPLOAD_URL_TTL)
+    // Signed for this file only: its declared size and type.
+    expect(audio.presign).toHaveBeenCalledWith('PUT', AUDIO, UPLOAD_URL_TTL, { size: 10, contentType: 'audio/flac' })
     expect(target.uploadUrl).toBe(`https://r2.test/${AUDIO}?method=PUT`)
     expect(new Date(target.expiresAt).getTime()).toBeGreaterThanOrEqual(before + UPLOAD_URL_TTL * 1000)
   })

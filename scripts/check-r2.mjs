@@ -2,7 +2,8 @@
 /**
  * Checks a Cloudflare R2 (or any S3-compatible) audio storage configuration
  * end to end, exactly the way the app uses it:
- *   1. presigned PUT upload        4. CORS for browser uploads (PUT)
+ *   1. presigned PUT upload, its size and type signed, and a different file
+ *      refused on that address     4. CORS for browser uploads (PUT)
  *   2. presigned GET with a range  5. CORS for streaming / waveform (GET + Range)
  *   3. HEAD (existence and size)   6. DELETE
  *
@@ -62,19 +63,32 @@ function report(ok, label, hint) {
   return ok
 }
 
-/** Presigned URL for the test object, signed exactly like the app does (query signature). */
-async function presign(method) {
+/**
+ * Presigned URL for the test object, signed exactly like the app does (query
+ * signature). `upload`: the file's size and type are signed too, as for the
+ * app's upload addresses (AudioStorage.presign), so the storage takes only it.
+ */
+async function presign(method, upload) {
   // The lifetime goes in the query string, signed with it (like AudioStorage.presign).
   const url = new URL(objectUrl)
   url.searchParams.set('X-Amz-Expires', '600')
-  return (await client.sign(new Request(url, { method }), { aws: { signQuery: true } })).url
+  return (await client.sign(url.toString(), {
+    method,
+    headers: upload ? { 'content-length': String(upload.size), 'content-type': upload.contentType } : undefined,
+    aws: { signQuery: true, allHeaders: !!upload },
+  })).url
 }
 
 console.log(`Checking bucket "${config.bucket}" at ${config.endpoint}\n`)
 
 try {
-  // 1. Upload
-  const put = await fetch(await presign('PUT'), { method: 'PUT', body, headers: { 'content-type': 'audio/flac' } })
+  // 1. Upload, on an address signed for this file (size and type), like the app's.
+  const uploadAddress = await presign('PUT', { size: body.length, contentType: 'audio/flac' })
+  // Another file on the same address: twice as large. The storage must refuse it (the signature does not match).
+  const larger = await fetch(uploadAddress, { method: 'PUT', body: new Uint8Array(body.length * 2), headers: { 'content-type': 'audio/flac' } })
+  report(larger.status === 403, `An upload address refuses a file of another size (HTTP ${larger.status})`,
+    'The storage ignored the signed size: uploads are not limited to the declared file. The app still checks the size when a track is registered.')
+  const put = await fetch(uploadAddress, { method: 'PUT', body, headers: { 'content-type': 'audio/flac' } })
   const uploaded = report(put.ok, `Presigned upload (HTTP ${put.status})`,
     put.status === 403
       ? 'Access denied: check the API token permissions (Object Read & Write on this bucket) and the keys in .env.r2.'

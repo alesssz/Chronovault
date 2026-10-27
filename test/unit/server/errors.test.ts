@@ -20,6 +20,11 @@ describe('toHttpError', () => {
     expect(toHttpError({ code: '55000', message: 'voting is closed' }, 'feedback.vote').statusCode).toBe(409)
   })
 
+  it('answers 400 for a character Postgres cannot store (a NUL past the schemas), not 500', () => {
+    expect(toHttpError({ code: '22P05', message: 'unsupported Unicode escape sequence' }, 'tracks.update').statusCode).toBe(400)
+    expect(toHttpError({ code: '22021', message: 'invalid byte sequence for encoding "UTF8": 0x00' }, 'tracks.update').statusCode).toBe(400)
+  })
+
   it('turns an unknown error into a 500 without its technical message, logged on the server', () => {
     // The server log, silenced and checked.
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TRACK_VISIBILITIES } from '../types/track'
 import { PLAYLIST_PURPOSES } from '../types/playlist'
-import { optionalText, patchSchemaOf } from './track'
+import { optionalText, patchSchemaOf, safeText } from './track'
 
 /**
  * Playlist validation schemas, shared by the playlist page form and the
@@ -23,7 +23,7 @@ const trackIds = z
 
 /** Every editable field of a playlist (playlist page form). */
 export const playlistMetadataSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(200, 'At most 200 characters'),
+  title: safeText().trim().min(1, 'Title is required').max(200, 'At most 200 characters'),
   description: optionalText(5000),
   visibility: z.enum(TRACK_VISIBILITIES),
 })

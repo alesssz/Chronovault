@@ -54,7 +54,8 @@ export async function directUpload(options: DirectUploadOptions): Promise<void> 
 /** One PUT attempt, reporting progress. */
 function putOnce({ url, file, contentType, onProgress }: DirectUploadOptions): Promise<void> {
   return new Promise((resolve, reject) => {
-    // PUT straight to the presigned URL; the Content-Type must match what was signed.
+    // PUT straight to the presigned URL. Its signature holds the Content-Type and the size (the
+    // Content-Length the browser sends): a different file is refused with 403, never retried.
     const request = new XMLHttpRequest()
     request.open('PUT', url)
     request.setRequestHeader('Content-Type', contentType)

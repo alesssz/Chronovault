@@ -4,6 +4,8 @@
  * replacements at once never clash (one used to fail with 409); and two reorders in quick
  * succession on the playlist page are saved in the order they were made, so the order on screen
  * is the order a reload shows (the second used to reach the server first and be overwritten).
+ * A track that is not the user's (missing, or someone else's) is "not found" (404), as for any
+ * other item, and the list is left as it was.
  */
 import { expect, test, type Page } from './fixtures'
 import { seedLibrary, signUp } from './helpers'
@@ -115,5 +117,28 @@ test.describe('overlapping playlist writes', () => {
     await expect(shown).toContainText(['Track 002', 'Track 003', 'Track 001'])
     await page.reload()
     await expect(shown).toContainText(['Track 002', 'Track 003', 'Track 001'])
+  })
+
+  test('a track that is not the user\'s is "not found" (404), and the list stays as it was', async ({ page }) => {
+    await signUp(page)
+    await seedLibrary(page, 1)
+    // A playlist holding the user's only track.
+    const { playlist } = await playlistOf(page, ['Track 001'])
+
+    // A made-up track id, appended and as part of a new order.
+    const statuses = await page.evaluate(async (playlist) => {
+      // An id no track has.
+      const missing = crypto.randomUUID()
+      /** Sends the track ids with `method` and answers the status. */
+      const send = (method: string, trackIds: string[]) => fetch(`/api/playlists/${playlist}/tracks`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trackIds }),
+      }).then(r => r.status)
+      return { append: await send('POST', [missing]), replace: await send('PUT', [missing]) }
+    }, playlist)
+
+    expect(statuses).toEqual({ append: 404, replace: 404 })
+    expect(await savedTitles(page, playlist)).toEqual(['Track 001'])
   })
 })

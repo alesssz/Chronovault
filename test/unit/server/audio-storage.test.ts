@@ -55,6 +55,17 @@ describe('AudioStorage', () => {
     expect(url.href).not.toContain('secret')
   })
 
+  it('signs an upload\'s size and type into the URL, so the storage takes only that file', async () => {
+    // The client under test (presigning is local: no request).
+    const storage = new AudioStorage(config)
+    // An upload URL for a 1234-byte FLAC, and a plain one.
+    const upload = new URL(await storage.presign('PUT', 'user-1/track-1.flac', 3600, { size: 1234, contentType: 'audio/flac' }))
+    const plain = new URL(await storage.presign('GET', 'user-1/track-1.flac', 3600))
+
+    expect(upload.searchParams.get('X-Amz-SignedHeaders')).toBe('content-length;content-type;host')
+    expect(plain.searchParams.get('X-Amz-SignedHeaders')).toBe('host')
+  })
+
   it('reads size and type of an existing object, null when missing', async () => {
     // Two answers: the object, then a missing one.
     const fetchImpl = vi.fn()

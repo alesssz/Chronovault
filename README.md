@@ -52,7 +52,7 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [5. Architecture](docs/05-architecture.md) | Overview, key principles, where everything runs, rendering modes, reusable building blocks, brand and theme |
 | [6. Project structure](docs/06-project-structure.md) | The folder tree, file by file |
 | [7. Data flows](docs/07-data-flows.md) | How each feature works end to end: sign-in, loading the library, upload, WAV → FLAC, playback and casting, queue, editing, lyrics, deletion, download, clean-up, playlists, sharing, statistics, draft versions |
-| [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, exact storage paths, headers, Content Security Policy, caps) |
+| [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, exact storage paths, uploads signed for one file, headers, Content Security Policy, caps) |
 | [9. API reference](docs/09-api-reference.md) | Every API route: method, body, answers and errors |
 | [10. Configuration](docs/10-configuration.md) | Environment variables, env files and the notable `nuxt.config.ts` settings |
 | [11. Local development in detail](docs/11-local-development.md) | Prerequisites (from a blank macOS or Windows computer), what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the weekly audit |

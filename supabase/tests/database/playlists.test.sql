@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(34);
+select plan(36);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -144,8 +144,20 @@ select results_eq(
 select throws_ok(
   $$ select public.append_playlist_tracks('c1111111-1111-4111-8111-111111111111',
        array['b1111111-1111-4111-8111-111111111111']::uuid[]) $$,
-  '42501', null,
-  'someone else''s track cannot be appended (RLS)'
+  'P0002', null,
+  'someone else''s track cannot be appended: "not found" (404), like any item that is not the caller''s'
+);
+select throws_ok(
+  $$ select public.set_playlist_tracks('c1111111-1111-4111-8111-111111111111',
+       array['a1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111']::uuid[]) $$,
+  'P0002', null,
+  'a list holding someone else''s track is refused as "not found", and nothing is written'
+);
+select throws_ok(
+  $$ select public.append_playlist_tracks('c1111111-1111-4111-8111-111111111111',
+       array['e9999999-9999-4999-8999-999999999999']::uuid[]) $$,
+  'P0002', null,
+  'a track that does not exist is "not found" too'
 );
 select throws_ok(
   $$ select public.append_playlist_tracks('d1111111-1111-4111-8111-111111111111',

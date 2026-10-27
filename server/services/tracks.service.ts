@@ -63,7 +63,8 @@ export async function createUploadTarget(
   // The key the file will have: built here, from the signed-in user's id.
   const audioPath = buildAudioPath(userId, request.trackId, request.extension)
   return {
-    uploadUrl: await audio.presign('PUT', audioPath, UPLOAD_URL_TTL),
+    // For this file only: its declared size and type are part of the signature.
+    uploadUrl: await audio.presign('PUT', audioPath, UPLOAD_URL_TTL, { size: request.sizeBytes, contentType: request.mimeType }),
     audioPath,
     expiresAt: expiresIn(UPLOAD_URL_TTL),
   }

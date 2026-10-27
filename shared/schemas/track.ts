@@ -16,9 +16,16 @@ import { PEAKS_RESOLUTION } from '../utils/peaks'
  * types are what the server receives after parsing.
  */
 
+/**
+ * Any text the API takes: a string without the NUL character (U+0000). Postgres
+ * cannot store it in a text or jsonb column, so it used to reach the database
+ * and come back as a 500; refused here, it is a plain 400 with a message.
+ */
+export const safeText = () => z.string().refine(v => !v.includes('\u0000'), 'Text cannot contain a NUL character')
+
 /** Optional text: trimmed, empty string → null (so "cleared" fields are stored as NULL). */
 export const optionalText = (max: number) =>
-  z.string().trim().max(max, `At most ${max} characters`).transform(v => (v === '' ? null : v)).nullable()
+  safeText().trim().max(max, `At most ${max} characters`).transform(v => (v === '' ? null : v)).nullable()
 
 /** A storage key such as `<userId>/<trackId>.webp`; ownership is checked by the services. */
 export const storagePath = z.string().min(3).max(300)
@@ -37,13 +44,13 @@ export function patchSchemaOf<Shape extends z.ZodRawShape>(metadata: z.ZodObject
 /** One synced lyric line; `time` is capped at 24 hours as a sanity check. */
 export const syncedLyricLineSchema = z.object({
   time: z.number().min(0).max(86_400),
-  text: z.string().max(500),
+  text: safeText().max(500),
   section: z.boolean().optional(),
 })
 
 /** Every editable field of a track (edit page form). */
 export const trackMetadataSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(200, 'At most 200 characters'),
+  title: safeText().trim().min(1, 'Title is required').max(200, 'At most 200 characters'),
   composers: optionalText(300),
   genreId: z.uuid().nullable(),
   year: z.number().int().min(1000, 'Invalid year').max(9999, 'Invalid year').nullable(),
@@ -111,7 +118,7 @@ export type TrackUpdate = z.output<typeof trackUpdateSchema>
 
 /** Body of POST /api/genres: a custom genre name (unique per user, case-insensitive). */
 export const genreCreateSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(60, 'At most 60 characters'),
+  name: safeText().trim().min(1, 'Name is required').max(60, 'At most 60 characters'),
 })
 
 /** Validated body of POST /api/genres. */

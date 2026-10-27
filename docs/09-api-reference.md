@@ -1,6 +1,6 @@
 # 9. API reference
 
-All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues`; an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
+All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
 **Tracks and genres**
 
@@ -9,7 +9,7 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `GET` | `/api/health` | | `{ status, time }` (public) |
 | `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](13-deployment.md#137-keeping-supabase-awake)) |
 | `GET` | `/api/tracks` | | `TrackSummary[]`, newest first |
-| `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour); `409` when the id is already registered (its file is never overwritten) |
+| `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour, signed for the declared size and type: another file gets `403` from the storage); `409` when the id is already registered (its file is never overwritten) |
 | `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file |
 | `GET` | `/api/tracks/:id` | | `TrackDetail` |
 | `PATCH` | `/api/tracks/:id` | any subset of `trackMetadataSchema`, `coverPath` | `TrackDetail` |
@@ -38,8 +38,8 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/playlists/:id` | | `PlaylistDetail` |
 | `PATCH` | `/api/playlists/:id` | any subset of `{ title, description, visibility, coverPath }` | `PlaylistDetail` |
 | `DELETE` | `/api/playlists/:id` | | `204` (tracks stay in the library) |
-| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list) | `PlaylistDetail` |
-| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail` |
+| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list) | `PlaylistDetail`; `404` when a track is not the user's (missing or someone else's), nothing written |
+| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail`; `404` when a track is not the user's, nothing written |
 | `GET` | `/api/playlists/:id/feedback` | | `VersionFeedback`: voting open, votes and plays per version, comments; `404` unless a group of versions |
 | `POST` | `/api/playlists/:id/feedback/seen` | `{ at? }` (the `asOf` of the feedback on screen) | `204`: the group's feedback up to `at` is no longer new (never beyond now, never back); `404` unless the user's |
 | `GET` | `/api/feedback/unseen` | | `UnseenFeedback`: new votes in total and per group, since the owner's last visit to each |

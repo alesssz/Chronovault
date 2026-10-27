@@ -1,5 +1,6 @@
 /**
- * Shared Zod schemas (client forms and API bodies): trimming, nulls, limits, duplicates.
+ * Shared Zod schemas (client forms and API bodies): trimming, nulls, limits, duplicates, and the
+ * NUL character refused in every text.
  */
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
@@ -22,6 +23,20 @@ const validMetadata = {
   lyrics: '',
   lyricsSynced: null,
 }
+
+describe('text with a NUL character (U+0000)', () => {
+  it('is refused in every text field: titles, optional texts, synced lines, votes', () => {
+    // A text Postgres cannot store.
+    const nul = 'a\u0000b'
+    expect(trackUpdateSchema.safeParse({ title: nul }).success).toBe(false)
+    expect(trackUpdateSchema.safeParse({ lyrics: nul }).success).toBe(false)
+    expect(trackUpdateSchema.safeParse({ lyricsSynced: [{ time: 1, text: nul }] }).success).toBe(false)
+    expect(playlistCreateSchema.safeParse({ title: nul }).success).toBe(false)
+    expect(versionVoteSchema.safeParse({ voterId: crypto.randomUUID(), trackId: crypto.randomUUID(), comment: nul }).success).toBe(false)
+    // Any other character is fine.
+    expect(trackUpdateSchema.safeParse({ title: 'a\u0001b ♪' }).success).toBe(true)
+  })
+})
 
 describe('trackMetadataSchema', () => {
   it('trims whitespace and turns empty texts into null', () => {
