@@ -22,6 +22,20 @@ blob-report
 .github
 .git
 
-# Supabase local files
-supabase/.branches
-supabase/.temp
+# Not read by the build: documentation, tests, database migrations (applied
+# by the Supabase CLI, never by the app), the brand's source artwork (the
+# icons in public/ are generated from it). Left out of the context, editing
+# them no longer invalidates the image's install and build steps: a docs-only
+# change used to cost a full `pnpm install` + `pnpm build` at the next
+# `pnpm docker`.
+docs
+test
+supabase
+brand
+*.md
+# The build's own files: Docker reads the Dockerfile anyway, and copied into the
+# image they only made a comment edit cost a full rebuild.
+Dockerfile
+.dockerignore
+compose.yaml
+Makefile

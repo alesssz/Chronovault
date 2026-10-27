@@ -3,11 +3,13 @@
 # Chronovault — production image of the Nuxt app (Supabase runs separately).
 # Built and started by `pnpm docker` / `make docker` through compose.yaml.
 
+# The Node major of .nvmrc (test/unit/config/tool-versions.test.ts checks they agree).
 ARG NODE_VERSION=24
 
 # --- Build --------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS build
 WORKDIR /app
+# The pnpm of packageManager in package.json (checked by the same test).
 RUN npm install --global pnpm@12.14.0
 
 # The whole project (minus .dockerignore) is the build context.

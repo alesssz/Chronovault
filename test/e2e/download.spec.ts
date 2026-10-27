@@ -17,6 +17,8 @@ const TINY_PNG = Buffer.from(
 
 test.describe('download with tags', () => {
   test('the downloaded FLAC carries the metadata and the cover', async ({ page }) => {
+    // The page's clock under the test's control (it runs as usual until paused below).
+    await page.clock.install()
     await signUp(page)
     // A unique title: it also ends up in the file name and the tags.
     const title = `dl-${uniqueId()}`
@@ -67,11 +69,21 @@ test.describe('download with tags', () => {
         if (document.body.textContent?.includes('Preparing download')) w.progressToastSeen = true
       }).observe(document.body, { childList: true, subtree: true, characterData: true })
     })
+    // The clock stops for the download: "Preparing download…" waits 700 ms of the page's time, and
+    // a slow runner could take that long for a download that is fast for any user, failing the
+    // test for nothing. Stopped, only a download that never ends could show it. (pauseAt jumps to a
+    // moment ahead, then stops: a second on, before the click, when no download timer exists yet.)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000))
     // The next download, started by the button below.
     const downloadEvent = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
     // The file saved.
     const download = await downloadEvent
+    // A second past the 700 ms: a progress timer left running (not cleared when the download ended)
+    // would show "Preparing download…" now, and the observer above would see it. Then the clock
+    // runs again, for the toasts that follow.
+    await page.clock.runFor(1_000)
+    await page.clock.resume()
     expect(download.suggestedFilename()).toBe(`Ada Lovelace - ${title}.flac`)
     await expect(page.getByText(`Downloaded ${title}`).first()).toBeVisible()
     // The toast lists exactly what went into the file.
