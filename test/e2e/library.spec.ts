@@ -5,13 +5,7 @@
  */
 import { expect, test, type Page } from './fixtures'
 import { FLACDecoder } from '@wasm-audio-decoders/flac'
-import { makeWav, signUp, uniqueId, uploadTrack, type WavOptions } from './helpers'
-
-/** A valid 1×1 PNG. */
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-)
+import { makeWav, signUp, TINY_PNG, uniqueId, uploadTrack, type WavOptions } from './helpers'
 
 /** Downloads the audio file actually stored for the user's only track. */
 async function downloadStoredAudio(page: Page): Promise<Buffer> {

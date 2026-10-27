@@ -54,6 +54,7 @@ describe('contentSecurityPolicy', () => {
     const d = directivesOf(contentSecurityPolicy('n', LOCAL))
     expect(d['connect-src']).toEqual(['\'self\'', 'http://127.0.0.1:54321'])
     expect(d['media-src']).toEqual(['\'self\'', 'blob:', 'http://127.0.0.1:54321'])
+    expect(d['img-src']).toEqual(['\'self\'', 'data:', 'blob:', 'http://127.0.0.1:54321'])
   })
 
   it('lists each origin of a deployment with Supabase Cloud and R2', () => {
@@ -64,12 +65,15 @@ describe('contentSecurityPolicy', () => {
     }))
     expect(d['connect-src']).toEqual(['\'self\'', 'https://xyz.supabase.co', 'https://abc.r2.cloudflarestorage.com'])
     expect(d['media-src']).toEqual(['\'self\'', 'blob:', 'https://abc.r2.cloudflarestorage.com'])
+    // The share pages' covers are signed Supabase Storage URLs; the audio storage holds no images.
+    expect(d['img-src']).toEqual(['\'self\'', 'data:', 'blob:', 'https://xyz.supabase.co'])
   })
 
   it('leaves out a missing setting instead of writing an invalid source', () => {
-    // A policy without any configured backend.
+    // A policy without any configured backend, split into directives.
     const policy = contentSecurityPolicy('n', { supabaseUrl: '', audioEndpoint: '' })
     expect(directivesOf(policy)['connect-src']).toEqual(['\'self\''])
+    expect(directivesOf(policy)['img-src']).toEqual(['\'self\'', 'data:', 'blob:'])
     expect(policy).not.toContain('null')
   })
 })
@@ -88,5 +92,35 @@ describe('addNonce', () => {
     // Tags whose names only start like <script>.
     const html = ['<link rel="modulepreload" href="/a.js"><scripted-element></scripted-element><noscript>x</noscript>']
     expect(addNonce(html, 'n1')).toEqual(html)
+  })
+
+  it('never turns user text in an attribute into a script', () => {
+    // A share page's link preview as unhead writes it: the title's `"` escaped, its `<` not.
+    const head = ['<meta property="og:title" content="x<script a><script>alert(1)</script>"><script>boot()</script>']
+    // Before: `<script nonce="n1" a>` inside the value, whose `"` closed it, and a real script after it.
+    expect(addNonce(head, 'n1')).toEqual([
+      '<meta property="og:title" content="x<script a><script>alert(1)</script>"><script nonce="n1">boot()</script>',
+    ])
+  })
+
+  it('reads single-quoted values, and a `>` inside a value, as part of the value', () => {
+    // Values that hold a `>` and a `<script`, then a real script.
+    const head = ['<meta name="a" content=\'1 > 0 <script>\'><meta content = "<script>"><script></script>']
+    expect(addNonce(head, 'n1')).toEqual([
+      '<meta name="a" content=\'1 > 0 <script>\'><meta content = "<script>"><script nonce="n1"></script>',
+    ])
+  })
+
+  it('leaves a script\'s contents and comments as they are', () => {
+    // `<script` inside a script's text and inside a comment, around two real scripts.
+    const html = ['<script>document.write("<script>")</script><!-- <script> --><style>a::after{content:"<script>"}</style><SCRIPT src="/b.js"></SCRIPT>']
+    expect(addNonce(html, 'n1')).toEqual([
+      '<script nonce="n1">document.write("<script>")</script><!-- <script> --><style>a::after{content:"<script>"}</style><script nonce="n1" src="/b.js"></SCRIPT>',
+    ])
+  })
+
+  it('copies text, a lone `<` and an unclosed tag as they are', () => {
+    // Text with a `<` that starts no tag, and a chunk cut off inside a tag.
+    expect(addNonce(['a < b <3', '<meta content="x'], 'n1')).toEqual(['a < b <3', '<meta content="x'])
   })
 })

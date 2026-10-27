@@ -1,5 +1,5 @@
 /**
- * End-to-end helpers: WAV files generated on the fly, throwaway accounts,
+ * End-to-end helpers: WAV files generated on the fly, a tiny cover image, throwaway accounts,
  * uploads (one through the page, or hundreds straight through the API for a
  * large library), and waiting for a save to really reach the server.
  */
@@ -56,6 +56,12 @@ export function makeWav(options: WavOptions = {}): Buffer {
 
   return Buffer.concat([header, data])
 }
+
+/** A valid 1×1 PNG, the cover the tests pick: the crop editor turns it into the stored WebP cover. */
+export const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+)
 
 /** A short unique suffix for titles and emails, so tests never collide. */
 export function uniqueId(): string {
