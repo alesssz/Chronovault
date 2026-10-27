@@ -49,9 +49,12 @@ const emit = defineEmits<{
   status: [track: TrackSummary, status: TrackStatus]
 }>()
 
+/** The ticked ids as a set (looked up for every row drawn, at every change). */
+const selectedSet = computed(() => new Set(selected.value))
+
 /** The track's checkbox is ticked. */
 function isSelected(track: TrackSummary): boolean {
-  return selected.value.includes(track.id)
+  return selectedSet.value.has(track.id)
 }
 
 /** Ticks or unticks a track (a new array, so the page's v-model updates). */

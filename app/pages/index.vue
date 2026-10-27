@@ -13,6 +13,7 @@
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistsApi, tracksApi } from '~/services/api'
 import { feedbackPlaylistTitle } from '~/lib/feedback-playlist'
+import { readLibrary } from '~/lib/library-request'
 
 // Browser tab title: "Library · Chronovault".
 usePageTitle('Library')
@@ -24,8 +25,8 @@ const toast = useToast()
 // The genres, and the name of a genre id (filter and rows).
 const { genres, genreName } = useGenres()
 
-// The library (newest first); empty while it loads.
-const { data: tracks, status, error, refresh } = await useAsyncData('tracks', () => tracksApi.list(), {
+// The library (newest first); empty while it loads. Shared with the saved-queue restore when both ask at once.
+const { data: tracks, status, error, refresh } = await useAsyncData('tracks', () => readLibrary(), {
   default: () => [] as TrackSummary[],
 })
 
@@ -137,8 +138,28 @@ watch(filtered, (list) => {
   selectedIds.value = selectedIds.value.filter(id => visible.has(id))
 })
 
+/**
+ * The ticked ids as a set: looking each track up in the array (`includes`) cost
+ * millions of comparisons after "Select all" on a few thousand tracks, again
+ * at every tick.
+ */
+const selectedSet = computed(() => new Set(selectedIds.value))
 /** The ticked tracks, in library order. */
-const selectedTracks = computed(() => filtered.value.filter(t => selectedIds.value.includes(t.id)))
+const selectedTracks = computed(() => filtered.value.filter(t => selectedSet.value.has(t.id)))
+
+/** Titles named in the bulk delete question; the rest are counted. */
+const DELETE_NAMED = 3
+/**
+ * The bulk delete question: the first few titles, then how many more (all of
+ * them made an unreadable wall of text after "Select all", rebuilt at every tick).
+ */
+const deleteDescription = computed(() => {
+  // The titles named, quoted.
+  const named = selectedTracks.value.slice(0, DELETE_NAMED).map(t => `“${t.title}”`).join(', ')
+  // How many are left unnamed.
+  const rest = selectedTracks.value.length - DELETE_NAMED
+  return `${named}${rest > 0 ? ` and ${pluralize(rest, 'other track')}` : ''} will be permanently deleted, with their files.`
+})
 
 /** Every visible track is ticked (drives the "select all" checkbox). */
 const allSelected = computed(() => filtered.value.length > 0 && selectedIds.value.length === filtered.value.length)
@@ -464,7 +485,7 @@ async function confirmDelete() {
     <ConfirmDialog
       v-model:open="bulkDeleteOpen"
       :title="selectedIds.length === 1 ? 'Delete this track?' : `Delete ${selectedIds.length} tracks?`"
-      :description="selectedTracks.map(t => `“${t.title}”`).join(', ') + ' and their files will be permanently deleted.'"
+      :description="deleteDescription"
       confirm-label="Delete"
       :loading="bulkDeleting"
       @confirm="confirmBulkDelete"

@@ -108,6 +108,8 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261026000000_anonymous_write_caps.sql` | Caps on anonymous writes: `record_play` counts at most 100 different visitors per track and day, `cast_version_vote` takes at most 50 votes per group; past them `53400` (→ `429`). Index on a track's visitors per day |
 | `20261026120000_storage_path_rules.sql` | Storage paths are exactly the ones the app builds: `tracks.audio_path` `<user_id>/<id>.<extension>`, `tracks.cover_path` `<user_id>/<id>.webp`, `playlists.cover_path` `<user_id>/playlists/<id>.webp` (they only had to start with the owner's folder, so a `..` could name another user's file) |
 | `20261027000000_playlist_track_writes.sql` | Writes to a playlist's list that overlap: `set_playlist_tracks` locks the playlist's row first (two replacements at once clashed with `23505`), and the new `append_playlist_tracks` appends in one locked step (an append was a read and a rewrite, so two at once lost a track) |
+| `20261027120000_shared_playlist_lookups.sql` | `get_shared_playlist_track_audio` and `get_shared_playlist_cover`: one path each, where the shared playlist's playback and cover routes read the whole list |
+| `20261027130000_lookup_indexes.sql` | Indexes on `tracks.cover_path` and `playlists.cover_path` (the storage policy looked covers up with a scan of every user's rows, once per cover signed) and on `genres.user_id` |
 
 ## 8.3 Database functions
 
@@ -115,6 +117,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 |---|---|---|
 | `get_shared_track(id)` | definer | Shareable fields of a non-private track (nothing for private ones) |
 | `get_shared_playlist(id)` | definer | A non-private playlist's title, description, cover, visibility, purpose |
+| `get_shared_playlist_track_audio(id, track)` · `get_shared_playlist_cover(id)` | definer | One path each, for the share page's player and link previews: the audio file of a track of a non-private playlist (null otherwise), and the cover it shows (its own, else the first track cover) |
 | `get_shared_playlist_tracks(id)` | definer | Shareable fields of every track of a non-private playlist, in order (private tracks included) |
 | `private.is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
 | `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction, the playlist's row locked first (RLS applies); signed-in users only |

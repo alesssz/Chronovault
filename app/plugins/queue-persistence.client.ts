@@ -1,5 +1,5 @@
 import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
-import { tracksApi } from '~/services/api'
+import { readLibrary } from '~/lib/library-request'
 
 /**
  * Keeps the library play queue across reloads and visits on this device.
@@ -77,8 +77,8 @@ export default defineNuxtPlugin(() => {
     if (!saved) return
     restoring = true
     try {
-      // Current library: drops deleted tracks, brings current cover addresses.
-      const library = await tracksApi.list()
+      // Current library: drops deleted tracks, brings current cover addresses (the library page's own read when it is asking too).
+      const library = await readLibrary()
       // The user may have started something while the library loaded.
       if (player.isActive) return
       // The saved ids matched with the library (deleted tracks dropped).

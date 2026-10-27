@@ -113,6 +113,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `useAsyncTask` | composable | Every button that calls the API: a `running` flag for the spinner, failures as an error toast |
 | `usePlaylistList(purpose)` | composable | The cached list of playlists or of groups of versions, kept in sync by the pages that change them (`remember`, `forget`) |
 | `<PlaylistEditor>`, `<PlaylistGrid>` | components | Owner page and card grid of both purposes: Playlists and Versions |
+| `readLibrary` | `app/lib/library-request.ts` | The library list (`GET /api/tracks`): the library page and the saved-queue restore share a read in progress |
 | `useEditForm` | composable | Track editor, playlist page: form state, "unsaved changes" and the confirmation before leaving the page or the app (reload, closed tab) |
 | `useCoverEditor` + `useCoverStorage` | composables | Cover pickers (crop → WebP → Storage → `PATCH coverPath`), and the covers found in tags during an upload |
 | `useSortableList` + `<DragHandle>` | composable + component | Drag and drop of the playlist page and the "Up next" panel |

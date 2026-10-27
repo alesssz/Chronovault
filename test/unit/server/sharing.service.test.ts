@@ -7,7 +7,9 @@ import type { SharedTrackRow } from '~~/server/mappers/track'
 import type { SharedPlaylistRow, SharedPlaylistTrackRow } from '~~/server/mappers/playlist'
 import type { DbClient } from '~~/server/utils/auth'
 import type { AudioStorage } from '~~/server/repositories/audio-storage'
-import { findSharedPlaylistRow, findSharedTrackRow, listSharedPlaylistTrackRows } from '~~/server/repositories/sharing.repository'
+import {
+  findSharedPlaylistCover, findSharedPlaylistRow, findSharedPlaylistTrackAudio, findSharedTrackRow, listSharedPlaylistTrackRows,
+} from '~~/server/repositories/sharing.repository'
 import * as storageRepo from '~~/server/repositories/storage.repository'
 import {
   getSharedCoverUrl,
@@ -157,8 +159,10 @@ describe('shared playlists', () => {
     await expect(getSharedPlaylist(db, PLAYLIST)).rejects.toMatchObject({ statusCode: 404 })
   })
 
-  it('signs the audio of a track (even a private one) only through its playlist', async () => {
-    vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
+  it('signs the audio of a track (even a private one) only through its playlist, reading that one file', async () => {
+    // The database knows the private track as part of the playlist, and no other.
+    vi.mocked(findSharedPlaylistTrackAudio).mockImplementation(async (_db, _playlist, trackId) =>
+      (trackId === PRIVATE ? `${USER}/${PRIVATE}.flac` : null))
 
     // The private track's address, asked for through the shared playlist.
     const source = await getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, PRIVATE)
@@ -167,14 +171,24 @@ describe('shared playlists', () => {
     await expect(getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, '55555555-5555-4555-8555-555555555555'))
       .rejects.toMatchObject({ statusCode: 404 })
     expect(streamUrl).toHaveBeenCalledTimes(1)
+    // Never the whole list (lyrics, peaks…) for one file.
+    expect(listSharedPlaylistTrackRows).not.toHaveBeenCalled()
   })
 
-  it('uses the first track cover for link previews when there is no custom cover', async () => {
+  it('uses the first track cover for link previews when there is no custom cover, reading that one path', async () => {
     vi.mocked(findSharedPlaylistRow).mockResolvedValue(playlistRow)
-    vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
+    vi.mocked(findSharedPlaylistCover).mockResolvedValue(COVER)
 
     await getSharedPlaylistCoverUrl(db, PLAYLIST)
 
     expect(storageRepo.createSignedUrl).toHaveBeenCalledWith(db, 'covers', COVER)
+    expect(listSharedPlaylistTrackRows).not.toHaveBeenCalled()
+  })
+
+  it('answers 404 for the cover of a shared playlist with no cover at all', async () => {
+    vi.mocked(findSharedPlaylistRow).mockResolvedValue(playlistRow)
+    vi.mocked(findSharedPlaylistCover).mockResolvedValue(null)
+
+    await expect(getSharedPlaylistCoverUrl(db, PLAYLIST)).rejects.toMatchObject({ statusCode: 404 })
   })
 })
