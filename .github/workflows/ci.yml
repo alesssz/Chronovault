@@ -73,8 +73,21 @@ jobs:
       # pgTAP (supabase/tests/database): RLS, privileges, sharing functions, caps, storage paths.
       - run: pnpm test:db
 
-      # Chromium and the system libraries it needs (the tests use no other browser).
-      - run: pnpm exec playwright install --with-deps chromium
+      # The browser the tests run, headless Chromium ("--only-shell": they never open the full
+      # browser), kept between runs for this Playwright version; the system libraries it needs
+      # ("--with-deps") are installed on every run, the machine being new each time.
+      # The Playwright version ("Version 1.64.1" → 1.64.1), read only to name the cache below.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # The browsers of a previous run, when that run had the same Playwright: a new version needs
+      # its own browser, so it misses the cache, downloads it once, and saves it for the next runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # Downloads the browser only when the cache missed; installs the system libraries every time.
+      - run: pnpm exec playwright install --with-deps --only-shell chromium
       # Playwright on a production build (playwright.config.ts). CI=true: a failed test is retried
       # once, the report is written for GitHub (annotations) and as HTML, and the server is always
       # built fresh instead of reusing one already running.

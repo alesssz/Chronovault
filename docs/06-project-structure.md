@@ -98,7 +98,7 @@ Chronovault/
 │   ├── seed.sql                      # Local demo user
 │   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql
 ├── test/
-│   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts and brand checks)
+│   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
 │   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
 │                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts

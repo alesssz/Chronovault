@@ -189,6 +189,8 @@ or `make setup` followed by `make dev`.
 
 Supabase always runs in the containers managed by the Supabase CLI. `pnpm docker` builds the app image from the `Dockerfile` (multi-stage: dependencies and build in the first stage, only the self-contained `.output/` in the final `node:24-alpine` image, run as the unprivileged `node` user, with a health check on `/api/health`) and starts it with `compose.yaml` on port 8180.
 
+**Rebuilds skip what did not change.** The pnpm store is a BuildKit cache (packages are never downloaded twice), and `.dockerignore` leaves out of the build context everything the build does not read: documentation, tests, migrations, the brand's source artwork, `*.md`, and the Dockerfile, `compose.yaml` and `Makefile` themselves. Editing any of them no longer invalidates the image's `pnpm install` and `pnpm build` steps, so the next `pnpm docker` reuses the image as it was; a change to the code or the dependencies rebuilds as before. The pnpm the image installs and its Node major are pinned in the Dockerfile; a unit test checks they agree with `packageManager` and `.nvmrc` (`test/unit/config/tool-versions.test.ts`).
+
 Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. The browser uses the same URLs (including the presigned audio URLs), so the host must resolve that name too: Docker Desktop on Windows adds it to the hosts file, on macOS it has to be added once by hand (see [Troubleshooting](16-troubleshooting.md#16-troubleshooting)). The script writes them to `.env.docker`. The image is rebuilt on every `pnpm docker` (the pnpm store is a build cache, so rebuilds are fast).
 
 ## 11.4 Local services
