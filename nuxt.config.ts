@@ -174,6 +174,18 @@ export default defineNuxtConfig({
     },
   },
 
+  // Lucide icons (@iconify-json/lucide, installed locally). `scan`: every icon
+  // the code names goes into the client bundle, so none is fetched at runtime
+  // (only Nuxt UI's own were bundled: the header's icons came later, one
+  // request per session). One the scan misses comes from the app's own
+  // /api/_nuxt_icon; never from Iconify's public API (`fallbackToApi`), which
+  // the Content Security Policy blocks and which is a request to a third party:
+  // when the app's endpoint answered slowly, icons went missing that way.
+  icon: {
+    clientBundle: { scan: true },
+    fallbackToApi: false,
+  },
+
   pwa: {
     registerType: 'autoUpdate',
     // The installed app: its name under the icon, and the night blue of the
