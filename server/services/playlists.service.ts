@@ -89,7 +89,12 @@ export async function setPlaylistTracks(db: DbClient, userId: string, id: string
   return getPlaylist(db, userId, id)
 }
 
-/** Appends tracks to the playlist; tracks already in it are left where they are. */
+/**
+ * Appends tracks to the playlist; tracks already in it are left where they are.
+ * The list read here only answers 404 and the size limit's message; the append
+ * itself is one step in the database (appendPlaylistTrackIds), so two appends
+ * at the same moment both land.
+ */
 export async function addPlaylistTracks(db: DbClient, userId: string, id: string, trackIds: string[]): Promise<PlaylistDetail> {
   // The track ids already in the playlist, in order (null: no such playlist).
   const current = await playlistsRepo.findPlaylistTrackIds(db, userId, id)
@@ -100,7 +105,7 @@ export async function addPlaylistTracks(db: DbClient, userId: string, id: string
     if (current.length + added.length > MAX_PLAYLIST_TRACKS) {
       throw badRequest(`A playlist holds at most ${MAX_PLAYLIST_TRACKS} tracks`)
     }
-    await playlistsRepo.setPlaylistTrackIds(db, id, [...current, ...added])
+    await playlistsRepo.appendPlaylistTrackIds(db, id, added)
   }
   return getPlaylist(db, userId, id)
 }

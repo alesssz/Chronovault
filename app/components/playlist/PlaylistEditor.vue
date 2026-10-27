@@ -129,30 +129,62 @@ function playAll() {
   else void player.playAll(tracks.value)
 }
 
-/** A reorder/removal is being saved (spinner next to the list heading). */
+/**
+ * A reorder/removal is being saved: the spinner next to the list heading, and
+ * the sign for saveTracks that a new change must wait its turn (`waiting`).
+ */
 const savingOrder = ref(false)
+/**
+ * A change made while a save was running, sent once that save answers; only the
+ * latest one is kept (each holds the whole list), with its failure toast's title.
+ */
+let waiting: { order: TrackSummary[], failureTitle: string } | null = null
 
 /**
  * Saves a new track list (order or removal) right away. The list updates
  * first (optimistic); if the request fails it goes back to the saved one.
+ *
+ * One save at a time: two quick changes sent together could reach the server
+ * in the wrong order (two serverless instances, a slow network), and the older
+ * list would overwrite the newer one. A change made meanwhile waits for the
+ * running save, then goes in its turn; while it waits, the running save's
+ * answer does not reset what is on screen.
  */
 async function saveTracks(next: TrackSummary[], failureTitle: string) {
-  // The order on the server, to go back to on failure.
-  const previous = playlist.value!.tracks
   tracks.value = next
+  if (savingOrder.value) {
+    waiting = { order: next, failureTitle }
+    return
+  }
   savingOrder.value = true
-  try {
-    applyServerPlaylist(await playlistsApi.setTracks(props.id, next.map(t => t.id)))
-    // A removed version takes its votes and plays out of the feedback.
-    void loadFeedback()
+  // The save to send now: this one, then whatever waited meanwhile.
+  let current: { order: TrackSummary[], failureTitle: string } | null = { order: next, failureTitle }
+  while (current) {
+    // The order on the server, to go back to on failure.
+    const previous = playlist.value!.tracks
+    try {
+      // The playlist as the server stored it.
+      const updated = await playlistsApi.setTracks(props.id, current.order.map(t => t.id))
+      // A newer change waits: keep it on screen, and only adopt the server's copy.
+      if (waiting) {
+        playlist.value = updated
+        remember(updated)
+      }
+      else {
+        applyServerPlaylist(updated)
+      }
+      // A removed version takes its votes and plays out of the feedback.
+      void loadFeedback()
+    }
+    catch (err) {
+      // Back to the saved list, unless a newer change is about to be saved over it.
+      if (!waiting) tracks.value = [...previous]
+      toast.add({ title: current.failureTitle, description: getErrorMessage(err), color: 'error' })
+    }
+    current = waiting
+    waiting = null
   }
-  catch (err) {
-    tracks.value = [...previous]
-    toast.add({ title: failureTitle, description: getErrorMessage(err), color: 'error' })
-  }
-  finally {
-    savingOrder.value = false
-  }
+  savingOrder.value = false
 }
 
 /** "Move up/down": swaps the track with its neighbour and saves. */

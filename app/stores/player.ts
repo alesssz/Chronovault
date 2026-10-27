@@ -82,8 +82,18 @@ export const usePlayerStore = defineStore('player', () => {
   /**
    * The track to show: the loaded one, or while it loads (no full data yet)
    * its summary from the queue. Null when idle.
+   *
+   * `current` keeps the previous track's data until the next one's arrives, so
+   * it is shown only when it is the queue's current item: during a change of
+   * track (and after a failed load) the bar, the full-screen view and Up next
+   * show the track being moved to, not the one before it, with its own error.
    */
-  const displayTrack = computed<QueueItem | null>(() => current.value ?? queue.value[index.value] ?? null)
+  const displayTrack = computed<QueueItem | null>(() => {
+    // The queue's current item (none when idle, or a lone track without a queue).
+    const item = queue.value[index.value] ?? null
+    if (!item) return current.value
+    return current.value?.id === item.id ? current.value : item
+  })
   /** Shuffle and repeat apply: library playback (public pages play their list in order). */
   const modesApply = computed(() => sourceKey.value === librarySource.key)
   /** "Repeat all" is in effect: the queue starts again after its last track. */

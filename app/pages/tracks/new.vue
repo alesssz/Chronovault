@@ -3,7 +3,8 @@
  * Upload page: drop or pick audio files; each one goes through the upload
  * queue (useTrackUploader): analysis → WAV-to-FLAC conversion → direct
  * upload to R2 → registration. The list shows every file's status, progress
- * and conversion outcome.
+ * and conversion outcome. Leaving while files are in progress asks first,
+ * whether by closing the tab or by going to another page of the app.
  */
 import type { UploadConversion, UploadStatus } from '~/composables/useTrackUploader'
 import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
@@ -45,6 +46,11 @@ function conversionLabel(conversion: UploadConversion): string {
 // Warn before closing the page while uploads are in progress.
 useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
   if (pending.value > 0) event.preventDefault()
+})
+// And before leaving it for another page of the app: once left, the file in progress finishes
+// but the ones still queued are not uploaded (nothing would show them: useTrackUploader).
+onBeforeRouteLeave(() => {
+  if (pending.value > 0 && !window.confirm('Uploads are still in progress. Leave anyway? Files not started yet will not be uploaded.')) return false
 })
 </script>
 

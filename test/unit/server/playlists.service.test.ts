@@ -31,6 +31,7 @@ vi.mock('~~/server/repositories/playlists.repository', async (importOriginal) =>
     updatePlaylistRow: vi.fn(),
     deletePlaylistRow: vi.fn(),
     setPlaylistTrackIds: vi.fn(),
+    appendPlaylistTrackIds: vi.fn(),
   }
 })
 vi.mock('~~/server/repositories/storage.repository', () => ({
@@ -202,18 +203,19 @@ describe('playlist tracks', () => {
     vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([]))
   })
 
-  it('appends only the tracks that are not in the playlist yet', async () => {
+  it('appends only the tracks that are not in the playlist yet, in one step (never rewriting the list)', async () => {
     vi.mocked(playlistsRepo.findPlaylistTrackIds).mockResolvedValue([T1, T2])
 
     await addPlaylistTracks(db, USER, PLAYLIST, [T2, T3])
 
-    expect(playlistsRepo.setPlaylistTrackIds).toHaveBeenCalledWith(db, PLAYLIST, [T1, T2, T3])
+    expect(playlistsRepo.appendPlaylistTrackIds).toHaveBeenCalledWith(db, PLAYLIST, [T3])
+    expect(playlistsRepo.setPlaylistTrackIds).not.toHaveBeenCalled()
   })
 
   it('does not write anything when every track is already there', async () => {
     vi.mocked(playlistsRepo.findPlaylistTrackIds).mockResolvedValue([T1])
     await addPlaylistTracks(db, USER, PLAYLIST, [T1])
-    expect(playlistsRepo.setPlaylistTrackIds).not.toHaveBeenCalled()
+    expect(playlistsRepo.appendPlaylistTrackIds).not.toHaveBeenCalled()
   })
 
   it('replaces the whole list when reordering', async () => {
@@ -227,5 +229,6 @@ describe('playlist tracks', () => {
     await expect(addPlaylistTracks(db, USER, PLAYLIST, [T1])).rejects.toMatchObject({ statusCode: 404 })
     await expect(setPlaylistTracks(db, USER, PLAYLIST, [T1])).rejects.toMatchObject({ statusCode: 404 })
     expect(playlistsRepo.setPlaylistTrackIds).not.toHaveBeenCalled()
+    expect(playlistsRepo.appendPlaylistTrackIds).not.toHaveBeenCalled()
   })
 })

@@ -350,6 +350,32 @@ describe('player store', () => {
     expect(player.queue[0]?.title).toBe('New title')
     expect(player.queue[0]).not.toHaveProperty('audioPath')
   })
+
+  it('shows the track being loaded, not the one before it, and keeps showing it when its load fails', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    expect(player.displayTrack?.id).toBe('a')
+
+    // b's data takes a while to come, then fails.
+    let failLoad!: (reason: unknown) => void
+    vi.mocked(tracksApi.get).mockImplementationOnce(() => new Promise((_, reject) => {
+      failLoad = reject
+    }))
+    // The move to b, still loading.
+    const moving = player.next()
+
+    // While b loads: b is shown (its summary from the queue), not a's full data still in `current`.
+    expect(player.status).toBe('loading')
+    expect(player.current?.id).toBe('a')
+    expect(player.displayTrack?.id).toBe('b')
+
+    failLoad({ data: { message: 'Track not found' } })
+    await moving
+    // The error belongs to b, and b is what the player shows with it.
+    expect(player.status).toBe('error')
+    expect(player.displayTrack?.id).toBe('b')
+  })
 })
 
 describe('expired or refused audio sources', () => {

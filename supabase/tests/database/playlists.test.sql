@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(28);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -126,6 +126,32 @@ select results_eq(
      where playlist_id = 'c2222222-2222-4222-8222-222222222222' order by position $$,
   $$ values ('a1111111-1111-4111-8111-111111111111'), ('a2222222-2222-4222-8222-222222222222') $$,
   'set_playlist_tracks stores the new order'
+);
+
+-- Appending (…_playlist_track_writes.sql): at the end, in order, each track once, never twice.
+select lives_ok(
+  $$ select public.append_playlist_tracks('c1111111-1111-4111-8111-111111111111',
+       array['a2222222-2222-4222-8222-222222222222', 'a1111111-1111-4111-8111-111111111111',
+             'a2222222-2222-4222-8222-222222222222']::uuid[]) $$,
+  'A appends tracks to own playlist'
+);
+select results_eq(
+  $$ select track_id::text, position from public.playlist_tracks
+     where playlist_id = 'c1111111-1111-4111-8111-111111111111' order by position $$,
+  $$ values ('a1111111-1111-4111-8111-111111111111', 0), ('a2222222-2222-4222-8222-222222222222', 1) $$,
+  'an append goes after the tracks there, skipping one already in the list and one given twice'
+);
+select throws_ok(
+  $$ select public.append_playlist_tracks('c1111111-1111-4111-8111-111111111111',
+       array['b1111111-1111-4111-8111-111111111111']::uuid[]) $$,
+  '42501', null,
+  'someone else''s track cannot be appended (RLS)'
+);
+select throws_ok(
+  $$ select public.append_playlist_tracks('d1111111-1111-4111-8111-111111111111',
+       array['a1111111-1111-4111-8111-111111111111']::uuid[]) $$,
+  'P0002', null,
+  'nothing can be appended to someone else''s playlist'
 );
 
 select throws_ok(
