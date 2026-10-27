@@ -32,10 +32,12 @@ async function rowAction(page: Page, title: string, action: string) {
 test.describe('editable queue', () => {
   test('add, play next, reorder, remove, play now and clear', async ({ page }) => {
     await signUp(page)
-    // Three tracks named uniquely for this test.
+    // Three tracks named uniquely for this test. Two minutes long: a track that ends mid-test moves
+    // the queue on by itself (with 3-second tracks a slow CI runner saw "a" end before Remove, so
+    // Up next lost "c" too), and nothing here waits for a track to end.
     const id = uniqueId()
     const [a, b, c] = [`qa-${id}`, `qb-${id}`, `qc-${id}`]
-    for (const title of [a, b, c]) await uploadTrack(page, title)
+    for (const title of [a, b, c]) await uploadTrack(page, title, { seconds: 120 })
     await page.getByRole('link', { name: 'Go to library' }).click()
 
     // The library shows the newest first (c, b, a): playing "a" leaves nothing after it.
@@ -84,7 +86,8 @@ test.describe('editable queue', () => {
 
   test('shuffle reorders the upcoming tracks and puts them back; repeat one restarts the track', async ({ page }) => {
     await signUp(page)
-    // Five tracks named uniquely for this test.
+    // Five tracks named uniquely for this test. The default 3 seconds on purpose, unlike the test
+    // above: playback is paused at once, and "repeat one" below needs the track to reach its end.
     const id = uniqueId()
     const titles = ['a', 'b', 'c', 'd', 'e'].map(letter => `s${letter}-${id}`)
     for (const title of titles) await uploadTrack(page, title)
