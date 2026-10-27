@@ -122,6 +122,7 @@ test.describe('overlapping playlist writes', () => {
   test('a track that is not the user\'s is "not found" (404), and the list stays as it was', async ({ page }) => {
     await signUp(page)
     await seedLibrary(page, 1)
+    // A playlist holding the user's only track.
     const { playlist } = await playlistOf(page, ['Track 001'])
 
     // A made-up track id, appended and as part of a new order.

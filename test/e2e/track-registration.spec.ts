@@ -64,7 +64,7 @@ test.describe('registering a track twice', () => {
 
     // An address for a 1000-byte FLAC, then PUTs of other files and of that one.
     const statuses = await page.evaluate(async () => {
-      // A JSON POST through the page (its session cookie goes along).
+      // The upload address for that file (asked through the page: its session cookie goes along).
       const target = await (await fetch('/api/tracks/upload-url', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
