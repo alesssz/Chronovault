@@ -7,13 +7,7 @@
 import { readFile } from 'node:fs/promises'
 import { parseBuffer } from 'music-metadata'
 import { expect, test } from './fixtures'
-import { signUp, uniqueId, uploadTrack } from './helpers'
-
-/** A valid 1×1 PNG, used as the cover. */
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-)
+import { signUp, TINY_PNG, uniqueId, uploadTrack } from './helpers'
 
 test.describe('download with tags', () => {
   test('the downloaded FLAC carries the metadata and the cover', async ({ page }) => {

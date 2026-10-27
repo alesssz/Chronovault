@@ -4,13 +4,7 @@
  * address changes only when the cover does, and only the owner can read it.
  */
 import { expect, test, type Page } from './fixtures'
-import { clickAndWaitForApi, signUp, uniqueId, uploadTrack } from './helpers'
-
-// A 1×1 PNG: the crop editor turns it into the stored WebP cover.
-const TINY_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-)
+import { clickAndWaitForApi, signUp, TINY_PNG, uniqueId, uploadTrack } from './helpers'
 
 /**
  * Sets a cover from the edit page (keeping the crop editor's centered square)
