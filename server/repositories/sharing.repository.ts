@@ -41,3 +41,25 @@ export async function listSharedPlaylistTrackRows(db: DbClient, id: string): Pro
   if (error) throw toHttpError(error, 'sharedPlaylists.tracks')
   return [...data].sort(byPosition)
 }
+
+/**
+ * The audio file of one track of a shared playlist; null when the playlist is
+ * private or missing, or the track is not in it. One path, for the player's
+ * every change of track, instead of the whole list with its lyrics and peaks.
+ */
+export async function findSharedPlaylistTrackAudio(db: DbClient, playlistId: string, trackId: string): Promise<string | null> {
+  const { data, error } = await db.rpc('get_shared_playlist_track_audio', { p_playlist_id: playlistId, p_track_id: trackId })
+  if (error) throw toHttpError(error, 'sharedPlaylists.trackAudio')
+  return data ?? null
+}
+
+/**
+ * The cover a shared playlist shows: its own, otherwise the first track's that
+ * has one, in order (the mosaic's first tile); null when there is none or the
+ * playlist is not shared. One path, instead of the whole list.
+ */
+export async function findSharedPlaylistCover(db: DbClient, id: string): Promise<string | null> {
+  const { data, error } = await db.rpc('get_shared_playlist_cover', { p_playlist_id: id })
+  if (error) throw toHttpError(error, 'sharedPlaylists.cover')
+  return data ?? null
+}

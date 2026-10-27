@@ -1,6 +1,7 @@
 /**
  * End-to-end, saved queue: after a reload the player comes back with the
- * same track, paused at the same position, and the same upcoming tracks;
+ * same track, paused at the same position, and the same upcoming tracks,
+ * with the library read once for both the page and the restored queue;
  * closing the player forgets it.
  */
 import { expect, test } from './fixtures'
@@ -33,8 +34,15 @@ test.describe('saved queue', () => {
     await expect(bar.getByTestId('player-elapsed')).toHaveText('0:10')
 
     // --- Reload: same track, paused, same position, same queue ---
+    // Reads of the library (GET /api/tracks) from now on: the page and the restore share one.
+    let libraryReads = 0
+    page.on('request', (request) => {
+      if (request.method() === 'GET' && new URL(request.url()).pathname === '/api/tracks') libraryReads++
+    })
     await page.reload()
     await expect(bar.getByTestId('player-title')).toHaveText(second)
+    await expect(page.getByTestId('track-row')).toHaveCount(2)
+    expect(libraryReads).toBe(1)
     await expect(toggle).toHaveAttribute('aria-label', 'Play')
     await expect(bar.getByTestId('player-elapsed')).toHaveText('0:10')
     await bar.getByTestId('player-queue').click()

@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(28);
+select plan(34);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -218,6 +218,44 @@ select results_eq(
   $$ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp'),
             ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp') $$,
   'visitors read the covers of shared playlists and of the tracks in them, nothing else'
+);
+
+-- The share page's lookups (…_shared_playlist_lookups.sql): one path each, same rule as the list.
+select is(
+  public.get_shared_playlist_track_audio('c2222222-2222-4222-8222-222222222222', 'a1111111-1111-4111-8111-111111111111'),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.flac',
+  'a visitor gets the audio file of a track (even a private one) through the shared playlist holding it'
+);
+select is(
+  public.get_shared_playlist_track_audio('c2222222-2222-4222-8222-222222222222', 'b1111111-1111-4111-8111-111111111111'),
+  null,
+  'no audio file for a track that is not in the playlist'
+);
+select is(
+  public.get_shared_playlist_track_audio('c1111111-1111-4111-8111-111111111111', 'a1111111-1111-4111-8111-111111111111'),
+  null,
+  'no audio file through a private playlist'
+);
+select is(
+  public.get_shared_playlist_cover('c2222222-2222-4222-8222-222222222222'),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp',
+  'a shared playlist shows its own cover'
+);
+select is(
+  public.get_shared_playlist_cover('c1111111-1111-4111-8111-111111111111'),
+  null,
+  'no cover for a private playlist'
+);
+
+-- Without a cover of its own, the first track's that has one, in playlist order.
+reset role;
+update public.playlists set cover_path = null where id = 'c2222222-2222-4222-8222-222222222222';
+set local role anon;
+select set_config('request.jwt.claims', '{"role": "anon"}', true);
+select is(
+  public.get_shared_playlist_cover('c2222222-2222-4222-8222-222222222222'),
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp',
+  'without its own cover, a shared playlist shows its first track cover (the mosaic''s first tile)'
 );
 
 select * from finish();

@@ -4,9 +4,11 @@ import { COVERS_BUCKET } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { notFound, playlistNotFound } from '../utils/errors'
 import { toSharedTrack } from '../mappers/track'
-import { mosaicPaths, toSharedPlaylist, type SignedUrls } from '../mappers/playlist'
+import { toSharedPlaylist, type SignedUrls } from '../mappers/playlist'
 import type { AudioStorage } from '../repositories/audio-storage'
-import { findSharedPlaylistRow, findSharedTrackRow, listSharedPlaylistTrackRows } from '../repositories/sharing.repository'
+import {
+  findSharedPlaylistCover, findSharedPlaylistRow, findSharedPlaylistTrackAudio, findSharedTrackRow, listSharedPlaylistTrackRows,
+} from '../repositories/sharing.repository'
 import * as storageRepo from '../repositories/storage.repository'
 import { playbackSource } from './playback'
 
@@ -70,10 +72,10 @@ export async function getSharedPlaylistPlaybackSource(
   playlistId: string,
   trackId: string,
 ): Promise<PlaybackSource> {
-  // Only a track listed by the shared playlist can be signed through it.
-  const track = (await listSharedPlaylistTrackRows(db, playlistId)).find(t => t.id === trackId)
-  if (!track) throw notFound()
-  return playbackSource(audio, track.audio_path)
+  // Only a track listed by the shared playlist can be signed through it (its file alone is read).
+  const audioPath = await findSharedPlaylistTrackAudio(db, playlistId, trackId)
+  if (!audioPath) throw notFound()
+  return playbackSource(audio, audioPath)
 }
 
 /** Fresh signed URL of the playlist's cover: the custom one, otherwise the first track cover. */
@@ -81,8 +83,8 @@ export async function getSharedPlaylistCoverUrl(db: DbClient, id: string): Promi
   // The playlist, if it is shared.
   const row = await findSharedPlaylistRow(db, id)
   if (!row) throw playlistNotFound()
-  // The custom cover, otherwise the first track cover of the mosaic.
-  const path = row.cover_path ?? mosaicPaths(await listSharedPlaylistTrackRows(db, id))[0] ?? null
+  // The custom cover, otherwise the first track cover of the mosaic (only that path is read).
+  const path = row.cover_path ?? await findSharedPlaylistCover(db, id)
   // A fresh signed URL of it, or null.
   const url = await signCover(db, path)
   if (!url) throw notFound('Cover not found')

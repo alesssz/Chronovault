@@ -7,6 +7,12 @@ import type { QueueItem } from '~/stores/player'
  * Upcoming tracks can be dragged (handle, mouse or touch), moved with their
  * menu, removed, or played right away. Every change goes straight to the
  * player store: the queue is the store's, this list only mirrors it.
+ *
+ * Only the first upcoming tracks are drawn, a hundred more at each "Show
+ * more": playing from the library queues the whole filtered list, thousands
+ * of rows that took seconds to draw on a phone (and to redraw at every change
+ * of the queue). Not a virtual list: SortableJS moves the rows' DOM nodes
+ * itself, which a virtual list redrawing them as it scrolls would undo.
  */
 const player = usePlayerStore()
 
@@ -15,15 +21,24 @@ const current = computed(() => player.displayTrack)
 /** Queue position of the first upcoming track. */
 const offset = computed(() => player.index + 1)
 
+/** Upcoming rows drawn at first, and added by each "Show more". */
+const PAGE_SIZE = 100
+/** How many upcoming rows are drawn now. */
+const shown = ref(PAGE_SIZE)
+
 /**
- * Local copy of the upcoming tracks for SortableJS, which moves DOM nodes
- * itself; kept in sync with the store in both directions.
+ * Local copy of the upcoming tracks drawn (the first `shown`) for SortableJS,
+ * which moves DOM nodes itself; kept in sync with the store in both
+ * directions. List positions are queue positions minus `offset`: the drawn
+ * rows always start at the first upcoming track.
  */
-const items = ref<QueueItem[]>([...player.upcoming])
-// Store → list: any queue change (from a menu, "next", a deletion) redraws it.
-watch(() => player.upcoming, (value) => {
-  items.value = [...value]
+const items = ref<QueueItem[]>(player.upcoming.slice(0, shown.value))
+// Store → list: any queue change (from a menu, "next", a deletion), or more rows asked for, redraws it.
+watch([() => player.upcoming, shown], ([value, count]) => {
+  items.value = value.slice(0, count)
 })
+/** Upcoming tracks not drawn yet (the "Show more" button says how many). */
+const notShown = computed(() => player.upcoming.length - items.value.length)
 
 /** The <ol> that SortableJS makes draggable. */
 const listEl = ref<HTMLElement | null>(null)
@@ -41,8 +56,8 @@ function move(i: number, delta: number) {
  * converted to absolute queue positions with `offset`.
  */
 function menuFor(i: number): DropdownMenuItem[][] {
-  // The last position in the list.
-  const last = items.value.length - 1
+  // The last upcoming position (drawn or not: the last drawn row can still move down).
+  const last = player.upcoming.length - 1
   return [
     [
       { label: 'Play now', icon: 'i-lucide-play', onSelect: () => void player.playFromQueue(offset.value + i) },
@@ -164,6 +179,18 @@ function menuFor(i: number): DropdownMenuItem[][] {
           </UDropdownMenu>
         </li>
       </ol>
+      <!-- More upcoming tracks than drawn: the next hundred -->
+      <UButton
+        v-if="notShown > 0"
+        :label="`Show more (${notShown} more up next)`"
+        icon="i-lucide-chevrons-down"
+        color="neutral"
+        variant="ghost"
+        block
+        class="mt-2"
+        data-testid="queue-show-more"
+        @click="shown += PAGE_SIZE"
+      />
     </section>
   </div>
 </template>

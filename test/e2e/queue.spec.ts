@@ -4,10 +4,10 @@
  * reorders it and puts it back, repeat one restarts the track; tooltips on
  * icon-only buttons, and the bar's waveform at tablet width: a real width,
  * above the controls, never covered by their tooltips once the pointer moves
- * onto it.
+ * onto it. A long queue draws a hundred rows at a time.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
-import { signUp, uniqueId, uploadTrack } from './helpers'
+import { seedLibrary, signUp, uniqueId, uploadTrack } from './helpers'
 
 /**
  * Hovers `target` and expects its tooltip. The mouse first leaves whatever
@@ -181,5 +181,45 @@ test.describe('editable queue', () => {
     const hit = await page.evaluate(([px, py]) =>
       !!document.elementFromPoint(px!, py!)?.closest('[data-testid="player-waveform"]'), [x, y])
     expect(hit).toBe(true)
+  })
+
+  test('a long queue draws a hundred rows at a time; the last one drawn still moves down', async ({ page }) => {
+    test.setTimeout(120_000)
+    await signUp(page)
+    // 250 tracks straight through the API: playing the first queues the other 249.
+    await seedLibrary(page, 250)
+    await page.goto('/')
+    await page.getByTestId('track-row').first().getByTestId('track-title').click()
+    // The seeded tracks last 0.1 s: "repeat one" keeps the queue still while the test reads it.
+    // The player bar, and its repeat button (off → all → one).
+    const bar = page.getByTestId('player-bar')
+    const repeatButton = bar.getByTestId('player-repeat')
+    await repeatButton.click()
+    await repeatButton.click()
+    await expect(repeatButton).toHaveAttribute('aria-label', 'Repeat: one')
+
+    await bar.getByTestId('player-queue').click()
+    // The rows drawn, and the button that draws more.
+    const rows = page.getByTestId('queue-item')
+    const more = page.getByTestId('queue-show-more')
+    await expect(rows).toHaveCount(100)
+    // Upcoming tracks in all: the hundred drawn plus the ones the button announces.
+    const announced = Number((await more.textContent())!.match(/\((\d+) more/)![1])
+    const total = 100 + announced
+
+    // The last row drawn moves down, past what is drawn: the next track takes its place.
+    // The titles drawn, and the hundredth one, the last row before Show more.
+    const titles = page.getByTestId('queue-item-title')
+    const hundredth = (await titles.nth(99).textContent())!.trim()
+    await page.getByRole('button', { name: `Queue actions for ${hundredth}` }).click()
+    await page.getByRole('menuitem', { name: 'Move down' }).click()
+    await expect(titles.nth(99)).not.toHaveText(hundredth)
+
+    // A hundred more at each click, until every upcoming track is drawn.
+    await more.click()
+    await expect(rows).toHaveCount(Math.min(200, total))
+    await expect(titles.nth(100)).toHaveText(hundredth)
+    while (await more.isVisible()) await more.click()
+    await expect(rows).toHaveCount(total)
   })
 })

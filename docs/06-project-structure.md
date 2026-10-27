@@ -47,6 +47,7 @@ Chronovault/
 │   │   ├── player/                   #   the player store's parts (7.5): queue.ts (queue and order) · playback.ts
 │   │   │                             #   (loaded track, engine, expired URLs) · sources.ts · settings.ts · types.ts
 │   │   ├── lyrics-sync.ts            #   the sync editor's rows and actions: stamp, undo, replay, nudge… (7.9)
+│   │   ├── library-request.ts        #   the library read, shared by callers asking at once (7.2)
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
