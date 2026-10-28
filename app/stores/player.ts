@@ -348,13 +348,17 @@ export const usePlayerStore = defineStore('player', () => {
 
   /**
    * Puts back a saved library queue (app/lib/queue-storage.ts), loaded and
-   * paused at `position`; `originalIds` is its order before shuffling.
+   * paused at `position`; `originalIds` is its order before shuffling, `from`
+   * the page it was started from (queueFrom), so a playlist's page still
+   * resumes it with "Play all" instead of starting over.
    * Does nothing if something is already playing; a track that cannot be
    * loaded makes it give up and close the player.
    */
-  async function restoreQueue(items: QueueItem[], at: number, position: number, originalIds?: string[]): Promise<boolean> {
+  async function restoreQueue(items: QueueItem[], at: number, position: number, originalIds?: string[], from?: string): Promise<boolean> {
     if (isActive.value || !items[at]) return false
     setSource(librarySource)
+    // Set after setSource, which forgets it.
+    queueFrom.value = from ?? null
     // The order to go back to; with shuffle on and none saved (an old format), the current one.
     playQueue.replace(items, originalIds ?? (shuffle.value ? items.map(t => t.id) : null))
     await loadIndex(at, false, position)

@@ -41,10 +41,13 @@ const chosen = computed(() => props.tracks.find(t => t.status === 'final') ?? nu
 const name = ref('')
 /** The voter's comment, as typed. */
 const comment = ref('')
-// The fields follow the pick saved on the server (a reload shows what was sent).
-watch(() => props.state?.pick, (pick) => {
-  name.value = pick?.name ?? ''
-  comment.value = pick?.comment ?? ''
+// The fields follow the pick saved on the server (a reload shows what was sent), except
+// a field typed and not saved yet: picking another version sends the pick with the note
+// saved before, and its answer used to wipe what was being typed. A field still showing the
+// previous saved value takes the new one; one that differs is the visitor's, and stays.
+watch(() => props.state?.pick, (pick, previous) => {
+  if (name.value.trim() === (previous?.name ?? '')) name.value = pick?.name ?? ''
+  if (comment.value.trim() === (previous?.comment ?? '')) comment.value = pick?.comment ?? ''
 }, { immediate: true })
 
 /** The note differs from the saved one (Save enabled). */

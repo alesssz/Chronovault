@@ -1,7 +1,8 @@
 /**
- * Saved play queue (app/lib/queue-storage.ts): saving and reading back,
- * discarding malformed data or another user's queue, and rebuilding the
- * queue when tracks were deleted in the meantime.
+ * Saved play queue (app/lib/queue-storage.ts): saving and reading back
+ * (the page the queue was started from included), discarding malformed data
+ * or another user's queue, and rebuilding the queue when tracks were deleted
+ * in the meantime.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
@@ -56,10 +57,19 @@ describe('saving and reading', () => {
     ['an index out of range', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 3, position: 0 })],
     ['a bad position', JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a'], index: 0, position: 'x' })],
     ['a bad original order', JSON.stringify({ version: 2, userId: 'u1', trackIds: ['a'], index: 0, position: 0, originalTrackIds: [1] })],
+    ['a bad page of origin', JSON.stringify({ version: 2, userId: 'u1', trackIds: ['a'], index: 0, position: 0, from: 7 })],
   ])('discards %s', (_label, raw) => {
     localStorage.setItem(KEY, raw)
     expect(readSavedQueue('u1')).toBeNull()
     expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('saves the page a queue was started from, and reads a queue saved without one', () => {
+    saveQueue({ userId: 'u1', trackIds: ['a', 'b'], index: 0, position: 0, from: 'playlist:p1' })
+    expect(readSavedQueue('u1')?.from).toBe('playlist:p1')
+    // Saved before the field existed (or from the library): no page, still a valid queue.
+    saveQueue({ userId: 'u1', trackIds: ['a', 'b'], index: 0, position: 0 })
+    expect(readSavedQueue('u1')?.from).toBeUndefined()
   })
 
   it('saves the original order of a shuffled queue', () => {
