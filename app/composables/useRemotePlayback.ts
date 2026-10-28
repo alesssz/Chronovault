@@ -72,6 +72,16 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
   /** The element's RemotePlayback object currently watched, and its availability watch id. */
   let watched: RemotePlayback | null = null
   let watchId: number | null = null
+  /**
+   * Goes up each time an element starts or stops being followed. The
+   * browser hands the availability watch id over later, in a promise: one
+   * that settles after its element was dropped (the full-screen view opened
+   * and closed at once) belongs to an older round, and its watch is
+   * cancelled there and then. Before, it was kept as the current id, or lost
+   * after the drop, and the browser went on looking for devices on the
+   * page's audio element in the background.
+   */
+  let round = 0
 
   /** Copies the browser's connection state (on every connecting/connect/disconnect event). */
   function syncState(): void {
@@ -84,18 +94,22 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
     const remote = el?.remote
     if (!remote) return
     watched = remote
+    // This round: what the browser answers for an older one is not this element's any more.
+    const mine = ++round
     syncState()
     for (const event of ['connecting', 'connect', 'disconnect']) remote.addEventListener(event, syncState)
     remote.watchAvailability((isAvailable) => {
-      available.value = isAvailable
+      if (mine === round) available.value = isAvailable
     }).then((id) => {
-      watchId = id
+      if (mine === round) watchId = id
+      // Dropped while the browser was answering: stop that watch now (nobody else holds its id).
+      else remote.cancelWatchAvailability(id).catch(() => {})
     }).catch((error: unknown) => {
       // NotSupportedError: the browser cannot keep looking for devices in the background
       // (e.g. to save battery) but can still look when asked: show the button, and
       // prompt() says whether anything was found. Any other refusal (remote playback
       // disabled on the element) leaves the button hidden.
-      if (error instanceof DOMException && error.name === 'NotSupportedError') available.value = true
+      if (mine === round && error instanceof DOMException && error.name === 'NotSupportedError') available.value = true
     })
   }
 
@@ -104,6 +118,8 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
     if (!watched) return
     for (const event of ['connecting', 'connect', 'disconnect']) watched.removeEventListener(event, syncState)
     if (watchId !== null) watched.cancelWatchAvailability(watchId).catch(() => {})
+    // A watch id still on its way belongs to the round that ends here (see `round`).
+    round++
     watched = null
     watchId = null
     available.value = false

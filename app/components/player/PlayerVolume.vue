@@ -36,20 +36,34 @@ const player = usePlayerStore()
  * match its HTML.
  */
 const adjustable = ref(true)
+/**
+ * Mounted in the browser: until then the level shown is the server's, full
+ * volume. The level saved on this device (kept out of server-rendered state,
+ * see the player store) is not known on the server, and a first client
+ * render showing it would not match the server's HTML: Vue does not fix such
+ * a difference in attributes and styles, so on a share page the slider and
+ * the icon went on showing 100% while the audio played at the saved level.
+ * Switching once mounted is an ordinary update, which Vue applies.
+ */
+const mounted = ref(false)
 // Decided in the browser: touch screens leave the volume to the hardware buttons.
 onMounted(() => {
   adjustable.value = pageControlsVolume()
+  mounted.value = true
 })
+
+/** The level shown (0..1): the player's once mounted, the server's full volume before (mute is never saved). */
+const shownVolume = computed(() => (mounted.value ? player.volume : 1))
 
 /** Speaker icon: muted, low or high. */
 const icon = computed(() => {
-  if (player.muted || player.volume === 0) return 'i-lucide-volume-x'
-  return player.volume < 0.5 ? 'i-lucide-volume-1' : 'i-lucide-volume-2'
+  if (player.muted || shownVolume.value === 0) return 'i-lucide-volume-x'
+  return shownVolume.value < 0.5 ? 'i-lucide-volume-1' : 'i-lucide-volume-2'
 })
 
 /** Slider value 0..100 (0 while muted); writing it sets the volume. */
 const level = computed({
-  get: () => (player.muted ? 0 : Math.round(player.volume * 100)),
+  get: () => (player.muted ? 0 : Math.round(shownVolume.value * 100)),
   set: (value: number) => player.setVolume(value / 100),
 })
 </script>

@@ -250,7 +250,9 @@ const meta = computed(() => {
             class="min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_1.5rem,black_calc(100%-2.5rem),transparent)]"
             data-swipe-ignore
           >
+            <!-- One view per track (key): a new track's lyrics start at the top, not where the last ones were scrolled -->
             <LyricsView
+              :key="player.current?.id"
               :synced="player.current?.lyricsSynced ?? null"
               :plain="player.current?.lyrics ?? null"
               :current-time="player.currentTime"
@@ -359,7 +361,9 @@ const meta = computed(() => {
             class="min-h-0"
             data-swipe-ignore
           >
+            <!-- One view per track (key), as on phones above -->
             <LyricsView
+              :key="player.current?.id"
               :synced="player.current?.lyricsSynced ?? null"
               :plain="player.current?.lyrics ?? null"
               :current-time="player.currentTime"

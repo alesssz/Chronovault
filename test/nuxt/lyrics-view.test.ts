@@ -1,8 +1,9 @@
 /**
  * LyricsView in the Nuxt environment: active line, click to seek, section headers, plain lyrics,
- * and the empty state (the hint to add lyrics for the owner only).
+ * the empty state (the hint to add lyrics for the owner only), and the auto-scroll following the
+ * right line when another track's lyrics replace the ones shown.
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import LyricsView from '~/components/lyrics/LyricsView.vue'
 
@@ -91,5 +92,36 @@ describe('LyricsView', () => {
     expect(owner.text()).toContain('edit page')
     expect(visitor.text()).toContain('No lyrics')
     expect(visitor.text()).not.toContain('edit page')
+  })
+
+  describe('auto-scroll', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('scrolls to the active line of new lyrics, not to another one', async () => {
+      // No layout in the test DOM: each synced line sits 100 px under the previous one, the box at 0.
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        // A line's place in its list (-1 for the box itself, at the top).
+        const place = this.tagName === 'LI' ? Array.from(this.parentElement!.children).indexOf(this) : -1
+        return { top: Math.max(place, 0) * 100 } as DOMRect
+      })
+      // Where the box was asked to scroll, each time.
+      const scrolls: number[] = []
+      vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (options?: ScrollToOptions | number) {
+        scrolls.push((options as ScrollToOptions).top!)
+      })
+      // One track's lyrics, then another track's in the same view (the full-screen player moving on).
+      const first = [{ time: 0, text: 'A1' }, { time: 4, text: 'A2' }, { time: 8, text: 'A3' }, { time: 12, text: 'A4' }]
+      const second = [{ time: 1, text: 'B1' }, { time: 6, text: 'B2' }, { time: 11, text: 'B3' }, { time: 16, text: 'B4' }]
+      // The view on the first track's lyrics, at their start.
+      const wrapper = await mountSuspended(LyricsView, { props: { synced: first, plain: null, currentTime: 0 } })
+      await wrapper.setProps({ synced: second, currentTime: 0 })
+      // The second track reaches its second line: the box scrolls to it (100 px down), the line highlighted.
+      await wrapper.setProps({ currentTime: 7 })
+      expect(wrapper.find('[aria-current="true"]').text()).toBe('B2')
+      // Before: the line elements of the new lyrics were listed in reverse, and the box scrolled to B3.
+      expect(scrolls.at(-1)).toBe(100)
+    })
   })
 })

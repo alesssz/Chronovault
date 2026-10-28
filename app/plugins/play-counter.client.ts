@@ -21,10 +21,15 @@ export default defineNuxtPlugin(() => {
   // How much of the current track has been listened to.
   const tracker = createPlayTracker()
 
-  // A new track, or the same track in another context (a share page took the
-  // player over): counting starts again. Declared before the position watcher,
-  // so on a track change the reset runs first.
-  watch([() => player.current?.id, () => player.sourceKey], () => tracker.reset())
+  // A new track, the same track in another context (a share page took the
+  // player over), or the same track starting over (repeat one, play pressed
+  // after its end: `listen`): counting starts again, so each listen is
+  // measured on its own (before, a replay went on adding to the first one's
+  // time and could make two halves a "completed" play). The server keeps one
+  // row per listener, track and day (plays_once_a_day): the same day a new
+  // listen can only mark it completed, another day it is a new play.
+  // Declared before the position watcher, so on a change the reset runs first.
+  watch([() => player.current?.id, () => player.sourceKey, () => player.listen], () => tracker.reset())
 
   // Every position update (each animation frame while playing).
   watch(() => player.currentTime, (time) => {
