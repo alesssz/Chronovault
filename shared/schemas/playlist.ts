@@ -8,13 +8,18 @@ import { optionalText, patchSchemaOf, safeText } from './track'
  * `/api/playlists` routes. Limits mirror the `playlists` table constraints.
  */
 
-/** Most tracks in a playlist. */
+/**
+ * Most tracks in a playlist. Checked here first, with a readable message; the
+ * database holds the same limit for every write to playlist_tracks, the app's
+ * and direct ones alike (trigger in …_playlist_track_rules.sql).
+ */
 export const MAX_PLAYLIST_TRACKS = 1000
 
 /**
  * An ordered list of distinct track ids. Duplicates are rejected here,
  * because the database key (playlist_id, track_id) would refuse them with a
- * less helpful error. Ownership of the tracks is enforced by RLS.
+ * less helpful error. Ownership of the tracks is enforced by the database
+ * functions that write the list ("not found", 404, for someone else's).
  */
 const trackIds = z
   .array(z.uuid())
