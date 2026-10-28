@@ -259,15 +259,20 @@ select is(
   'no cover for a private playlist'
 );
 
--- Without a cover of its own, the first track's that has one, in playlist order.
+-- Without a cover of its own, the first track's that has one, in playlist order. The track
+-- without a cover goes first, so the check really skips it: in the order A left above, the first
+-- track had a cover, and a lookup that never skipped anything passed all the same.
 reset role;
 update public.playlists set cover_path = null where id = 'c2222222-2222-4222-8222-222222222222';
+update public.playlist_tracks
+set position = case track_id when 'a2222222-2222-4222-8222-222222222222' then 0 else 1 end
+where playlist_id = 'c2222222-2222-4222-8222-222222222222';
 set local role anon;
 select set_config('request.jwt.claims', '{"role": "anon"}', true);
 select is(
   public.get_shared_playlist_cover('c2222222-2222-4222-8222-222222222222'),
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp',
-  'without its own cover, a shared playlist shows its first track cover (the mosaic''s first tile)'
+  'without its own cover, a shared playlist shows the first track cover it holds, past a track without one (the mosaic''s first tile)'
 );
 
 select * from finish();

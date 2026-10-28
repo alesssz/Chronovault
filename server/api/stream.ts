@@ -18,9 +18,10 @@ import { badRequest, notFound } from '../utils/errors'
  *
  * Auth: none. A cast device has no session, so the address itself carries
  * the permission: the storage key and the expiry, signed by the server
- * (AudioStorage.verifyStream). Anything else answers 403, without telling
- * whether the file exists. Any origin may read the answers (a cast device's
- * player runs on another origin); they hold nothing the address does not.
+ * (AudioStorage.verifyStream). An address missing one of its parts answers
+ * 400; a wrong signature or a past expiry 403, without telling whether the
+ * file exists. Any origin may read the answers (a cast device's player runs
+ * on another origin); they hold nothing the address does not.
  */
 export default defineEventHandler(async (event) => {
   // Only reading: anything else is refused before looking at the address.

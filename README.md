@@ -55,7 +55,7 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, playlists holding only the owner's tracks, at most 1000, exact storage paths, uploads signed for one file, headers, Content Security Policy, caps) |
 | [9. API reference](docs/09-api-reference.md) | Every API route: method, body, answers and errors |
 | [10. Configuration](docs/10-configuration.md) | Environment variables, env files and the notable `nuxt.config.ts` settings |
-| [11. Local development in detail](docs/11-local-development.md) | Prerequisites (from a blank macOS or Windows computer), what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the weekly audit |
+| [11. Local development in detail](docs/11-local-development.md) | Prerequisites (from a blank macOS or Windows computer), what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the dependency audit (weekly, and on every branch that changes them) |
 | [12. Testing](docs/12-testing.md) | Unit, component, database and end-to-end tests, coverage floors, CI |
 | [13. Deployment (Supabase + Cloudflare R2 + Vercel)](docs/13-deployment.md) | Supabase Cloud, Cloudflare R2, Vercel, updating production, statistics, keeping Supabase awake |
 | [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, new endpoints and tables) |

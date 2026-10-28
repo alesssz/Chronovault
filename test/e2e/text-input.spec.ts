@@ -2,7 +2,8 @@
  * End-to-end, a NUL character (U+0000) in any text the API takes is a client error (400), never
  * a server error: Postgres cannot store it in a text or jsonb column, and before the schemas
  * refused it, it reached the database and came back as a 500 (logged as an internal error).
- * An anonymous visitor could do that at will through a vote's comment.
+ * An anonymous visitor could do that at will through a vote's comment: that vote is checked next
+ * to the same vote with a plain comment, accepted, so the 400 can only come from the NUL.
  */
 import { expect, test } from './fixtures'
 import { seedLibrary, signUp } from './helpers'
@@ -25,12 +26,16 @@ test.describe('text with a NUL character', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       }).then(r => r.status)
-      // A shared group of the two, for the visitor below.
-      const group = await (await fetch('/api/playlists', {
+      // A shared group of the two, for the visitor below: it must exist, or the vote's 400 below
+      // could come from an address with no group in it (`undefined`) instead of the NUL.
+      const created = await fetch('/api/playlists', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ title: 'Versions', purpose: 'versions', visibility: 'unlisted', trackIds: [first!.id, second!.id] }),
-      })).json() as { id: string }
+      })
+      if (created.status !== 201) throw new Error(`Group not created: ${created.status}`)
+      // The new group, whose id the visitor votes through.
+      const group = await created.json() as { id: string }
       return {
         group: group.id,
         firstTrack: first!.id,
@@ -48,11 +53,16 @@ test.describe('text with a NUL character', () => {
     // An anonymous visitor's vote, with a NUL in the comment.
     const visitorContext = await browser.newContext()
     try {
-      // The visitor's API client (no session).
+      // The visitor's API client (no session): the vote with a NUL in its comment…
       const vote = await visitorContext.request.put(`/api/shared/playlists/${owner.group}/vote`, {
         data: { voterId: crypto.randomUUID(), trackId: owner.firstTrack, comment: WITH_NUL },
       })
       expect(vote.status()).toBe(400)
+      // …and the same vote with a plain comment, accepted: the 400 came from the NUL alone.
+      const control = await visitorContext.request.put(`/api/shared/playlists/${owner.group}/vote`, {
+        data: { voterId: crypto.randomUUID(), trackId: owner.firstTrack, comment: 'before after' },
+      })
+      expect(control.status()).toBe(200)
     }
     finally {
       await visitorContext.close()

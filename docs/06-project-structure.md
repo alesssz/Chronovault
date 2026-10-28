@@ -120,7 +120,7 @@ Chronovault/
 ├── Makefile · package.json · pnpm-workspace.yaml
 ├── nuxt.config.ts · vitest.config.ts · playwright.config.ts · eslint.config.mjs · tsconfig.json
 ├── .env.example · .env.r2.example    # Templates (the real .env files are git-ignored)
-└── .github/                          # workflows/ci.yml (checks, 12) · workflows/audit.yml (weekly dependency audit, 11.6)
+└── .github/                          # workflows/ci.yml (checks, 12) · workflows/audit.yml (dependency audit: weekly and on every branch that changes them, 11.6)
                                       #   · dependabot.yml (GitHub Actions updates only, 11.6)
 ```
 
