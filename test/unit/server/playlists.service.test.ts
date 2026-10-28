@@ -2,12 +2,13 @@
  * Playlists service with mocked repositories: ordering, covers and mosaic, private-track count,
  * lists and creation by purpose (playlists / groups of versions, undone when the first tracks are
  * refused), cover path checks and clean-up,
- * appending and replacing tracks, 404s.
+ * appending (the 1000-track limit checked first, with a readable message) and replacing tracks, 404s.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PlaylistRow } from '~~/server/mappers/playlist'
 import type { TrackSummaryRow } from '~~/server/mappers/track'
 import type { DbClient } from '~~/server/utils/auth'
+import { MAX_PLAYLIST_TRACKS } from '~~/shared/schemas/playlist'
 import * as playlistsRepo from '~~/server/repositories/playlists.repository'
 import * as storageRepo from '~~/server/repositories/storage.repository'
 import {
@@ -244,6 +245,25 @@ describe('playlist tracks', () => {
 
     expect(playlistsRepo.appendPlaylistTrackIds).toHaveBeenCalledWith(db, PLAYLIST, [T3])
     expect(playlistsRepo.setPlaylistTrackIds).not.toHaveBeenCalled()
+  })
+
+  it('refuses an append past the limit with a readable 400, before the database is asked', async () => {
+    // A playlist one track short of the limit, and two new tracks for it.
+    const full = Array.from({ length: MAX_PLAYLIST_TRACKS - 1 }, (_, i) => `t${i}`)
+    vi.mocked(playlistsRepo.findPlaylistTrackIds).mockResolvedValue(full)
+
+    await expect(addPlaylistTracks(db, USER, PLAYLIST, [T1, T2]))
+      .rejects.toMatchObject({ statusCode: 400, message: `A playlist holds at most ${MAX_PLAYLIST_TRACKS} tracks` })
+    expect(playlistsRepo.appendPlaylistTrackIds).not.toHaveBeenCalled()
+  })
+
+  it('takes tracks up to the limit exactly, the ones already there not counted twice', async () => {
+    // One place left, and a track already in the list given along with a new one.
+    const almost = [...Array.from({ length: MAX_PLAYLIST_TRACKS - 2 }, (_, i) => `t${i}`), T1]
+    vi.mocked(playlistsRepo.findPlaylistTrackIds).mockResolvedValue(almost)
+
+    await addPlaylistTracks(db, USER, PLAYLIST, [T1, T2])
+    expect(playlistsRepo.appendPlaylistTrackIds).toHaveBeenCalledWith(db, PLAYLIST, [T2])
   })
 
   it('does not write anything when every track is already there', async () => {

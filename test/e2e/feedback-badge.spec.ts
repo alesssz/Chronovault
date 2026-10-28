@@ -27,6 +27,18 @@ async function friendVotes(browser: Browser, group: string, version: string, not
   }
 }
 
+/**
+ * Runs `navigate` (a reload, a visit) and waits for the page's answer about unseen feedback
+ * (GET /api/feedback/unseen), returning the server's total. The badges show nothing until that
+ * answer comes (their default), so checking that they are absent before it proves nothing.
+ */
+async function unseenAfter(page: Page, navigate: () => Promise<unknown>): Promise<number> {
+  // The answer, listened for before navigating so a fast one is not missed.
+  const answer = page.waitForResponse(response => new URL(response.url()).pathname === '/api/feedback/unseen')
+  await navigate()
+  return (await (await answer).json() as { total: number }).total
+}
+
 /** The owner's group card on the Versions page. */
 function card(page: Page) {
   return page.getByTestId('playlist-card').filter({ hasText: 'Wave – versions' })
@@ -50,8 +62,8 @@ test.describe('new feedback signal', () => {
     // The dot on "Versions" in the header (absent while nothing is new).
     const dot = page.getByTestId('section-dot-versions')
 
-    // --- Nobody voted yet: nothing new ---
-    await page.goto('/versions')
+    // --- Nobody voted yet: nothing new (the server says so, and the page with it) ---
+    expect(await unseenAfter(page, () => page.goto('/versions'))).toBe(0)
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
     await expect(dot).toHaveCount(0)
@@ -74,7 +86,9 @@ test.describe('new feedback signal', () => {
     await page.getByRole('link', { name: 'Back to versions' }).click()
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
-    await page.reload()
+    // After a reload, once the page has the server's answer: the visit is stored there. Before, the
+    // badges were checked before that answer, when they show nothing anyway.
+    expect(await unseenAfter(page, () => page.reload())).toBe(0)
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
     await expect(dot).toHaveCount(0)

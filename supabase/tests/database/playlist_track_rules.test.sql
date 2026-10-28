@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(11);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -93,6 +93,12 @@ select throws_ok(
        array(select id from public.tracks order by title)) $$,
   '23514', 'a playlist holds at most 1000 tracks',
   'a list of 1001 tracks is refused, and nothing is written'
+);
+-- "Nothing is written": the playlist, empty before, is still empty.
+select is(
+  (select count(*)::integer from public.playlist_tracks where playlist_id = 'c1111111-1111-4111-8111-111111111111'),
+  0,
+  'the refused list left the playlist empty'
 );
 select lives_ok(
   $$ select public.set_playlist_tracks('c1111111-1111-4111-8111-111111111111',

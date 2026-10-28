@@ -10,7 +10,7 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](13-deployment.md#137-keeping-supabase-awake)) |
 | `GET` | `/api/tracks` | | `TrackSummary[]`, newest first |
 | `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour, signed for the declared size and type: another file gets `403` from the storage); `409` when the id is already registered (its file is never overwritten) |
-| `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file |
+| `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file, and for the one of two identical registrations at the same moment that loses the race (the track is there: the other one registered it, and the file is kept) |
 | `GET` | `/api/tracks/:id` | | `TrackDetail` |
 | `PATCH` | `/api/tracks/:id` | any subset of `trackMetadataSchema`, `coverPath` | `TrackDetail` |
 | `DELETE` | `/api/tracks/:id` | | `204` |
