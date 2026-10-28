@@ -1,9 +1,10 @@
 /**
  * End-to-end, playlists: create from a track's menu, add, reorder (persisted), play all, share;
- * a visitor plays private tracks inside the playlist only; private again → 404.
+ * a visitor plays private tracks inside the playlist only; private again → 404. "Play all"
+ * starts the playlist even while one of its tracks is playing from the library.
  */
 import { expect, test, type Page } from './fixtures'
-import { clickAndWaitForApi, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
+import { clickAndWaitForApi, seedLibrary, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
 // The playlist page saves its details with PATCH /api/playlists/:id.
 const SAVE_PLAYLIST = { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ }
@@ -122,5 +123,46 @@ test.describe('playlists', () => {
     expect((await visitor.request.get(`/api/shared/playlists/${playlistId}/tracks/${firstId}/playback`)).status()).toBe(404)
 
     await visitorContext.close()
+  })
+
+  test('"Play all" starts the playlist even while one of its tracks plays from the library', async ({ page }) => {
+    await signUp(page)
+    await seedLibrary(page, 3)
+    // A playlist of Track 003 then Track 001; its id.
+    const playlistId = await page.evaluate(async () => {
+      // The seeded tracks, by title.
+      const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
+      const idOf = (title: string) => tracks.find(t => t.title === title)!.id
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Road', trackIds: [idOf('Track 003'), idOf('Track 001')] }),
+      })
+      return (await response.json() as { id: string }).id
+    })
+
+    // Track 001 plays from the library; "repeat one" keeps it there (the seeded tracks last 0.1 s).
+    await page.goto('/')
+    await page.getByTestId('track-row').filter({ hasText: 'Track 001' }).getByTestId('track-title').click()
+    // The player bar, its title and its repeat button (off → all → one).
+    const bar = page.getByTestId('player-bar')
+    const playing = bar.getByTestId('player-title')
+    await expect(playing).toHaveText('Track 001')
+    const repeatButton = bar.getByTestId('player-repeat')
+    await repeatButton.click()
+    await repeatButton.click()
+    await expect(repeatButton).toHaveAttribute('aria-label', 'Repeat: one')
+
+    // The playlist's page, reached inside the app so the library goes on playing: not this playlist.
+    await page.getByRole('link', { name: 'Playlists' }).click()
+    await page.getByTestId('playlist-card').filter({ hasText: 'Road' }).click()
+    await expect(page).toHaveURL(`/playlists/${playlistId}`)
+    // Its "Play all" button.
+    const playAll = page.getByTestId('playlist-play')
+    await expect(playAll).toHaveText('Play all')
+    // Before: Track 001 being in the playlist made the button pause and resume the library, and Track 001 stayed.
+    await playAll.click()
+    await expect(playing).toHaveText('Track 003')
+    await expect(playAll).toHaveText('Pause')
   })
 })

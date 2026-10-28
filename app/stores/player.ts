@@ -44,6 +44,14 @@ export const usePlayerStore = defineStore('player', () => {
   let source: TrackSource = librarySource
   /** Key of the current source (see TrackSource): lets public pages know the player is theirs. */
   const sourceKey = ref(librarySource.key)
+  /**
+   * What a library queue was started from, as its page names it: `playlist:<id>`
+   * for a playlist's page, null for the library itself (and anything else). The
+   * same track can be in both, so the track alone cannot tell a playlist page
+   * whether the player is playing that playlist ("Play all" toggling it) or the
+   * library (it then starts the playlist).
+   */
+  const queueFrom = ref<string | null>(null)
 
   /** Shuffle and repeat saved by the previous visit. */
   const storedModes = readStoredModes()
@@ -161,25 +169,43 @@ export const usePlayerStore = defineStore('player', () => {
   function setSource(next: TrackSource): void {
     source = next
     sourceKey.value = next.key
+    // A library queue is named by the page that starts it (playTrack); any other source, by its own key.
+    queueFrom.value = null
     // Only library playback is shuffled: a shared list has no original order to keep.
     if (next !== librarySource) playQueue.forgetOriginalOrder()
   }
 
-  /** Plays `track`, using `context` (e.g. the library) as the queue. */
-  async function playTrack(track: QueueItem, context: QueueItem[] = [track]): Promise<void> {
-    if (current.value?.id === track.id && source === librarySource && status.value !== 'error') {
+  /**
+   * Plays `track`, using `context` (e.g. the library) as the queue. The track
+   * the queue is on is toggled instead (play/pause): the queue's track, not
+   * the loaded one, since while a new track loads the old one is still loaded,
+   * and a click on it then must go back to it, not pause the new one.
+   *
+   * `from` names the page starting it (`playlist:<id>`, see queueFrom): the
+   * same track then toggles only when the queue came from that page, and
+   * otherwise starts the page's list. Left out (the library, a track's
+   * editor), the track is toggled wherever its queue came from.
+   */
+  async function playTrack(track: QueueItem, context: QueueItem[] = [track], from?: string): Promise<void> {
+    // The queue is on this track, started from this page (or the caller does not mind where from).
+    const here = queue.value[index.value]?.id === track.id && (from === undefined || queueFrom.value === from)
+    if (here && source === librarySource && status.value !== 'error') {
       await togglePlay()
       return
     }
     setSource(librarySource)
+    queueFrom.value = from ?? null
     await loadIndex(playQueue.startList(track, context, shuffle.value), true)
   }
 
-  /** Plays a whole list ("Play" on a playlist): from its first track, or from a random one while shuffled. */
-  async function playAll(list: QueueItem[]): Promise<void> {
+  /**
+   * Plays a whole list ("Play" on a playlist): from its first track, or from a
+   * random one while shuffled; `from` names it (see queueFrom).
+   */
+  async function playAll(list: QueueItem[], from?: string): Promise<void> {
     // Where the list starts: its first track, or a random one while shuffled.
     const start = shuffle.value ? list[Math.floor(Math.random() * list.length)] : list[0]
-    if (start) await playTrack(start, list)
+    if (start) await playTrack(start, list, from)
   }
 
   /** Loads a track shared by link without starting it (public share page). */
@@ -190,23 +216,24 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   /**
-   * Plays a shared playlist from `index` (public playlist page); with
-   * `autoplay: false` the track is only loaded. On the track already loaded
-   * it toggles play/pause instead.
+   * Plays a shared playlist from its track `at` (public playlist page); with
+   * `autoplay: false` the track is only loaded. On the track the queue is
+   * already on it toggles play/pause instead, also while it is still loading
+   * (the page cues its first track on open: a Play pressed meanwhile starts it).
    */
-  async function playSharedPlaylist(playlist: SharedPlaylist, index = 0, autoplay = true): Promise<void> {
+  async function playSharedPlaylist(playlist: SharedPlaylist, at = 0, autoplay = true): Promise<void> {
     // The playlist's source key: is the player already on this playlist?
     const key = sharedPlaylistSource(playlist).key
     // The track asked for (none past the end of the playlist).
-    const track = playlist.tracks[index]
+    const track = playlist.tracks[at]
     if (!track) return
-    if (sourceKey.value === key && current.value?.id === track.id && status.value !== 'error') {
+    if (sourceKey.value === key && queue.value[index.value]?.id === track.id && status.value !== 'error') {
       if (autoplay) await togglePlay()
       return
     }
     setSource(sharedPlaylistSource(playlist))
     playQueue.replace(playlist.tracks)
-    await loadIndex(index, autoplay)
+    await loadIndex(at, autoplay)
   }
 
   /** Next track of the queue, if any. */
@@ -348,8 +375,21 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Removes a deleted track from the queue (and closes the player if it was playing). */
   function removeTrack(id: string): void {
-    if (current.value?.id === id) close()
-    else playQueue.drop(id)
+    removeTracks([id])
+  }
+
+  /**
+   * Removes deleted tracks from the queue in one pass (a bulk delete), and
+   * closes the player when one of them is playing: the loaded track, or the
+   * one the queue is moving to while it loads.
+   */
+  function removeTracks(ids: Iterable<string>): void {
+    // Looked up once per queued track.
+    const gone = new Set(ids)
+    // The loaded track, and the queue's current one (they differ while a new track loads).
+    const [loaded, queued] = [current.value?.id, queue.value[index.value]?.id]
+    if ((loaded && gone.has(loaded)) || (queued && gone.has(queued))) close()
+    else playQueue.drop(gone)
   }
 
   // One flat API whatever part holds the state. The parts' refs are returned
@@ -357,9 +397,9 @@ export const usePlayerStore = defineStore('player', () => {
   // components read and watch them like before the split.
   return {
     // state
-    queue, index, current, status, currentTime, originalOrder, expanded, queueOpen, sourceKey,
+    queue, index, current, status, currentTime, originalOrder, expanded, queueOpen, sourceKey, queueFrom,
     buffering: playback.buffering, duration: playback.duration, muted: playback.muted,
-    playbackRate: playback.playbackRate, error: playback.error,
+    playbackRate: playback.playbackRate, error: playback.error, listen: playback.listen,
     // Read from this browser's storage: kept out of server-rendered state (see shuffle and repeat above).
     volume: skipHydrate(playback.volume), shuffle: skipHydrate(shuffle), repeat: skipHydrate(repeat),
     // derived
@@ -367,7 +407,7 @@ export const usePlayerStore = defineStore('player', () => {
     isPlaying: playback.isPlaying, progress: playback.progress, upcoming: playQueue.upcoming,
     // commands
     playTrack, playAll, cueShared, playSharedPlaylist, togglePlay, next, previous, restoreQueue,
-    playNext, addToQueue, playFromQueue, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack,
+    playNext, addToQueue, playFromQueue, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack, removeTracks,
     play: playback.play, pause: playback.pause, stop: playback.stop, seek: playback.seek,
     setVolume: playback.setVolume, setMuted: playback.setMuted, toggleMute: playback.toggleMute, setPlaybackRate: playback.setPlaybackRate,
     moveInQueue: playQueue.move, removeFromQueue: playQueue.removeAt, clearUpcoming: playQueue.clearUpcoming,

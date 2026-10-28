@@ -34,8 +34,14 @@ const emit = defineEmits<{ seek: [seconds: number] }>()
 
 /** The scrolling box. */
 const container = ref<HTMLElement | null>(null)
-/** One element per synced line (v-for refs), to scroll the active one into view. */
-const lineRefs = ref<HTMLElement[]>([])
+/**
+ * The list of synced lines: the active one is found by its place in it, to
+ * scroll it into view. Not v-for refs: Vue does not keep that array in list
+ * order, and when another track's lyrics replaced these (the full-screen
+ * player moving on) it held their lines in reverse, so the box scrolled to
+ * the mirror line of the one sung.
+ */
+const listEl = ref<HTMLOListElement | null>(null)
 
 /** Synced lyrics win over plain lyrics when both exist. */
 const hasSynced = computed(() => !!props.synced?.length)
@@ -63,8 +69,8 @@ function onUserScroll() {
 // Keep the active line in the middle of the box (unless the user is scrolling).
 watch(activeIndex, (index) => {
   if (index < 0 || Date.now() - userScrolledAt.value < AUTO_SCROLL_PAUSE) return
-  // The active line and the box it scrolls in.
-  const line = lineRefs.value[index]
+  // The active line (its <li>, at the same place as in `synced`) and the box it scrolls in.
+  const line = listEl.value?.children[index] as HTMLElement | undefined
   const box = container.value
   if (!line || !box) return
   // The box's own scroll only: scrollIntoView would also scroll every scrollable ancestor, the
@@ -87,6 +93,7 @@ watch(activeIndex, (index) => {
     -->
     <ol
       v-if="hasSynced"
+      ref="listEl"
       class="space-y-3 pt-2 pb-[45vh] font-semibold leading-snug"
       :class="size === 'large' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'"
       data-testid="lyrics-synced"
@@ -94,7 +101,6 @@ watch(activeIndex, (index) => {
       <li
         v-for="(line, i) in synced!"
         :key="`${line.time}-${i}`"
-        ref="lineRefs"
         :class="{ 'pt-6 first:pt-0': line.section }"
       >
         <p

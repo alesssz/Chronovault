@@ -194,16 +194,24 @@ export function createPlayQueue() {
   }
 
   /**
-   * Removes a deleted track wherever it is, keeping `index` on the current
-   * track. (A deleted track that is playing closes the player: the store
+   * Removes deleted tracks wherever they are, keeping `index` on the current
+   * track. One pass over the queue however many there are: deleting a
+   * thousand selected tracks used to search and copy the whole queue once
+   * for each. (A deleted track that is playing closes the player: the store
    * handles that case before calling this.)
    */
-  function drop(id: string): void {
-    // Where the track is in the queue (-1: not there).
-    const i = queue.value.findIndex(t => t.id === id)
-    if (i === -1) return
-    queue.value = queue.value.filter(t => t.id !== id)
-    if (i < index.value) index.value--
+  function drop(ids: ReadonlySet<string>): void {
+    // How many of them come before the current track: `index` moves back by as many.
+    let before = 0
+    // The queue without them.
+    const kept = queue.value.filter((t, i) => {
+      if (!ids.has(t.id)) return true
+      if (i < index.value) before++
+      return false
+    })
+    if (kept.length === queue.value.length) return
+    queue.value = kept
+    index.value -= before
   }
 
   return {

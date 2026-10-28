@@ -80,6 +80,15 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   const isPlaying = computed(() => status.value === 'playing')
   /** 0..1 position in the track, for the thin progress line of the mobile bar. */
   const progress = computed(() => (duration.value > 0 ? Math.min(1, currentTime.value / duration.value) : 0))
+  /**
+   * Goes up each time the loaded track starts over without being loaded
+   * again: a replay ("repeat one", or "repeat all" on a single track), or
+   * play pressed once it has ended. The play counter
+   * (app/plugins/play-counter.client.ts) starts afresh at each change: one
+   * more listen of the same track is measured on its own, as a new one (what
+   * the server adds is its call: one row per listener, track and day).
+   */
+  const listen = ref(0)
 
   // --- Non-reactive internals ----------------------------------------------------------
   /** The audio engine, wired to this player on first use (see engine()). */
@@ -92,6 +101,16 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   let sourceRecovered = false
   /** A source reload is in progress: engine errors are handled by it. */
   let recovering = false
+  /**
+   * Whether the track being loaded starts once it is in: load()'s `autoplay`,
+   * then whatever play, pause or play/pause pressed meanwhile asked for. The
+   * play button is disabled while loading, but other controls are not (a
+   * share page's big Play button, the keyboard, the lock screen): before, a
+   * press there during the load did nothing, and the track then sat paused.
+   */
+  let autoplayWanted = false
+  /** The loaded track played to its end and stayed there (no next track): playing it again is a new listen. */
+  let endedHere = false
 
   /**
    * The shared audio engine, created lazily (it needs the browser) and wired
@@ -122,7 +141,9 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
       if (!waiting) sourceRecovered = false
     })
     e.on('ended', () => {
-      if (!onEnded()) status.value = 'paused'
+      if (onEnded()) return
+      status.value = 'paused'
+      endedHere = true
     })
     e.on('error', (message) => {
       // Initial loads and reloads handle their own failures.
@@ -303,6 +324,9 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     currentTime.value = 0
     duration.value = item.durationSeconds ?? 0
     sourceRecovered = false
+    // Start once in, unless a press during the load says otherwise (see play/pause/togglePlay).
+    autoplayWanted = autoplay
+    endedHere = false
 
     try {
       // Ready: no await at all here, so play() below runs in the same moment as the track
@@ -319,7 +343,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
       if (position > 0) currentTime.value = position
       current.value = detail
       if (detail.durationSeconds) duration.value = detail.durationSeconds
-      if (!autoplay) {
+      // Read now, not from `autoplay`: play or pause may have been pressed while it loaded.
+      if (!autoplayWanted) {
         status.value = 'paused'
         return
       }
@@ -338,14 +363,25 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   }
 
   /**
-   * Resumes playback. After an error it reloads the track (through the
-   * store, which knows the queue); with an expired URL it first loads a
-   * fresh one at the same position; if the browser refuses to play, it tries
-   * one reload before giving up.
+   * Resumes playback. While the track is still loading it starts once in;
+   * after an error it reloads the track (through the store, which knows the
+   * queue); with an expired URL it first loads a fresh one at the same
+   * position; if the browser refuses to play, it tries one reload before
+   * giving up. A track that had ended starts over: a new listen.
    */
   async function play(): Promise<void> {
-    if (status.value === 'idle' || status.value === 'loading') return
+    // Still loading: it starts once in (see autoplayWanted).
+    if (status.value === 'loading') {
+      autoplayWanted = true
+      return
+    }
+    if (status.value === 'idle') return
     if (status.value === 'error') return reload()
+    // Played to its end: the element starts over from 0:00, and that is a new listen.
+    if (endedHere) {
+      endedHere = false
+      listen.value++
+    }
 
     // A track paused for hours: its signed URL has expired in the meantime.
     if (sourceExpired()) {
@@ -362,14 +398,20 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     }
   }
 
-  /** Pauses (no-op unless playing). */
+  /** Pauses; while loading, the track will stay paused once in. No-op otherwise unless playing. */
   function pause(): void {
-    if (status.value === 'playing') engine().pause()
+    if (status.value === 'loading') autoplayWanted = false
+    else if (status.value === 'playing') engine().pause()
   }
 
-  /** Play/pause button. */
+  /**
+   * Play/pause button. While loading it flips what happens once the track is
+   * in: a track being cued paused (a share page on open) will start, one
+   * about to start will stay paused.
+   */
   async function togglePlay(): Promise<void> {
-    if (status.value === 'playing') pause()
+    if (status.value === 'loading') autoplayWanted = !autoplayWanted
+    else if (status.value === 'playing') pause()
     else await play()
   }
 
@@ -387,6 +429,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * the browser request the file again and fail).
    */
   async function replay(): Promise<void> {
+    // The same track from the start again: one more listen.
+    listen.value++
     currentTime.value = 0
     if (sourceExpired()) {
       sourceRecovered = false
@@ -462,6 +506,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     error.value = null
     sourceExpiresAt = 0
     sourceRecovered = false
+    endedHere = false
     if (playbackRate.value !== 1) {
       playbackRate.value = 1
       engineRef?.setPlaybackRate(1)
@@ -470,7 +515,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   return {
     current, status, buffering, currentTime, duration, volume, muted, playbackRate, error,
-    isActive, isPlaying, progress,
+    isActive, isPlaying, progress, listen,
     load, prefetch, play, pause, togglePlay, stop, replay, seek, setVolume, setMuted, toggleMute, setPlaybackRate, reset,
   }
 }

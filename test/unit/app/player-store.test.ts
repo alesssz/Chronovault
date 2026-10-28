@@ -1,8 +1,10 @@
 /**
  * Player store with a fake audio engine and a mocked API: queue, previous/next, toggling,
  * race conditions between loads, expired signed URLs (refresh before resume/seek, one retry
- * after a refusal), playback rate, the shared sources (public track and playlist pages), and the
- * next track asked for ahead (so it starts at once when the current one ends).
+ * after a refusal), playback rate, the shared sources (public track and playlist pages), the
+ * next track asked for ahead (so it starts at once when the current one ends), commands given
+ * while a track loads, where a queue was started from (a playlist's page or the library), a
+ * listen starting over (for the play counter), and deleting many tracks at once.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
@@ -90,6 +92,19 @@ function startSlowly() {
       reject(new DOMException('The play() request was interrupted by a call to pause().', 'AbortError'))
     })
   }))
+}
+
+/**
+ * The next request for a track's data stays pending until the returned
+ * function is called: the track is "loading" meanwhile, as on a slow network.
+ */
+function loadSlowly(): () => void {
+  // Resolves the pending request by hand.
+  let release!: () => void
+  vi.mocked(tracksApi.get).mockImplementationOnce(id => new Promise((resolve) => {
+    release = () => resolve(detail(id))
+  }))
+  return () => release()
 }
 
 /** A library item with the given id (120 s, no cover). */
@@ -1347,5 +1362,170 @@ describe('the next track, asked for ahead', () => {
 
     await player.playTrack(library[1]!, library)
     expect(asked('b')).toBe(2)
+  })
+})
+
+describe('commands while a track loads', () => {
+  it('clicking the track still loaded goes back to it, instead of pausing the one loading', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    // B is clicked and loads slowly; A, still the loaded track, is clicked again meanwhile.
+    const release = loadSlowly()
+    const loadingB = player.playTrack(library[1]!, library)
+    expect(player.status).toBe('loading')
+    await player.playTrack(library[0]!, library)
+    release()
+    await loadingB
+
+    // Before: A counted as the current track, the click toggled a track still loading (nothing), and B played.
+    expect(player.current?.id).toBe('a')
+    expect(player.index).toBe(0)
+    expect(player.status).toBe('playing')
+  })
+
+  it('play pressed while a cued track loads starts it once in (a share page on open)', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    // The page cues its playlist's first track, paused; its address is slow to come when Play is pressed.
+    let release!: () => void
+    vi.mocked(sharedApi.playlistTrackPlayback).mockImplementationOnce((playlistId, id) => new Promise((resolve) => {
+      release = () => resolve({ url: `https://playlist-audio/${playlistId}/${id}`, expiresAt: new Date(Date.now() + SIX_HOURS).toISOString() })
+    }))
+    const cue = player.playSharedPlaylist(sharedPlaylist, 0, false)
+    expect(player.status).toBe('loading')
+    // The page's big Play button, on the track the player is already on (see p/[id].vue).
+    await player.togglePlay()
+    release()
+    await cue
+
+    // Before: the press was dropped (nothing to play yet) and the track sat paused.
+    expect(player.status).toBe('playing')
+    expect(engine.play).toHaveBeenCalledTimes(1)
+  })
+
+  it('pause pressed while a track loads keeps it paused once in', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    const release = loadSlowly()
+    const loading = player.playTrack(library[2]!, library)
+    player.pause()
+    release()
+    await loading
+
+    expect(player.current?.id).toBe('c')
+    expect(player.status).toBe('paused')
+    expect(engine.play).not.toHaveBeenCalled()
+  })
+})
+
+describe('where a queue was started from', () => {
+  /** A playlist page's list, holding the library's A and C. */
+  const playlist = [library[0]!, library[2]!]
+
+  it('a playlist page starts its own list even when its track is playing from the library', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    expect(player.queueFrom).toBeNull()
+
+    // "Play all" on the playlist's page, A playing from the library.
+    await player.playAll(playlist, 'playlist:p')
+    // Before: A was taken for the playlist playing, and the library's A was paused instead.
+    expect(player.status).toBe('playing')
+    expect(player.queueFrom).toBe('playlist:p')
+    expect(player.queue.map(t => t.id)).toEqual(['a', 'c'])
+    expect(engine.load).toHaveBeenCalledTimes(2)
+
+    // Now it is the playlist playing: its page toggles it.
+    await player.playTrack(library[0]!, playlist, 'playlist:p')
+    expect(player.status).toBe('paused')
+  })
+
+  it('without a page name (the library, a track\'s editor) the track toggles wherever its queue came from', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playAll(playlist, 'playlist:p')
+    await player.playTrack(library[0]!)
+
+    expect(player.status).toBe('paused')
+    expect(player.queueFrom).toBe('playlist:p')
+    expect(player.queue.map(t => t.id)).toEqual(['a', 'c'])
+  })
+
+  it('a share page or closing the player forgets it', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playAll(playlist, 'playlist:p')
+    await player.playSharedPlaylist(sharedPlaylist, 0)
+    expect(player.queueFrom).toBeNull()
+
+    await player.playAll(playlist, 'playlist:p')
+    player.close()
+    expect(player.queueFrom).toBeNull()
+  })
+})
+
+describe('a listen starting over', () => {
+  it('counts a replay and a play after the end, not a pause and resume', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[2]!, library)
+    expect(player.listen).toBe(0)
+
+    // Paused and resumed: the same listen.
+    await player.togglePlay()
+    await player.togglePlay()
+    expect(player.listen).toBe(0)
+
+    // Repeat one: the track starts over by itself.
+    player.cycleRepeat()
+    player.cycleRepeat()
+    engine.emit('ended')
+    await vi.waitFor(() => expect(player.listen).toBe(1))
+
+    // Repeat off: the last track ends and stays there; play starts it over.
+    player.cycleRepeat()
+    engine.emit('ended')
+    expect(player.status).toBe('paused')
+    await player.togglePlay()
+    expect(player.listen).toBe(2)
+    expect(player.status).toBe('playing')
+  })
+})
+
+describe('deleting many tracks at once', () => {
+  /** A five-track library: a, b, c, d, e. */
+  const five = ['a', 'b', 'c', 'd', 'e'].map(summary)
+
+  it('removes them all from the queue in one go, keeping the current track', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(five[2]!, five)
+
+    player.removeTracks(['a', 'b', 'e', 'x'])
+    expect(player.queue.map(t => t.id)).toEqual(['c', 'd'])
+    expect(player.index).toBe(0)
+    expect(player.current?.id).toBe('c')
+    expect(player.status).toBe('playing')
+  })
+
+  it('closes the player when one of them is playing, or is the one loading', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(five[0]!, five)
+    player.removeTracks(['d', 'a'])
+    expect(player.status).toBe('idle')
+
+    // B loads while A is still the loaded track: deleting B closes the player too.
+    await player.playTrack(five[0]!, five)
+    const release = loadSlowly()
+    const loadingB = player.playTrack(five[1]!, five)
+    player.removeTracks(['b'])
+    release()
+    await loadingB
+    // Before: B left the queue, the next track took its place in the list, and B's audio went on.
+    expect(player.status).toBe('idle')
+    expect(player.current).toBeNull()
   })
 })
