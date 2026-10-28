@@ -1,9 +1,11 @@
 /**
  * End-to-end, track sharing: an unlisted track opens without an account, never exposes the Suno
- * prompt or mastering status, and answers 404 once private again.
+ * prompt or mastering status, and answers 404 once private again. Its cover is signed for the
+ * share page, but Storage's list endpoint, called with the public key every page ships, names no
+ * shared cover and no user's folder (the ids an "unlisted" item is meant to keep to its link).
  */
 import { expect, test } from './fixtures'
-import { clickAndWaitForApi, signUp, uniqueId, uploadTrack, waitForHydration } from './helpers'
+import { clickAndWaitForApi, signUp, TINY_PNG, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
 // The edit page saves with PATCH /api/tracks/:id.
 const SAVE_TRACK = { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ }
@@ -95,5 +97,55 @@ test.describe('public sharing', () => {
     expect((await visitor.request.get(`/api/shared/${trackId}/playback`)).status()).toBe(404)
 
     await visitorContext.close()
+  })
+
+  test('nobody can list the shared covers with the public key: neither the users nor their shared items', async ({ page, browser }) => {
+    await signUp(page)
+    // A track with a cover, shared by link.
+    const title = `listed-${uniqueId()}`
+    await uploadTrack(page, title)
+    await page.getByRole('link', { name: 'Go to library' }).click()
+    await page.getByTestId('track-row').filter({ hasText: title }).getByRole('button', { name: `Actions for ${title}` }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await page.getByTestId('cover-input').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG })
+    await clickAndWaitForApi(page, page.getByTestId('crop-confirm'), SAVE_TRACK)
+    await page.getByText('Unlisted', { exact: true }).click()
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
+    // The track's id, from the edit page's address (/tracks/:id/edit).
+    const id = new URL(page.url()).pathname.split('/')[2]!
+
+    const visitorContext = await browser.newContext()
+    try {
+      // A visitor on the share page: the cover is there, at a signed URL naming the owner's folder.
+      const visitor = await visitorContext.newPage()
+      await visitor.goto(`/t/${id}`)
+      await waitForHydration(visitor)
+      // The cover's signed address, and the owner's id it gives away (the first folder of the path).
+      const src = (await visitor.getByRole('img', { name: `Cover of ${title}` }).first().getAttribute('src'))!
+      const owner = src.match(/\/sign\/covers\/([0-9a-f-]{36})\//)![1]!
+      // What Storage's list endpoint answers the public key, for the owner's folder and for the root.
+      const listed = await visitor.evaluate(async (owner) => {
+        // The Nuxt app on the root element, whose runtime config the page reads its Supabase settings from.
+        const root = document.querySelector('#__nuxt') as unknown as { __vue_app__: { $nuxt: { $config: { public: { supabase: { url: string, key: string } } } } } }
+        // The Supabase project the page talks to, and its public key (shipped to every visitor).
+        const { url, key } = root.__vue_app__.$nuxt.$config.public.supabase
+        /** The names Storage lists under `prefix` in the covers bucket, with the public key alone. */
+        const list = async (prefix: string) => {
+          // The list call, exactly as any visitor's browser could make it.
+          const response = await fetch(`${url}/storage/v1/object/list/covers`, {
+            method: 'POST',
+            headers: { 'apikey': key, 'authorization': `Bearer ${key}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ prefix }),
+          })
+          return (await response.json() as { name: string }[]).map(o => o.name)
+        }
+        return { folder: await list(owner), root: await list('') }
+      }, owner)
+      // Before: the folder named the track (`<id>.webp`), and the root every user with a shared cover.
+      expect(listed).toEqual({ folder: [], root: [] })
+    }
+    finally {
+      await visitorContext.close()
+    }
   })
 })

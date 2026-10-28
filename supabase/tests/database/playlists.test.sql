@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(36);
+select plan(37);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -225,12 +225,22 @@ select is_empty(
   'a private track inside a shared playlist still has no page of its own'
 );
 
+-- Signed by name only (…_storage_sign_only.sql): Storage names each request's operation, set here by hand.
+select set_config('storage.operation', 'storage.object.sign_many', true);
 select results_eq(
   $$ select name from storage.objects where bucket_id = 'covers' and name like 'aaaaaaaa%' order by name $$,
   $$ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.webp'),
             ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp') $$,
-  'visitors read the covers of shared playlists and of the tracks in them, nothing else'
+  'visitors read the covers of shared playlists and of the tracks in them, nothing else, to sign them'
 );
+-- Before: the list endpoint returned the same names, the playlist's id among them.
+select set_config('storage.operation', 'storage.object.list', true);
+select is_empty(
+  $$ select 1 from storage.objects where bucket_id = 'covers' and name like 'aaaaaaaa%' $$,
+  'visitors cannot list the covers of shared playlists and tracks'
+);
+-- Back to no operation named, as the checks below expect.
+select set_config('storage.operation', '', true);
 
 -- The share page's lookups (…_shared_playlist_lookups.sql): one path each, same rule as the list.
 select is(
