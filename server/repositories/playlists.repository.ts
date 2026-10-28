@@ -162,7 +162,9 @@ export async function deletePlaylistRow(
 /**
  * Replaces the tracks of a playlist, in order, in one transaction
  * (the `set_playlist_tracks` database function). It runs with the caller's
- * rights: RLS refuses other users' playlists (404) and tracks (403).
+ * rights, and refuses a playlist or a track that is not theirs (P0002, 404)
+ * and a list longer than 1000 (23514, 400: the table's own limit, which
+ * holds for direct writes too, …_playlist_track_rules.sql).
  */
 export async function setPlaylistTrackIds(db: DbClient, id: string, trackIds: string[]): Promise<void> {
   // Delete and re-insert every entry in one transaction: a failure leaves the old order.

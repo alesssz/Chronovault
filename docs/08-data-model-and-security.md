@@ -111,6 +111,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261027120000_shared_playlist_lookups.sql` | `get_shared_playlist_track_audio` and `get_shared_playlist_cover`: one path each, where the shared playlist's playback and cover routes read the whole list |
 | `20261027130000_lookup_indexes.sql` | Indexes on `tracks.cover_path` and `playlists.cover_path` (the storage policy looked covers up with a scan of every user's rows, once per cover signed) and on `genres.user_id` |
 | `20261027140000_playlist_track_ownership.sql` | `set_playlist_tracks` and `append_playlist_tracks` check the track ids first: one that is not the caller's is "not found" (`P0002`, 404, like any other item) instead of the policy's `42501` (403) as the row went in |
+| `20261028000000_playlist_track_rules.sql` | Playlist entries can no longer be updated directly (privilege and policy dropped: the update policy checked the playlist, not the track, so an entry could be pointed at another user's track and shared); the 1000-track limit becomes a trigger on `playlist_tracks`, holding for every insert (`set_playlist_tracks` and direct writes had none), and `append_playlist_tracks` drops its own check |
 
 ## 8.3 Database functions
 
@@ -123,6 +124,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `private.is_shared_track_file(bucket, path)` | definer | Storage policy helper: the file belongs to a non-private track, to a track in a non-private playlist, or is a non-private playlist's cover |
 | `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction, the playlist's row locked first (RLS applies); a track that is not the caller's (missing or someone else's) is `P0002` (404), nothing written; signed-in users only |
 | `append_playlist_tracks(id, ids[])` | invoker | Appends tracks at the end, in order, skipping those already there, in one locked step (RLS applies); a track that is not the caller's is `P0002` (404); signed-in users only |
+| `private.enforce_playlist_size()` | trigger, invoker | After each insert into `playlist_tracks`: a playlist past 1000 tracks fails the statement (`23514`, 400), whatever wrote it |
 | `private.owns_playlist(id)` | invoker | RLS helper for `playlist_tracks` and `version_votes` |
 | `record_play(track, playlist, listener, completed)` | definer | Counts a play where the caller can listen (shared track page, shared playlist containing it, own track); the owner, recognised by the session, gets `owner` plays; at most 100 different visitors per track and day (`53400` → `429`) |
 | `cast_version_vote(group, track, voter, name, comment)` · `withdraw_version_vote(group, voter)` | definer | A visitor's pick in a shared group of versions: the version must belong to it; `403` for the owner, `409` once a version is final, `429` for a new voter in a group that has 50 votes already |
@@ -151,7 +153,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-end tests:
 
 - A user reads, changes and deletes only their own tracks, genres and playlists. Nobody can create items for someone else or change an item's owner.
-- Playlists can only contain the owner's own tracks.
+- Playlists can only contain the owner's own tracks, and at most 1000 of them. Entries are added and removed, never updated (`20261028000000_playlist_track_rules.sql`): the update policy checked only the playlist, so a signed-in user writing straight through the Data API could point an entry of their own playlist at someone else's track (its id was enough) and share it, exposing that track's lyrics, audio and cover. The 1000-track limit is a trigger on the table, so it holds for direct writes too, not only in the app's functions.
 - Anonymous visitors cannot read any table; through the API they can only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner's account (only the storage keys of the files, which start with the owner's id: the server signs files by them), and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
 - A private track inside a shared playlist is reachable only through that playlist.
 - Plays and votes are written only through their functions, only where the caller can listen or vote; the owner's plays are kept apart by the session, and only the owner reads plays and votes. A visitor sees their own pick, never anyone else's. The owner's visits to their groups (`feedback_seen`) are theirs alone.

@@ -38,8 +38,8 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/playlists/:id` | | `PlaylistDetail` |
 | `PATCH` | `/api/playlists/:id` | any subset of `{ title, description, visibility, coverPath }` | `PlaylistDetail` |
 | `DELETE` | `/api/playlists/:id` | | `204` (tracks stay in the library) |
-| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list) | `PlaylistDetail`; `404` when a track is not the user's (missing or someone else's), nothing written |
-| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail`; `404` when a track is not the user's, nothing written |
+| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list, at most 1000) | `PlaylistDetail`; `404` when a track is not the user's (missing or someone else's), nothing written |
+| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail`; `404` when a track is not the user's, `400` when the playlist would pass 1000 tracks; nothing written either way |
 | `GET` | `/api/playlists/:id/feedback` | | `VersionFeedback`: voting open, votes and plays per version, comments; `404` unless a group of versions |
 | `POST` | `/api/playlists/:id/feedback/seen` | `{ at? }` (the `asOf` of the feedback on screen) | `204`: the group's feedback up to `at` is no longer new (never beyond now, never back); `404` unless the user's |
 | `GET` | `/api/feedback/unseen` | | `UnseenFeedback`: new votes in total and per group, since the owner's last visit to each |
