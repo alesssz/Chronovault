@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -152,6 +152,13 @@ select throws_ok(
        array['a1111111-1111-4111-8111-111111111111', 'b1111111-1111-4111-8111-111111111111']::uuid[]) $$,
   'P0002', null,
   'a list holding someone else''s track is refused as "not found", and nothing is written'
+);
+-- "Nothing is written": the list is still the one the append above left.
+select results_eq(
+  $$ select track_id::text, position from public.playlist_tracks
+     where playlist_id = 'c1111111-1111-4111-8111-111111111111' order by position $$,
+  $$ values ('a1111111-1111-4111-8111-111111111111', 0), ('a2222222-2222-4222-8222-222222222222', 1) $$,
+  'the refused list left the playlist as it was'
 );
 select throws_ok(
   $$ select public.append_playlist_tracks('c1111111-1111-4111-8111-111111111111',

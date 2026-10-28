@@ -34,9 +34,12 @@ select lives_ok(
   $$ insert into public.feedback_seen (playlist_id) values ('c1111111-1111-4111-8111-111111111111') $$,
   'the owner records a visit to their group'
 );
-select lives_ok(
+-- The row it moved, returned: an update that RLS filtered out would return none (and still "live").
+select results_eq(
   $$ update public.feedback_seen set seen_at = now() + interval '1 minute'
-     where playlist_id = 'c1111111-1111-4111-8111-111111111111' $$,
+     where playlist_id = 'c1111111-1111-4111-8111-111111111111'
+     returning seen_at = now() + interval '1 minute' $$,
+  $$ values (true) $$,
   'the owner moves it on a later visit'
 );
 select results_eq(

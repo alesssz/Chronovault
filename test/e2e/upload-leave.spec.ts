@@ -28,6 +28,15 @@ test.describe('leaving the upload page', () => {
       await route.continue()
     })
 
+    // Each file's first request: its upload address (POST /api/tracks/upload-url), asked once the
+    // file is analyzed and converted. When each went out (ms, the test's clock).
+    const uploadUrlRequests: number[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/tracks/upload-url') uploadUrlRequests.push(Date.now())
+    })
+    // When the files were picked: the first one's preparation is timed from here.
+    const pickedAt = Date.now()
+
     // Three files at once: one is processed at a time, the other two wait their turn.
     await page.locator('input[type="file"]').setInputFiles(['one', 'two', 'three'].map(name => ({
       name: `${name}.wav`,
@@ -53,9 +62,14 @@ test.describe('leaving the upload page', () => {
 
     // The file in progress finishes and is registered…
     await expect.poll(() => trackCount(page), { timeout: 20_000 }).toBe(1)
-    // …and the two waiting files never start (a few seconds, during which the next one would
-    // have been analyzed, uploaded and registered).
-    await page.waitForTimeout(4_000)
+    // …and the two waiting files never start. A file starting shows first as its upload address
+    // asked for, once it is analyzed and converted: as long as the first one took for that, so
+    // the test waits three times that long (at least a second) and checks that no second address
+    // was asked. The window follows the machine's speed: a fixed 4 s, counting registered tracks
+    // (which come later still), could pass on a slow runner with the queue carrying on.
+    const preparation = uploadUrlRequests[0]! - pickedAt
+    await page.waitForTimeout(Math.max(1_000, 3 * preparation))
+    expect(uploadUrlRequests, 'upload addresses asked (the first file only)').toHaveLength(1)
     expect(await trackCount(page)).toBe(1)
   })
 })
