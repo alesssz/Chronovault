@@ -4,10 +4,11 @@
  * was saved), the full-screen view without the owner's tools, the mini player
  * that takes over at the bottom of a phone screen once the page's player is scrolled away, and
  * playback going on with the screen off: the page hidden and no frames drawn, the next track
- * still starts by itself and its play is still counted.
+ * still starts by itself and its play is still counted. And the volume saved on the device shows
+ * on a server-rendered share page from its first render.
  */
 import { expect, test, type Page } from './fixtures'
-import { signUp, uploadTrack, waitForHydration } from './helpers'
+import { seedLibrary, signUp, uploadTrack, waitForHydration } from './helpers'
 
 /**
  * Three 12-second tracks: long enough for the checks between two track changes (previous and
@@ -176,6 +177,37 @@ test.describe('share page player', () => {
     }
     finally {
       await phone.close()
+    }
+  })
+
+  test('the volume saved on this device shows on a share page, not the server\'s full level', async ({ page, browser }) => {
+    await signUp(page)
+    await seedLibrary(page, 1)
+    // The seeded track, shared by link; its id.
+    const id = await page.evaluate(async () => {
+      // The only track of the library.
+      const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
+      await fetch(`/api/tracks/${track!.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      })
+      return track!.id
+    })
+
+    const desktop = await browser.newContext()
+    try {
+      // A visitor who left the volume at 30% on an earlier visit (saved before any page runs).
+      await desktop.addInitScript(() => localStorage.setItem('chronovault:volume', '0.3'))
+      const visitor = await desktop.newPage()
+      await visitor.goto(`/t/${id}`)
+      await waitForHydration(visitor)
+      // Before: the page rendered by the server said 100%, and hydration kept it there.
+      await expect(visitor.getByRole('slider', { name: 'Volume' })).toHaveAttribute('aria-valuenow', '30')
+      await expect(visitor.getByRole('button', { name: 'Mute' }).locator('.iconify')).toHaveClass(/volume-1/)
+    }
+    finally {
+      await desktop.close()
     }
   })
 })

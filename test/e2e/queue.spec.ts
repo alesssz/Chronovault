@@ -4,7 +4,7 @@
  * reorders it and puts it back, repeat one restarts the track; tooltips on
  * icon-only buttons, and the bar's waveform at tablet width: a real width,
  * above the controls, never covered by their tooltips once the pointer moves
- * onto it. A long queue draws a hundred rows at a time.
+ * onto it. A long queue draws a hundred rows at a time, its heading counting them all.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { seedLibrary, signUp, uniqueId, uploadTrack } from './helpers'
@@ -206,6 +206,8 @@ test.describe('editable queue', () => {
     // Upcoming tracks in all: the hundred drawn plus the ones the button announces.
     const announced = Number((await more.textContent())!.match(/\((\d+) more/)![1])
     const total = 100 + announced
+    // The heading counts them all, not the rows drawn (it said "Next up · 100").
+    await expect(page.getByRole('heading', { name: `Next up · ${total}` })).toBeVisible()
 
     // The last row drawn moves down, past what is drawn: the next track takes its place.
     // The titles drawn, and the hundredth one, the last row before Show more.

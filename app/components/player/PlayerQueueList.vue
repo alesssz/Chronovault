@@ -106,8 +106,9 @@ function menuFor(i: number): DropdownMenuItem[][] {
     <!-- Next up -->
     <section class="px-4 py-3 sm:px-6">
       <div class="mb-2 flex items-center justify-between gap-2">
+        <!-- Counts every upcoming track, drawn or not: with a long queue only the first hundred rows are -->
         <h3 class="text-xs font-semibold uppercase tracking-widest text-muted">
-          Next up · {{ items.length }}
+          Next up · {{ player.upcoming.length }}
         </h3>
         <UButton
           label="Clear"

@@ -112,21 +112,31 @@ const descriptionPlaceholder = isVersions
 const { feedback, load: loadFeedback, tallyOf } = useVersionFeedback(props.id, isVersions)
 
 // --- Tracks: play, reorder, remove ------------------------------------------------------
-/**
- * The player is on one of these tracks, started from the app (not a share page):
- * "Play all" then pauses/resumes instead of starting over.
- */
-const isPlayingHere = computed(() => player.sourceKey === 'library' && tracks.value.some(t => t.id === player.current?.id))
+/** How this page names the queues it starts (the player's queueFrom). */
+const queueName = `playlist:${props.id}`
 
-/** The track is the one loaded in the player (highlighted row). */
+/**
+ * The player is playing this playlist, started from this page: "Play all"
+ * then pauses/resumes instead of starting over. Not merely one of its tracks:
+ * the same track playing from the library must not turn "Play all" into a
+ * pause of the library.
+ */
+const isPlayingHere = computed(() => player.sourceKey === 'library' && player.queueFrom === queueName)
+
+/**
+ * The track is the one this playlist is playing (highlighted row, whose click
+ * pauses/resumes it). The queue's track, shown while it loads too; the same
+ * track playing from the library is not highlighted here, since a click
+ * starts the playlist from it.
+ */
 function isCurrent(track: TrackSummary) {
-  return player.current?.id === track.id
+  return isPlayingHere.value && player.displayTrack?.id === track.id
 }
 
 /** "Play all": pause/resume when this playlist is playing, otherwise start it (from a random track while shuffled). */
 function playAll() {
   if (isPlayingHere.value) void player.togglePlay()
-  else void player.playAll(tracks.value)
+  else void player.playAll(tracks.value, queueName)
 }
 
 /**
@@ -480,7 +490,7 @@ async function onDelete() {
             ref="listEl"
             class="divide-y divide-default rounded-lg border border-default"
           >
-            <!-- One row per track; the one in the player is highlighted -->
+            <!-- One row per track; the one this playlist is playing is highlighted (see isCurrent) -->
             <PlaylistTrackRow
               v-for="(track, index) in tracks"
               :key="track.id"
@@ -489,7 +499,7 @@ async function onDelete() {
               :version="isVersions"
               :tally="tallyOf(track.id)"
               :menu="menuFor(track, index)"
-              @play="isCurrent(track) ? player.togglePlay() : player.playTrack(track, tracks)"
+              @play="player.playTrack(track, tracks, queueName)"
             />
           </ol>
         </section>

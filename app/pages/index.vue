@@ -232,15 +232,16 @@ async function confirmBulkDelete() {
   bulkDeleting.value = true
   // Each deletion on its own: one failure does not stop the others.
   const results = await Promise.allSettled(chosen.map(t => tracksApi.remove(t.id)))
-  // The ids that were deleted.
-  const deleted = chosen.filter((_, i) => results[i]!.status === 'fulfilled').map(t => t.id)
-  for (const id of deleted) player.removeTrack(id)
-  tracks.value = tracks.value.filter(t => !deleted.includes(t.id))
+  // The ids that were deleted, as a set: the library and the queue are each filtered in one pass
+  // (looking each track up in a list cost millions of comparisons for a few thousand tracks).
+  const deleted = new Set(chosen.filter((_, i) => results[i]!.status === 'fulfilled').map(t => t.id))
+  player.removeTracks(deleted)
+  tracks.value = tracks.value.filter(t => !deleted.has(t.id))
   bulkDeleting.value = false
   bulkDeleteOpen.value = false
   // How many could not be deleted.
-  const failed = chosen.length - deleted.length
-  if (deleted.length) toast.add({ title: deleted.length === 1 ? 'Track deleted' : `${pluralize(deleted.length, 'track')} deleted`, icon: 'i-lucide-trash-2' })
+  const failed = chosen.length - deleted.size
+  if (deleted.size) toast.add({ title: deleted.size === 1 ? 'Track deleted' : `${pluralize(deleted.size, 'track')} deleted`, icon: 'i-lucide-trash-2' })
   if (failed) toast.add({ title: `${failed} not deleted`, description: 'They are still selected: try again', color: 'error' })
   else stopSelecting()
 }

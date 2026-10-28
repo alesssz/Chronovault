@@ -4,8 +4,9 @@
  * when remote playback is refused; the connection state follows the
  * browser's events; prompt() maps the picker's outcomes, telling a picker
  * closed by the user from a browser that cannot cast (no API, or a refusal
- * too quick to be a person's). The browser's RemotePlayback object is
- * replaced by a fake.
+ * too quick to be a person's); a watch the browser confirms only after its
+ * element was dropped is cancelled, not leaked. The browser's RemotePlayback
+ * object is replaced by a fake.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
@@ -25,6 +26,10 @@ class FakeRemote extends EventTarget {
   promptTakes = 2000
   /** Moves the fake clock (see the performance.now() spy in the tests). */
   advance: (ms: number) => void = () => {}
+  /** The browser hands the watch id over only when the test calls confirm() (a slow answer). */
+  slow = false
+  /** Hands over the watch id of a slow answer (set by watchAvailability). */
+  confirm: () => void = () => {}
 
   /** `watchError`: the error name watchAvailability() rejects with (null: it works). */
   constructor(private watchError: string | null = null) {
@@ -35,6 +40,9 @@ class FakeRemote extends EventTarget {
   watchAvailability(callback: (available: boolean) => void) {
     if (this.watchError) return Promise.reject(new DOMException('', this.watchError))
     this.report = callback
+    if (this.slow) return new Promise<number>((resolve) => {
+      this.confirm = () => resolve(7)
+    })
     return Promise.resolve(7)
   }
 
@@ -217,5 +225,40 @@ describe('useRemotePlayback', () => {
     expect(cast.available.value).toBe(false)
     second.report!(true)
     expect(cast.available.value).toBe(true)
+  })
+
+  it('cancels a watch the browser confirms only after the component went away', async () => {
+    // A browser that watches devices, and the composable on it, gone before the watch id comes back.
+    const remote = new FakeRemote()
+    const { cast, stop } = setUp(remote)
+    stop()
+    await settle()
+    // Before: the id arrived after the clean-up, nobody cancelled it, and the browser kept looking.
+    expect(remote.cancelled).toEqual([7])
+    // A late report of a device does not bring the button back either.
+    remote.report!(true)
+    expect(cast.available.value).toBe(false)
+  })
+
+  it('moving on before the old element\'s watch is confirmed cancels it, and keeps the new one', async () => {
+    // Two elements, each with its own device API, the first slow to confirm its watch, and the composable on it.
+    const first = new FakeRemote()
+    first.slow = true
+    const second = new FakeRemote()
+    const { cast, element, stop } = setUp(first)
+    element.value = { remote: second } as unknown as HTMLMediaElement
+    await nextTick()
+    await settle()
+    // The first element's watch is confirmed only now, after the move.
+    first.confirm()
+    await settle()
+    // Before: its id took the place of the second's as the current one, and its watch was never cancelled.
+    expect(first.cancelled).toEqual([7])
+    expect(second.cancelled).toEqual([])
+    second.report!(true)
+    expect(cast.available.value).toBe(true)
+    // And it is the second one's watch that the clean-up cancels.
+    stop()
+    expect(second.cancelled).toEqual([7])
   })
 })
