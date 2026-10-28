@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(36);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -181,12 +181,23 @@ select throws_ok(
   'B cannot upload files into A''s folder'
 );
 
+-- Someone else's shared files are reachable to sign them only (…_storage_sign_only.sql):
+-- Storage names the operation of each request (storage.operation()), set here by hand.
+select set_config('storage.operation', 'storage.object.sign', true);
 select results_eq(
   $$ select name from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' order by name $$,
   $$ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a2222222-2222-4222-8222-222222222222.mp3'),
             ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a3333333-3333-4333-8333-333333333333.mp3') $$,
-  'B only reads audio files of A''s non-private tracks'
+  'B only reads audio files of A''s non-private tracks, to sign them'
 );
+-- Before: the same rows came back to Storage's list endpoint, naming A's shared tracks.
+select set_config('storage.operation', 'storage.object.list', true);
+select is_empty(
+  $$ select 1 from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' $$,
+  'B cannot list A''s shared files'
+);
+-- Back to no operation named, as the checks below expect.
+select set_config('storage.operation', '', true);
 
 -- -----------------------------------------------------------------------------
 -- User A
@@ -209,6 +220,15 @@ select results_eq(
   $$ values (3) $$,
   'A reads all own files'
 );
+-- The owner's own folder: every operation, list included (the Storage dialog's inventory).
+select set_config('storage.operation', 'storage.object.list', true);
+select results_eq(
+  $$ select count(*)::int from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' $$,
+  $$ values (3) $$,
+  'A lists all own files'
+);
+-- Back to no operation named, as the checks below expect.
+select set_config('storage.operation', '', true);
 
 -- -----------------------------------------------------------------------------
 -- Anonymous visitor
@@ -233,10 +253,18 @@ select is_empty(
   'an anonymous visitor cannot open a private track, even with its id'
 );
 
+-- The visitor's files, read as Storage does to sign them.
+select set_config('storage.operation', 'storage.object.sign', true);
 select results_eq(
   $$ select count(*)::int from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' $$,
   $$ values (2) $$,
-  'an anonymous visitor only reads files of non-private tracks'
+  'an anonymous visitor only reads files of non-private tracks, to sign them'
+);
+-- Before: listing with the public key alone named every user's folder and shared files.
+select set_config('storage.operation', 'storage.object.list', true);
+select is_empty(
+  $$ select 1 from storage.objects where bucket_id in ('audio', 'covers') $$,
+  'an anonymous visitor cannot list anything: no user folder, no shared file'
 );
 
 select * from finish();
