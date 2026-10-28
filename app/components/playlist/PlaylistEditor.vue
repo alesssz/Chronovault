@@ -90,13 +90,15 @@ const saving = useAsyncTask()
 
 /** Saves title, description and visibility (validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
+  // The form as sent: what is changed while the request is on its way stays (see useEditForm).
+  const sent = form.snapshot()
   // True when the save went through; false when it failed (the task showed the error).
   const saved = await saving.run(async () => {
     // The playlist as the server stored it.
     const updated = await playlistsApi.update(props.id, event.data)
     applyServerPlaylist(updated)
-    // The form takes the normalized values back and is clean again.
-    form.reset(toFormState(updated))
+    // The form takes the normalized values back, except where edited meanwhile.
+    form.reset(toFormState(updated), sent)
   }, 'Save failed')
   if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
 }

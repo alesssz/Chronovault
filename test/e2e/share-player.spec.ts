@@ -5,7 +5,9 @@
  * that takes over at the bottom of a phone screen once the page's player is scrolled away, and
  * playback going on with the screen off: the page hidden and no frames drawn, the next track
  * still starts by itself and its play is still counted. And the volume saved on the device shows
- * on a server-rendered share page from its first render.
+ * on a server-rendered share page from its first render. On a playlist's page the row shown as
+ * playing is the one being moved to (even while it loads), a click on the one before goes back to
+ * it, and after a failed track the big Play tries that track again.
  */
 import { expect, test, type Page } from './fixtures'
 import { seedLibrary, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -205,6 +207,72 @@ test.describe('share page player', () => {
       // Before: the page rendered by the server said 100%, and hydration kept it there.
       await expect(visitor.getByRole('slider', { name: 'Volume' })).toHaveAttribute('aria-valuenow', '30')
       await expect(visitor.getByRole('button', { name: 'Mute' }).locator('.iconify')).toHaveClass(/volume-1/)
+    }
+    finally {
+      await desktop.close()
+    }
+  })
+
+  test('a playlist page follows the track being moved to, and retries a failed one', async ({ page, browser }) => {
+    test.setTimeout(150_000)
+    // The playlist and its tracks' ids.
+    const { playlist, ids } = await sharedPlaylist(page)
+    const desktop = await browser.newContext()
+    try {
+      // A visitor on the playlist's page, with Tide 1 playing.
+      const visitor = await desktop.newPage()
+      await visitor.goto(`/p/${playlist}`)
+      await waitForHydration(visitor)
+      // The page's rows, the title of what it shows as playing, and its big play button.
+      const rows = visitor.getByTestId('shared-playlist-track')
+      const nowPlaying = visitor.getByTestId('shared-now-playing-title')
+      const play = visitor.getByTestId('shared-play')
+      await rows.nth(0).getByRole('button').first().click()
+      await expect(play).toHaveAttribute('aria-label', 'Pause')
+
+      // --- Tide 3 chosen, its address held back: while it loads, it is Tide 3 that shows ---
+      // The address of the track being moved to, held until the test lets it go.
+      let release!: () => void
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      // Tide 3's address requests, from then on (the first one is held).
+      const tide3 = new RegExp(`/tracks/${ids['Tide 3']}/playback$`)
+      await visitor.route(tide3, async (route) => {
+        await held
+        await route.continue()
+      })
+      await rows.nth(2).getByRole('button').first().click()
+      // Before: Tide 1, still the loaded track, stayed highlighted and in the panel.
+      await expect(rows.nth(2).getByRole('button').first()).toHaveAttribute('aria-current', 'true')
+      await expect(nowPlaying).toHaveText('Tide 3')
+      // A click back on Tide 1 meanwhile goes back to it (before: it paused the track loading).
+      await rows.nth(0).getByRole('button').first().click()
+      release()
+      await expect(nowPlaying).toHaveText('Tide 1')
+      await expect(play).toHaveAttribute('aria-label', 'Pause')
+      await visitor.unroute(tide3)
+
+      // --- Tide 2 fails to load: the big Play tries Tide 2 again, not Tide 1 ---
+      // Tide 2's address requests: refused once, then let through. A 404, which $fetch does not
+      // retry by itself (it retries a 503 once, and the track would simply load).
+      const tide2 = new RegExp(`/tracks/${ids['Tide 2']}/playback$`)
+      let refusals = 0
+      await visitor.route(tide2, async (route) => {
+        if (refusals++ === 0) await route.fulfill({ status: 404, contentType: 'application/json', body: '{"statusCode":404}' })
+        else await route.continue()
+      })
+      await rows.nth(1).getByRole('button').first().click()
+      await expect(nowPlaying).toHaveText('Tide 2')
+      // The player's error, under the controls.
+      await expect(visitor.getByTestId('shared-error')).toBeVisible()
+      // Before: the big Play started the playlist over from Tide 1 (which, 12 s later, moved on to
+      // Tide 2 by itself: hence the request for Tide 2 expected at once, well within those 12 s).
+      const retried = visitor.waitForRequest(tide2, { timeout: 5_000 })
+      await play.click()
+      await retried
+      await expect(play).toHaveAttribute('aria-label', 'Pause')
+      await expect(nowPlaying).toHaveText('Tide 2')
     }
     finally {
       await desktop.close()

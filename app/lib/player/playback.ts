@@ -102,6 +102,13 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   /** A source reload is in progress: engine errors are handled by it. */
   let recovering = false
   /**
+   * Incremented by every source reload: a reload answered after a newer one
+   * started is stale and applies nothing. A seek and a Play on an expired
+   * track each start one; the seek's, answering last, used to put its
+   * address in the element after the Play's and leave the track paused.
+   */
+  let recoveryRound = 0
+  /**
    * Whether the track being loaded starts once it is in: load()'s `autoplay`,
    * then whatever play, pause or play/pause pressed meanwhile asked for. The
    * play button is disabled while loading, but other controls are not (a
@@ -182,11 +189,16 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     if (position > 0) e.seek(position)
   }
 
-  /** Loads a fresh signed URL for `trackId` into the engine, starting at `position`. */
-  async function loadSource(trackId: string, position: number, token: number): Promise<boolean> {
+  /**
+   * Loads a fresh signed URL for `trackId` into the engine, starting at
+   * `position`; false when a newer load (`token`) or, for a source reload,
+   * a newer reload (`round`, see recoveryRound) took over meanwhile.
+   */
+  async function loadSource(trackId: string, position: number, token: number, round?: number): Promise<boolean> {
     // A fresh signed address, from the current source.
     const playback = await source().playback(trackId)
-    if (token !== loadToken) return false
+    // A newer load, or (for a reload) a newer reload, took over meanwhile: this answer is stale.
+    if (token !== loadToken || (round !== undefined && round !== recoveryRound)) return false
     applySource(playback, position)
     return true
   }
@@ -194,11 +206,14 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   /**
    * Replaces the current source with a fresh signed URL at the current
    * position, at most once per source. Resolves to false when it gives up.
+   * A newer reload supersedes it: its late answer then applies nothing.
    */
   async function recoverSource(
     resume: boolean,
-    // The element's own position by default: the waveform may have just moved it.
-    position = engine().currentTime || currentTime.value,
+    // The element's own position by default: the waveform may have just moved it. While
+    // another reload is on its way the element was not moved (a seek on an expired address
+    // only sets the shown position), so the position shown is the one to resume at.
+    position = recovering ? currentTime.value : engine().currentTime || currentTime.value,
   ): Promise<boolean> {
     // The loaded track: without one there is nothing to recover.
     const track = current.value
@@ -207,8 +222,10 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     recovering = true
     // The load this recovery belongs to: a newer load makes it moot.
     const token = loadToken
+    // This reload's round: a newer reload makes it moot too.
+    const round = ++recoveryRound
     try {
-      if (!(await loadSource(track.id, position, token))) return true
+      if (!(await loadSource(track.id, position, token, round))) return true
       if (resume) await engine().play()
       else if (status.value !== 'paused') status.value = 'paused'
       return true
@@ -218,7 +235,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
       return isInterrupted(err)
     }
     finally {
-      recovering = false
+      // The latest reload says when reloading is over (an older one ending changes nothing).
+      if (round === recoveryRound) recovering = false
     }
   }
 

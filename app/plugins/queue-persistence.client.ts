@@ -54,6 +54,8 @@ export default defineNuxtPlugin(() => {
       position: player.currentTime,
       // Once shuffled: the list's original order (to unshuffle, and for new rounds of repeat all).
       originalTrackIds: player.originalOrder ?? undefined,
+      // The page it was started from (a playlist's), so that page knows it again after a reload.
+      from: player.queueFrom ?? undefined,
     })
     ownsSavedQueue = true
   }
@@ -83,7 +85,7 @@ export default defineNuxtPlugin(() => {
       if (player.isActive) return
       // The saved ids matched with the library (deleted tracks dropped).
       const resolved = resolveSavedQueue(saved, library)
-      if (!resolved || !(await player.restoreQueue(resolved.items, resolved.index, resolved.position, resolved.originalIds))) {
+      if (!resolved || !(await player.restoreQueue(resolved.items, resolved.index, resolved.position, resolved.originalIds, saved.from))) {
         clearSavedQueue()
         return
       }
@@ -102,8 +104,8 @@ export default defineNuxtPlugin(() => {
   watch(() => user.value?.sub, () => maybeRestore(window.location.pathname), { immediate: true })
   router.afterEach(to => maybeRestore(to.path))
 
-  // Save on every change of the queue, the current track, the status or the shuffle order.
-  watch([() => player.queue, () => player.index, () => player.status, () => player.originalOrder], persist)
+  // Save on every change of the queue, the current track, the status, the shuffle order or the queue's page.
+  watch([() => player.queue, () => player.index, () => player.status, () => player.originalOrder, () => player.queueFrom], persist)
   // Position: every 5 seconds is enough to resume close to where the user was.
   watch(() => Math.floor(player.currentTime / 5), persist)
   // Exact position when leaving: tab hidden, page closed or reloaded.

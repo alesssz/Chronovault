@@ -147,10 +147,11 @@ function onLyricSeek(seconds: number) {
         aria-label="Lyrics"
         data-testid="shared-lyrics"
       >
-        <LyricsView
+        <!-- The position is read inside ShareLyrics, so the page does not render again every frame -->
+        <ShareLyrics
           :synced="track.lyricsSynced"
           :plain="track.lyrics"
-          :current-time="isLoaded ? player.currentTime : 0"
+          :following="isLoaded"
           @seek="onLyricSeek"
         />
       </section>

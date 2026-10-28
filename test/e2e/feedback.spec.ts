@@ -5,7 +5,8 @@
  * marking a version final; the friend then sees the chosen version and no more hearts. The
  * Statistics page counts the friend's play, apart from the owner's own. The APIs refuse what
  * they must (plays of tracks the caller cannot hear, the owner's vote), and past the caps on
- * anonymous writes (100 visitors per track a day, 50 votes per group) answer 429.
+ * anonymous writes (100 visitors per track a day, 50 votes per group) answer 429. A note typed
+ * and not saved yet survives picking another version.
  */
 import { expect, test, type Page } from './fixtures'
 import { seedLibrary, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -192,5 +193,48 @@ test.describe('listeners\' feedback', () => {
     // The owner's page counts exactly the votes the cap let in.
     await page.goto(`/versions/${group}`)
     await expect(page.getByTestId('version-feedback').getByTestId('version-feedback-totals')).toContainText('50 votes')
+  })
+
+  test('a note typed and not saved yet survives picking another version', async ({ page, browser }) => {
+    await signUp(page)
+    // Two drafts, straight through the API ("Track 001", "Track 002"), in an unlisted group.
+    await seedLibrary(page, 2)
+    // Their ids, by title.
+    const ids = await trackIds(page)
+    const group = await page.evaluate(async (trackIds) => {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Notes – versions', purpose: 'versions', visibility: 'unlisted', trackIds }),
+      })
+      return (await response.json() as { id: string }).id
+    }, [ids['Track 001']!, ids['Track 002']!])
+
+    const friendContext = await browser.newContext()
+    try {
+      // A friend on the group's page picks the first version and starts writing a note.
+      const friend = await friendContext.newPage()
+      await friend.goto(`/p/${group}`)
+      await waitForHydration(friend)
+      // The two versions' rows.
+      const row = (title: string) => friend.getByTestId('shared-playlist-track').filter({ hasText: title })
+      await row('Track 001').getByRole('button', { name: 'Pick Track 001' }).click()
+      await expect(row('Track 001').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
+      await friend.getByTestId('version-vote-name').fill('Marco')
+      await friend.getByTestId('version-vote-comment').fill('Still deciding')
+
+      // Then changes their mind before saving the note.
+      await row('Track 002').getByRole('button', { name: 'Pick Track 002' }).click()
+      await expect(row('Track 002').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
+      // Before: the answer to the new pick reset both fields to the saved (empty) note.
+      await expect(friend.getByTestId('version-vote-name')).toHaveValue('Marco')
+      await expect(friend.getByTestId('version-vote-comment')).toHaveValue('Still deciding')
+      // Still to save: the note goes with the new pick.
+      await friend.getByTestId('version-vote-save').click()
+      await expect(friend.getByText('Note saved').first()).toBeVisible()
+    }
+    finally {
+      await friendContext.close()
+    }
   })
 })

@@ -65,10 +65,14 @@ const isHere = computed(() => player.sourceKey === `playlist:${id}`)
 /** Playing this playlist right now (big button shows Pause). */
 const isPlaying = computed(() => isHere.value && player.isPlaying)
 
-/** The track shown in the "now playing" panel: the current one, or the first before playing. */
+/**
+ * The track shown in the "now playing" panel: the one the player is on (the
+ * queue's, so while a newly chosen track loads, and after it failed, it is
+ * that one, not the one loaded before), or the first before playing.
+ */
 const activeTrack = computed(() => {
   const tracks = playlist.value?.tracks ?? []
-  return (isHere.value && tracks.find(t => t.id === player.current?.id)) || tracks[0] || null
+  return (isHere.value && tracks.find(t => t.id === player.displayTrack?.id)) || tracks[0] || null
 })
 /** "Album · Year · Genre" of the active track. */
 const activeMeta = computed(() => {
@@ -85,19 +89,30 @@ onMounted(() => {
 // Leaving the page stops the music: this page is the only place it is controlled from.
 onBeforeUnmount(() => player.close())
 
-/** The track is the one loaded from this playlist. */
+/**
+ * The track is the one the player is on in this playlist (highlighted row):
+ * the queue's track, like the panel above, not the one still loaded while it loads.
+ */
 function isActive(trackId: string) {
-  return isHere.value && player.current?.id === trackId
+  return isHere.value && player.displayTrack?.id === trackId
 }
 
-/** Plays the playlist from a given track. */
+/**
+ * Plays the playlist from a given track. The track the player is already on
+ * is toggled instead (playSharedPlaylist), while it loads too: the row's
+ * click goes through the store, which knows the queue's track.
+ */
 function playAt(index: number) {
   if (playlist.value) void player.playSharedPlaylist(playlist.value, index)
 }
 
-/** Big play button: toggles the current track, or starts from the first. */
+/**
+ * Big play button: toggles the current track, or starts from the first. After
+ * an error it tries the same track again (play reloads it), as Space and the
+ * track page do: it used to start the playlist over from its first track.
+ */
 function togglePlay() {
-  if (isHere.value && player.status !== 'error') void player.togglePlay()
+  if (isHere.value) void player.togglePlay()
   else playAt(0)
 }
 
@@ -186,7 +201,7 @@ function isPicked(trackId: string) {
               type="button"
               class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-elevated/50"
               :aria-current="isActive(track.id) ? 'true' : undefined"
-              @click="isActive(track.id) ? player.togglePlay() : playAt(index)"
+              @click="playAt(index)"
             >
               <span class="w-5 shrink-0 text-right text-sm tabular-nums text-dimmed">
                 <UIcon
@@ -303,11 +318,12 @@ function isPicked(trackId: string) {
           class="h-[60dvh] min-h-0 rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 lg:h-auto lg:flex-1"
           data-testid="shared-lyrics"
         >
-          <LyricsView
+          <!-- The position is read inside ShareLyrics: read here, it re-rendered the whole page every frame -->
+          <ShareLyrics
             :key="activeTrack.id"
             :synced="activeTrack.lyricsSynced"
             :plain="activeTrack.lyrics"
-            :current-time="isHere && player.current?.id === activeTrack.id ? player.currentTime : 0"
+            :following="isHere && player.current?.id === activeTrack.id"
             @seek="onLyricSeek"
           />
         </div>

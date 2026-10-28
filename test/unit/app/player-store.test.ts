@@ -1,9 +1,10 @@
 /**
  * Player store with a fake audio engine and a mocked API: queue, previous/next, toggling,
  * race conditions between loads, expired signed URLs (refresh before resume/seek, one retry
- * after a refusal), playback rate, the shared sources (public track and playlist pages), the
+ * after a refusal, an older reload superseded by a newer one), playback rate, the shared sources (public track and playlist pages), the
  * next track asked for ahead (so it starts at once when the current one ends), commands given
- * while a track loads, where a queue was started from (a playlist's page or the library), a
+ * while a track loads, where a queue was started from (a playlist's page or the library, kept
+ * by a restored queue), a
  * listen starting over (for the play counter), and deleting many tracks at once.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -439,6 +440,30 @@ describe('expired or refused audio sources', () => {
     expect(player.status).toBe('playing')
   })
 
+  it('a seek then Play on a paused expired track: the track plays, from the position sought', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    player.pause()
+    vi.setSystemTime(Date.now() + SIX_HOURS + 60_000)
+
+    // The seek's fresh address answers last (slow), the Play's one first.
+    let releaseSeek!: () => void
+    vi.mocked(tracksApi.playback).mockImplementationOnce(id => new Promise((resolve) => {
+      releaseSeek = () => resolve({ url: `https://audio/${id}?seek`, expiresAt: new Date(Date.now() + SIX_HOURS).toISOString() })
+    }))
+    player.seek(90)
+    await player.play()
+    releaseSeek()
+    await vi.waitFor(() => expect(tracksApi.playback).toHaveBeenCalledTimes(3))
+    await new Promise(resolve => setTimeout(resolve))
+
+    // Before: the seek's late answer reloaded the element and left it paused after Play.
+    expect(player.status).toBe('playing')
+    expect(engine.seek).toHaveBeenLastCalledWith(90)
+  })
+
   it('a source refused during playback is reloaded once, then the error is shown', async () => {
     // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
@@ -771,6 +796,18 @@ describe('expired or refused audio sources', () => {
       expect(player.queue.map(t => t.id)).toEqual(['a', 'b', 'c'])
       expect(player.index).toBe(1)
       expect(player.queueEditable).toBe(true)
+    })
+
+    it('remembers the page the restored queue was started from (a playlist\'s page resumes it)', async () => {
+      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+      const player = usePlayerStore()
+      await player.restoreQueue(library, 1, 0, undefined, 'playlist:p')
+      // Before: forgotten, and "Play all" on that playlist's page started it over from its first track.
+      expect(player.queueFrom).toBe('playlist:p')
+      // Without one (the library, or a queue saved before): none.
+      player.close()
+      await player.restoreQueue(library, 1, 0)
+      expect(player.queueFrom).toBeNull()
     })
 
     it('does nothing when something is already playing', async () => {

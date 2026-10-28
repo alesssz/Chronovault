@@ -21,7 +21,7 @@ Chronovault/
 │   │   │                             #   PlaylistGrid (cards),
 │   │   │                             #   PlaylistVersionFeedback (a group's votes, plays and comments)
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
-│   │   │                             #   ShareVersionVote (a group's vote panel) (public pages)
+│   │   │                             #   ShareVersionVote (a group's vote panel), ShareLyrics (lyrics following the player) (public pages)
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (cover, file,
 │   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)

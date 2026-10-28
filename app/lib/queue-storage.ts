@@ -33,6 +33,13 @@ export interface SavedQueue {
   position: number
   /** Once the queue has been shuffled: its ids in their order before the first shuffle. */
   originalTrackIds?: string[]
+  /**
+   * Where the queue was started from (the store's queueFrom: `playlist:<id>`),
+   * absent for the library. Without it a restored playlist queue was the
+   * library's to its page: "Play all" started it over instead of resuming.
+   * Optional, so queues saved before it are read as they are.
+   */
+  from?: string
   /** ISO timestamp of the last save (informational). */
   savedAt: string
 }
@@ -48,7 +55,7 @@ function storage(): Storage | null {
 }
 
 /** Saves the queue state; failures (quota, blocked storage) are ignored: it is only a convenience. */
-export function saveQueue(state: Pick<SavedQueue, 'userId' | 'trackIds' | 'index' | 'position' | 'originalTrackIds'>): void {
+export function saveQueue(state: Pick<SavedQueue, 'userId' | 'trackIds' | 'index' | 'position' | 'originalTrackIds' | 'from'>): void {
   // Position rounded to a tenth of a second: plenty to resume, compact in storage.
   const saved: SavedQueue = {
     version: VERSION,
@@ -101,6 +108,7 @@ export function readSavedQueue(userId: string): SavedQueue | null {
     && typeof saved.position === 'number' && Number.isFinite(saved.position)
     && (saved.originalTrackIds === undefined
       || (Array.isArray(saved.originalTrackIds) && saved.originalTrackIds.every(id => typeof id === 'string')))
+    && (saved.from === undefined || typeof saved.from === 'string')
   if (!valid || saved.userId !== userId) {
     clearSavedQueue()
     return null

@@ -120,9 +120,11 @@ const onScreen = useElementVisibility(root)
       </div>
     </div>
 
+    <!-- Why the track could not play (marked for the tests) -->
     <p
       v-if="active && player.status === 'error'"
       class="mt-6 text-sm text-error"
+      data-testid="shared-error"
     >
       {{ player.error }}
     </p>

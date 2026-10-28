@@ -90,12 +90,14 @@ function applyServerTrack(updated: TrackDetail) {
 
 /** Saves the whole form (already validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
+  // The form as sent: what is changed while the request is on its way stays (see useEditForm).
+  const sent = form.snapshot()
   // True when the save went through; false when it failed (the task showed the error).
   const saved = await saving.run(async () => {
     const updated = await tracksApi.update(id, event.data)
     applyServerTrack(updated)
-    // The form takes the normalized values back (trimmed texts…) and is clean again.
-    form.reset(toFormState(updated))
+    // The form takes the normalized values back (trimmed texts…), except where edited meanwhile.
+    form.reset(toFormState(updated), sent)
   }, 'Save failed')
   if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
 }
