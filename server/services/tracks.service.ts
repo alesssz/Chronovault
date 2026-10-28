@@ -1,7 +1,7 @@
 import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
-import { buildAudioPath, buildCoverPath, isTrackPath } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, buildCoverPath, isAudioPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { badRequest, conflict, isConflict, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
@@ -72,8 +72,10 @@ export async function createUploadTarget(
 
 /**
  * Registers an uploaded track. Paths must point into the user's folder and
- * to this track id (the cover exactly `<userId>/<trackId>.webp`, as the
- * database requires); the file must exist with the declared size. A
+ * to this track id, exactly as the database requires (the audio
+ * `<userId>/<trackId>.<ext>` with an extension of 1 to 10 lower-case letters
+ * and digits, the cover `<userId>/<trackId>.webp`); the file must exist with
+ * the declared size. A
  * mismatched file is deleted; so is the file when the database refuses the
  * track (no orphans), but not when the insert's outcome is unknown.
  *
@@ -87,7 +89,7 @@ export async function createTrack(
   userId: string,
   input: TrackCreate,
 ): Promise<TrackDetail> {
-  assertTrackPath(input.audioPath, userId, input.id, 'audio')
+  assertAudioPath(input.audioPath, userId, input.id)
   if (input.coverPath) assertCoverPath(input.coverPath, userId, input.id)
 
   // Already registered: the same file is a repeated request (answered with the
@@ -175,9 +177,9 @@ export async function getPlaybackSource(
   return playbackSource(audio, audioPath)
 }
 
-/** 400 unless `path` is `<userId>/<trackId>.<ext>`: rejects paths a client could forge. */
-function assertTrackPath(path: string, userId: string, trackId: string, label: string): void {
-  if (!isTrackPath(path, userId, trackId)) throw badRequest(`Invalid ${label} path`)
+/** 400 unless `path` is `<userId>/<trackId>.<ext>` as the database accepts it: rejects paths a client could forge. */
+function assertAudioPath(path: string, userId: string, trackId: string): void {
+  if (!isAudioPath(path, userId, trackId)) throw badRequest('Invalid audio path')
 }
 
 /**

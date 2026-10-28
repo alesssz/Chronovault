@@ -47,6 +47,28 @@ export const AUDIO_ACCEPT = ['audio/*', ...Object.keys(AUDIO_EXTENSIONS).map(ext
  */
 export const MAX_AUDIO_BYTES = 500 * 1024 * 1024
 
+/**
+ * Longest duration a track may declare: 30 days, beyond any real file (even
+ * 500 MB at 2 kbps, a bitrate no encoder uses for music, lasts about 24
+ * days; real tracks are minutes).
+ * The column is a `real`, which refuses anything past about 3.4e38: a
+ * duration such as 1e39 used to pass the schema and fail the insert with a
+ * 500 (22003), so the bound is checked by the schema first.
+ */
+export const MAX_DURATION_SECONDS = 30 * 24 * 60 * 60
+
+/**
+ * A duration read from a file, kept only when it is a plausible one
+ * (a finite number of seconds from 0 to MAX_DURATION_SECONDS); null
+ * otherwise. A broken or forged tag then leaves the track without a
+ * duration instead of having its registration refused.
+ */
+export function plausibleDuration(seconds: number | null | undefined): number | null {
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0 && seconds <= MAX_DURATION_SECONDS
+    ? seconds
+    : null
+}
+
 /** Lower-cased extension without the dot (`'Song.FLAC'` → `'flac'`), or `''` when there is none. */
 export function getExtension(fileName: string): string {
   // Position of the last dot (-1: no extension).

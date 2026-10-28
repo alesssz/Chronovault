@@ -1,6 +1,6 @@
 /**
  * Tracks service with mocked repositories and a fake audio storage: upload targets, registration
- * checks (paths, the cover's exact WebP path, stored size, the audio deleted when the database
+ * checks (paths, the audio's extension as the database accepts it, the cover's exact WebP path, stored size, the audio deleted when the database
  * refuses the track but kept when the outcome is unknown), repeated registrations (the same request
  * answered with the track, a registered track's file never deleted nor overwritten), updates,
  * deletion and playback URLs.
@@ -126,6 +126,13 @@ describe('createTrack', () => {
     await expect(createTrack(db, storage(), USER, { ...createInput, audioPath: `other/${TRACK}.flac` }))
       .rejects.toMatchObject({ statusCode: 400 })
     expect(tracksRepo.insertTrackRow).not.toHaveBeenCalled()
+  })
+
+  it('rejects an audio path whose extension the database would refuse, before touching storage', async () => {
+    // A control character in the extension: before, it passed here and the storage client threw (500).
+    await expect(createTrack(db, storage(), USER, { ...createInput, audioPath: `${USER}/${TRACK}.mp\u00013` }))
+      .rejects.toMatchObject({ statusCode: 400 })
+    expect(audio.head).not.toHaveBeenCalled()
   })
 
   it('rejects a cover that does not belong to the track', async () => {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRACK_STATUSES, TRACK_VISIBILITIES } from '../types/track'
-import { AUDIO_EXTENSIONS, MAX_AUDIO_BYTES } from '../utils/audio-files'
+import { AUDIO_EXTENSIONS, MAX_AUDIO_BYTES, MAX_DURATION_SECONDS } from '../utils/audio-files'
 import { PEAKS_RESOLUTION } from '../utils/peaks'
 
 /**
@@ -96,7 +96,8 @@ export const trackCreateSchema = trackMetadataSchema.partial().extend({
   coverPath: storagePath.nullable().optional(),
   mimeType: audioMimeType,
   sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES),
-  durationSeconds: z.number().min(0).nullable().optional(),
+  // Bounded below what the `real` column holds (MAX_DURATION_SECONDS): past it, 400 rather than the database's 500.
+  durationSeconds: z.number().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
   peaks: z.array(z.number().min(0).max(1)).max(PEAKS_RESOLUTION).nullable().optional(),
 })
 

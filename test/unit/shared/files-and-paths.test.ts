@@ -1,9 +1,10 @@
 /**
- * Audio file type detection, storage extensions, fallback titles and storage path rules.
+ * Audio file type detection, storage extensions, fallback titles, plausible durations and storage
+ * path rules (the audio path's extension exactly as the database accepts it).
  */
 import { describe, expect, it } from 'vitest'
-import { resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/shared/utils/audio-files'
-import { buildAudioPath, buildCoverPath, buildPlaylistCoverPath, isSafeStorageKey, isTrackPath } from '~~/shared/utils/storage-paths'
+import { MAX_DURATION_SECONDS, plausibleDuration, resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/shared/utils/audio-files'
+import { buildAudioPath, buildCoverPath, buildPlaylistCoverPath, isAudioPath, isSafeStorageKey } from '~~/shared/utils/storage-paths'
 import { computePeaks } from '~~/shared/utils/peaks'
 
 // Fixed ids and the storage paths they lead to (the format checks only care about the shape).
@@ -45,18 +46,40 @@ describe('titleFromFileName', () => {
   })
 })
 
+describe('plausibleDuration', () => {
+  it('keeps a real duration, 0 and the maximum included', () => {
+    expect(plausibleDuration(183.4)).toBe(183.4)
+    expect(plausibleDuration(0)).toBe(0)
+    expect(plausibleDuration(MAX_DURATION_SECONDS)).toBe(MAX_DURATION_SECONDS)
+  })
+
+  it('leaves out a missing, negative, infinite or absurd one (a broken tag), rather than have the track refused', () => {
+    for (const seconds of [null, undefined, -1, Number.NaN, Number.POSITIVE_INFINITY, MAX_DURATION_SECONDS + 1, 1e39]) {
+      expect(plausibleDuration(seconds), String(seconds)).toBeNull()
+    }
+  })
+})
+
 describe('storage paths', () => {
   it('builds paths inside the user folder', () => {
     expect(buildAudioPath(USER, TRACK, '.FLAC')).toBe(`${USER}/${TRACK}.flac`)
     expect(buildCoverPath(USER, TRACK)).toBe(`${USER}/${TRACK}.webp`)
   })
 
-  it('only accepts paths of the right user and track', () => {
-    expect(isTrackPath(`${USER}/${TRACK}.mp3`, USER, TRACK)).toBe(true)
-    expect(isTrackPath(`other-user/${TRACK}.mp3`, USER, TRACK)).toBe(false)
-    expect(isTrackPath(`${USER}/other-track.mp3`, USER, TRACK)).toBe(false)
-    expect(isTrackPath(`${USER}/sub/${TRACK}.mp3`, USER, TRACK)).toBe(false)
-    expect(isTrackPath(`${USER}/${TRACK}`, USER, TRACK)).toBe(false)
+  it('only accepts the audio path of the right user and track', () => {
+    expect(isAudioPath(`${USER}/${TRACK}.mp3`, USER, TRACK)).toBe(true)
+    expect(isAudioPath(`other-user/${TRACK}.mp3`, USER, TRACK)).toBe(false)
+    expect(isAudioPath(`${USER}/other-track.mp3`, USER, TRACK)).toBe(false)
+    expect(isAudioPath(`${USER}/sub/${TRACK}.mp3`, USER, TRACK)).toBe(false)
+    expect(isAudioPath(`${USER}/${TRACK}`, USER, TRACK)).toBe(false)
+  })
+
+  it('accepts only the extensions the database does: 1 to 10 lower-case letters and digits', () => {
+    expect(isAudioPath(`${USER}/${TRACK}.opus`, USER, TRACK)).toBe(true)
+    // Before: any extension passed, and these made the storage client throw (500) or the database refuse.
+    for (const extension of ['mp\u00003', 'mp\u00013', 'MP3', 'mp3/..', 'abcdefghijk', '']) {
+      expect(isAudioPath(`${USER}/${TRACK}.${extension}`, USER, TRACK), JSON.stringify(extension)).toBe(false)
+    }
   })
 
   it('calls safe only the keys that name one file by a plain path', () => {
