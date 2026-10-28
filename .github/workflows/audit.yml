@@ -1,6 +1,6 @@
 # Dependency audit: `pnpm audit` against the advisory database, every week
-# and whenever the dependencies change. A new advisory fails the run, and
-# GitHub emails the repository owner about a failed scheduled run.
+# and whenever the dependencies change, on any branch. A new advisory fails
+# the run, and GitHub emails the repository owner about a failed scheduled run.
 #
 # Why not GitHub's Dependabot alerts: the dependency graph does not read
 # pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version, then
@@ -18,9 +18,15 @@ on:
     - cron: '0 6 * * 1'
   # Run by hand from the Actions tab.
   workflow_dispatch:
+  # A push to any branch that changes the dependencies: branches are merged locally
+  # (`make merge`), never through a pull request, and the push to main deploys. Audited
+  # on main only, a vulnerable version added on a branch was reported once already in
+  # production; now it fails the branch's run, next to its CI, before the merge.
   push:
-    branches: [main]
+    branches: ['**']
     paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
+  # A pull request that changes them: none is opened today (see above), but one opened on
+  # GitHub, from a fork or by a bot, is audited before it can be merged there.
   pull_request:
     paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
 

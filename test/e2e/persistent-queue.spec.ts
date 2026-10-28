@@ -42,12 +42,15 @@ test.describe('saved queue', () => {
     await page.reload()
     await expect(bar.getByTestId('player-title')).toHaveText(second)
     await expect(page.getByTestId('track-row')).toHaveCount(2)
-    expect(libraryReads).toBe(1)
     await expect(toggle).toHaveAttribute('aria-label', 'Play')
     await expect(bar.getByTestId('player-elapsed')).toHaveText('0:10')
     await bar.getByTestId('player-queue').click()
     await expect(page.getByTestId('queue-item-title')).toHaveText([first])
     await page.keyboard.press('Escape')
+    // Counted only now, once the page and the restore are both done (track, position and queue
+    // shown): checked as soon as the rows appeared, a second read starting a moment later (the
+    // restore, after hydration) would not have been counted yet.
+    expect(libraryReads).toBe(1)
 
     // It plays from there.
     await toggle.click()

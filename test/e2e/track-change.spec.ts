@@ -7,8 +7,10 @@
  * moment, without waiting for the network: shorter gaps, and a start the browser does not refuse
  * with the screen off (some refuse a play() that comes after a network wait in the background).
  *
- * Measured in the page, on one clock: the player's audio element is wrapped as it is created
- * (its `ended` and `playing` events), and so is `fetch` (the playback requests).
+ * Recorded in the page, on one clock: the player's audio element is wrapped as it is created
+ * (its `ended` and `playing` events), and so is `fetch` (the playback requests). What is asserted
+ * is their order (no request for the next track between the end and the start), never a
+ * duration, which a slow runner stretches.
  */
 import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
@@ -94,8 +96,8 @@ test.describe('track change', () => {
     const started = marks.find(m => m.kind === 'playing' && m.t > ended.t)!
     // …and the request for the next track's address (ahead of the end, or after it).
     const asked = marks.find(m => m.kind === 'request' && m.url?.includes(`/api/tracks/${ids['Step 2']}/playback`))
-    // The numbers, in the test's report (with 500 ms of latency the gap was ~555 ms before the
-    // address was asked for ahead, ~40 ms after).
+    // The numbers, in the test's report only (with 500 ms of latency the gap was ~555 ms before
+    // the address was asked for ahead, ~40 ms after): what is asserted is the order below.
     test.info().annotations.push({
       type: 'track change',
       description: `gap ${Math.round(started.t - ended.t)} ms; next address asked ${asked ? Math.round(ended.t - asked.t) : '-'} ms before the end`,
@@ -104,7 +106,13 @@ test.describe('track change', () => {
     // The next track's address was asked for before the end, not after it...
     expect(asked, 'the address of the next track is asked for').toBeDefined()
     expect(asked!.t).toBeLessThan(ended.t)
-    // ...so the next track starts without any network wait: well under one request's latency.
-    expect(started.t - ended.t).toBeLessThan(API_LATENCY_MS / 2)
+    // ...so nothing about it went to the network between the end and the start: it started without
+    // waiting for any answer. Checked on the order of events, not on a duration: a slow runner can
+    // stretch the gap (the limit of 250 ms checked here before made the result depend on the
+    // machine's speed), never this order. Without the request ahead, both requests (data and
+    // address) came in there.
+    // The next track's requests that went out between the end and the start (none expected).
+    const between = marks.filter(m => m.kind === 'request' && m.t > ended.t && m.t < started.t && m.url?.includes(ids['Step 2']!))
+    expect(between, 'requests for the next track between the end and the start').toEqual([])
   })
 })

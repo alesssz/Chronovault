@@ -1,6 +1,6 @@
 # 9. API reference
 
-All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays` and `/api/shared/**`. **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
+All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays`, `/api/shared/**` and `/api/stream` (its signed address is the permission: a cast device has no session). **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
 **Tracks and genres**
 
@@ -60,7 +60,7 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/shared/:id/cover` | `302` to a fresh signed cover URL |
 | `GET` | `/api/shared/playlists/:id` | `SharedPlaylist` (all tracks, shareable fields) |
 | `GET` | `/api/shared/playlists/:id/tracks/:trackId/playback` | `PlaybackSource`, only for tracks of that playlist |
-| `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `403` unless signed by the server and unexpired ([7.7](07-data-flows.md#77-expired-streaming-urls)) |
+| `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `400` when a part of the address is missing, `403` unless signed by the server and unexpired, `404` (`HEAD`) when the file is gone, `405` for any other method ([7.7](07-data-flows.md#77-expired-streaming-urls)) |
 | `GET` | `/api/shared/playlists/:id/cover` | `302` to the custom cover, or the first track cover |
 | `POST` | `/api/plays` | Body `{ trackId, playlistId?, listenerId, completed? }` → `204`; `404` where the caller cannot listen to that track; `429` for a new visitor of a track that already has 100 today |
 | `GET` · `PUT` · `DELETE` | `/api/shared/playlists/:id/vote` | `VersionVoteState` (voting open, owner or not, this browser's pick): `GET` and `DELETE` take `?voter=<browser id>`, `PUT` takes `{ voterId, trackId, name?, comment? }`; `403` for the owner, `404` unless a shared group (or a version of it), `409` once a version is final, `429` for a new voter once the group has 50 votes |
