@@ -1,7 +1,7 @@
 import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
-import { buildAudioPath, isTrackPath } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, buildCoverPath, isTrackPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { badRequest, conflict, isConflict, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
@@ -72,8 +72,10 @@ export async function createUploadTarget(
 
 /**
  * Registers an uploaded track. Paths must point into the user's folder and
- * to this track id; the file must exist with the declared size. A mismatched
- * file is deleted; so is the file when the insert fails (no orphans).
+ * to this track id (the cover exactly `<userId>/<trackId>.webp`, as the
+ * database requires); the file must exist with the declared size. A
+ * mismatched file is deleted; so is the file when the database refuses the
+ * track (no orphans), but not when the insert's outcome is unknown.
  *
  * Safe to repeat (a retry after a lost response, a double submit): a track
  * already registered with this file is returned as it is, and a registered
@@ -86,7 +88,7 @@ export async function createTrack(
   input: TrackCreate,
 ): Promise<TrackDetail> {
   assertTrackPath(input.audioPath, userId, input.id, 'audio')
-  if (input.coverPath) assertTrackPath(input.coverPath, userId, input.id, 'cover')
+  if (input.coverPath) assertCoverPath(input.coverPath, userId, input.id)
 
   // Already registered: the same file is a repeated request (answered with the
   // track), another one a clash (409). Either way storage is left alone.
@@ -113,10 +115,13 @@ export async function createTrack(
     return toTrackDetail(row)
   }
   catch (error) {
-    // No orphaned audio when the track could not be registered; but on a unique
-    // violation (409) an identical request running alongside registered it first,
-    // and the file is that track's now: it stays.
-    if (!isConflict(error)) await audio.remove([input.audioPath])
+    // No orphaned audio when the database refused the track (a 4xx: the row was not
+    // written). But a unique violation (409) means an identical request running alongside
+    // registered it first, and the file is that track's now; and a 500 (a timeout, a
+    // dropped connection) leaves the outcome unknown: the row may have been committed,
+    // and deleting its file would leave a track that cannot play. Both keep the file; an
+    // orphan left that way shows in the storage clean-up (docs 7.12).
+    if (refusedByDatabase(error) && !isConflict(error)) await audio.remove([input.audioPath])
     throw error
   }
 }
@@ -126,7 +131,7 @@ export async function createTrack(
  * and deletes its file once the row is updated.
  */
 export async function updateTrack(db: DbClient, userId: string, id: string, input: TrackUpdate): Promise<TrackDetail> {
-  if (input.coverPath) assertTrackPath(input.coverPath, userId, id, 'cover')
+  if (input.coverPath) assertCoverPath(input.coverPath, userId, id)
 
   // When the cover is removed we need the old path to delete the file.
   const previousCover = input.coverPath === null
@@ -173,4 +178,21 @@ export async function getPlaybackSource(
 /** 400 unless `path` is `<userId>/<trackId>.<ext>`: rejects paths a client could forge. */
 function assertTrackPath(path: string, userId: string, trackId: string, label: string): void {
   if (!isTrackPath(path, userId, trackId)) throw badRequest(`Invalid ${label} path`)
+}
+
+/**
+ * 400 unless `path` is the track's cover path, `<userId>/<trackId>.webp`,
+ * the only one the database accepts (tracks_cover_path_exact). Any other
+ * extension used to pass here and fail at the insert, and createTrack then
+ * deleted the audio just uploaded along with the refused row.
+ */
+function assertCoverPath(path: string, userId: string, trackId: string): void {
+  if (path !== buildCoverPath(userId, trackId)) throw badRequest('Invalid cover path')
+}
+
+/** True for an API error the database gave for a refused write (4xx): nothing was written. */
+function refusedByDatabase(error: unknown): boolean {
+  // The HTTP status toHttpError gave it (none for an error that did not come from there).
+  const status = (error as { statusCode?: unknown } | null)?.statusCode
+  return typeof status === 'number' && status >= 400 && status < 500
 }

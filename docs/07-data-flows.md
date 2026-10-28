@@ -103,7 +103,9 @@ sequenceDiagram
 | A file of another size or type than declared sent to the address | Refused by the storage (`403`): the address's signature holds the declared size and type, so it stores that file only, never retried |
 | Cover conversion/upload fails | The track is saved without a cover |
 | Stored file missing or of a different size | The server deletes it and refuses the track (400) |
-| Database insert fails | The server deletes the audio, the browser deletes the cover |
+| A cover path other than `<userId>/<trackId>.webp` | `400` before anything is touched (it used to pass the server, fail the database's rule and take the audio with it) |
+| The database refuses the track (`4xx`) | The server deletes the audio, the browser deletes the cover |
+| The insert fails with no answer to trust (`500`: a timeout, a dropped connection) | The audio is **kept**: the row may have been committed, and deleting its file would leave a track that cannot play. If it was not, the file is an orphan, shown in the Storage dialog ([7.12](#712-storage-clean-up)) |
 | The registration is sent twice (a retry after a lost response, a double submit, two tabs) | The repeat gets `201` with the track already registered, and its file is never deleted: the server looks for the id first, and when two identical requests race, the one that loses the insert (unique violation, `409`) leaves the file to the winner |
 | An upload address is asked for an id already registered | `409`: a registered track's file can never be overwritten |
 | Browser closed between the upload and the registration | The file stays in R2 unused: an orphan, removed from the Storage dialog ([7.12](#712-storage-clean-up)) |
@@ -368,7 +370,7 @@ sequenceDiagram
 
 - **Only the user's own folders**, read with the user's own rights: the R2 listing is limited to the `<userId>/` prefix, and Supabase Storage and the database apply RLS. No admin key is involved, so it works the same in production.
 - **Never a file in use:** the server compares against the paths of the user's tracks and playlist covers right before deleting.
-- **Never an upload in progress:** orphans younger than 24 hours are listed as "Kept for now" (configurable, see [10.1](10-configuration.md#101-environment-variables)).
+- **Never an upload in progress:** orphans younger than 24 hours are listed as "Kept for now" (configurable, see [10.1](10-configuration.md#101-environment-variables)). Only a number sets it: a variable left empty, or holding anything else, keeps the 24 hours (`parseMinAgeHours`; an empty one used to mean 0, every orphan deletable at once, the file of an upload still running in another tab included).
 - The dialog also shows the space used: audio (R2) and covers, with file counts.
 - The clean-up runs when you ask for it; nothing runs on a schedule.
 

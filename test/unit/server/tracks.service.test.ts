@@ -1,6 +1,7 @@
 /**
  * Tracks service with mocked repositories and a fake audio storage: upload targets, registration
- * checks (paths, stored size, clean-up on failure), repeated registrations (the same request
+ * checks (paths, the cover's exact WebP path, stored size, the audio deleted when the database
+ * refuses the track but kept when the outcome is unknown), repeated registrations (the same request
  * answered with the track, a registered track's file never deleted nor overwritten), updates,
  * deletion and playback URLs.
  */
@@ -132,6 +133,14 @@ describe('createTrack', () => {
       .rejects.toMatchObject({ statusCode: 400 })
   })
 
+  it('rejects the track\'s own cover name with another extension, before touching storage', async () => {
+    // Before: any extension passed, the insert failed on the database's .webp rule, and the audio was deleted.
+    await expect(createTrack(db, storage(), USER, { ...createInput, coverPath: `${USER}/${TRACK}.jpg` }))
+      .rejects.toMatchObject({ statusCode: 400 })
+    expect(tracksRepo.insertTrackRow).not.toHaveBeenCalled()
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
   it('rejects when the file was never uploaded', async () => {
     audio.head.mockResolvedValue(null)
     await expect(createTrack(db, storage(), USER, createInput)).rejects.toMatchObject({ statusCode: 400 })
@@ -159,12 +168,23 @@ describe('createTrack', () => {
     expect(audio.remove).not.toHaveBeenCalled()
   })
 
-  it('deletes the uploaded audio when the track cannot be registered', async () => {
-    vi.mocked(tracksRepo.insertTrackRow).mockRejectedValue(new Error('database down'))
+  it('deletes the uploaded audio when the database refuses the track', async () => {
+    // A check violation, as toHttpError maps it: the row was not written.
+    vi.mocked(tracksRepo.insertTrackRow).mockRejectedValue(Object.assign(new Error('Invalid data'), { statusCode: 400 }))
 
-    await expect(createTrack(db, storage(), USER, createInput)).rejects.toThrow('database down')
+    await expect(createTrack(db, storage(), USER, createInput)).rejects.toMatchObject({ statusCode: 400 })
 
     expect(audio.remove).toHaveBeenCalledWith([AUDIO])
+  })
+
+  it('keeps the uploaded audio when the insert\'s outcome is unknown (the row may be there)', async () => {
+    // A 500 from toHttpError, and an error that never went through it (a dropped connection).
+    for (const failure of [Object.assign(new Error('Internal error'), { statusCode: 500 }), new Error('fetch failed')]) {
+      vi.mocked(tracksRepo.insertTrackRow).mockRejectedValueOnce(failure)
+      await expect(createTrack(db, storage(), USER, createInput)).rejects.toBe(failure)
+    }
+    // Before: deleted either way, leaving a committed track without its audio.
+    expect(audio.remove).not.toHaveBeenCalled()
   })
 
   it('answers a repeated registration with the track already there, touching nothing', async () => {
@@ -197,6 +217,13 @@ describe('createTrack', () => {
 })
 
 describe('updateTrack', () => {
+  it('rejects a cover that is not the track\'s exact WebP path', async () => {
+    for (const coverPath of [`${USER}/${TRACK}.jpg`, `${USER}/other.webp`]) {
+      await expect(updateTrack(db, USER, TRACK, { coverPath })).rejects.toMatchObject({ statusCode: 400 })
+    }
+    expect(tracksRepo.updateTrackRow).not.toHaveBeenCalled()
+  })
+
   it('responds 404 when the track does not exist (or is not the user\'s)', async () => {
     vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(null)
     await expect(updateTrack(db, USER, TRACK, { title: 'x' })).rejects.toMatchObject({ statusCode: 404 })

@@ -1,6 +1,7 @@
 /**
  * Playlists service with mocked repositories: ordering, covers and mosaic, private-track count,
- * lists and creation by purpose (playlists / groups of versions), cover path checks and clean-up,
+ * lists and creation by purpose (playlists / groups of versions, undone when the first tracks are
+ * refused), cover path checks and clean-up,
  * appending and replacing tracks, 404s.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -162,6 +163,39 @@ describe('createPlaylist', () => {
       purpose: 'versions', visibility: 'unlisted',
     }))
     expect(group.purpose).toBe('versions')
+  })
+
+  it('deletes the new playlist again when its tracks are refused, and answers with that error', async () => {
+    vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow())
+    // A track that is not the user's: the database function's "not found", as toHttpError maps it.
+    const refused = Object.assign(new Error('Item not found'), { statusCode: 404 })
+    vi.mocked(playlistsRepo.setPlaylistTrackIds).mockRejectedValue(refused)
+
+    await expect(createPlaylist(db, USER, { title: 'Night drive', trackIds: [T1] })).rejects.toBe(refused)
+    // Before: the empty playlist stayed, and every retry made one more.
+    expect(playlistsRepo.deletePlaylistRow).toHaveBeenCalledWith(db, USER, PLAYLIST)
+  })
+
+  it('still answers with the tracks\' error when deleting the new playlist fails too', async () => {
+    vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow())
+    // The first failure, and the one of the clean-up after it (only logged).
+    const refused = Object.assign(new Error('Item not found'), { statusCode: 404 })
+    vi.mocked(playlistsRepo.setPlaylistTrackIds).mockRejectedValue(refused)
+    vi.mocked(playlistsRepo.deletePlaylistRow).mockRejectedValue(new Error('database down'))
+    // The log line, kept out of the test output.
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(createPlaylist(db, USER, { title: 'Night drive', trackIds: [T1] })).rejects.toBe(refused)
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('touches nothing else for a playlist created without tracks', async () => {
+    vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow())
+    vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([]))
+
+    await createPlaylist(db, USER, { title: 'Empty for now' })
+    expect(playlistsRepo.setPlaylistTrackIds).not.toHaveBeenCalled()
+    expect(playlistsRepo.deletePlaylistRow).not.toHaveBeenCalled()
   })
 })
 

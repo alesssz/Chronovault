@@ -42,13 +42,30 @@ export async function getPlaylist(db: DbClient, userId: string, id: string): Pro
 
 /**
  * Creates a playlist, optionally with its first tracks (e.g. "New playlist…"
- * from a track's menu). Two steps: if adding the tracks fails (e.g. one is
- * not the user's), the empty playlist remains and the error is returned.
+ * from a track's menu). Two steps, the row then its tracks: when adding the
+ * tracks fails (one is missing or not the user's, 404), the playlist just
+ * created is deleted again and the error returned, so a failed request
+ * leaves nothing behind. It used to leave an empty playlist, and each retry
+ * one more.
  */
 export async function createPlaylist(db: DbClient, userId: string, input: PlaylistCreate): Promise<PlaylistDetail> {
   // The new playlist, still empty.
   const row = await playlistsRepo.insertPlaylistRow(db, toPlaylistInsert(userId, input))
-  if (input.trackIds?.length) await playlistsRepo.setPlaylistTrackIds(db, row.id, input.trackIds)
+  if (input.trackIds?.length) {
+    try {
+      await playlistsRepo.setPlaylistTrackIds(db, row.id, input.trackIds)
+    }
+    catch (error) {
+      // Undone, best effort: a failure here is logged, and the caller still gets the first error.
+      try {
+        await playlistsRepo.deletePlaylistRow(db, userId, row.id)
+      }
+      catch (cleanup) {
+        console.error('[playlists.create] could not delete the playlist after its tracks failed', cleanup)
+      }
+      throw error
+    }
+  }
   return getPlaylist(db, userId, row.id)
 }
 
