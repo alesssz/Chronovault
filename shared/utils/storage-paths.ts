@@ -46,19 +46,20 @@ export function buildPlaylistCoverPath(userId: string, playlistId: string): stri
   return `${userId}/playlists/${playlistId}.webp`
 }
 
+/** An audio file's extension as the database accepts it: 1 to 10 lower-case letters and digits. */
+const AUDIO_EXTENSION = /^[a-z0-9]{1,10}$/
+
 /**
- * True when the path is in the user's folder and refers to the given track
- * (any extension). The server uses it to reject paths a client could forge,
- * e.g. pointing a track at someone else's file.
+ * True when the path is exactly the track's audio path, `<userId>/<trackId>.<ext>`,
+ * with the extension the database accepts (tracks_audio_path_exact): the
+ * same rule, so a path the server lets through is never refused later. The
+ * server uses it to reject paths a client could forge, e.g. pointing a track
+ * at someone else's file. Any extension used to pass here, control
+ * characters included, and such a key then made the storage client throw
+ * (isSafeStorageKey): a 500 where a forged path deserves a 400.
  */
-export function isTrackPath(path: string, userId: string, trackId: string): boolean {
-  // The folder and the file name.
-  const parts = path.split('/')
-  // Exactly `<folder>/<file>`: also rules out playlist covers and `..` tricks.
-  if (parts.length !== 2) return false
-  // Exactly two parts, checked just above.
-  const [folder, file] = parts as [string, string]
-  // Where the extension starts: the name before it must be the track id.
-  const dot = file.lastIndexOf('.')
-  return folder === userId && dot > 0 && file.slice(0, dot) === trackId
+export function isAudioPath(path: string, userId: string, trackId: string): boolean {
+  // What must come before the extension: the user's folder and the track's id.
+  const prefix = `${userId}/${trackId}.`
+  return path.startsWith(prefix) && AUDIO_EXTENSION.test(path.slice(prefix.length))
 }

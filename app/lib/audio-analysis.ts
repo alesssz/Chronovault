@@ -4,7 +4,7 @@ import type { SyncedLyricLine } from '~~/shared/types/track'
 import { syncedLyricLineSchema } from '~~/shared/schemas/track'
 import { isSectionHeader } from '~~/shared/utils/lyrics'
 import { computePeaks } from '~~/shared/utils/peaks'
-import { resolveAudioMimeType, titleFromFileName } from '~~/shared/utils/audio-files'
+import { plausibleDuration, resolveAudioMimeType, titleFromFileName } from '~~/shared/utils/audio-files'
 
 /**
  * In-browser analysis of an audio file, before uploading it:
@@ -63,7 +63,8 @@ export async function analyzeAudioFile(file: File): Promise<AudioAnalysis> {
     genre: tags.genre,
     lyrics: tags.lyrics,
     lyricsSynced: tags.lyricsSynced,
-    durationSeconds: decoded?.duration ?? tags.duration,
+    // Decoded, else from the tags; an implausible one (a broken tag) is left out rather than refused by the API.
+    durationSeconds: plausibleDuration(decoded?.duration ?? tags.duration),
     peaks: decoded?.peaks ?? null,
     cover: tags.cover,
   }

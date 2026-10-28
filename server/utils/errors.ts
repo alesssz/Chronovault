@@ -34,6 +34,10 @@ export function toHttpError(error: DbError, context: string) {
     // The schemas refuse it first (`safeText()`, shared/schemas/track.ts); this is the safety net.
     '22P05': { statusCode: 400, message: 'Invalid data' },
     '22021': { statusCode: 400, message: 'Invalid data' },
+    // numeric_value_out_of_range, e.g. a duration past what a `real` holds. The schemas bound
+    // the numbers first (MAX_DURATION_SECONDS); this is the safety net, and a 4xx, so a refused
+    // registration also deletes its uploaded audio (createTrack).
+    '22003': { statusCode: 400, message: 'Invalid data' },
     // insufficient_privilege: an RLS policy refused the row
     '42501': { statusCode: 403, message: 'Operation not allowed' },
     // no_data_found, raised by our own functions (set_playlist_tracks, record_play, votes)

@@ -1,6 +1,6 @@
 /**
- * Shared Zod schemas (client forms and API bodies): trimming, nulls, limits, duplicates, and the
- * NUL character refused in every text.
+ * Shared Zod schemas (client forms and API bodies): trimming, nulls, limits (a track's duration
+ * among them, below what its column holds), duplicates, and the NUL character refused in every text.
  */
 import { describe, expect, it } from 'vitest'
 import { trackCreateSchema, trackMetadataSchema, trackUpdateSchema } from '~~/shared/schemas/track'
@@ -89,6 +89,12 @@ describe('trackCreateSchema', () => {
 
   it('rejects non-UUID ids', () => {
     expect(trackCreateSchema.safeParse({ ...base, id: 'abc' }).success).toBe(false)
+  })
+
+  it('bounds the duration below what its column holds (a 400, not the database\'s 500)', () => {
+    expect(trackCreateSchema.safeParse({ ...base, durationSeconds: 183.4 }).success).toBe(true)
+    // Before: accepted here, then refused by the `real` column (22003), answered 500.
+    expect(trackCreateSchema.safeParse({ ...base, durationSeconds: 1e39 }).success).toBe(false)
   })
 })
 

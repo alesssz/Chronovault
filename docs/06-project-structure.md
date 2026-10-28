@@ -96,7 +96,7 @@ Chronovault/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
 │   ├── migrations/                   # Versioned schema (section 8.2)
 │   ├── seed.sql                      # Local demo user
-│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql
+│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql · track_genres.test.sql
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components
