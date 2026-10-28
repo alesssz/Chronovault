@@ -34,7 +34,7 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | Method | Path | Body | Response |
 |---|---|---|---|
 | `GET` | `/api/playlists?purpose=playlist\|versions` | | `PlaylistSummary[]` of that purpose (default `playlist`), newest first; `400` for another value |
-| `POST` | `/api/playlists` | `{ title, purpose?, description?, visibility?, trackIds? }` (`purpose` fixed from then on) | `201 PlaylistDetail` |
+| `POST` | `/api/playlists` | `{ title, purpose?, description?, visibility?, trackIds? }` (`purpose` fixed from then on) | `201 PlaylistDetail`; `404` when a track is not the user's, and then no playlist is kept |
 | `GET` | `/api/playlists/:id` | | `PlaylistDetail` |
 | `PATCH` | `/api/playlists/:id` | any subset of `{ title, description, visibility, coverPath }` | `PlaylistDetail` |
 | `DELETE` | `/api/playlists/:id` | | `204` (tracks stay in the library) |
