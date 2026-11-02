@@ -43,6 +43,7 @@ Dashboard labels may change slightly over time.
 3. *Settings → Node.js Version* (under "Build and Deployment" or "General", depending on the dashboard version): 24.x.
 4. pnpm is pinned in `packageManager`; if Vercel does not pick it up, add `ENABLE_EXPERIMENTAL_COREPACK=1`.
 5. Deploy and open `https://<your-domain>/api/health`. Every push to `main` deploys again automatically.
+6. The functions run in **London (`lhr1`)**, set in `nuxt.config.ts` (`nitro.vercel.functions.regions`), next to the Supabase project (eu-west-2): every API call reaches the database several times. A Supabase project in another region needs the nearest [Vercel region](https://vercel.com/docs/regions) there instead. Check it: the deployment's *Functions* tab shows the region.
 
 ## 13.4 After the first deploy
 

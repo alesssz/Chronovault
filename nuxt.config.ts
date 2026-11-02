@@ -138,6 +138,18 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-10-01',
 
+  nitro: {
+    vercel: {
+      // The app's functions run in London, next to the Supabase project (eu-west-2): every API
+      // call reaches the database several times, and each streaming address is signed there.
+      // In Vercel's default region (Washington, iad1) each of those trips crosses the Atlantic,
+      // which slows down starting a track, on a phone most of all. Written into the function's
+      // own .vc-config.json: Nitro builds the Build Output API directly, so a `regions` key in
+      // vercel.json would not reach it.
+      functions: { regions: ['lhr1'] },
+    },
+  },
+
   vite: {
     // The FLAC worker loads libFLAC with a dynamic import: ES module workers are required.
     worker: { format: 'es' },
