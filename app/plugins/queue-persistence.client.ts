@@ -1,5 +1,5 @@
 import { clearSavedQueue, readSavedQueue, resolveSavedQueue, saveQueue } from '~/lib/queue-storage'
-import { readLibrary } from '~/lib/library-request'
+import { endStartupRead, readLibrary } from '~/lib/library-request'
 
 /**
  * Keeps the library play queue across reloads and visits on this device.
@@ -14,7 +14,7 @@ import { readLibrary } from '~/lib/library-request'
  * Only library playback is saved: public share pages have their own player
  * and never touch the saved queue (not even from another tab).
  */
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin((nuxtApp) => {
   // The queue to save and restore.
   const player = usePlayerStore()
   // The saved queue belongs to this user.
@@ -99,6 +99,10 @@ export default defineNuxtPlugin(() => {
     }
     persist()
   }
+
+  // The library read made while the app opens is shared with the page until that page is on
+  // screen, even once answered (see library-request.ts): the restore's read and the page's are one.
+  nuxtApp.hooks.hookOnce('page:finish', endStartupRead)
 
   // Restore as soon as the user is known (app start, sign-in), and after navigations.
   watch(() => user.value?.sub, () => maybeRestore(window.location.pathname), { immediate: true })
