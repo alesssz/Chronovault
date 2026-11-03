@@ -113,7 +113,11 @@ test.describe('unsaved changes', () => {
     // was dropped without a word, Save off, no warning on leaving. Now it is still to save…
     await expect(page.getByTestId('save-track')).toBeEnabled()
     await page.unroute(/\/api\/tracks\/[0-9a-f-]+$/)
+    // The save's answer, waited for: the button is disabled while saving too, so its state alone
+    // could let the server be read before the second line is written.
+    const saving = page.waitForResponse(response => response.request().method() === 'PATCH')
     await page.getByTestId('save-track').click()
+    expect((await saving).ok()).toBe(true)
     await expect(page.getByTestId('save-track')).toBeDisabled()
     // …and, saved, the server has both lines.
     const saved = await page.evaluate(async (id) => {

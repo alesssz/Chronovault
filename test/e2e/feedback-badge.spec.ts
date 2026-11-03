@@ -83,7 +83,10 @@ test.describe('new feedback signal', () => {
     await expect(dot).toHaveCount(0)
 
     // --- Back to Versions: the visit was recorded, the card is quiet, even after a reload ---
-    await page.getByRole('link', { name: 'Back to versions' }).click()
+    // The page asks again once the visit is recorded: its answer is waited for here, or it could
+    // still be on its way at the reload below, be taken for the reloaded page's own and be gone
+    // (its body is dropped with the page it belonged to).
+    expect(await unseenAfter(page, () => page.getByRole('link', { name: 'Back to versions' }).click())).toBe(0)
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
     // After a reload, once the page has the server's answer: the visit is stored there. Before, the
