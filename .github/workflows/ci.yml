@@ -26,10 +26,10 @@ jobs:
     name: Lint, types and unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # pnpm at the version pinned in package.json (packageManager), Node at the one in .nvmrc.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           # The pnpm store is cached between runs, keyed on the lockfile.
@@ -48,9 +48,9 @@ jobs:
     needs: quality
     steps:
       # Same setup as the quality job (each job runs on a fresh machine).
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -82,7 +82,7 @@ jobs:
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       # The browsers of a previous run, when that run had the same Playwright: a new version needs
       # its own browser, so it misses the cache, downloads it once, and saves it for the next runs.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
@@ -96,7 +96,7 @@ jobs:
           CI: true
 
       # On failure, keep the Playwright report, traces and screenshots for a week.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
