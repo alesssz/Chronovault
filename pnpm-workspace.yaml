@@ -28,11 +28,22 @@ peerDependencyRules:
 # condition when the audit runs, and drop the line as soon as it holds.
 auditConfig:
   ignoreGhsas:
-    # node-forge ≤1.4.0, RSA PKCS#1 v1.5 signature verification too lenient
-    # (high). Only listhen, Nuxt's dev server, uses it, to make a self-signed
-    # certificate: it never verifies a signature. No patched release exists.
-    # Remove once node-forge publishes a fix (or listhen drops it).
-    - GHSA-86w9-cpqp-85rv
+    # glob 9 to 14.0.1, AbortSignal cancellation bypass (moderate). Fixed in
+    # glob 14 only; archiver-utils 5 (glob 10), workbox-build 7 (glob 11),
+    # @vercel/nft and js-beautify (glob 13), all at their latest, are build
+    # and test tools walking the project's own files with no abort signal.
+    # Remove once they move to glob 14.0.2 or later.
+    - GHSA-3g3m-2fjr-6pw4
+    # minimatch <11.0.1, denial of service through crafted patterns
+    # (moderate). Fixed in minimatch 11 only; ESLint, glob, filelist and
+    # readdir-glob (lint and build tools) use 5, 9 and 10 with the project's
+    # own patterns, never one from a user. Remove once they move to 11.0.1.
+    - GHSA-g3hv-75wg-m249
+    # deepmerge ≤4.3.1, prototype poisoning of the merged object (low). No
+    # patched release exists. Only @rollup/plugin-node-resolve (Nitro's build,
+    # at its latest) uses it, merging its own options from the build config.
+    # Remove once deepmerge publishes a fix (or the plugin drops it).
+    - GHSA-gcqx-w48m-w2h4
     # esbuild <0.28.1, arbitrary file read through esbuild's own dev server
     # on Windows (low). Only fontless (fonts of @nuxt/ui, at build time) uses
     # esbuild here, and only its `transform`, never that server. @nuxt/ui
