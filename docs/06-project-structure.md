@@ -58,6 +58,7 @@ Chronovault/
 │   │   ├── haptics.ts                #   short vibrations as touch feedback (Android)
 │   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
 │   │   ├── media-session.ts · theme.ts  #   lock-screen card · waveform colours from the theme
+│   │   ├── google-cast.ts            #   Google Cast Web Sender SDK, loaded on demand (only /cast-test, temporary)
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
 │   ├── pages/
 │   │   ├── index.vue                 # Library
@@ -69,6 +70,7 @@ Chronovault/
 │   │   ├── versions/index.vue        # Versions (groups made by "Share for feedback")
 │   │   ├── versions/[id].vue         # Group of versions (PlaylistEditor)
 │   │   ├── stats.vue                 # Statistics (visits and plays of the share links)
+│   │   ├── cast-test.vue             # TEMPORARY Cast diagnostic page, signed in, linked from nowhere (16)
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
 │   ├── plugins/                      # 00.storage-keys.client.ts (moves keys saved under the former name, first) · media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
@@ -85,7 +87,9 @@ Chronovault/
 │   │                                 #   · pages (readAllPages: lists past PostgREST's 1000 rows)
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
 │   ├── plugins/                      # content-security-policy.ts (the pages' CSP and its nonce, 8.5)
+│   ├── dev/stale-service-worker.ts   # development only: a /sw.js that unregisters a production service worker left on the port
 │   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
+│                                     #   · storage-cleanup (the orphans' minimum age, from the runtime config)
 │                                     #   · content-security-policy (the policy, built from the runtime config)
 ├── shared/                           # Pure code used by client and server
 │   ├── brand.ts                      # Name, tagline, colours, fallback cover, the mark's geometry (5.6)
@@ -99,8 +103,8 @@ Chronovault/
 │   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql · track_genres.test.sql
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
-│   ├── nuxt/                         # Vitest in a Nuxt environment: components
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, covers, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
+│   ├── nuxt/                         # Vitest in a Nuxt environment: components and composables
+│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, persistent-queue, cover-cache, cover-crop, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
 │                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
@@ -113,11 +117,13 @@ Chronovault/
 │   ├── lib/merge-message.mjs         # cumulative merge commit message
 │   └── generate-brand.mjs            # pnpm generate:brand (favicon, PWA icons, fallback cover)
 ├── brand/chronovault.jpg             # The Chronovault artwork: source of the fallback cover
-├── docs/                             # This documentation: 01-features.md … 16-troubleshooting.md, one file per section (index in README.md)
+├── docs/                             # This documentation: 00-setup.md … 16-troubleshooting.md, one file per section (index in README.md)
 │   └── superpowers/                  # Design specs and implementation plans of past features (kept as written then)
-├── public/                           # Favicon, PWA icons, fallback cover (generated, see 5.6)
+├── public/                           # Favicon, PWA icons, fallback cover (generated, see 5.6) · cast-test.wav (the /cast-test page's WAV)
 ├── Dockerfile · compose.yaml · .dockerignore
-├── Makefile · package.json · pnpm-workspace.yaml
+├── Makefile · package.json · pnpm-lock.yaml · pnpm-workspace.yaml
+├── vercel.json                       # Vercel Cron: GET /api/keepalive every day at 06:00 UTC (13.7)
+├── .nvmrc · .nuxtrc                  # Node 24 (nvm) · the @nuxt/test-utils setup
 ├── nuxt.config.ts · vitest.config.ts · playwright.config.ts · eslint.config.mjs · tsconfig.json
 ├── .env.example · .env.r2.example    # Templates (the real .env files are git-ignored)
 └── .github/                          # workflows/ci.yml (checks, 12) · workflows/audit.yml (dependency audit: weekly and on every branch that changes them, 11.6)

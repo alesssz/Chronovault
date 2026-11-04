@@ -18,35 +18,26 @@ pnpm local       # Docker Desktop must be open → http://localhost:3100
 
 ## Quick start
 
-**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12, Docker Desktop (running). Details in [11.1](docs/11-local-development.md#111-prerequisites). **Setting up a new computer (macOS or Windows)?** Run `node scripts/doctor.mjs` and follow the [checklist from a blank computer](docs/11-local-development.md#from-a-blank-computer): it covers every step that is easy to forget. **Ran Chronovault on http://localhost:3000 before?** The ports have changed: follow [Updating a computer set up before the port change](docs/11-local-development.md#updating-a-computer-set-up-before-the-port-change) once.
+**Prerequisites:** Node.js 24.11+ (or 22.21+), pnpm 12, Docker Desktop (running). **New computer (macOS or Windows)?** Follow [0. Setup](docs/00-setup.md): every step from a blank computer, then how to start, stop, update and wipe the local stack. `node scripts/doctor.mjs` lists what is missing. **Ran Chronovault on http://localhost:3000 before?** The ports have changed: follow [Updating a computer set up before the port change](docs/11-local-development.md#updating-a-computer-set-up-before-the-port-change) once.
 
 ```bash
 pnpm install       # installs dependencies (the package store lives in .pnpm-store/)
 pnpm local         # Supabase in Docker + .env + Nuxt dev server
 ```
 
-Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally).
-
-| I want to… | Command |
-|---|---|
-| Develop with hot reload | `pnpm local` (or `make local`) → http://localhost:3100 |
-| Run the production build in a container | `pnpm docker` (or `make docker`) → http://localhost:8180 |
-| Stop everything (data is kept) | `pnpm stop` (or `make stop`) |
-| Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
-| Apply a new migration locally | `pnpm db:migrate` (keeps your data) |
-| Run all checks before a commit | `make check` (lint, types, unit tests with the coverage floors) |
-| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`): runs `pnpm check` first, see [14.1](docs/14-conventions.md#141-git-workflow) |
-| Check a new computer's prerequisites | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`), see [11.1](docs/11-local-development.md#from-a-blank-computer) |
+Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally). `pnpm stop` stops everything and keeps the data. The everyday commands are in [2. Quick start](docs/02-quick-start.md).
 
 ---
 
 ## Documentation
 
-Everything else lives in [`docs/`](docs/), one file per section. Sections keep their numbers, so a reference such as "see 7.5" (in these pages or in a code comment) points to section 7.5 of `docs/07-data-flows.md`. New to the project? Read 1, 5 and 6 first; then 7 for the part you are about to change.
+Everything else lives in [`docs/`](docs/), one file per section. Sections keep their numbers, so a reference such as "see 7.5" (in these pages or in a code comment) points to section 7.5 of `docs/07-data-flows.md`. New to the project? Set up with 0, then read 1, 5 and 6; then 7 for the part you are about to change.
 
 | Section | What it covers |
 |---|---|
+| [0. Setup](docs/00-setup.md) | From a blank macOS or Windows computer to the app running: tools, getting the code (and who commits are from), first start, addresses, stopping and starting again, after a pull, starting over, checks |
 | [1. Features](docs/01-features.md) | What the app does, area by area: library, upload, player, queue, lyrics sync, draft versions, playlists, sharing, statistics, PWA |
+| [2. Quick start](docs/02-quick-start.md) | The everyday commands on a computer already set up: "I want to…" → the command |
 | [3. Commands](docs/03-commands.md) | Every command: the whole stack in one (`pnpm local` / `docker` / `stop`), the `package.json` scripts and the Makefile |
 | [4. Tech stack](docs/04-tech-stack.md) | Frameworks, libraries and services, and why each one |
 | [5. Architecture](docs/05-architecture.md) | Overview, key principles, where everything runs, rendering modes, reusable building blocks, brand and theme |
@@ -55,7 +46,7 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, playlists holding only the owner's tracks, at most 1000, a track's genre built-in or its owner's, exact storage paths, shared files signed by name and never listed, uploads signed for one file, headers, Content Security Policy, caps) |
 | [9. API reference](docs/09-api-reference.md) | Every API route: method, body, answers and errors |
 | [10. Configuration](docs/10-configuration.md) | Environment variables, env files and the notable `nuxt.config.ts` settings |
-| [11. Local development in detail](docs/11-local-development.md) | Prerequisites (from a blank macOS or Windows computer), what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the dependency audit (weekly, and on every branch that changes them) |
+| [11. Local development in detail](docs/11-local-development.md) | Prerequisites, updating a computer set up before the port change, what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the dependency audit (weekly, and on every branch that changes them) |
 | [12. Testing](docs/12-testing.md) | Unit, component, database and end-to-end tests, coverage floors, CI |
 | [13. Deployment (Supabase + Cloudflare R2 + Vercel)](docs/13-deployment.md) | Supabase Cloud, Cloudflare R2, Vercel, updating production, statistics, keeping Supabase awake |
 | [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, new endpoints and tables) |

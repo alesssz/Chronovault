@@ -6,10 +6,13 @@ import { badRequest, notFound } from '../utils/errors'
  * address of an audio file, the one the player (and so a cast device) uses.
  * Handed out by the playback routes (see playbackSource), valid 6 hours.
  *
- * Why it exists: before offering to cast, Chrome on Android checks the media
- * address with a HEAD request. A presigned storage URL only answers the
- * method it was signed for, so that HEAD got a 403 and Chrome closed its
- * device picker at once ("The prompt was dismissed"). Here:
+ * Why it exists: a cast device fetches the audio itself, with no session, so
+ * it needs an address that carries its own permission and answers any check
+ * a player makes. A presigned storage URL only answers the method it was
+ * signed for (a HEAD gets 403). It was made when Chrome on Android closed its
+ * device picker at once ("The prompt was dismissed"), on the guess that a
+ * HEAD check caused it; that refusal remains, Chrome sends no HEAD (see
+ * pages/cast-test.vue and docs/07-data-flows.md, 7.5). Here:
  * - HEAD answers by itself: 200 with the file's type and size, read from the
  *   storage with a HEAD signed by the server; no body;
  * - GET redirects (302) to a presigned GET of the file, valid until this

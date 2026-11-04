@@ -80,6 +80,16 @@ Nothing to set up: `vercel.json` declares a **Vercel Cron** job that calls `GET 
 - **Check it:** Vercel → the project → **Settings → Cron Jobs** lists the job, with *Run* to try it at once and a link to its logs. Cron jobs run on the production deployment only.
 - **If Supabase pauses the project anyway** (an email warns about a week before, and another confirms the pause): Supabase dashboard → the project → *Restore*. Then check the Cron Jobs page: a failing job (500 in its logs) means the database was not reached.
 
+## 13.8 The GitHub repository
+
+The repository is **public**: the code, every commit and its author's email can be read by anyone. Nothing secret is in it (keys live in `.env*`, git-ignored, and in Vercel's settings), and the settings below keep it that way.
+
+- **Commit identity:** commits carry the GitHub *noreply* address (`<id>+<user>@users.noreply.github.com`), set per clone ([0.3](00-setup.md#03-getting-the-code)). A commit with another address is public as soon as it is pushed, and Vercel refuses to deploy it ([16](16-troubleshooting.md#16-troubleshooting)).
+- **`main` is protected by a ruleset** (*Settings → Rules → Rulesets*, target the default branch, *Active*): **Restrict deletions** and **Block force pushes**. Nothing else: branches are merged locally and `main` is pushed by `pnpm merge:main` ([14.1](14-conventions.md#141-git-workflow)), so rules requiring a pull request or passing checks before a push would refuse it. CI runs on the branch before the merge instead.
+- **Secret scanning and push protection** (*Settings → Advanced Security*, free on public repositories): GitHub refuses a push that contains a known kind of key (Supabase, Cloudflare, Vercel tokens…), and alerts on any already in the history.
+- **Dependabot** opens one grouped pull request a week for the GitHub Actions of the workflows ([11.6](11-local-development.md#116-updating-dependencies)); CI checks it, and it is merged from GitHub. If `main` moved on meanwhile, a comment `@dependabot rebase` on the pull request brings it up to date.
+- **Vercel's Git fork protection** stays on (Vercel → the project → *Settings → Git*): a pull request from someone else's fork is not built with the project's environment variables until you approve it.
+
 ---
 
 ← [12. Testing](12-testing.md) · [Contents](../README.md#documentation) · [14. Development conventions](14-conventions.md) →

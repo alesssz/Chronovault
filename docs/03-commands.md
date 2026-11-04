@@ -67,4 +67,4 @@ Docker Desktop is never started automatically: when it is not running, the comma
 
 ---
 
-← [1. Features](01-features.md) · [Contents](../README.md#documentation) · [4. Tech stack](04-tech-stack.md) →
+← [2. Quick start](02-quick-start.md) · [Contents](../README.md#documentation) · [4. Tech stack](04-tech-stack.md) →

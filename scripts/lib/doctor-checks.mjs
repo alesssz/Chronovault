@@ -89,7 +89,7 @@ export function fixFor(problem, platform, details = {}) {
   const windows = platform === 'win32'
   switch (problem) {
     case 'node':
-      if (mac) return 'Install Node 24 with nvm: brew install nvm (then the 2 lines for ~/.zshrc, see docs/11-local-development.md, 11.1), nvm install, nvm use'
+      if (mac) return 'Install Node 24 with nvm: brew install nvm (then the 2 lines for ~/.zshrc, see docs/00-setup.md, 0.2), nvm install, nvm use'
       if (windows) return 'Install Node 24 with nvm-windows: winget install CoreyButler.NVMforWindows, then in a new terminal: nvm install 24 && nvm use 24'
       return 'Install Node 24 with nvm (https://github.com/nvm-sh/nvm): nvm install && nvm use'
     case 'pnpm':

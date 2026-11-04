@@ -10,96 +10,7 @@
 | GNU Make | optional | macOS: comes with `xcode-select --install`. Windows: `winget install ezwinports.make` (not part of Git for Windows). Every target has a `pnpm` equivalent |
 | Playwright's Chromium | for e2e tests only | Not your own Chrome: Playwright downloads its own (~150 MB, in `~/Library/Caches/ms-playwright` on macOS). `make test-e2e` installs it when missing |
 
-### From a blank computer
-
-Everything a new computer needs, in order, for **macOS** and **Windows**. Each step says why: every one of them is a problem that really happened.
-
-**Start here, on any system:** once Git and any Node are installed, clone the project and run
-
-```bash
-node scripts/doctor.mjs     # later also: pnpm doctor · make doctor
-```
-
-It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwright's Chromium, Make and the local stack, and prints the command that fixes each missing item for the system you are on. It only reads: nothing is installed or changed. Run it again after each step until it says **Ready**.
-
-#### macOS
-
-1. **Homebrew** (https://brew.sh), **Git** (`xcode-select --install`, which also brings GNU Make) and **Docker Desktop** (https://www.docker.com/products/docker-desktop/). Open Docker Desktop once and wait until the engine says it is running.
-2. **Node 24 through nvm**, not Homebrew's `node`. Homebrew may ship an older Node (e.g. 22.9): with it `pnpm install` silently skips a native package (rolldown requires Node ≥ 22.12), and the build and tests then fail with `Cannot find native binding`. nvm also leaves other projects on their own Node.
-   ```bash
-   brew install nvm
-   mkdir -p ~/.nvm
-   cat >> ~/.zshrc <<'ZSH'
-
-   # nvm (Node Version Manager)
-   export NVM_DIR="$HOME/.nvm"
-   [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
-   ZSH
-   source ~/.zshrc
-   cd <path>/Chronovault
-   nvm install          # reads .nvmrc → Node 24
-   nvm use
-   ```
-   - The first Node installed with nvm becomes the default in every new terminal. To keep Homebrew's Node as the default for other projects: `nvm alias default system`, then `nvm use` inside this folder.
-   - Brew's notes also suggest a `bash_completion` line: leave it out, it is meant for bash.
-   - If `source ~/.zshrc` prints `command not found: compdef`, another tool's completion (e.g. Angular CLI's `source <(ng completion script)`) runs before zsh's completion system: put `autoload -Uz compinit && compinit` on the line before it.
-3. **pnpm**, installed for that Node (with nvm, global packages belong to one Node version):
-   ```bash
-   npm i -g pnpm@12.14.0 --allow-scripts=pnpm
-   node -v && pnpm -v   # v24.x and 12.14.0
-   ```
-   Recent npm versions skip install scripts unless allowed. Without `--allow-scripts=pnpm` you only get a warning, and pnpm still works through Node instead of its native binary (marginally slower).
-4. **Dependencies and the local stack.** The first run downloads the Supabase Docker images (a few GB, several minutes):
-   ```bash
-   pnpm install
-   make local           # → http://localhost:3100
-   ```
-5. **Docker mode only** (`make docker`, http://localhost:8180): the browser must resolve `host.docker.internal`, and Docker Desktop for Mac never adds it to the hosts file (its setting exists only on Windows). Once per machine, with your password:
-   ```bash
-   echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts
-   ```
-   Without it, sign-in fails with `ERR_NAME_NOT_RESOLVED`. `make local` does not need it.
-6. **End-to-end tests:** `make test-e2e`. The first time it downloads Playwright's own Chromium (~150 MB, in `~/Library/Caches/ms-playwright`).
-
-#### Windows (10/11)
-
-Use **PowerShell** for the installs and **Git Bash** for the project commands: the Makefile and the npm scripts expect a POSIX shell. The repository forces LF line endings (`.gitattributes`), so the scripts, the Makefile and the SQL files keep working after a Windows checkout.
-
-1. **Git and Docker Desktop**, from PowerShell:
-   ```powershell
-   winget install Git.Git
-   winget install Docker.DockerDesktop     # uses WSL 2; restart Windows when asked
-   ```
-   Open Docker Desktop once and wait until the engine says it is running. If it asks to install or update WSL, accept, or run `wsl --update` in an administrator PowerShell.
-2. **Node 24 through nvm-windows.** First remove any Node already installed from *Settings → Apps*: nvm-windows cannot manage it, and the two would conflict. Then:
-   ```powershell
-   winget install CoreyButler.NVMforWindows
-   # close and reopen the terminal, then:
-   nvm install 24
-   nvm use 24          # needs an administrator terminal (or Windows Developer Mode)
-   ```
-   nvm-windows does not read `.nvmrc`: the version is given explicitly. `nvm use` switches Node for every terminal and every project.
-3. **pnpm**, from Git Bash or PowerShell:
-   ```bash
-   npm i -g pnpm@12.14.0 --allow-scripts=pnpm
-   node -v && pnpm -v   # v24.x and 12.14.0
-   ```
-4. **GNU Make** (optional: every `make` target has a `pnpm` equivalent). The standard Git for Windows does not include it:
-   ```powershell
-   winget install ezwinports.make           # then reopen Git Bash
-   ```
-5. **Dependencies and the local stack**, from Git Bash. The first run downloads the Supabase Docker images (a few GB, several minutes):
-   ```bash
-   pnpm install
-   pnpm local           # or make local → http://localhost:3100
-   ```
-   pnpm keeps its store inside the project (`.pnpm-store/`): hard links only work within one drive, so it never creates a store at the root of your drive.
-6. **Docker mode only** (`pnpm docker`, http://localhost:8180): the browser must resolve `host.docker.internal`. Docker Desktop for Windows adds it to the hosts file when *Settings → General → "Add the \*.docker.internal names to the host's /etc/hosts file"* is on (the default). Check with `ping host.docker.internal`. If it does not answer, turn the setting on, or open Notepad **as administrator** and add this line at the end of `C:\Windows\System32\drivers\etc\hosts`:
-   ```
-   127.0.0.1 host.docker.internal
-   ```
-7. **End-to-end tests:** `make test-e2e` (or `pnpm exec playwright install chromium`, then `pnpm test:e2e`). Playwright's Chromium goes to `%LOCALAPPDATA%\ms-playwright`.
-8. If `git commit` fails with "Permission denied", an antivirus is locking files in `.git`: add the project folder to its exclusions.
+**Setting up a computer, from installing these tools to the first start, stopping and wiping:** [0. Setup](00-setup.md#0-setup), with the steps for macOS and Windows in [0.2](00-setup.md#02-from-a-blank-computer). `node scripts/doctor.mjs` checks every item of this table and prints the fix for your system.
 
 The Supabase CLI is a dev dependency: no global install needed. pnpm keeps its package store in the project (`.pnpm-store/`, git-ignored, see `pnpm-workspace.yaml`); `node_modules` holds hard links to it, so the space is not used twice even if Explorer counts it twice.
 
@@ -243,7 +154,7 @@ None of these packages reaches the production build (`.output`).
 
 **Versions younger than a day are not installed.** pnpm 12 has a supply-chain protection on by default (`minimumReleaseAge`, 24 hours): a compromised release is usually found and pulled within hours, so pnpm waits. A new release (e.g. of the Supabase CLI, which announces itself in the terminal) is simply skipped by `pnpm update` until it is a day old. Asking for it by name (`pnpm add -D pkg@x.y.z`) installs it anyway, but pnpm then writes a `minimumReleaseAgeExclude` list into `pnpm-workspace.yaml`: do not commit it, wait a day instead.
 
-**Peer warnings accepted on purpose** (`peerDependencyRules` in `pnpm-workspace.yaml`, so `pnpm install` stays quiet): `@vercel/analytics` 2.0.1, the latest stable, declares `vue-router ^4`, while Nuxt 4 brings vue-router 5. The part the app uses (`injectAnalytics`) only calls Nuxt's router (`useRouter`, `useRoute`, `afterEach`), unchanged in 5, and Vercel's own 2.1 betas already accept `^4 || ^5`. When a stable `@vercel/analytics` declares vue-router 5, update it and remove the rule; `pnpm peers check` lists any other mismatch.
+**Peer warnings accepted on purpose** (`peerDependencyRules` in `pnpm-workspace.yaml`, so `pnpm install` stays quiet): `@vercel/analytics` 2.0.1, the latest stable, declares `vue-router ^4`, while Nuxt 4 brings vue-router 5. The part the app uses (`injectAnalytics`) only calls Nuxt's router (`useRouter`, `useRoute`, `afterEach`), unchanged in 5, and Vercel's own 2.1 betas already accept `^4 || ^5`; whether page views are counted can only be seen on the Vercel deployment ([7.16](07-data-flows.md#716-statistics)). When a stable `@vercel/analytics` declares vue-router 5, update it and remove the rule. `pnpm peers check` lists any other mismatch (today: "No peer dependency issues found").
 
 **Major versions held back on purpose** (as of October 2026):
 
@@ -251,8 +162,6 @@ None of these packages reaches the production build (`.output`).
 |---|---|---|
 | `typescript` | 6 (`~6.0.3`) | TypeScript 7, the native rewrite, drops the internal files tools load: `vue-tsc` (3.3) fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` (`typescript/lib/tsc`), so `pnpm typecheck` cannot run. Move when `vue-tsc` supports it |
 | `h3` | 1 | Nitro, Nuxt 4's server, runs on h3 1 (`^1.15.11`) and the server code uses its helpers (`createError`, `H3Event`); an h3 2 copy next to it would make errors Nitro does not recognise (500s). Move with Nuxt |
-
-`pnpm peers check` reports one known mismatch, older than these notes: `@vercel/analytics` declares `vue-router` 4 while the app uses 5. It does not stop the install, the build or the tests; whether page views are counted can only be seen on the Vercel deployment ([7.16](07-data-flows.md#716-statistics)).
 
 ---
 

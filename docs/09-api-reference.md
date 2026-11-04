@@ -1,18 +1,18 @@
 # 9. API reference
 
-All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays`, `/api/shared/**` and `/api/stream` (its signed address is the permission: a cast device has no session). **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
+All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays`, `/api/shared/**` and `/api/stream` (its signed address is the permission: a cast device has no session). **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); a malformed id in the path, invalid JSON and the services' own refusals are `400` with a message only; an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Every answer is `Cache-Control: no-store`, except the covers (below). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
 **Tracks and genres**
 
 | Method | Path | Body | Response |
 |---|---|---|---|
 | `GET` | `/api/health` | | `{ status, time }` (public) |
-| `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](13-deployment.md#137-keeping-supabase-awake)) |
+| `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](13-deployment.md#137-keeping-supabase-awake)); `500` when the database does not answer |
 | `GET` | `/api/tracks` | | `TrackSummary[]`, newest first |
 | `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour, signed for the declared size and type: another file gets `403` from the storage); `409` when the id is already registered (its file is never overwritten) |
-| `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file, and for the one of two identical registrations at the same moment that loses the race (the track is there: the other one registered it, and the file is kept) |
+| `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file, and for the one of two identical registrations at the same moment that loses the race (the track is there: the other one registered it, and the file is kept); `400` when a path is not exactly `<userId>/<trackId>.<ext>` (cover: `.webp`), when the file is not in storage yet, or when its size differs from `sizeBytes` (the file is then deleted) |
 | `GET` | `/api/tracks/:id` | | `TrackDetail` |
-| `PATCH` | `/api/tracks/:id` | any subset of `trackMetadataSchema`, `coverPath` | `TrackDetail` |
+| `PATCH` | `/api/tracks/:id` | any non-empty subset of `trackMetadataSchema`, `coverPath` (exactly `<userId>/<trackId>.webp`; `null` removes the cover and its file) | `TrackDetail` |
 | `DELETE` | `/api/tracks/:id` | | `204` |
 | `GET` | `/api/tracks/:id/playback` | | `PlaybackSource { url, expiresAt }` (6 hours) |
 | `GET` | `/api/genres` | | `Genre[]` |
@@ -36,10 +36,10 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/playlists?purpose=playlist\|versions` | | `PlaylistSummary[]` of that purpose (default `playlist`), newest first; `400` for another value |
 | `POST` | `/api/playlists` | `{ title, purpose?, description?, visibility?, trackIds? }` (`purpose` fixed from then on) | `201 PlaylistDetail`; `404` when a track is not the user's, and then no playlist is kept |
 | `GET` | `/api/playlists/:id` | | `PlaylistDetail` |
-| `PATCH` | `/api/playlists/:id` | any subset of `{ title, description, visibility, coverPath }` | `PlaylistDetail` |
+| `PATCH` | `/api/playlists/:id` | any non-empty subset of `{ title, description, visibility, coverPath }` (`coverPath` exactly `<userId>/playlists/<playlistId>.webp`; `null` removes it and its file); `purpose` cannot change | `PlaylistDetail` |
 | `DELETE` | `/api/playlists/:id` | | `204` (tracks stay in the library) |
-| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list, at most 1000) | `PlaylistDetail`; `404` when a track is not the user's (missing or someone else's), nothing written |
-| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append) | `PlaylistDetail`; `404` when a track is not the user's, `400` when the playlist would pass 1000 tracks; nothing written either way |
+| `PUT` | `/api/playlists/:id/tracks` | `{ trackIds }` (full ordered list, each id once, at most 1000) | `PlaylistDetail`; `404` when a track is not the user's (missing or someone else's), nothing written |
+| `POST` | `/api/playlists/:id/tracks` | `{ trackIds }` (to append; each id once, at most 1000) | `PlaylistDetail`; `404` when a track is not the user's, `400` when the playlist would pass 1000 tracks; nothing written either way |
 | `GET` | `/api/playlists/:id/feedback` | | `VersionFeedback`: voting open, votes and plays per version, comments; `404` unless a group of versions |
 | `POST` | `/api/playlists/:id/feedback/seen` | `{ at? }` (the `asOf` of the feedback on screen) | `204`: the group's feedback up to `at` is no longer new (never beyond now, never back); `404` unless the user's |
 | `GET` | `/api/feedback/unseen` | | `UnseenFeedback`: new votes in total and per group, since the owner's last visit to each |
@@ -49,7 +49,7 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | Method | Path | Response |
 |---|---|---|
 | `GET` | `/api/analytics?days=7` or `?days=30` | `AnalyticsReport`: totals, per day, per item, referrers, countries, devices (default 30 days; `400` for other values; `502` when Vercel Analytics fails) |
-| `GET` | `/api/analytics/plays?days=7` or `?days=30` | `PlaysReport`: visitors' plays in total, per day and per share page, and the user's own plays apart |
+| `GET` | `/api/analytics/plays?days=7` or `?days=30` | `PlaysReport`: visitors' plays in total, per day and per share page, and the user's own plays apart (default 30 days; `400` for other values) |
 
 **Public (no sign-in)**
 
@@ -60,7 +60,7 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 | `GET` | `/api/shared/:id/cover` | `302` to a fresh signed cover URL |
 | `GET` | `/api/shared/playlists/:id` | `SharedPlaylist` (all tracks, shareable fields) |
 | `GET` | `/api/shared/playlists/:id/tracks/:trackId/playback` | `PlaybackSource`, only for tracks of that playlist |
-| `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `400` when a part of the address is missing, `403` unless signed by the server and unexpired, `404` (`HEAD`) when the file is gone, `405` for any other method ([7.7](07-data-flows.md#77-expired-streaming-urls)) |
+| `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `400` when a part of the address is missing, `403` unless signed by the server and unexpired, `404` (`HEAD`) when the file is gone, `405` for any other method; readable from any origin (`Access-Control-Allow-Origin: *`), for cast devices ([7.7](07-data-flows.md#77-expired-streaming-urls)) |
 | `GET` | `/api/shared/playlists/:id/cover` | `302` to the custom cover, or the first track cover |
 | `POST` | `/api/plays` | Body `{ trackId, playlistId?, listenerId, completed? }` → `204`; `404` where the caller cannot listen to that track; `429` for a new visitor of a track that already has 100 today |
 | `GET` · `PUT` · `DELETE` | `/api/shared/playlists/:id/vote` | `VersionVoteState` (voting open, owner or not, this browser's pick): `GET` and `DELETE` take `?voter=<browser id>`, `PUT` takes `{ voterId, trackId, name?, comment? }`; `403` for the owner, `404` unless a shared group (or a version of it), `409` once a version is final, `429` for a new voter once the group has 50 votes |

@@ -20,8 +20,8 @@ export function expiresIn(seconds: number): string {
  * its expiry so the player can refresh it.
  *
  * It is the app's own address (`/api/stream?…`, see AudioStorage.streamUrl
- * and server/api/stream.ts), not a presigned storage URL: it answers the
- * HEAD request Chrome sends before casting (a presigned GET refuses it) and
+ * and server/api/stream.ts), not a presigned storage URL: it answers a HEAD
+ * request (a presigned GET refuses it), which a cast device may send, and
  * redirects the actual download to a presigned GET, so the audio still comes
  * straight from the storage.
  */
