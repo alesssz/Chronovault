@@ -12,7 +12,10 @@ flowchart LR
     Flac[Web Worker<br/>WAV → FLAC]
     UI <--> Store
     Store <--> Engine
+    Uploader[Upload queue<br/>direct upload]
     Analysis --> Flac
+    Analysis --> Uploader
+    Flac --> Uploader
   end
 
   subgraph Vercel["Nuxt on Vercel (Nitro)"]
@@ -40,7 +43,7 @@ flowchart LR
   Repos -- "user's JWT or anonymous<br/>(never the service key)" --> DB
   Repos -- "cover files (owner)<br/>signed URLs (public pages)" --> Storage
   Repos -- "presigned URLs (S3 API)" --> R2
-  Flac -- "direct upload<br/>(presigned PUT)" --> R2
+  Uploader -- "audio file<br/>(presigned PUT)" --> R2
   Engine -- "streaming address<br/>(/api/stream: HEAD answered, GET redirected)" --> API
   Engine -- "streaming<br/>(presigned GET, range requests)" --> R2
 ```
@@ -74,6 +77,7 @@ The local database and the production database are **completely separate**: acco
 | `/login`, `/confirm` | Client only | A form submitted before hydration would send the password in the URL (native GET submit) |
 | `/t/:id`, `/p/:id` | **Server-rendered** | Link previews (chat apps, social networks) read the HTML: title, description and image must be in it |
 | `/api/**` | API, `Cache-Control: no-store` | Responses are personal or contain signed URLs |
+| `/cast-test` | Server-rendered (no rule), signed-in only | Temporary Cast diagnostic page, linked from nowhere: to be removed once casting works ([16](16-troubleshooting.md#16-troubleshooting)) |
 | `/api/covers/**` | API, `Cache-Control: private, max-age=31536000, immutable` | Cover images at versioned addresses: each device downloads a cover once ([7.2](07-data-flows.md#72-loading-the-library)) |
 
 The `@nuxtjs/supabase` route middleware sends signed-out visitors to `/login`, except on `/t/*` and `/p/*`.
@@ -94,6 +98,8 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `syncRowsFromLines`, `roundToCentiseconds`, `hasLyrics` | `lyrics.ts` | Sync editor rows from stored or imported lines, LRC precision, "has lyrics to show" (public pages) |
 | `WAV_MIME_TYPES` | `audio-files.ts` | The names WAV goes by: FLAC conversion on upload, tagging on download |
 | `patchSchemaOf` | `shared/schemas/track.ts` | PATCH body of an item with a cover: tracks and playlists |
+| `formatTime`, `formatRemaining`, `formatAge`, `formatBytes` | `time.ts` | "3:07", "-1:12", "2 days ago", "38.4 MB": durations, positions, ages and sizes on screen |
+| `buildAudioPath`, `buildCoverPath`, `buildPlaylistCoverPath`, `isAudioPath`, `isSafeStorageKey` | `storage-paths.ts` | The exact storage paths of a track's audio and cover and of a playlist's cover, as the database requires them ([8.5](08-data-model-and-security.md#85-security-guarantees)) |
 
 **Backend (`server/`):**
 
@@ -105,6 +111,9 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `toSharedTrackContent` | `mappers/track.ts` | Shareable fields of a track: the public track page and each track of a public playlist |
 | `byPosition` | `repositories/playlists.repository.ts` | Playlist order of embedded and RPC rows |
 | `badRequest`, `notFound`, `playlistNotFound`, `conflict` (+ `isConflict`), `toHttpError` | `utils/errors.ts` | Consistent HTTP errors |
+| `requireAuth`, `visitorClient` | `utils/auth.ts` | The signed-in user and their database client (`401` otherwise) · an anonymous client for the public routes |
+| `requireUuidParam`, `readValidated`, `readValidatedQuery` | `utils/validation.ts` | A route's id, body and query checked (against a Zod schema) before the service sees them (`400`) |
+| `readAllPages` | `repositories/pages.ts` | Every row of a list that grows with the user's data, past PostgREST's 1000 ([14.2](14-conventions.md#142-code-conventions)) |
 
 **Frontend (`app/`):**
 
@@ -128,6 +137,8 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `VISIBILITY_INFO`, `VISIBILITY_ITEMS` | `app/utils/visibility.ts` | Labels, explanations and icons of the three visibilities |
 | `PLAYLIST_PURPOSE_INFO`, `playlistPath` | `app/utils/playlist-purpose.ts` | Section, address and wording of each playlist purpose ("playlist"/"track", "group"/"version") |
 | `copyText` | `app/utils/clipboard.ts` | Clipboard with a fallback (share links, LRC export) |
+| `saveFile` | `app/lib/save-file.ts` | Hands a file built in the browser to the user (downloads, LRC export) |
+| `haptic`, `HAPTIC` | `app/lib/haptics.ts` | A short vibration as touch feedback, silent where unsupported |
 | `concatBytes`, `asciiAt` | `app/lib/bytes.ts` | WAV parser, FLAC encoder, tag writers, streamed downloads |
 | `waveformColors` | `app/lib/theme.ts` | Colors of every waveform, from the current theme (the played part in spectral blue) |
 | `<IconButton>` | component | Every button that shows only an icon: one `label` is both its `aria-label` and its tooltip; all other props go to `UButton` (menu triggers included) |

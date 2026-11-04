@@ -25,4 +25,4 @@
 
 ---
 
-← [Quick start](../README.md#quick-start) · [Contents](../README.md#documentation) · [3. Commands](03-commands.md) →
+← [0. Setup](00-setup.md) · [Contents](../README.md#documentation) · [2. Quick start](02-quick-start.md) →
