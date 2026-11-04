@@ -118,6 +118,7 @@ Chronovault/
 │   └── generate-brand.mjs            # pnpm generate:brand (favicon, PWA icons, fallback cover)
 ├── brand/chronovault.jpg             # The Chronovault artwork: source of the fallback cover
 ├── docs/                             # This documentation: 00-setup.md … 16-troubleshooting.md, one file per section (index in README.md)
+│   ├── backlog.md                    # Work known and waiting, one entry per point (UI-n, FEAT-n…); deleted when done
 │   └── superpowers/                  # Design specs and implementation plans of past features (kept as written then)
 ├── public/                           # Favicon, PWA icons, fallback cover (generated, see 5.6) · cast-test.wav (the /cast-test page's WAV)
 ├── Dockerfile · compose.yaml · .dockerignore
