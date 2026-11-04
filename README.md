@@ -52,3 +52,5 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, new endpoints and tables) |
 | [15. Known limitations and next steps](docs/15-limitations-and-next-steps.md) | What the app does not do yet, and what could come next |
 | [16. Troubleshooting](docs/16-troubleshooting.md) | Known problems and their fixes |
+
+Outside the numbered sections, **[Backlog](docs/backlog.md)** lists the work known and waiting (interface, features, backend, tooling…), one entry per point with options and a recommendation; an entry is deleted when its work is done.
