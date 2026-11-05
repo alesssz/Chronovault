@@ -21,8 +21,9 @@
  * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
  * only way to. On phones the library's selection bar sits at the bottom with each action named,
  * the versions of a song keep the end of their titles, and statistics keep their titles readable.
- * Also on phones: the editors start with their form (the cover a small row above it) and bring
- * up a Save bar while there is something to save, and the library's filters live in a panel.
+ * Also on phones: the track editor starts with its form (the cover a small row above it) and
+ * brings up a Save bar while there is something to save, a playlist's page with its tracks, and
+ * the library's filters live in a panel.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -476,7 +477,7 @@ test.describe('touch screens', () => {
     expect(link.width).toBeGreaterThan(200)
   })
 
-  test('phone: editors start with the form and keep Save within reach; filters live in a panel', async ({ page }, testInfo) => {
+  test('phone: editors start with what they edit and keep Save within reach; filters live in a panel', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'phone', 'phone layout only')
     await signUpWithTrack(page)
     const height = page.viewportSize()!.height
@@ -531,7 +532,7 @@ test.describe('touch screens', () => {
     await expect(saveBar).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Touch screen song, renamed')
 
-    // --- Playlist editor: the same layout and the same bar ---
+    // --- Playlist page: the tracks in the first screen; its details in a dialog ---
     const playlistId = await page.evaluate(async (trackId) => {
       const response = await fetch('/api/playlists', {
         method: 'POST',
@@ -541,14 +542,13 @@ test.describe('touch screens', () => {
       return (await response.json() as { id: string }).id
     }, id)
     await page.goto(`/playlists/${playlistId}`)
-    const playlistTitle = page.getByTestId('playlist-field-title')
-    await expect(playlistTitle).toBeVisible()
-    const playlistField = (await playlistTitle.boundingBox())!
-    expect(playlistField.y + playlistField.height).toBeLessThanOrEqual(height)
-    await playlistTitle.fill('Phone playlist, renamed')
-    await expect(saveBar).toBeVisible()
-    await clickAndWaitForApi(page, saveBar.getByRole('button', { name: 'Save' }), { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ })
-    await expect(saveBar).toHaveCount(0)
+    const row = (await page.getByTestId('playlist-track').first().boundingBox())!
+    expect(row.y + row.height).toBeLessThanOrEqual(height)
+    await page.getByRole('button', { name: 'Edit details' }).tap()
+    const details = page.getByRole('dialog', { name: 'Edit playlist details' })
+    await details.getByTestId('playlist-field-title').fill('Phone playlist, renamed')
+    await clickAndWaitForApi(page, details.getByTestId('save-playlist'), { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ })
+    await expect(details).toBeHidden()
     await expect(page.getByTestId('playlist-title')).toHaveText('Phone playlist, renamed')
   })
 

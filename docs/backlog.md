@@ -46,77 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The first entries come from a review of 2026-11-04, made by driving the app with Playwright on the local stack, with a library of 24 tracks, 5 playlists and a group of versions with votes, at these sizes: desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch); dark theme (the default) and light theme; share pages as a visitor who is not signed in. Widths are CSS pixels; "phones" means below `sm` (640px), as in `main.css`.
 
-### UI-11 The visibility choice wraps unevenly
-
-**Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
-
-**What is wrong.** The three visibility cards (Private, Unlisted, Public) are a horizontal radio group with descriptions of different lengths: at desktop widths Private and Unlisted fill the first row and Public sits alone on the second, each card as wide as its text. On phones the same cards are cramped.
-
-**Where.** `URadioGroup` with `VISIBILITY_ITEMS` ([utils/visibility.ts](../app/utils/visibility.ts)) in [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue).
-
-**Options.**
-- A) Three equal columns (`grid-cols-3` on the items) with shorter descriptions ("Only you", "Anyone with the link", "Link + search engines").
-- B) Stacked vertically, at every width.
-- C) A segmented control, with the description of the chosen option under it.
-
-**Recommended.** A from `sm`, B below it.
-
-### UI-12 A playlist's tracks start below the fold
-
-**Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
-
-**What is wrong.** On a playlist (and a group of versions) the page opens with title, description and visibility; at 1440×900, with the player bar, the track list starts at the bottom edge and is entirely below it on smaller screens, though it is what the page is mostly for. Visibility and description change rarely.
-
-**Where.** [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue), the main column (form, then tracks, then feedback).
-
-**Options.**
-- A) Tracks first, then the form in a section that can be folded ("Details").
-- B) The form in a dialog opened by an "Edit details" button in the header; the description shown as text under the title.
-
-**Recommended.** B: the page becomes the playlist, not a form about it. A is the smaller change.
-
-### UI-13 The share page of a playlist hides its tracks
-
-**Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
-
-**What is wrong.** On the share page of a playlist, at 1440×900, the cover takes the left column (26rem), so the Play button lands on the bottom edge and the track list is entirely below it; the right column shows the current track's lyrics. It is the first thing a friend sees when opening a link.
-
-**Where.** [pages/p/[id].vue](../app/pages/p/[id].vue) (`lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]`, cover `lg:max-w-none`).
-
-**Options.**
-- A) A smaller cover (about 16–18rem) with title, summary and Play beside it, as a header row; the list right under it.
-- B) Keep the layout, size the cover from the height (as in the full-screen player) so Play and the first tracks fit the first screen.
-
-**Recommended.** A. Check the share page of a track as well, which has the same proportions.
-
-### UI-14 The full-screen player without lyrics is half empty
-
-**Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
-
-**What is wrong.** From `md` the full-screen view has two columns: cover and controls, and the lyrics. A track without lyrics leaves the right half empty except for "No lyrics · Add lyrics from the track's edit page."
-
-**Where.** [PlayerExpanded.vue](../app/components/player/PlayerExpanded.vue) (the `v-if="!isPhone"` lyrics section). Phones already show the track's description instead ("About this track").
-
-**Options.**
-- A) No lyrics: a single centred column.
-- B) No lyrics: the description (and album, year, genre) in the right column, as phones do; the empty state only when there is neither.
-
-**Recommended.** B, falling back to A when the track has no description either.
-
-### UI-15 The icons of library rows do not line up
-
-**Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
-
-**What is wrong.** On each row the genre badge, the mastered, lyrics and visibility icons sit right-aligned together, and the badge's width depends on the genre's name ("Metal", "Ambient", "Folk"), so the icons move from row to row instead of forming columns.
-
-**Where.** [TrackList.vue](../app/components/track/TrackList.vue), the `hidden md:flex` group.
-
-**Options.**
-- A) A fixed width for the genre (badge left-aligned in a column of about 7rem, truncated).
-- B) The genre as plain text in its own column, the icons in fixed slots (an empty slot when a track has no lyrics).
-
-**Recommended.** B: columns read faster than badges.
-
 ### UI-16 Leaving with unsaved changes asks through the browser's own box
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-04
@@ -135,9 +64,9 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-04
 
-**What is wrong.** From `md` (768px), with nothing to save, the Save button in the editors' header is disabled, which Nuxt UI shows as the same gold button at 75% opacity: on a dark background it is hard to tell whether there is something to save.
+**What is wrong.** With nothing to save, the Save button of the track editor's header (from `md`, 768px) and of a playlist's "Edit details" dialog is disabled, which Nuxt UI shows as the same gold button at 75% opacity: on a dark background it is hard to tell whether there is something to save.
 
-**Where.** The Save buttons of [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue).
+**Where.** The Save buttons of [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [PlaylistDetailsDialog.vue](../app/components/playlist/PlaylistDetailsDialog.vue).
 
 **Options.**
 - A) Neutral and subtle while there is nothing to save, gold (primary) once something changed.
@@ -198,6 +127,20 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 - B) Only the ✕ in the selection bar.
 
 **Recommended.** A. The long press must not fight the page's scrolling or the row's tap (play), and must not open the browser's own menu on the cover image.
+
+### UI-22 A comment between root `v-if` branches drops a component's classes on server-rendered pages
+
+**Priority:** low · **Kind:** robustness · **Found:** 2026-11-05
+
+**What is wrong.** When a component's root is a `v-if` / `v-else` chain with an HTML comment before a branch, Vue's server renderer sees several root nodes and does not pass on the classes the page gives the component; hydration reports a class mismatch and does not restore them. A playlist's share page lost its cover's sizes this way (fixed in PlaylistCover). [PlayerVolume.vue](../app/components/player/PlayerVolume.vue) has the same shape; today it is only given classes in client-rendered places (the player bar, the full-screen view), so nothing shows, but a share page giving it a class would hit it.
+
+**Where.** [PlayerVolume.vue](../app/components/player/PlayerVolume.vue), the comments before its two root branches; any component written the same way later.
+
+**Options.**
+- A) Move PlayerVolume's comments inside its branches, as PlaylistCover now does.
+- B) A) plus a check that finds the shape (a lint rule, or a small script in `pnpm check`).
+
+**Recommended.** A now; B if the shape comes back.
 
 ## Features (FEAT)
 

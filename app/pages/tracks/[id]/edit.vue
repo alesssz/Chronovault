@@ -355,8 +355,8 @@ const isCurrent = computed(() => player.current?.id === id)
                 <URadioGroup
                   v-model="state.visibility"
                   :items="VISIBILITY_ITEMS"
-                  orientation="horizontal"
                   variant="card"
+                  :ui="VISIBILITY_GROUP_UI"
                   class="w-full"
                 />
               </UFormField>

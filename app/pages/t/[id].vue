@@ -78,16 +78,18 @@ function onLyricSeek(seconds: number) {
       data-testid="shared-track"
     >
       <!--
-        Left: cover, title and details, player, description. Below `lg` the cover also shrinks
-        with the screen's height (20rem: header, title lines and the player row), so the play
-        button is in the first screen even on a short phone (375×667) with the browser's bars.
+        Left: cover, title and details, player, description. The cover also shrinks with the
+        screen's height, so the play button is in the first screen: below `lg` (20rem: header,
+        title lines and the player row) even on a short phone (375×667) with the browser's bars;
+        from `lg` (27rem: the same, plus the controls under the waveform), where the column's full
+        26rem put Play on the bottom edge of a 1440×900 screen.
       -->
       <section class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <TrackCover
           :url="track.coverUrl"
           :title="track.title"
           rounded="rounded-xl"
-          class="mx-auto w-full max-w-[max(10rem,min(24rem,calc(100dvh-20rem)))] shadow-2xl shadow-black/40 lg:max-w-none"
+          class="mx-auto w-full max-w-[max(10rem,min(24rem,calc(100dvh-20rem)))] shadow-2xl shadow-black/40 lg:mx-0 lg:max-w-[max(14rem,calc(100dvh-27rem))]"
         />
 
         <div class="min-w-0">
