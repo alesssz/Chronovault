@@ -217,11 +217,16 @@ function isPicked(trackId: string) {
                 class="size-10"
               />
               <span class="min-w-0 flex-1">
-                <!-- Title, "WIP" on drafts (versions to choose from) -->
+                <!--
+                  Title, "WIP" on drafts (versions to choose from). In a group the title takes up to
+                  two lines: versions share the start of their title, and on phones the part that
+                  tells them apart was cut off. There, phones also drop what every row repeats: the
+                  WIP badge (versions are drafts until one is chosen) and the duration.
+                -->
                 <span class="flex min-w-0 items-center gap-2">
                   <span
-                    class="truncate font-medium"
-                    :class="{ 'text-primary': isActive(track.id) }"
+                    class="min-w-0 font-medium"
+                    :class="[isVersions ? 'line-clamp-2 break-words' : 'truncate', { 'text-primary': isActive(track.id) }]"
                   >{{ track.title }}</span>
                   <UBadge
                     v-if="track.status === 'draft'"
@@ -230,6 +235,7 @@ function isPicked(trackId: string) {
                     variant="subtle"
                     size="sm"
                     class="shrink-0"
+                    :class="{ 'max-sm:hidden': isVersions }"
                     title="Work in progress"
                     data-testid="shared-track-wip"
                   />
@@ -246,7 +252,10 @@ function isPicked(trackId: string) {
                 </span>
                 <span class="block truncate text-sm text-muted">{{ track.composers || '—' }}</span>
               </span>
-              <span class="text-sm tabular-nums text-muted">{{ formatTime(track.durationSeconds) }}</span>
+              <span
+                class="text-sm tabular-nums text-muted"
+                :class="{ 'max-sm:hidden': isVersions }"
+              >{{ formatTime(track.durationSeconds) }}</span>
             </button>
             <!-- Pick this version (again: take the pick back); only while voting is open, never for the owner -->
             <IconButton

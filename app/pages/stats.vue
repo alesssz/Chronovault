@@ -297,46 +297,63 @@ function isPrivateNow(visibility: string): boolean {
               :title="item.title"
               class="size-10"
             />
-            <div class="min-w-0 flex-1">
-              <NuxtLink
-                :to="item.path"
-                target="_blank"
-                class="block truncate font-medium hover:underline"
-              >{{ item.title }}</NuxtLink>
-              <p class="flex items-center gap-1.5 text-xs text-muted">
-                <UIcon
-                  :name="item.kind === 'track' ? 'i-lucide-music' : 'i-lucide-list-music'"
-                  class="size-3.5"
-                />
-                {{ item.kind === 'track' ? 'Track' : 'Playlist' }}
-                <UBadge
-                  v-if="isPrivateNow(item.visibility)"
-                  label="Private now"
-                  color="neutral"
-                  variant="subtle"
-                  size="sm"
-                />
-              </p>
-            </div>
-            <!-- Views and visitors (when Vercel has them) -->
-            <div
-              v-if="item.pageviews !== null"
-              class="text-right text-sm tabular-nums"
-            >
-              <p>{{ number.format(item.pageviews) }} <span class="text-muted">views</span></p>
-              <p class="text-xs text-muted">
-                {{ number.format(item.visitors ?? 0) }} visitors
-              </p>
-            </div>
-            <!-- Visitors' plays, and how many to the end -->
-            <div
-              class="w-20 text-right text-sm tabular-nums"
-              data-testid="stats-item-plays"
-            >
-              <p>{{ number.format(item.plays) }} <span class="text-muted">{{ item.plays === 1 ? 'play' : 'plays' }}</span></p>
-              <p class="text-xs text-muted">
-                {{ number.format(item.completed) }} to the end
-              </p>
+            <!--
+              Title and kind, then the numbers: beside them from `sm`, on a line of their own under
+              them on phones (beside them, at 390px the title kept about 8 characters).
+            -->
+            <div class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <div class="min-w-0 sm:flex-1">
+                <NuxtLink
+                  :to="item.path"
+                  target="_blank"
+                  class="block truncate font-medium hover:underline"
+                >{{ item.title }}</NuxtLink>
+                <p class="flex items-center gap-1.5 text-xs text-muted">
+                  <UIcon
+                    :name="item.kind === 'track' ? 'i-lucide-music' : 'i-lucide-list-music'"
+                    class="size-3.5"
+                  />
+                  {{ item.kind === 'track' ? 'Track' : 'Playlist' }}
+                  <UBadge
+                    v-if="isPrivateNow(item.visibility)"
+                    label="Private now"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                  />
+                </p>
+              </div>
+              <!-- On phones each pair reads on one line ("12 views · 8 visitors"); from `sm` on two, right-aligned -->
+              <div class="flex flex-wrap items-baseline gap-x-4 sm:flex-nowrap sm:items-center sm:gap-x-3">
+                <!-- Views and visitors (when Vercel has them) -->
+                <div
+                  v-if="item.pageviews !== null"
+                  class="flex items-baseline gap-1.5 text-sm tabular-nums sm:block sm:text-right"
+                >
+                  <p>{{ number.format(item.pageviews) }} <span class="text-muted">views</span></p>
+                  <span
+                    class="text-xs text-dimmed sm:hidden"
+                    aria-hidden="true"
+                  >·</span>
+                  <p class="text-xs text-muted">
+                    {{ number.format(item.visitors ?? 0) }} visitors
+                  </p>
+                </div>
+                <!-- Visitors' plays, and how many to the end -->
+                <div
+                  class="flex items-baseline gap-1.5 text-sm tabular-nums sm:block sm:w-20 sm:text-right"
+                  data-testid="stats-item-plays"
+                >
+                  <p>{{ number.format(item.plays) }} <span class="text-muted">{{ item.plays === 1 ? 'play' : 'plays' }}</span></p>
+                  <span
+                    class="text-xs text-dimmed sm:hidden"
+                    aria-hidden="true"
+                  >·</span>
+                  <p class="text-xs text-muted">
+                    {{ number.format(item.completed) }} to the end
+                  </p>
+                </div>
+              </div>
             </div>
           </li>
         </ul>

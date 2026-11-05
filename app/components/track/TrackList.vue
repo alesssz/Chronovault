@@ -238,12 +238,13 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
           />
           <!--
             Play/pause overlay: always on for the current track; for the others it
-            appears on hover or focus with a mouse. Touch screens have no hover,
-            so there it stays on, to show that the cover can be tapped.
+            appears on hover or focus. Touch screens have no hover, so there only the
+            current track has it: on every cover it darkened the whole list with the
+            same icon, while a tap anywhere on the row plays already.
           -->
           <span
             class="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 text-white transition-opacity"
-            :class="isCurrent(track) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100'"
+            :class="isCurrent(track) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'"
             data-testid="track-cover-overlay"
           >
             <UIcon

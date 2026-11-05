@@ -52,11 +52,19 @@ const emit = defineEmits<{
       data-testid="playlist-track-title"
       @click="emit('play')"
     >
+      <!--
+        The title, cut at the end of the line; in a group of versions on up to two lines, since
+        versions share the start of their title ("Teutoburg (v1, …", "Teutoburg (v2, …") and the
+        part that tells them apart is the part that was cut.
+      -->
       <span
-        class="flex items-center gap-1.5 truncate font-medium"
+        class="flex min-w-0 items-center gap-1.5 font-medium"
         :class="{ 'text-primary': current }"
       >
-        <span class="truncate">{{ track.title }}</span>
+        <span
+          class="min-w-0"
+          :class="version ? 'line-clamp-2 break-words' : 'truncate'"
+        >{{ track.title }}</span>
         <!-- Private tracks become audible when the playlist is shared -->
         <UIcon
           v-if="track.visibility === 'private'"
@@ -88,16 +96,17 @@ const emit = defineEmits<{
       <!-- Groups: the friends' votes and plays of this version -->
       <span
         v-if="tally"
-        class="flex items-center gap-3 text-xs tabular-nums text-muted"
+        class="flex flex-wrap items-center gap-x-3 text-xs tabular-nums text-muted"
         data-testid="version-tally"
       >
-        <span class="flex items-center gap-1">
+        <!-- Each figure whole: in a narrow row they wrap as a block, not word by word ("2 / votes") -->
+        <span class="flex items-center gap-1 whitespace-nowrap">
           <UIcon
             name="i-lucide-heart"
             class="size-3"
           />{{ pluralize(tally.votes, 'vote') }}
         </span>
-        <span class="flex items-center gap-1">
+        <span class="flex items-center gap-1 whitespace-nowrap">
           <UIcon
             name="i-lucide-headphones"
             class="size-3"

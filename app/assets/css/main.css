@@ -150,8 +150,18 @@ html.player-expanded {
   }
 }
 
+/*
+ * Where a bar fixed at the bottom of the screen sits (the library's selection
+ * bar on phones): above the home indicator, and above the player bar while it
+ * is shown (on phones its 2px progress line and 1px border on top).
+ */
+:root {
+  --above-player: env(safe-area-inset-bottom);
+}
+
 /* Keeps content from ending up underneath the player bar. */
 .has-player {
+  --above-player: calc(var(--player-bar-height) + 3px + env(safe-area-inset-bottom));
   padding-bottom: calc(var(--player-bar-height) + env(safe-area-inset-bottom));
 }
 
