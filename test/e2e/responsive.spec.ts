@@ -14,9 +14,15 @@
  * against a stand-in for a Chromecast on the network (see installCastDevice) and with no
  * device at all (always shown on touch screens), and the phones' full-screen view: the
  * description under the controls, the lyrics in a view of their own.
+ *
+ * Layout regressions found by measuring the pages: the header's section links never slide under
+ * "Add" (they did from 640 to about 890px), the library's search box keeps a readable width (it
+ * shrank to its icon), and on a short phone the full-screen view and a track's share page keep
+ * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
+ * only way to.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
-import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
 
 // The edit page saves with PATCH /api/tracks/:id.
 const SAVE_TRACK = { method: 'PATCH', path: /^\/api\/tracks\/[0-9a-f-]+$/ }
@@ -234,8 +240,18 @@ test.describe('touch screens', () => {
     const baseSize = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)
     expect(baseSize).toBe(testInfo.project.name === 'phone' ? '17px' : '20px')
 
-    // No hover on a touch screen: the play overlay is on even for a track that is not playing.
     await page.goto('/')
+    // The header's left group (logo, section links) ends before "Add" starts: from 640px the
+    // section names used to slide under it, up to about 890px (the tablet is 820px wide).
+    const sections = (await page.getByRole('navigation', { name: 'Sections' }).boundingBox())!
+    const add = (await page.locator('header a[href="/tracks/new"]').filter({ visible: true }).boundingBox())!
+    expect(sections.x + sections.width).toBeLessThanOrEqual(add.x)
+    // The search box leaves room to read what is typed: beside the filters it shrank to its
+    // icon (58px) from 640px; it now has a row of its own below 1280px.
+    const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
+    expect(search.width).toBeGreaterThan(300)
+
+    // No hover on a touch screen: the play overlay is on even for a track that is not playing.
     await expect(page.getByTestId('track-cover-overlay')).toHaveCSS('opacity', '1')
 
     // The edit page (its tabs and lyrics tools) fits too.
@@ -355,6 +371,52 @@ test.describe('touch screens', () => {
     // Pull it down from its top: it closes.
     await swipe(page, expanded.getByText('Now playing'), 0, 300)
     await expect(expanded).toBeHidden()
+  })
+
+  test('phone: the full-screen view closes the player, and a short screen keeps play in view', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await signUpWithTrack(page)
+    // The track, shared below.
+    const id = await firstTrackId(page)
+    // An iPhone SE with Safari's bars showing: about 375×548 of page.
+    const height = 548
+    await page.setViewportSize({ width: 375, height })
+
+    await page.getByTestId('track-title').tap()
+    await page.getByTestId('player-track-area').tap()
+    // The full-screen view.
+    const expanded = page.getByTestId('player-expanded')
+    await expect(expanded).toBeVisible()
+    // Play is in the first screen: the cover shrinks with the height (a full-width cover used
+    // to push the controls under the bottom edge).
+    const play = (await expanded.getByTestId('player-toggle').boundingBox())!
+    expect(play.y + play.height).toBeLessThanOrEqual(height)
+
+    // The ✕ of its top bar closes the player (the phone bar has no room for one): view and bar go.
+    await expanded.getByRole('button', { name: 'Close player' }).tap()
+    await expect(expanded).toBeHidden()
+    await expect(page.getByTestId('player-bar')).toHaveCount(0)
+
+    // The track's share page: its Play button is in the first screen too.
+    await page.evaluate(async (trackId) => {
+      await fetch(`/api/tracks/${trackId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      })
+    }, id)
+    await page.goto(`/t/${id}`)
+    await waitForHydration(page)
+    // The page's big Play button.
+    const sharedPlay = page.getByTestId('shared-play')
+    const box = (await sharedPlay.boundingBox())!
+    expect(box.y + box.height).toBeLessThanOrEqual(height)
+    // A share page's full-screen view has no Close player: the player belongs to the page.
+    await sharedPlay.tap()
+    await page.getByTestId('shared-expand').tap()
+    await expect(expanded).toBeVisible()
+    await expect(expanded.getByRole('button', { name: 'Collapse player' })).toBeVisible()
+    await expect(expanded.getByRole('button', { name: 'Close player' })).toHaveCount(0)
   })
 
   test('phone: the back button closes the panel on top first', async ({ page }, testInfo) => {

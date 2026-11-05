@@ -4,7 +4,10 @@
  * Versions: the groups of versions shared for feedback), "Add" (upload),
  * light/dark switch and the account menu (Statistics, Storage, Keyboard
  * shortcuts, Sign out).
- * On phones the logo shows only its mark and the section links only their icons.
+ * Below `lg` (64rem = 1024px) the section links show only their icons, and on
+ * phones the logo shows only its mark. The names come at `lg`, not `sm`: with
+ * the logo's name, the names and the labelled "Add" from 640px, the left
+ * group no longer fitted below about 890px and slid under the right one.
  *
  * A dot on "Versions" says that friends voted or commented on a group since
  * the owner's last visit to it (useUnseenFeedback). It is checked again
@@ -56,6 +59,9 @@ const sections = [
   { label: 'Versions', to: '/versions', icon: 'i-lucide-layers', active: () => route.path.startsWith('/versions'), dot: () => unseen.value.total > 0 },
 ]
 
+/** From `lg` the section links show their names, so their tooltips would only repeat them. */
+const namesShown = useMediaQuery('(width >= 64rem)')
+
 /** The Storage dialog (usage and clean-up of orphaned files). */
 const storageOpen = ref(false)
 /** The list of keyboard shortcuts (also opened by the ? key). */
@@ -97,31 +103,38 @@ const menu = computed<DropdownMenuItem[][]>(() => [
           aria-label="Sections"
         >
           <!--
-            One link per section; the name shows from `sm`, the icon alone on phones, in a square
-            like the icon buttons on the right (`max-sm:px-1.5`: the hidden name would otherwise
-            keep the padding of a labelled button).
+            One link per section; the name shows from `lg`, the icon alone below, in a square like
+            the icon buttons on the right (`max-lg:px-1.5`: the hidden name would otherwise keep
+            the padding of a labelled button). The name stays the accessible name (aria-label),
+            and shows in a tooltip while it is hidden, as for the other icon-only buttons.
           -->
-          <UButton
+          <UTooltip
             v-for="link in sections"
             :key="link.to"
-            :to="link.to"
-            :icon="link.icon"
-            :aria-label="link.dot() ? `${link.label}, new feedback` : link.label"
-            color="neutral"
-            variant="ghost"
-            active-color="primary"
-            active-variant="soft"
-            :active="link.active()"
-            class="relative max-sm:px-1.5"
+            :text="link.label"
+            :content="{ side: 'bottom' }"
+            :disabled="namesShown"
           >
-            <span class="hidden sm:inline">{{ link.label }}</span>
-            <!-- Something new in the section: a dot on the top right corner (on the icon, on phones) -->
-            <span
-              v-if="link.dot()"
-              class="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-default"
-              :data-testid="`section-dot-${link.label.toLowerCase()}`"
-            />
-          </UButton>
+            <UButton
+              :to="link.to"
+              :icon="link.icon"
+              :aria-label="link.dot() ? `${link.label}, new feedback` : link.label"
+              color="neutral"
+              variant="ghost"
+              active-color="primary"
+              active-variant="soft"
+              :active="link.active()"
+              class="relative max-lg:px-1.5"
+            >
+              <span class="hidden lg:inline">{{ link.label }}</span>
+              <!-- Something new in the section: a dot on the top right corner (on the icon, below `lg`) -->
+              <span
+                v-if="link.dot()"
+                class="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-default"
+                :data-testid="`section-dot-${link.label.toLowerCase()}`"
+              />
+            </UButton>
+          </UTooltip>
         </nav>
       </div>
 

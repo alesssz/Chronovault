@@ -77,13 +77,17 @@ function onLyricSeek(seconds: number) {
       :class="showLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
       data-testid="shared-track"
     >
-      <!-- Left: cover, title and details, player, description -->
+      <!--
+        Left: cover, title and details, player, description. Below `lg` the cover also shrinks
+        with the screen's height (20rem: header, title lines and the player row), so the play
+        button is in the first screen even on a short phone (375×667) with the browser's bars.
+      -->
       <section class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
         <TrackCover
           :url="track.coverUrl"
           :title="track.title"
           rounded="rounded-xl"
-          class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 lg:max-w-none"
+          class="mx-auto w-full max-w-[max(10rem,min(24rem,calc(100dvh-20rem)))] shadow-2xl shadow-black/40 lg:max-w-none"
         />
 
         <div class="min-w-0">
