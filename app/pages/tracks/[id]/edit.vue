@@ -146,7 +146,9 @@ const isCurrent = computed(() => player.current?.id === id)
       Header: back, title, Play/Pause, Download, Save. On phones Play and Download are icons only
       (their text shows from `sm`, and `aria-label` names them for screen readers meanwhile),
       so the title keeps most of the row instead of shrinking to a few letters. Save shows from
-      `md`: below it the Save bar (SaveBar) comes up whenever there is something to save.
+      `md`, grey and disabled until something changed, then gold (a disabled gold button looked
+      the same as an active one); below `md` the Save bar (SaveBar) comes up whenever there is
+      something to save.
     -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <IconButton
@@ -184,6 +186,8 @@ const isCurrent = computed(() => player.current?.id === id)
         form="track-form"
         icon="i-lucide-save"
         label="Save"
+        :color="dirty ? 'primary' : 'neutral'"
+        :variant="dirty ? 'solid' : 'subtle'"
         :loading="saving.running"
         :disabled="!dirty"
         class="max-md:hidden"

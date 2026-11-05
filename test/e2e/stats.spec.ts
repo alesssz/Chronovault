@@ -22,6 +22,36 @@ test.describe('statistics', () => {
 
     // --- Demo data, said loudly, around the user's real track ---
     await expect(page.getByTestId('stats-demo-banner')).toContainText('Demo data')
+    // Readable in the light theme too: its title at 4.5:1 or more on the alert's tint (it was
+    // yellow on pale yellow, 1.8:1).
+    await page.evaluate(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await page.reload()
+    await expect(page.locator('html')).toHaveClass(/light/)
+    const contrast = await page.getByTestId('stats-demo-banner').evaluate((banner) => {
+      const context = document.createElement('canvas').getContext('2d')!
+      /** The pixel the colours make painted in order (the page, the alert's tint, the text), as RGB 0–255. */
+      const paint = (...colors: string[]) => {
+        context.clearRect(0, 0, 1, 1)
+        for (const color of ['white', ...colors]) {
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+        }
+        return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3)
+      }
+      /** WCAG relative luminance. */
+      const luminance = (rgb: number[]) => {
+        const [r, g, b] = rgb.map(v => v / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+        return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+      }
+      const background = getComputedStyle(document.body).backgroundColor
+      const tint = getComputedStyle(banner).backgroundColor
+      const title = getComputedStyle(banner.querySelector('[data-slot="title"]')!).color
+      const [light, dark] = [luminance(paint(background, tint)), luminance(paint(background, tint, title))].sort((a, b) => b - a)
+      return (light! + 0.05) / (dark! + 0.05)
+    })
+    expect(contrast).toBeGreaterThanOrEqual(4.5)
+    await page.evaluate(() => localStorage.removeItem('nuxt-color-mode'))
+    await page.reload()
     await expect(page.getByTestId('stats-item').filter({ hasText: title })).toBeVisible()
     // One chart for views, one for plays: 30 days each.
     await expect(page.getByTestId('stats-views-chart').getByTestId('stats-day-bar')).toHaveCount(30)

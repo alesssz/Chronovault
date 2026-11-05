@@ -69,12 +69,14 @@ const level = computed({
 </script>
 
 <template>
-  <!--
-    Compact (narrow player bar) with a slider (a mouse or trackpad): speaker button opening a popover.
-    The wrapper gives the parent's classes (e.g. `lg:hidden`) an element to land on:
-    the popover itself renders none.
-  -->
   <div v-if="compact && adjustable">
+    <!--
+      Compact (narrow player bar) with a slider (a mouse or trackpad): speaker button opening a
+      popover. The wrapper gives the parent's classes (e.g. `lg:hidden`) an element to land on:
+      the popover itself renders none. The comments of both branches stay inside them: at the
+      root, the server renderer counted them as root nodes and dropped the parent's classes
+      (see PlaylistCover).
+    -->
     <UPopover :content="{ side: 'top', align: 'center' }">
       <IconButton
         :icon="icon"
@@ -108,11 +110,11 @@ const level = computed({
     </UPopover>
   </div>
 
-  <!-- Inline layout, or mute alone where the page offers no volume of its own (touch screens) -->
   <div
     v-else
     class="flex items-center gap-2"
   >
+    <!-- Inline layout, or mute alone where the page offers no volume of its own (touch screens) -->
     <IconButton
       :icon="icon"
       color="neutral"

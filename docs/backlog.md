@@ -60,46 +60,6 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A in the editors (Save and leave saves first and leaves only when the save went through); B on the upload page, where uploads in progress can only be waited for or left.
 
-### UI-17 Save looks the same with or without changes
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-04
-
-**What is wrong.** With nothing to save, the Save button of the track editor's header (from `md`, 768px) and of a playlist's "Edit details" dialog is disabled, which Nuxt UI shows as the same gold button at 75% opacity: on a dark background it is hard to tell whether there is something to save.
-
-**Where.** The Save buttons of [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [PlaylistDetailsDialog.vue](../app/components/playlist/PlaylistDetailsDialog.vue).
-
-**Options.**
-- A) Neutral and subtle while there is nothing to save, gold (primary) once something changed.
-- B) Keep the colour, change the label: "Saved" with a check while clean, "Save" when dirty.
-
-**Recommended.** A. Below `md` the header has no Save: the Save bar at the bottom of the screen (SaveBar) appears only when there is something to save.
-
-### UI-18 The demo-data notice is hard to read in the light theme
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-04
-
-**What is wrong.** On the statistics page the "Demo data" notice is a subtle warning alert: in the light theme its text is yellow on pale yellow, below the contrast the rest of the app keeps (main.css raises primary and secondary to 700 in the light theme for the same reason). It shows only locally, but the same alert colour may be used elsewhere.
-
-**Where.** [pages/stats.vue](../app/pages/stats.vue) (`UAlert color="warning" variant="subtle"`); the warning colour in [main.css](../app/assets/css/main.css).
-
-**Options.**
-- A) Raise the light theme's warning step (`--ui-warning`) as main.css already does for primary and secondary.
-- B) The neutral colour with the warning icon for this notice only.
-
-**Recommended.** A: it fixes every warning alert and badge at once ("Draft", the private-tracks notice).
-
-### UI-19 The "Mastering" filter reads as a label
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-04
-
-**What is wrong.** The library's filters show "All genres", "All versions" and "Most recent" when nothing is chosen, but the mastering one shows "Mastering", which reads as the name of the field rather than a choice.
-
-**Where.** [pages/index.vue](../app/pages/index.vue), `masteredOptions`.
-
-**Options.** "Any mastering", or "Mastered or not".
-
-**Recommended.** "Any mastering".
-
 ### UI-20 Playlists without covers all look the same
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-04
@@ -128,19 +88,19 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A. The long press must not fight the page's scrolling or the row's tap (play), and must not open the browser's own menu on the cover image.
 
-### UI-22 A comment between root `v-if` branches drops a component's classes on server-rendered pages
+### UI-23 Success, info and error colours are faint in the light theme
 
-**Priority:** low · **Kind:** robustness · **Found:** 2026-11-05
+**Priority:** low · **Kind:** accessibility · **Found:** 2026-11-05
 
-**What is wrong.** When a component's root is a `v-if` / `v-else` chain with an HTML comment before a branch, Vue's server renderer sees several root nodes and does not pass on the classes the page gives the component; hydration reports a class mismatch and does not restore them. A playlist's share page lost its cover's sizes this way (fixed in PlaylistCover). [PlayerVolume.vue](../app/components/player/PlayerVolume.vue) has the same shape; today it is only given classes in client-rendered places (the player bar, the full-screen view), so nothing shows, but a share page giving it a class would hit it.
+**What is wrong.** main.css raises primary, secondary and warning to darker steps in the light theme, because Nuxt UI's defaults read too faintly on white; success, info and error keep Nuxt UI's 500, measured on white at 2.2:1 (green), 3.8:1 (blue) and 3.8:1 (red). Text needs 4.5:1 and icons 3:1, so in the light theme the library's "mastered" tick, the feedback icons and every green toast icon are pale, and form errors and the info alert on Statistics ("Page views are not configured") are below the text threshold. The dark theme is fine.
 
-**Where.** [PlayerVolume.vue](../app/components/player/PlayerVolume.vue), the comments before its two root branches; any component written the same way later.
+**Where.** [main.css](../app/assets/css/main.css), the block that picks each theme's steps (`:root, .light` and `.dark`); the uses are `text-success`, `text-error`, `color="success" | "info" | "error"` across the app.
 
 **Options.**
-- A) Move PlayerVolume's comments inside its branches, as PlaylistCover now does.
-- B) A) plus a check that finds the shape (a lint rule, or a small script in `pnpm check`).
+- A) Darker steps in the light theme, as for warning: success 700 (4.9:1 on white), info 600 (5.3:1), error 600 (4.8:1), each checked also on the 10% tint of a subtle alert or badge (700 for info and error if 600 falls under 4.5:1 there), and the dark theme kept on Nuxt UI's 400.
+- B) Only the places where the colour carries text (form errors, alerts), leaving icons as they are.
 
-**Recommended.** A now; B if the shape comes back.
+**Recommended.** A, the same rule for every colour; a light-theme contrast check in an e2e spec, as `stats.spec.ts` does for the demo-data alert.
 
 ---
 
