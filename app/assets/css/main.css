@@ -79,17 +79,24 @@
  * - light: 700 for both, 6.2:1 (gold) and 4.7:1 (spectral) on white, above
  *   the 4.5:1 that text needs;
  * - dark: the brand colours themselves (400), 8.6:1 and 11:1 on the night.
+ * The warning colour (Nuxt UI's yellow) has the same problem in the light
+ * theme: 500 reads at 1.9:1 on white, so the text of a warning alert or badge
+ * ("Demo data", "Draft") was yellow on pale yellow. 800 reads at 6.8:1 on
+ * white and 5.9:1 on the 10% tint of a subtle alert (700 only 4.3:1 there).
  * Nuxt UI sets these in `@layer theme`; rules outside any layer win over it.
  */
 :root,
 .light {
   --ui-primary: var(--ui-color-primary-700);
   --ui-secondary: var(--ui-color-secondary-700);
+  --ui-warning: var(--ui-color-warning-800);
 }
 
 .dark {
   --ui-primary: var(--ui-color-primary-400);
   --ui-secondary: var(--ui-color-secondary-400);
+  /* Nuxt UI's own step: without it the 800 above (`:root`) would reach the dark theme too. */
+  --ui-warning: var(--ui-color-warning-400);
 }
 
 html {

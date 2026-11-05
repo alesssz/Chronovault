@@ -10,9 +10,11 @@
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
  *   the first screen (a 26rem cover put them on or below the bottom edge);
  * - the full-screen player of a track without lyrics shows its description beside the controls,
- *   and with neither a single centred column (half the screen held only "No lyrics").
+ *   and with neither a single centred column (half the screen held only "No lyrics");
+ * - Save is grey until something changed, then gold (disabled, it was the same gold, faded);
+ * - the mastering filter's "no filter" reads as a choice ("Any mastering", it said "Mastering").
  */
-import { expect, test, type Page } from './fixtures'
+import { expect, test, type Locator, type Page } from './fixtures'
 import { signUp, uploadTrack, waitForHydration } from './helpers'
 
 /** Two tracks: one with a description, one with nothing but its file. */
@@ -50,6 +52,23 @@ async function seed(page: Page): Promise<{ playlist: string, ids: Record<string,
   }, TRACKS)
 }
 
+/** True when the button's background is the theme's primary colour (both resolved to pixels on a canvas). */
+function isPrimary(button: Locator): Promise<boolean> {
+  return button.evaluate((element) => {
+    const context = document.createElement('canvas').getContext('2d')!
+    /** The colour as an "r,g,b,a" pixel, whatever syntax the browser reports it in. */
+    const pixel = (color: string) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = color
+      context.fillRect(0, 0, 1, 1)
+      return [...context.getImageData(0, 0, 1, 1).data].join(',')
+    }
+    // A custom property's computed value has its var() resolved: the step the theme uses.
+    const primary = getComputedStyle(document.documentElement).getPropertyValue('--ui-primary')
+    return pixel(getComputedStyle(element).backgroundColor) === pixel(primary)
+  })
+}
+
 test.describe('desktop layout', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
@@ -69,6 +88,8 @@ test.describe('desktop layout', () => {
     })))
     expect(columns[0]!.genre).toBe(columns[1]!.genre)
     expect(columns[0]!.visibility).toBe(columns[1]!.visibility)
+    // The mastering filter with nothing chosen.
+    await expect(page.getByRole('combobox', { name: 'Filter by mastering' })).toHaveText('Any mastering')
 
     // --- Track editor: three visibility cards of one width, on one line ---
     await page.goto(`/tracks/${ids[TRACKS[0]!]}/edit`)
@@ -81,6 +102,13 @@ test.describe('desktop layout', () => {
     }))
     expect(new Set(boxes.map(b => b.y)).size).toBe(1)
     expect(new Set(boxes.map(b => b.width)).size).toBe(1)
+    // Save: grey with nothing to save, gold after an edit, grey again once the edit is undone.
+    const saveTrack = page.getByTestId('save-track')
+    expect(await isPrimary(saveTrack)).toBe(false)
+    await page.getByTestId('field-title').fill(`${TRACKS[0]}!`)
+    await expect.poll(() => isPrimary(saveTrack)).toBe(true)
+    await page.getByTestId('field-title').fill(TRACKS[0]!)
+    await expect.poll(() => isPrimary(saveTrack)).toBe(false)
 
     // --- Playlist page: the tracks first, the details in a dialog ---
     await page.goto(`/playlists/${playlist}`)
@@ -90,8 +118,10 @@ test.describe('desktop layout', () => {
     await page.getByTestId('playlist-edit-details').click()
     const details = page.getByRole('dialog', { name: 'Edit playlist details' })
     await expect(details.getByTestId('playlist-field-title')).toHaveValue('Desk playlist')
+    expect(await isPrimary(details.getByTestId('save-playlist'))).toBe(false)
     // Cancel drops what was typed: the next opening starts from the saved title.
     await details.getByTestId('playlist-field-title').fill('Not kept')
+    await expect.poll(() => isPrimary(details.getByTestId('save-playlist'))).toBe(true)
     await details.getByRole('button', { name: 'Cancel' }).click()
     await expect(details).toBeHidden()
     await page.getByTestId('playlist-edit-details').click()

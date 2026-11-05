@@ -21,9 +21,9 @@ const status = defineModel<'all' | TrackStatus>('status', { required: true })
 /** Newest first (as the API returns them) or by title. */
 const sort = defineModel<'recent' | 'title'>('sort', { required: true })
 
-/** Options of the mastering filter ("Mastering" = no filter: short enough for phones). */
+/** Options of the mastering filter ("Any mastering" = no filter, a choice like "All genres", not the field's name). */
 const masteredOptions = [
-  { label: 'Mastering', value: 'all' },
+  { label: 'Any mastering', value: 'all' },
   { label: 'Mastered', value: 'yes' },
   { label: 'Not mastered', value: 'no' },
 ]

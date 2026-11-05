@@ -137,7 +137,7 @@ const descriptionPlaceholder = computed(() => props.playlist.purpose === 'versio
       </UForm>
     </template>
 
-    <!-- Cancel, and Save (enabled once something changed) -->
+    <!-- Cancel, and Save: grey and disabled until something changed, then gold -->
     <template #footer>
       <div class="flex w-full justify-end gap-2">
         <UButton
@@ -152,6 +152,8 @@ const descriptionPlaceholder = computed(() => props.playlist.purpose === 'versio
           form="playlist-form"
           icon="i-lucide-save"
           label="Save"
+          :color="dirty ? 'primary' : 'neutral'"
+          :variant="dirty ? 'solid' : 'subtle'"
           :loading="saving.running"
           :disabled="!dirty"
           data-testid="save-playlist"
