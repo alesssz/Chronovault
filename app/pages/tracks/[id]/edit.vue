@@ -66,8 +66,8 @@ function toFormState(t: TrackDetail): FormState {
   }
 }
 
-/** The form, its unsaved changes (also the Save bar, and room for it at the page's end) and the leave-page warning. */
-const form = useEditForm<FormState>(toFormState(track.value))
+/** The form, its unsaved changes (also the Save bar, and room for it at the page's end) and the leave-page question. */
+const form = useEditForm<FormState>(toFormState(track.value), { save: saveBeforeLeaving })
 const { state, dirty } = form
 /** The save request (spinner on "Save"). */
 const saving = useAsyncTask()
@@ -101,18 +101,38 @@ const cover = useCoverEditor({
   save: async coverPath => applyServerTrack(await tracksApi.update(id, { coverPath })),
 })
 
-/** Saves the whole form (already validated by UForm with the shared schema). */
-async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
+/** Saves the form's values, already validated with the shared schema; true when the save went through. */
+async function save(values: TrackMetadata): Promise<boolean> {
   // The form as sent: what is changed while the request is on its way stays (see useEditForm).
   const sent = form.snapshot()
-  // True when the save went through; false when it failed (the task showed the error).
+  // False when it failed (the task showed the error).
   const saved = await saving.run(async () => {
-    const updated = await tracksApi.update(id, event.data)
+    const updated = await tracksApi.update(id, values)
     applyServerTrack(updated)
     // The form takes the normalized values back (trimmed texts…), except where edited meanwhile.
     form.reset(toFormState(updated), sent)
   }, 'Save failed')
   if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
+  return saved
+}
+
+/** Save (header or Save bar): UForm validated the form. */
+async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
+  await save(event.data)
+}
+
+/** The form, for "Save and leave" (useEditForm), which saves without the Save button. */
+const trackForm = useTemplateRef('trackForm')
+
+/** "Save and leave": the same checks as Save, then the save; false keeps the page, errors shown. */
+async function saveBeforeLeaving(): Promise<boolean> {
+  // The values as UForm submits them; an invalid form shows its errors and gives none.
+  const values = await trackForm.value?.validate({ nested: true, transform: true }).catch(() => undefined)
+  if (!values) {
+    onFormError()
+    return false
+  }
+  return save(values as TrackMetadata)
 }
 
 /** Validation failed (UForm): show where. */
@@ -214,6 +234,7 @@ const isCurrent = computed(() => player.current?.id === id)
       <!-- Main column: the form, its fields in three tabs (Save in the header submits it by its id) -->
       <UForm
         id="track-form"
+        ref="trackForm"
         :schema="trackMetadataSchema"
         :state="state"
         class="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1"

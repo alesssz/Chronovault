@@ -1,6 +1,6 @@
 /**
  * End-to-end, leaving the upload page while files are in progress: going to another page of the
- * app asks first, as closing the tab does. Staying keeps everything going; leaving lets the file
+ * app asks first, in the app's own dialog (Stay or Leave), as closing the tab does. Staying keeps everything going; leaving lets the file
  * in progress finish, and the files not started yet are not uploaded. The queue used to carry on
  * in the background with nothing showing it, and coming back started a second queue beside it.
  */
@@ -45,20 +45,28 @@ test.describe('leaving the upload page', () => {
     })))
     await expect(page.locator('[data-testid="upload-item"][data-status="uploading"]')).toHaveCount(1)
 
-    // Back to the library: the question comes; staying keeps the page and its uploads.
-    let asked = 0
-    page.once('dialog', async (dialog) => {
-      asked++
-      await dialog.dismiss()
+    // Back to the library: the app's question comes (never the browser's box); staying keeps the
+    // page and its uploads.
+    // Any box of the browser's own (window.confirm), dismissed: there must be none.
+    const browserDialogs: string[] = []
+    page.on('dialog', (dialog) => {
+      browserDialogs.push(dialog.type())
+      void dialog.dismiss()
     })
+    const question = page.getByRole('dialog', { name: 'Uploads in progress' })
     await page.getByRole('link', { name: 'Back to library' }).click()
-    await expect.poll(() => asked).toBe(1)
+    await expect(question).toBeVisible()
+    // Uploads cannot be saved for later: no Save and leave.
+    await expect(question.getByRole('button', { name: 'Save and leave' })).toHaveCount(0)
+    await question.getByRole('button', { name: 'Stay' }).click()
+    await expect(question).toBeHidden()
     await expect(page).toHaveURL(/\/tracks\/new$/)
 
     // Asked again, and this time leaving.
-    page.once('dialog', dialog => dialog.accept())
     await page.getByRole('link', { name: 'Back to library' }).click()
+    await question.getByRole('button', { name: 'Leave', exact: true }).click()
     await expect(page).toHaveURL(/\/$/)
+    expect(browserDialogs).toEqual([])
 
     // The file in progress finishes and is registered…
     await expect.poll(() => trackCount(page), { timeout: 20_000 }).toBe(1)

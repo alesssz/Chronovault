@@ -7,7 +7,7 @@ Chronovault/
 │   ├── app.config.ts                 # Nuxt UI theme: gold, spectral blue, night blue (5.6)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, fonts and colour scales, base scale, room for the player bar
 │   ├── components/
-│   │   ├── AppHeader.vue · ConfirmDialog.vue · StorageDialog.vue · CoverCropDialog.vue · DragHandle.vue
+│   │   ├── AppHeader.vue · ConfirmDialog.vue · LeaveDialog.vue · StorageDialog.vue · CoverCropDialog.vue · DragHandle.vue
 │   │   ├── AppLogo.vue · AppMark.vue  # the Chronovault logo (mark + name + tagline) · the mark alone (5.6)
 │   │   ├── KeyboardShortcutsDialog.vue  # the list of the player's keyboard shortcuts (the ? key)
 │   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
@@ -29,7 +29,8 @@ Chronovault/
 │   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
-│   │                                 #   useAsyncTask, useEditForm, useCoverEditor, useCoverStorage, useSortableList,
+│   │                                 #   useAsyncTask, useEditForm, useLeaveConfirm (LeaveDialog: unsaved work, 7.8),
+│   │                                 #   useCoverEditor, useCoverStorage, useSortableList,
 │   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),
 │   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
 │   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17),

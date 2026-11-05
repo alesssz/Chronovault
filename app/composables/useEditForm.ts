@@ -1,9 +1,10 @@
 /**
  * State of an edit form saved with a "Save" button (track editor, playlist
- * page): the reactive values bound to the inputs, whether they differ from
- * the last saved ones, and a confirmation before leaving the page with
- * unsaved changes: for a page of the app (the router) and for leaving the app
- * itself (reload, closed tab: the browser's own beforeunload question).
+ * details): the reactive values bound to the inputs, whether they differ from
+ * the last saved ones, and a question before leaving the page with unsaved
+ * changes: for a page of the app, the app's own dialog (useLeaveConfirm) with
+ * Stay, Leave without saving and, given `save`, Save and leave; for leaving
+ * the app itself (reload, closed tab), the browser's beforeunload question.
  *
  * "Dirty" compares JSON snapshots: forms are small, and it catches every
  * kind of change (texts, numbers, arrays of synced lines) without a deep watcher.
@@ -17,7 +18,14 @@
  * server's copy used to replace the whole form and mark it clean: such an
  * edit was lost without a word.
  */
-export function useEditForm<T extends object>(initial: T) {
+export function useEditForm<T extends object>(initial: T, options: {
+  /**
+   * "Save and leave": validates and saves the form as Save does; resolves to
+   * true once saved (the page is then left), false when not (it stays, with
+   * the errors shown).
+   */
+  save?: () => Promise<boolean>
+} = {}) {
   /** The form, bound to the inputs. */
   const state = reactive(initial) as T
   /** Snapshot of the last saved state: `dirty` compares against it. */
@@ -57,9 +65,18 @@ export function useEditForm<T extends object>(initial: T) {
     baseline.value = JSON.stringify(saved)
   }
 
-  // Leaving with unsaved changes asks first (returning false cancels the navigation).
-  onBeforeRouteLeave(() => {
-    if (dirty.value && !window.confirm('You have unsaved changes. Leave anyway?')) return false
+  // Leaving with unsaved changes asks first; the router waits for the answer (false stays).
+  const confirmLeave = useLeaveConfirm()
+  onBeforeRouteLeave(async () => {
+    if (!dirty.value) return true
+    const answer = await confirmLeave({
+      title: 'Unsaved changes',
+      description: options.save ? 'Save them before leaving?' : 'Leaving drops them.',
+      leaveLabel: 'Leave without saving',
+      canSave: !!options.save,
+    })
+    if (answer === 'save') return options.save!()
+    return answer === 'leave'
   })
   // So does leaving the app itself: a reload (pull-to-refresh on a phone), closing the tab or the
   // installed app. The browser shows its own question; its text cannot be set.

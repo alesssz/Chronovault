@@ -47,10 +47,18 @@ function conversionLabel(conversion: UploadConversion): string {
 useEventListener('beforeunload', (event: BeforeUnloadEvent) => {
   if (pending.value > 0) event.preventDefault()
 })
-// And before leaving it for another page of the app: once left, the file in progress finishes
-// but the ones still queued are not uploaded (nothing would show them: useTrackUploader).
-onBeforeRouteLeave(() => {
-  if (pending.value > 0 && !window.confirm('Uploads are still in progress. Leave anyway? Files not started yet will not be uploaded.')) return false
+// And before leaving it for another page of the app, in the app's own dialog: once left, the file
+// in progress finishes but the ones still queued are not uploaded (nothing would show them:
+// useTrackUploader). Uploads cannot be saved for later: stay, or leave.
+const confirmLeave = useLeaveConfirm()
+onBeforeRouteLeave(async () => {
+  if (pending.value === 0) return true
+  const answer = await confirmLeave({
+    title: 'Uploads in progress',
+    description: 'The file being uploaded will finish, but files not started yet will not be uploaded.',
+    leaveLabel: 'Leave',
+  })
+  return answer === 'leave'
 })
 </script>
 
