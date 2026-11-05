@@ -7,6 +7,7 @@ import { ariaShortcut } from '~/lib/keyboard-shortcuts'
  *
  * Responsive:
  * - phones: cover, title and play/next, plus a thin progress line on top;
+ *   no room for the ✕: the full-screen view has it (PlayerExpanded);
  * - from `md`, three columns: cover and title on the left; in the middle,
  *   on two rows, the times and the waveform above the transport controls
  *   (shuffle, stop, previous, play, next, repeat), the same order as the

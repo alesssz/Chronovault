@@ -46,65 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The first entries come from a review of 2026-11-04, made by driving the app with Playwright on the local stack, with a library of 24 tracks, 5 playlists and a group of versions with votes, at these sizes: desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch); dark theme (the default) and light theme; share pages as a visitor who is not signed in. Widths are CSS pixels; "phones" means below `sm` (640px), as in `main.css`.
 
-### UI-1 The header overlaps between 640 and about 890px
-
-**Priority:** high · **Kind:** layout bug · **Found:** 2026-11-04
-
-**What is wrong.** From `sm` the section links show their names (Library, Playlists, Versions) next to the full logo; between 640 and about 890px wide the left group no longer fits and slides under the right one: at 768px "Versions" sits behind the "Add" button. Measured overflow of the left group: 250px at 640, 190 at 700, 122 at 768, 70 at 820, none from 900. It hits tablets in portrait and narrow desktop windows.
-
-**Where.** [AppHeader.vue](../app/components/AppHeader.vue): the `hidden sm:inline` label of each section link, `AppLogo compact` (name from `sm`), the "Add" button labelled from `sm`.
-
-**Options.**
-- A) Section names from `lg` instead of `sm`: icons only (as on phones) up to 1024px.
-- B) The logo's name from `lg`: the mark alone up to 1024px.
-- C) Both.
-
-**Recommended.** A; add B if the header still feels crowded at 1024px. Check at 640, 768, 820 and 1024.
-
-### UI-2 The library search box shrinks to its icon between 640 and about 1000px
-
-**Priority:** high · **Kind:** layout bug · **Found:** 2026-11-04
-
-**What is wrong.** From `sm` the search box and the four filters share one row; the filters have fixed widths (`sm:w-40`, `sm:w-36`) and the search box takes what is left, which below about 1000px is 58px: only the magnifier shows, and what is typed cannot be read. It reaches 144px at 1024 and 400px at 1280.
-
-**Where.** [pages/index.vue](../app/pages/index.vue), the toolbar above the list (`sm:flex-row`, search `sm:max-w-xs sm:flex-1`).
-
-**Options.**
-- A) Search on a row of its own up to `lg`, filters on the row below.
-- B) A minimum width for the search box (`min-w-48`), letting the filters wrap.
-- C) Fold the filters behind a single "Filters" button (see UI-6), which frees the row for the search box at every width.
-
-**Recommended.** A now (a few classes); C if UI-6 is taken up.
-
-### UI-3 On phones the player cannot be closed
-
-**Priority:** high · **Kind:** layout bug · **Found:** 2026-11-04
-
-**What is wrong.** The ✕ that closes the player sits in the right-hand column of the player bar, shown only from `md`. On phones the bar has cover, title, previous, play and next; the full-screen view has collapse, lyrics, Cast, Up next and Edit, but no close. Once something has played, the bar stays until sign-out, taking 5.5rem of every page.
-
-**Where.** [PlayerBar.vue](../app/components/player/PlayerBar.vue) (the `hidden … md:flex` column with "Close player"), [PlayerExpanded.vue](../app/components/player/PlayerExpanded.vue) (header buttons).
-
-**Options.**
-- A) "Close player" in the full-screen view: a button in its header, or a ⋯ menu there holding it.
-- B) Swipe down on the bar to close it (the bar already takes swipes: left/right change track, up opens the full-screen view, see `useTrackSwipe`).
-- C) A small ✕ in the phone bar, at the cost of title width.
-
-**Recommended.** A, plus B for those who expect it. C squeezes the title, which is already truncated on phones.
-
-### UI-4 On small phones the player's controls fall below the screen
-
-**Priority:** high · **Kind:** layout bug · **Found:** 2026-11-04
-
-**What is wrong.** At 375×667 (iPhone SE and similar) the full-screen view gives the cover the whole width (`max-w-md`), so title, waveform and the controls come after it: play, previous and next are cut by the bottom edge and need a scroll. The share page of a track has the same problem: the Play button sits on the edge of the first screen.
-
-**Where.** [PlayerExpanded.vue](../app/components/player/PlayerExpanded.vue), the cover section (`max-w-md` on phones; from `md` the width already depends on the height: `md:max-w-[max(20rem,min(32rem,calc(100dvh-23rem)))]`); [pages/t/[id].vue](../app/pages/t/[id].vue) (`max-w-sm` cover).
-
-**Options.**
-- A) Size the cover from the height on phones too, e.g. `max-w-[min(100%,calc(100dvh-24rem))]`, so the controls always fit the first screen.
-- B) On short screens (`max-height` media query) a smaller cover and title.
-
-**Recommended.** A, the same idea already used from `md`. Check at 375×667 and 390×844, with and without lyrics.
-
 ### UI-5 Editing a track starts with a whole screen of cover
 
 **Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
@@ -133,7 +74,7 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 - B) Filters as a horizontally scrolling row of chips.
 - In both: the subtitle says "12 of 24 tracks" while filters are on.
 
-**Recommended.** A; it also settles UI-2 (C) on tablets.
+**Recommended.** A. Below 1280px the search box already has a row of its own; the sheet would take the filters off the page on every width.
 
 ### UI-7 Every cover in the library is covered by a play button on touch screens
 

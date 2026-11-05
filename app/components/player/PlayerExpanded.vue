@@ -213,6 +213,20 @@ const meta = computed(() => {
               label="Edit track"
               @click="open = false"
             />
+            <!--
+              Stops playback and puts the player away, as the ✕ of the player bar does: on phones
+              the bar has no room for one, and this was the only way to get rid of it. Not on
+              share pages, whose player belongs to the page.
+            -->
+            <IconButton
+              v-if="!shared"
+              icon="i-lucide-x"
+              color="neutral"
+              variant="ghost"
+              label="Close player"
+              data-testid="player-expanded-close"
+              @click="player.close()"
+            />
           </div>
         </header>
 
@@ -302,13 +316,17 @@ const meta = computed(() => {
             Left column: cover, info, waveform, controls. On desktop its width
             (and so the square cover) follows the window height, so the controls
             always stay on screen; 23rem is the height of everything but the cover.
+            Phones do the same for the cover alone (the same 23rem), so on a short
+            screen (375×667, or less with the browser's bars) play, previous and next
+            stay in the first screen instead of under its bottom edge; the title and
+            waveform keep the full width.
           -->
           <section class="mx-auto flex w-full max-w-md flex-col justify-center gap-5 md:max-w-[max(20rem,min(32rem,calc(100dvh-23rem)))]">
             <TrackCover
               :url="track?.coverUrl"
               :title="track?.title"
               rounded="rounded-xl"
-              class="w-full shadow-2xl shadow-black/40"
+              class="w-full shadow-2xl shadow-black/40 max-md:mx-auto max-md:max-w-[max(8rem,calc(100dvh-23rem))]"
             />
 
             <div class="min-w-0">

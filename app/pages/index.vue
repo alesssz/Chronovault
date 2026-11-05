@@ -336,39 +336,44 @@ async function confirmDelete() {
     />
 
     <template v-else>
-      <!-- Search, genre and mastering filters, sort order -->
-      <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+      <!--
+        Search, genre and mastering filters, sort order. One row only from `xl`: the filters have
+        fixed widths, and below that the search box got what they left, down to its icon alone
+        (58px) at 640px. Below `xl` the search box has a row of its own; the filters sit two by
+        two on phones, four across from `md`.
+      -->
+      <div class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center">
         <UInput
           v-model="search"
           icon="i-lucide-search"
           placeholder="Search title, composers, album…"
-          class="sm:max-w-xs sm:flex-1"
+          class="xl:max-w-xs xl:flex-1"
           aria-label="Search the library"
         />
-        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:flex xl:flex-wrap">
           <USelect
             v-model="genreFilter"
             :items="genreOptions"
-            class="w-full sm:w-40"
+            class="w-full xl:w-40"
             aria-label="Filter by genre"
           />
           <USelect
             v-model="masteredFilter"
             :items="masteredOptions"
-            class="w-full sm:w-40"
+            class="w-full xl:w-40"
             aria-label="Filter by mastering"
           />
           <USelect
             v-model="statusFilter"
             :items="statusOptions"
-            class="w-full sm:w-36"
+            class="w-full xl:w-36"
             aria-label="Filter by version"
             data-testid="status-filter"
           />
           <USelect
             v-model="sort"
             :items="sortOptions"
-            class="w-full sm:w-36"
+            class="w-full xl:w-36"
             aria-label="Sort"
           />
         </div>
