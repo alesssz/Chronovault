@@ -22,6 +22,20 @@ export function truncate(text: string, max: number): string {
 }
 
 /**
+ * The first letter or digit of the first `max` words, in upper case: `initials('Road trip')` →
+ * `RT`, `initials('Punic Wars — full album')` → `PW`. A word without one (a dash, an emoji)
+ * is skipped; `''` when there is none. For covers that have no image of their own.
+ */
+export function initials(text: string, max = 2): string {
+  return text.split(/\s+/)
+    .map(word => Array.from(word).find(char => /[\p{L}\p{N}]/u.test(char)))
+    .filter(Boolean)
+    .slice(0, max)
+    .join('')
+    .toLocaleUpperCase('en')
+}
+
+/**
  * The parts that are set, joined: `joinParts(['Album', null, 2026])` →
  * `Album · 2026`. Used for "Album · Year · Genre" lines; `''` when none is set.
  */

@@ -44,35 +44,7 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 ## Interface (UI)
 
-The first entries come from a review of 2026-11-04, made by driving the app with Playwright on the local stack, with a library of 24 tracks, 5 playlists and a group of versions with votes, at these sizes: desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch); dark theme (the default) and light theme; share pages as a visitor who is not signed in. Widths are CSS pixels; "phones" means below `sm` (640px), as in `main.css`.
-
-### UI-20 Playlists without covers all look the same
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-04
-
-**What is wrong.** A playlist without a cover of its own shows the covers of its first tracks; when those have none either, it shows the Chronovault artwork, so a grid of such playlists is the same image repeated, told apart only by the titles underneath.
-
-**Where.** [PlaylistCover.vue](../app/components/playlist/PlaylistCover.vue), the fallback branch.
-
-**Options.**
-- A) The artwork with the playlist's initials or a short title over it.
-- B) The artwork tinted with a colour derived from the playlist's id.
-
-**Recommended.** A: readable even in small sizes. Low priority while most tracks have covers of their own.
-
-### UI-24 A tapped row shows a play overlay on its cover on touch screens
-
-**Priority:** low · **Kind:** touch screens · **Found:** 2026-11-05
-
-**What is wrong.** In the library, the play overlay of a cover shows for the current track, and for the others on hover or when the row holds the focus (`group-focus-within`), for keyboard users. On a touch screen a tap on a row's title gives that button the focus, so in selection mode every row just ticked (by a tap or a long press) shows a play icon over its cover, as if it were playing, until another row is touched. The touch layouts were meant to show it on the current track only.
-
-**Where.** [TrackList.vue](../app/components/track/TrackList.vue), the overlay's classes (`group-hover:opacity-100 group-focus-within:opacity-100`).
-
-**Options.**
-- A) The focus shows it only when it came from the keyboard: `group-has-[:focus-visible]:opacity-100` in place of `group-focus-within`.
-- B) No overlay from focus or hover on coarse pointers (`pointer-coarse:`), the current track keeping its own.
-
-**Recommended.** A: keyboard users keep it, a tap never shows it; check with a tap in selection mode on the phone project.
+Nothing pending.
 
 ---
 

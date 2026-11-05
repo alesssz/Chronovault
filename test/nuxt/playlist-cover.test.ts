@@ -1,6 +1,6 @@
 /**
  * PlaylistCover: custom cover, 2×2 mosaic, single cover, and the Chronovault
- * artwork when there is nothing to show.
+ * artwork with the playlist's initials when there is nothing to show.
  */
 import { describe, expect, it } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
@@ -33,13 +33,25 @@ describe('PlaylistCover', () => {
     expect(wrapper.findAll('img').map(img => img.attributes('src'))).toEqual(['/a.webp'])
   })
 
-  it('shows the artwork for an empty playlist', async () => {
+  it('shows the artwork for an empty playlist, with its initials over it', async () => {
     // An empty playlist.
-    const wrapper = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [], title: 'Mix' } })
+    const wrapper = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [], title: 'Road trip' } })
     // The images drawn.
     const images = wrapper.findAll('img')
     expect(images.map(img => img.attributes('src'))).toEqual([FALLBACK_COVER.app])
     // Decorative: not the playlist's cover.
     expect(images[0]!.attributes('alt')).toBe('')
+    // The initials tell one such playlist from another; decorative too (the title is beside the cover).
+    const letters = wrapper.find('[data-testid="playlist-initials"]')
+    expect(letters.text()).toBe('RT')
+    expect(letters.attributes('aria-hidden')).toBe('true')
+  })
+
+  it('shows no initials without a title, nor over a real cover', async () => {
+    // An untitled cover, and one with covers to show.
+    const untitled = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [] } })
+    const covered = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: covers, title: 'Mix' } })
+    expect(untitled.find('[data-testid="playlist-initials"]').exists()).toBe(false)
+    expect(covered.find('[data-testid="playlist-initials"]').exists()).toBe(false)
   })
 })

@@ -90,6 +90,20 @@ test.describe('desktop layout', () => {
     expect(columns[0]!.visibility).toBe(columns[1]!.visibility)
     // The mastering filter with nothing chosen.
     await expect(page.getByRole('combobox', { name: 'Filter by mastering' })).toHaveText('Any mastering')
+    // Keyboard focus on a row shows its play icon (the focus a tap gives, on phones, no longer
+    // does: responsive.spec). Tab from the search box to the first row's cover.
+    await page.getByRole('textbox', { name: /Search/ }).click()
+    for (let i = 0; i < 15; i++) {
+      await page.keyboard.press('Tab')
+      if (await page.evaluate(() => !!document.activeElement?.closest('[data-testid="track-row"]'))) break
+    }
+    const focusedOverlay = await page.evaluate(() => {
+      // The focused row's overlay, its fade finished at once (the value it is heading to).
+      const overlay = document.activeElement!.closest('[data-testid="track-row"]')!.querySelector<HTMLElement>('[data-testid="track-cover-overlay"]')!
+      for (const animation of overlay.getAnimations()) animation.finish()
+      return getComputedStyle(overlay).opacity
+    })
+    expect(focusedOverlay).toBe('1')
 
     // --- Track editor: three visibility cards of one width, on one line ---
     await page.goto(`/tracks/${ids[TRACKS[0]!]}/edit`)
