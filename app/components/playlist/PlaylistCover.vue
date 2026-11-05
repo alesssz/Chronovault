@@ -25,7 +25,6 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
 </script>
 
 <template>
-  <!-- No cover of its own and four track covers: the 2×2 mosaic -->
   <div
     v-if="!url && tiles.length"
     class="grid aspect-square shrink-0 grid-cols-2 overflow-hidden bg-elevated"
@@ -34,6 +33,12 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
     :aria-label="title ? `Cover of ${title}` : 'Cover'"
     data-testid="playlist-mosaic"
   >
+    <!--
+      No cover of its own and four track covers: the 2×2 mosaic. The comments of the three
+      branches stay inside them: between the branches, at the root, the server renderer counted
+      them as root nodes and dropped the classes a page gives the cover (a share page's sizes),
+      and hydration does not restore them.
+    -->
     <img
       v-for="(src, i) in tiles"
       :key="i"
@@ -44,12 +49,12 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
       class="size-full object-cover"
     >
   </div>
-  <!-- Its own cover, or the first track cover when the mosaic is incomplete -->
   <div
     v-else-if="single"
     class="aspect-square shrink-0 overflow-hidden bg-elevated"
     :class="rounded"
   >
+    <!-- Its own cover, or the first track cover when the mosaic is incomplete -->
     <img
       :src="single"
       :alt="title ? `Cover of ${title}` : 'Cover'"
@@ -58,12 +63,12 @@ const single = computed(() => props.url ?? (tiles.value.length ? null : props.mo
       class="size-full object-cover"
     >
   </div>
-  <!-- Nothing to show: the artwork (decorative there: empty alt; marked for the tests) -->
   <div
     v-else
     class="aspect-square shrink-0 overflow-hidden bg-elevated"
     :class="rounded"
   >
+    <!-- Nothing to show: the artwork (decorative there: empty alt; marked for the tests) -->
     <img
       :src="FALLBACK_COVER.app"
       alt=""

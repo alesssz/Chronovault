@@ -67,10 +67,16 @@ test.describe('playlists', () => {
     // The editor's sharing box.
     const shareBox = page.getByTestId('share-box')
     await expect(shareBox).toContainText('Private: only you can listen')
-    await page.getByTestId('playlist-field-description').fill('Songs for the road.')
-    await page.getByText('Unlisted', { exact: true }).click()
-    await clickAndWaitForApi(page, page.getByTestId('save-playlist'), SAVE_PLAYLIST)
+    // Description and visibility are details, changed in their dialog (from the sharing box too).
+    await page.getByTestId('playlist-change-visibility').click()
+    const details = page.getByRole('dialog', { name: 'Edit playlist details' })
+    await details.getByTestId('playlist-field-description').fill('Songs for the road.')
+    await details.getByText('Unlisted', { exact: true }).click()
+    await clickAndWaitForApi(page, details.getByTestId('save-playlist'), SAVE_PLAYLIST)
     await expect(page.getByText('Changes saved').first()).toBeVisible()
+    // Saved: the dialog closes, and the description shows under the title.
+    await expect(details).toBeHidden()
+    await expect(page.getByTestId('playlist-description')).toHaveText('Songs for the road.')
     await expect(page.getByTestId('private-tracks-warning')).toContainText('2 private tracks included')
 
     await shareBox.getByTestId('copy-share-link').click()
@@ -113,10 +119,11 @@ test.describe('playlists', () => {
     expect((await visitor.request.get(`/api/playlists/${playlistId}`)).status()).toBe(401)
 
     // --- Back to private: the link stops working immediately ---
-    await page.getByText('Private', { exact: true }).click()
+    await page.getByTestId('playlist-edit-details').click()
+    await details.getByText('Private', { exact: true }).click()
     // Wait for the server, not the toast: the first save's toast may still be
     // on screen, and the visitor must only try once the playlist is private.
-    await clickAndWaitForApi(page, page.getByTestId('save-playlist'), SAVE_PLAYLIST)
+    await clickAndWaitForApi(page, details.getByTestId('save-playlist'), SAVE_PLAYLIST)
 
     expect((await visitor.goto(shareUrl))?.status()).toBe(404)
     await expect(visitor.getByTestId('shared-not-found')).toContainText('Playlist not available')

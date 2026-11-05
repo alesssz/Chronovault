@@ -7,7 +7,7 @@ import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 /**
  * The library list: cover (play/pause on click), title (play, or open the
  * full-screen view for the current track), composers, a "Draft" badge,
- * genre, badges (mastered, synced lyrics, visibility), duration and the "⋮"
+ * genre, icons (mastered, synced lyrics, visibility), duration and the "⋮"
  * menu: Edit, Download, Add to playlist, Mark as final/draft, Copy share
  * link / Open share page, Delete.
  * Playing, deleting and status changes are delegated to the page through events.
@@ -290,38 +290,44 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
         </p>
       </button>
 
-      <!-- Badges from `md` up: genre, mastered, lyrics, visibility -->
-      <div class="hidden items-center gap-1.5 md:flex">
-        <UBadge
-          v-if="genre"
-          :label="genre"
-          color="neutral"
-          variant="subtle"
-          size="sm"
-        />
-        <UTooltip :text="track.mastered ? 'Mastered' : 'Not mastered'">
-          <UIcon
-            name="i-lucide-badge-check"
-            class="size-4"
-            :class="track.mastered ? 'text-success' : 'text-dimmed'"
-          />
-        </UTooltip>
-        <UTooltip
-          v-if="track.hasLyrics || track.hasSyncedLyrics"
-          :text="track.hasSyncedLyrics ? 'Synced lyrics' : 'Lyrics'"
-        >
-          <UIcon
-            name="i-lucide-mic-vocal"
-            class="size-4"
-            :class="track.hasSyncedLyrics ? 'text-primary' : 'text-muted'"
-          />
-        </UTooltip>
-        <UTooltip :text="VISIBILITY_INFO[track.visibility].label">
-          <UIcon
-            :name="VISIBILITY_INFO[track.visibility].icon"
-            class="size-4 text-muted"
-          />
-        </UTooltip>
+      <!--
+        From `md`: the genre, then the mastered, lyrics and visibility icons, in columns: the genre
+        as plain text of a fixed width, each icon in a slot of its own (an empty one for a track
+        without lyrics). As a badge as wide as its name, the genre moved the icons from row to row.
+      -->
+      <div class="hidden items-center gap-3 md:flex">
+        <span
+          class="w-28 truncate text-sm text-muted"
+          :title="genre ?? undefined"
+          data-testid="track-genre"
+        >{{ genre }}</span>
+        <div class="flex items-center gap-1.5">
+          <UTooltip :text="track.mastered ? 'Mastered' : 'Not mastered'">
+            <UIcon
+              name="i-lucide-badge-check"
+              class="size-4"
+              :class="track.mastered ? 'text-success' : 'text-dimmed'"
+            />
+          </UTooltip>
+          <span class="flex size-4">
+            <UTooltip
+              v-if="track.hasLyrics || track.hasSyncedLyrics"
+              :text="track.hasSyncedLyrics ? 'Synced lyrics' : 'Lyrics'"
+            >
+              <UIcon
+                name="i-lucide-mic-vocal"
+                class="size-4"
+                :class="track.hasSyncedLyrics ? 'text-primary' : 'text-muted'"
+              />
+            </UTooltip>
+          </span>
+          <UTooltip :text="VISIBILITY_INFO[track.visibility].label">
+            <UIcon
+              :name="VISIBILITY_INFO[track.visibility].icon"
+              class="size-4 text-muted"
+            />
+          </UTooltip>
+        </div>
       </div>
 
       <!-- Duration -->

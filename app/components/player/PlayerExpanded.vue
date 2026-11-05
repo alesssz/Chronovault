@@ -16,7 +16,10 @@ import { STORAGE_KEYS } from '~/lib/storage-keys'
  *
  * Layouts:
  * - tablets and desktops (`md` and up): two columns, cover, info, waveform
- *   and controls on the left, the lyrics on the right;
+ *   and controls on the left, the lyrics on the right. A track without
+ *   lyrics shows its description there instead ("About this track", as on
+ *   phones); with neither, the left column stands alone, centred, instead of
+ *   beside a half screen holding only "No lyrics";
  * - phones, normal view: one scrolling column, cover, info, waveform and
  *   controls, then the track's description when it has one. The lyrics are
  *   not under the controls any more: there they could never fill the
@@ -97,8 +100,13 @@ const hasLyrics = computed(() => !!(player.current?.lyricsSynced?.length || play
 const lyricsChosen = useLocalStorage(STORAGE_KEYS.lyricsView, false)
 /** The phones' lyrics view is showing: chosen, on a phone, for a track that has lyrics. */
 const lyricsView = computed(() => isPhone.value && hasLyrics.value && lyricsChosen.value)
-/** The track's description, under the controls in the phones' normal view ('' when there is none). */
+/**
+ * The track's description ('' when there is none): under the controls in the phones' normal
+ * view, in the right column from `md` when the track has no lyrics.
+ */
 const description = computed(() => player.current?.description?.trim() ?? '')
+/** From `md`, the right column has something to hold: the lyrics, or else the description. */
+const twoColumns = computed(() => hasLyrics.value || !!description.value)
 
 // --- Screen kept on in the lyrics view ------------------------------------------------
 // Reading along means not touching the phone, which would otherwise dim and lock after
@@ -310,7 +318,8 @@ const meta = computed(() => {
         <div
           v-else
           ref="scroller"
-          class="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto overscroll-y-contain px-4 pb-6 md:grid-cols-2 md:gap-10 md:overflow-hidden md:px-10"
+          class="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto overscroll-y-contain px-4 pb-6 md:gap-10 md:overflow-hidden md:px-10"
+          :class="{ 'md:grid-cols-2': twoColumns }"
         >
           <!--
             Left column: cover, info, waveform, controls. On desktop its width
@@ -375,7 +384,7 @@ const meta = computed(() => {
 
           <!-- Right column (md+): lyrics, in their own scrolling box (never a pull-down) -->
           <section
-            v-if="!isPhone"
+            v-if="!isPhone && hasLyrics"
             class="min-h-0"
             data-swipe-ignore
           >
@@ -390,10 +399,15 @@ const meta = computed(() => {
             />
           </section>
 
-          <!-- Phones: the description under the controls (the lyrics have their own view, see the top bar) -->
+          <!--
+            The description: on phones under the controls (the lyrics have their own view, see the
+            top bar); from `md`, for a track without lyrics, the right column, centred and
+            scrolling by itself when long (never a pull-down there).
+          -->
           <section
             v-else-if="description"
-            class="mx-auto w-full max-w-md"
+            class="mx-auto w-full max-w-md md:flex md:min-h-0 md:max-w-none md:flex-col md:justify-center md:overflow-y-auto"
+            :data-swipe-ignore="isPhone ? undefined : ''"
             data-testid="player-description"
           >
             <h3 class="text-xs font-semibold uppercase tracking-widest text-muted">

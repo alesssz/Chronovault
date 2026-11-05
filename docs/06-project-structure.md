@@ -18,7 +18,8 @@ Chronovault/
 │   │   │                             #   LyricsSyncTimeline (markers), LyricsLrcDialog (LRC import / export),
 │   │   │                             #   LyricsSyncClock (the editor's playback time, rendered alone)
 │   │   ├── playlist/                 # PlaylistCover (custom or mosaic), PlaylistCreateDialog,
-│   │   │                             #   PlaylistEditor (owner page of both purposes) + PlaylistTrackRow (one row of its list),
+│   │   │                             #   PlaylistEditor (owner page of both purposes) + PlaylistTrackRow (one row of its list)
+│   │   │                             #   + PlaylistDetailsDialog (its "Edit details": title, description, visibility),
 │   │   │                             #   PlaylistGrid (cards),
 │   │   │                             #   PlaylistVersionFeedback (a group's votes, plays and comments)
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,

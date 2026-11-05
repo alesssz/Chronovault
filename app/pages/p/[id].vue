@@ -135,44 +135,51 @@ function isPicked(trackId: string) {
   <UContainer class="py-6 sm:py-10">
     <div
       v-if="playlist"
-      class="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12"
+      class="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-12"
       data-testid="shared-playlist"
     >
-      <!-- Left: cover or mosaic, title, description, player, track list -->
+      <!--
+        Left: cover or mosaic with title and description beside it, player, track list. From `sm`
+        the cover is a header row's small square: as a 26rem column it put Play on the bottom edge
+        of a 1440×900 screen and every track below it, though the list is what a friend opens the
+        link for. On phones the cover stays large, above the title.
+      -->
       <section class="flex min-w-0 flex-col gap-6">
-        <PlaylistCover
-          :url="playlist.coverUrl"
-          :mosaic="playlist.mosaic"
-          :title="playlist.title"
-          rounded="rounded-xl"
-          class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 lg:max-w-none"
-        />
+        <div class="flex flex-col gap-6 sm:flex-row sm:items-end">
+          <PlaylistCover
+            :url="playlist.coverUrl"
+            :mosaic="playlist.mosaic"
+            :title="playlist.title"
+            rounded="rounded-xl"
+            class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 sm:mx-0 sm:w-48 sm:shrink-0 lg:w-56"
+          />
 
-        <div class="min-w-0">
-          <h1
-            class="text-3xl font-bold tracking-tight text-balance"
-            data-testid="shared-playlist-title"
-          >
-            {{ playlist.title }}
-          </h1>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ summary }}
-          </p>
-          <p
-            v-if="playlist.description"
-            class="mt-3 whitespace-pre-line leading-relaxed"
-            data-testid="shared-playlist-description"
-          >
-            {{ playlist.description }}
-          </p>
-          <!-- A group without a note of its own: what the listener is asked to do -->
-          <p
-            v-else-if="isVersions"
-            class="mt-3 leading-relaxed text-muted"
-            data-testid="shared-versions-hint"
-          >
-            Different versions of the same song: listen to each and pick your favourite.
-          </p>
+          <div class="min-w-0">
+            <h1
+              class="text-3xl font-bold tracking-tight text-balance"
+              data-testid="shared-playlist-title"
+            >
+              {{ playlist.title }}
+            </h1>
+            <p class="mt-1 text-sm text-dimmed">
+              {{ summary }}
+            </p>
+            <p
+              v-if="playlist.description"
+              class="mt-3 whitespace-pre-line leading-relaxed"
+              data-testid="shared-playlist-description"
+            >
+              {{ playlist.description }}
+            </p>
+            <!-- A group without a note of its own: what the listener is asked to do -->
+            <p
+              v-else-if="isVersions"
+              class="mt-3 leading-relaxed text-muted"
+              data-testid="shared-versions-hint"
+            >
+              Different versions of the same song: listen to each and pick your favourite.
+            </p>
+          </div>
         </div>
 
         <!-- Play button, waveform, times, previous / next, volume, full screen and playback errors -->

@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import type { DropdownMenuItem, FormSubmitEvent } from '@nuxt/ui'
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PlaylistDetail, PlaylistPurpose } from '~~/shared/types/playlist'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
-import { playlistMetadataSchema, type PlaylistMetadata, type PlaylistMetadataInput } from '~~/shared/schemas/playlist'
 import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
 import { playlistsApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
 /**
  * Owner page of a playlist or of a group of versions (client-rendered),
- * shown by pages/playlists/[id].vue and pages/versions/[id].vue: details
- * form (title, description, visibility), the track list (drag to reorder,
- * Move up/down, remove, click to play), Play all, cover (custom or mosaic),
- * sharing box (with a warning when private tracks are included) and deletion.
- * Track list changes save immediately; the details form saves with "Save".
+ * shown by pages/playlists/[id].vue and pages/versions/[id].vue: the
+ * track list (drag to reorder, Move up/down, remove, click to play), Play
+ * all, cover (custom or mosaic), sharing box (with a warning when private
+ * tracks are included) and deletion. Track list changes save immediately.
+ * Title, description and visibility change in a dialog ("Edit details",
+ * PlaylistDetailsDialog): the page is the playlist, its description under
+ * the title, rather than a form about it, and the tracks start at the top
+ * instead of below the bottom edge.
  *
  * Below `md` the page is one column: the cover as a compact row at the top,
- * then the form, the tracks and the feedback, then count, sharing and
- * deletion (the side column first came before everything else). There a
- * Save bar at the bottom of the screen (SaveBar) shows while the details
- * have unsaved changes.
+ * then the tracks and the feedback, then count, sharing and deletion (the
+ * side column first came before everything else).
  *
  * Both purposes work the same way; a group of versions only words things
  * differently ("versions", "group"), lets each version be marked final
@@ -79,40 +79,9 @@ function applyServerPlaylist(updated: PlaylistDetail) {
   remember(updated)
 }
 
-// --- Details form -------------------------------------------------------------------
-/** Form fields: the description is a string while editing ('' = none), null once validated. */
-type FormState = Omit<PlaylistMetadataInput, 'description'> & { description: string }
-
-/** Server data → form state. */
-function toFormState(p: PlaylistDetail): FormState {
-  return { title: p.title, description: p.description ?? '', visibility: p.visibility }
-}
-
-/** The details form, its unsaved changes (also the Save bar, and room for it at the page's end) and the leave-page warning. */
-const form = useEditForm<FormState>(toFormState(playlist.value))
-const { state, dirty } = form
-/** The save request (spinner on "Save"). */
-const saving = useAsyncTask()
-
-/** Saves title, description and visibility (validated by UForm with the shared schema). */
-async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
-  // The form as sent: what is changed while the request is on its way stays (see useEditForm).
-  const sent = form.snapshot()
-  // True when the save went through; false when it failed (the task showed the error).
-  const saved = await saving.run(async () => {
-    // The playlist as the server stored it.
-    const updated = await playlistsApi.update(props.id, event.data)
-    applyServerPlaylist(updated)
-    // The form takes the normalized values back, except where edited meanwhile.
-    form.reset(toFormState(updated), sent)
-  }, 'Save failed')
-  if (saved) toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
-}
-
-/** Description placeholder: a group's description is the note its listeners read. */
-const descriptionPlaceholder = isVersions
-  ? 'A note for your listeners, e.g. “Which one do you prefer?”'
-  : 'What is this playlist about?'
+// --- Details --------------------------------------------------------------------------
+/** The "Edit details" dialog (title, description, visibility). */
+const detailsOpen = ref(false)
 
 // --- Feedback (groups of versions) ---------------------------------------------------
 // Votes, visitors' plays and notes, reloaded after changes that alter them; the visit
@@ -291,8 +260,6 @@ async function onDelete() {
     forget(props.id)
   }, 'Delete failed')
   if (!deleted) return
-  // No "unsaved changes" warning when leaving a deleted playlist.
-  form.markSaved()
   deleteOpen.value = false
   toast.add({ title: `${capitalize(info.noun)} deleted`, icon: 'i-lucide-trash-2' })
   await navigateTo(info.path)
@@ -303,10 +270,9 @@ async function onDelete() {
   <UContainer
     v-if="playlist"
     class="max-w-5xl py-6 sm:py-8"
-    :class="{ 'max-md:pb-20': dirty }"
   >
-    <!-- Header: back, title, Play all, Save (from `md`: below it the Save bar comes up when needed) -->
-    <div class="mb-6 flex flex-wrap items-center gap-2">
+    <!-- Header: back, title, Play all, Edit details (its name from `sm`, the icon alone on phones) -->
+    <div class="flex flex-wrap items-center gap-2">
       <IconButton
         :to="info.path"
         icon="i-lucide-arrow-left"
@@ -330,23 +296,31 @@ async function onDelete() {
         @click="playAll"
       />
       <UButton
-        type="submit"
-        form="playlist-form"
-        icon="i-lucide-save"
-        label="Save"
-        :loading="saving.running"
-        :disabled="!dirty"
-        class="max-md:hidden"
-        data-testid="save-playlist"
-      />
+        icon="i-lucide-pencil"
+        color="neutral"
+        variant="subtle"
+        aria-label="Edit details"
+        data-testid="playlist-edit-details"
+        @click="detailsOpen = true"
+      >
+        <span class="hidden sm:inline">Edit details</span>
+      </UButton>
     </div>
+    <!-- The description under the title (set in "Edit details"; the share page shows it too) -->
+    <p
+      v-if="playlist.description"
+      class="mt-2 line-clamp-3 max-w-prose whitespace-pre-line text-muted"
+      data-testid="playlist-description"
+    >
+      {{ playlist.description }}
+    </p>
 
     <!--
       From `md`, two columns: cover and side column on the left, the main column on the right
       across both rows (the first row as tall as the cover, the second taking the rest). Below
       `md`, in the order written: cover, main column, side column.
     -->
-    <div class="grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
+    <div class="mt-6 grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
       <!-- Cover (custom, or the mosaic of the first tracks), saved at once -->
       <TrackCoverPicker
         :url="playlist.coverUrl"
@@ -374,60 +348,8 @@ async function onDelete() {
         </p>
       </TrackCoverPicker>
 
-      <!-- Main column: details form, then the track list -->
+      <!-- Main column: the track list, then (groups) the feedback -->
       <div class="min-w-0 space-y-8 md:col-start-2 md:row-span-2 md:row-start-1">
-        <!-- Details form, validated with the shared schema; the header's Save submits it -->
-        <UForm
-          id="playlist-form"
-          :schema="playlistMetadataSchema"
-          :state="state"
-          class="grid gap-4"
-          @submit="onSubmit"
-        >
-          <!-- Title (required) -->
-          <UFormField
-            label="Title"
-            name="title"
-            required
-          >
-            <UInput
-              v-model="state.title"
-              class="w-full"
-              data-testid="playlist-field-title"
-            />
-          </UFormField>
-
-          <!-- Description: shown on the public page (a group's note to its listeners) -->
-          <UFormField
-            label="Description"
-            name="description"
-          >
-            <UTextarea
-              v-model="state.description"
-              :rows="3"
-              autoresize
-              :maxrows="12"
-              :placeholder="descriptionPlaceholder"
-              class="w-full"
-              data-testid="playlist-field-description"
-            />
-          </UFormField>
-
-          <!-- Visibility: private, or shared by link (unlisted / public) -->
-          <UFormField
-            label="Visibility"
-            name="visibility"
-          >
-            <URadioGroup
-              v-model="state.visibility"
-              :items="VISIBILITY_ITEMS"
-              orientation="horizontal"
-              variant="card"
-              class="w-full"
-            />
-          </UFormField>
-        </UForm>
-
         <section>
           <!-- Track list: drag handle, cover, title (click to play), duration, menu -->
           <!-- Heading ("Tracks" / "Versions") and the spinner while a change saves -->
@@ -517,6 +439,18 @@ async function onDelete() {
             data-testid="private-tracks-warning"
           />
         </ShareLinkBox>
+        <!-- Private: the visibility is one of the details -->
+        <UButton
+          v-if="!isShared"
+          label="Change visibility"
+          icon="i-lucide-pencil"
+          color="neutral"
+          variant="subtle"
+          block
+          class="-mt-3"
+          data-testid="playlist-change-visibility"
+          @click="detailsOpen = true"
+        />
 
         <!-- Deletion (asks for confirmation first) -->
         <UButton
@@ -530,11 +464,11 @@ async function onDelete() {
       </aside>
     </div>
 
-    <!-- Below `md`: Save within reach while the details have something to save -->
-    <SaveBar
-      :show="dirty"
-      form="playlist-form"
-      :loading="saving.running"
+    <!-- Title, description, visibility; the page takes the saved playlist back -->
+    <PlaylistDetailsDialog
+      v-model:open="detailsOpen"
+      :playlist="playlist"
+      @saved="applyServerPlaylist"
     />
 
     <!-- Delete confirmation: the tracks themselves stay in the library -->
