@@ -76,62 +76,6 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A. Below 1280px the search box already has a row of its own; the sheet would take the filters off the page on every width.
 
-### UI-7 Every cover in the library is covered by a play button on touch screens
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** On touch screens the ▶ overlay is always shown on every cover (`pointer-coarse:opacity-100`), so the list is a column of darkened covers with the same icon, and the covers themselves (the one visual clue to a track) barely show. A tap on the row already plays the track.
-
-**Where.** [TrackList.vue](../app/components/track/TrackList.vue), the overlay `span` on the cover button.
-
-**Options.**
-- A) On touch screens show the overlay only on the current track (pause / loading), as on desktop when not hovered.
-- B) A small ▶ badge in a corner of the cover instead of the full overlay.
-
-**Recommended.** A.
-
-### UI-8 The selection bar is four unlabelled icons on phones
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** In selection mode the bar shows "N selected" and four icons (circle-check, list-plus, speech bubbles, bin) whose names appear only from `sm`; tooltips do not open on touch, so on a phone the meaning of "Mark final" and "Share for feedback" has to be guessed.
-
-**Where.** [pages/index.vue](../app/pages/index.vue), the selection bar (`hidden sm:inline` labels).
-
-**Options.**
-- A) On phones, a bar fixed at the bottom of the screen with icon and short label per action (Final, Playlist, Feedback, Delete).
-- B) Also enter selection mode with a long press on a row, as photo galleries do.
-
-**Recommended.** A; B as a follow-up.
-
-### UI-9 The versions of a song cannot be told apart
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** Versions of a song share the start of their title ("Teutoburg (v1, slower)", "Teutoburg (v2, female vocals)"…), and on a phone the rows of a group show only "Teutoburg (…" three times: the part that tells them apart is the part cut off. It happens on the share page of the group, where friends are asked to pick one, and in the owner's editor.
-
-**Where.** [pages/p/[id].vue](../app/pages/p/[id].vue) (track rows: number, cover, title with the WIP badge, duration, heart), [PlaylistTrackRow.vue](../app/components/playlist/PlaylistTrackRow.vue).
-
-**Options.**
-- A) In groups of versions, titles on up to two lines instead of truncated.
-- B) On phones, drop what every row repeats: the WIP badge (all versions are drafts until one is chosen) and the duration.
-
-**Recommended.** A and B together on the share page; A in the editor.
-
-### UI-10 Statistics cut titles to a few letters on phones
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** Each row of "Shared pages" puts views and visitors, then plays and "to the end", beside the title; at 390px the title keeps about 8 characters ("Thermop…", "Song of t…").
-
-**Where.** [pages/stats.vue](../app/pages/stats.vue), the `stats-item` rows.
-
-**Options.**
-- A) On phones the numbers go on a line under the title.
-- B) Only plays on phones, views and visitors from `sm`.
-
-**Recommended.** A: nothing is lost.
-
 ### UI-11 The visibility choice wraps unevenly
 
 **Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
@@ -270,6 +214,20 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 - B) The artwork tinted with a colour derived from the playlist's id.
 
 **Recommended.** A: readable even in small sizes. Low priority while most tracks have covers of their own.
+
+### UI-21 Selection mode needs the Select button on phones
+
+**Priority:** low · **Kind:** phones · **Found:** 2026-11-05
+
+**What is wrong.** On phones, ticking several tracks starts from "Select" at the top of the library; photo galleries and file managers also start it with a long press on an item, which phone users try first. "Done" is up there too, out of reach once the list is scrolled (the selection bar itself is at the bottom of the screen).
+
+**Where.** [TrackList.vue](../app/components/track/TrackList.vue) (rows), [pages/index.vue](../app/pages/index.vue) (selection mode and its bar).
+
+**Options.**
+- A) A long press on a row turns selection mode on with that track ticked, with a short vibration as on Android; a ✕ in the selection bar ends it.
+- B) Only the ✕ in the selection bar.
+
+**Recommended.** A. The long press must not fight the page's scrolling or the row's tap (play), and must not open the browser's own menu on the cover image.
 
 ## Features (FEAT)
 

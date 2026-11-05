@@ -130,6 +130,12 @@ async function setStatus(ids: string[], status: TrackStatus) {
 const selecting = ref(false)
 /** Ids of the ticked tracks. */
 const selectedIds = ref<string[]>([])
+/**
+ * The selection bar's actions: on phones an icon over a short name, centred in a column of their
+ * own. While selecting, the page leaves room at the bottom (`pb-32`) for the bar fixed there,
+ * which would cover the last rows.
+ */
+const SELECTION_ACTION = 'max-sm:flex-col max-sm:justify-center max-sm:gap-0.5 max-sm:px-1 max-sm:text-xs'
 
 // Only visible tracks stay selected: actions never touch tracks hidden by a filter.
 watch(filtered, (list) => {
@@ -274,7 +280,10 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <UContainer class="py-6 sm:py-8">
+  <UContainer
+    class="py-6 sm:py-8"
+    :class="{ 'max-sm:pb-32': selecting }"
+  >
     <!-- Title, track count and the selection mode switch -->
     <div class="mb-6 flex items-end justify-between gap-4">
       <div>
@@ -379,10 +388,16 @@ async function confirmDelete() {
         </div>
       </div>
 
-      <!-- Selection bar: count, select all, and the actions on the ticked tracks (stays under the header while scrolling) -->
+      <!--
+        Selection bar: count, select all, and the actions on the ticked tracks. From `sm` it stays
+        under the header while scrolling, the actions named beside their icons. On phones it is
+        fixed at the bottom of the screen (above the player bar), within reach of the thumb, each
+        action an icon over a short name: tooltips do not open on touch, and the bare icons left
+        "Mark final" and "Share for feedback" to be guessed.
+      -->
       <div
         v-if="selecting"
-        class="sticky top-14 z-20 mb-2 flex items-center justify-between gap-2 rounded-lg border border-default bg-default/95 px-3 py-2 backdrop-blur"
+        class="fixed inset-x-0 bottom-(--above-player) z-20 flex flex-col gap-1 border-t border-default bg-default/95 px-3 pt-2 pb-1 backdrop-blur sm:sticky sm:top-14 sm:bottom-auto sm:mb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:rounded-lg sm:border sm:py-2"
         data-testid="selection-bar"
       >
         <div class="flex min-w-0 items-center gap-3">
@@ -397,17 +412,19 @@ async function confirmDelete() {
             data-testid="selection-count"
           >{{ selectedIds.length }} selected</span>
         </div>
-        <!-- Icons only on phones; labels from sm up -->
-        <div class="flex items-center gap-1">
+        <!-- Four equal columns on phones, a row of buttons from `sm` -->
+        <div class="grid grid-cols-4 sm:flex sm:items-center sm:gap-1">
           <UButton
             icon="i-lucide-circle-check"
             color="neutral"
             variant="ghost"
+            :class="SELECTION_ACTION"
             :disabled="!selectedIds.length"
             aria-label="Mark as final"
             data-testid="bulk-final"
             @click="setStatus(selectedIds, 'final')"
           >
+            <span class="sm:hidden">Final</span>
             <span class="hidden sm:inline">Mark final</span>
           </UButton>
           <UDropdownMenu
@@ -419,9 +436,11 @@ async function confirmDelete() {
               icon="i-lucide-list-plus"
               color="neutral"
               variant="ghost"
+              :class="SELECTION_ACTION"
               :disabled="!selectedIds.length"
               aria-label="Add to playlist"
             >
+              <span class="sm:hidden">Playlist</span>
               <span class="hidden sm:inline">Add to playlist</span>
             </UButton>
           </UDropdownMenu>
@@ -429,24 +448,27 @@ async function confirmDelete() {
             icon="i-lucide-messages-square"
             color="neutral"
             variant="ghost"
+            :class="SELECTION_ACTION"
             :loading="sharing.running"
             :disabled="!selectedIds.length"
             aria-label="Share for feedback"
             data-testid="bulk-feedback"
             @click="shareForFeedback"
           >
+            <span class="sm:hidden">Feedback</span>
             <span class="hidden sm:inline">Share for feedback</span>
           </UButton>
           <UButton
             icon="i-lucide-trash-2"
             color="error"
             variant="ghost"
+            :class="SELECTION_ACTION"
             :disabled="!selectedIds.length"
             aria-label="Delete selected"
             data-testid="bulk-delete"
             @click="bulkDeleteOpen = true"
           >
-            <span class="hidden sm:inline">Delete</span>
+            Delete
           </UButton>
         </div>
       </div>

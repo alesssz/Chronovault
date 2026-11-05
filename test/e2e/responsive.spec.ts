@@ -1,7 +1,7 @@
 /**
  * End-to-end, touch screens: the phone and tablet layouts (Playwright projects `phone` and
  * `tablet`, see playwright.config.ts; the desktop project skips this file). No page scrolls
- * sideways, track covers show that they play without needing a hover, the tablet player bar
+ * sideways, track covers keep their play overlay for the current track only, the tablet player bar
  * keeps a readable title and offers mute alone for the volume (the hardware buttons own it on a
  * touch screen), and on phones the lyrics
  * sync editor keeps Stamp line pinned above the player bar, keeps the screen on and vibrates.
@@ -19,7 +19,8 @@
  * "Add" (they did from 640 to about 890px), the library's search box keeps a readable width (it
  * shrank to its icon), and on a short phone the full-screen view and a track's share page keep
  * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
- * only way to.
+ * only way to. On phones the library's selection bar sits at the bottom with each action named,
+ * the versions of a song keep the end of their titles, and statistics keep their titles readable.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -227,7 +228,7 @@ async function swipe(page: Page, locator: Locator, dx: number, dy: number): Prom
 }
 
 test.describe('touch screens', () => {
-  test('pages fit the screen and covers show their play button', async ({ page }, testInfo) => {
+  test('pages fit the screen, and covers show play only on the current track', async ({ page }, testInfo) => {
     await signUpWithTrack(page)
     for (const path of PAGES) {
       await page.goto(path)
@@ -251,8 +252,9 @@ test.describe('touch screens', () => {
     const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
     expect(search.width).toBeGreaterThan(300)
 
-    // No hover on a touch screen: the play overlay is on even for a track that is not playing.
-    await expect(page.getByTestId('track-cover-overlay')).toHaveCSS('opacity', '1')
+    // A touch screen has no hover: a track that is not playing shows its cover, without the play
+    // overlay (on every cover it darkened the whole list; a tap on the row plays already).
+    await expect(page.getByTestId('track-cover-overlay')).toHaveCSS('opacity', '0')
 
     // The edit page (its tabs and lyrics tools) fits too.
     await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
@@ -417,6 +419,55 @@ test.describe('touch screens', () => {
     await expect(expanded).toBeVisible()
     await expect(expanded.getByRole('button', { name: 'Collapse player' })).toBeVisible()
     await expect(expanded.getByRole('button', { name: 'Close player' })).toHaveCount(0)
+  })
+
+  test('phone: selecting acts from the bottom; versions and statistics keep their titles', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    test.setTimeout(90_000)
+    await installDeviceProbes(page)
+    await signUp(page)
+    // Two versions of a song: titles too long for one line, alike up to the part that tells them apart.
+    const versions = ['Teutoburg forest, first version with female vocals', 'Teutoburg forest, second version with male choir']
+    for (const title of versions) await uploadTrack(page, title)
+    await page.goto('/')
+    await expect(page.getByTestId('track-row')).toHaveCount(2)
+
+    // Selection mode: the bar is at the bottom of the screen, every action named under its icon
+    // (tooltips do not open on touch, and the bare icons had to be guessed).
+    await page.getByTestId('select-mode').tap()
+    const bar = page.getByTestId('selection-bar')
+    const height = page.viewportSize()!.height
+    const box = (await bar.boundingBox())!
+    expect(Math.abs(box.y + box.height - height)).toBeLessThanOrEqual(1)
+    for (const name of ['Final', 'Playlist', 'Feedback', 'Delete']) {
+      await expect(bar.getByText(name, { exact: true })).toBeVisible()
+    }
+    // Both versions, shared for feedback from the bar: the share sheet gets the group's link.
+    for (const title of await page.getByTestId('track-title').all()) await title.tap()
+    await expect(page.getByTestId('selection-count')).toHaveText('2 selected')
+    await bar.getByTestId('bulk-feedback').tap()
+    await expect.poll(async () => (await deviceLog(page)).shared).toHaveLength(1)
+    const groupUrl = (await deviceLog(page)).shared[0]!.url!
+
+    // The group's share page: each title whole, on two lines (cut at the end of one line, both
+    // read "Teutoburg forest, …"); the WIP badge and the duration, alike on every row, give way.
+    await page.goto(groupUrl)
+    for (const title of versions) {
+      const row = page.getByTestId('shared-playlist-track').filter({ hasText: title })
+      const text = row.getByText(title, { exact: true })
+      const cut = await text.evaluate(el => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+      expect(cut, `${title} is cut`).toBe(false)
+      await expect(row.getByTestId('shared-track-wip')).toBeHidden()
+    }
+
+    // Statistics: the numbers go under the title, which keeps the row's width (beside them it
+    // kept about 8 characters).
+    await page.goto('/stats')
+    const item = page.getByTestId('stats-item').first()
+    const link = (await item.getByRole('link').boundingBox())!
+    const plays = (await item.getByTestId('stats-item-plays').boundingBox())!
+    expect(plays.y).toBeGreaterThanOrEqual(link.y + link.height)
+    expect(link.width).toBeGreaterThan(200)
   })
 
   test('phone: the back button closes the panel on top first', async ({ page }, testInfo) => {
