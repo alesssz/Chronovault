@@ -64,7 +64,8 @@ Chronovault/
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
 │   ├── pages/
 │   │   ├── index.vue                 # Library
-│   │   ├── login.vue · confirm.vue   # Sign-in / sign-up · auth callback
+│   │   ├── login.vue · confirm.vue   # Sign-in / sign-up / forgot password · auth callback
+│   │   ├── reset-password.vue        # New password, from the reset email's link
 │   │   ├── tracks/new.vue            # Upload
 │   │   ├── tracks/[id]/edit.vue      # Track editor (details, lyrics, sync)
 │   │   ├── playlists/index.vue       # Playlists
@@ -102,11 +103,12 @@ Chronovault/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
 │   ├── migrations/                   # Versioned schema (section 8.2)
 │   ├── seed.sql                      # Local demo user
+│   ├── templates/recovery.html       # The reset email (also pasted into the Supabase project, 13.4)
 │   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql · track_genres.test.sql
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components and composables
-│   └── e2e/                          # Playwright: auth, library, sharing, playlists, queue, persistent-queue, cover-cache, cover-crop, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
+│   └── e2e/                          # Playwright: auth, password-reset, library, sharing, playlists, queue, persistent-queue, cover-cache, cover-crop, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, responsive (phone + tablet)
 │                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop

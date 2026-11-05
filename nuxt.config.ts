@@ -126,10 +126,11 @@ export default defineNuxtConfig({
     '/versions': { ssr: false },
     '/versions/**': { ssr: false },
     '/stats': { ssr: false },
-    // The sign-in form must never be server-rendered: submitted before
-    // hydration it would trigger a native GET submit (password in the URL).
+    // The sign-in forms must never be server-rendered: submitted before
+    // hydration they would trigger a native GET submit (password in the URL).
     '/login': { ssr: false },
     '/confirm': { ssr: false },
+    '/reset-password': { ssr: false },
     // API responses are never cached, with one exception: the cover images
     // of /api/covers/** replace this header with a one-year private cache
     // (server/utils/covers.ts; their URLs are versioned).
@@ -240,8 +241,8 @@ export default defineNuxtConfig({
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
-      // Public share pages: no sign-in needed.
-      exclude: ['/t/*', '/p/*'],
+      // Public share pages: no sign-in needed. The new-password page gets its session from the email's link.
+      exclude: ['/t/*', '/p/*', '/reset-password'],
       saveRedirectToCookie: true,
     },
     cookieOptions: {

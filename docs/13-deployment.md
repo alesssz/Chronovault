@@ -47,7 +47,9 @@ Dashboard labels may change slightly over time.
 
 ## 13.4 After the first deploy
 
-1. Supabase → **Authentication → URL Configuration**: *Site URL* `https://<your-domain>`, *Redirect URLs* `https://<your-domain>/confirm`.
+1. Supabase → **Authentication → URL Configuration**: *Site URL* `https://<your-domain>`, *Redirect URLs* `https://<your-domain>/confirm` and `https://<your-domain>/reset-password` (an address not listed sends the email's link to the Site URL instead).
+   - **Authentication → Emails → Reset Password**: subject `Reset your Chronovault password`, body the content of `supabase/templates/recovery.html`. Its link opens `/reset-password` straight away, so it works on any device; Supabase's default one works only in the browser that asked for it. Local Supabase reads the same file from `config.toml`; the project's dashboard is the only copy online, so change both together.
+   - Supabase's built-in email sender delivers only to the project team's addresses, a few per hour: enough for the owner of a personal deployment ("Forgot password?" for their own account). Anyone else needs a custom SMTP server (Authentication → Emails → SMTP Settings).
 2. Add `https://<your-domain>` to the R2 CORS origins (if not done yet) and run `pnpm r2:check https://<your-domain>`.
 3. **Personal use:** create your account from the Supabase dashboard (Authentication → Users → Add user, *Auto Confirm User*), then turn off **Allow new users to sign up** (Authentication → Sign In / Providers). Nobody else can then create an account; shared links keep working without one.
 4. Upload a track online and open it in a private window via its share link.

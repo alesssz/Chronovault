@@ -1,5 +1,5 @@
 <!--
-  Layout of the sign-in pages (login, confirm): a centered card under the
+  Layout of the sign-in pages (login, confirm, reset-password): a centered card under the
   logo (larger here, with the tagline), no header and no player.
 -->
 <template>

@@ -142,22 +142,6 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A now; B if the shape comes back.
 
-## Features (FEAT)
-
-### FEAT-1 No way to reset a forgotten password
-
-**Priority:** medium · **Kind:** sign-in · **Found:** 2026-11-04
-
-**What is wrong.** The sign-in page has email and password and the switch to sign-up, but nothing for a forgotten password: whoever forgets it is locked out (locally the demo account can be reset with the database; in production only from the Supabase dashboard).
-
-**Where.** [pages/login.vue](../app/pages/login.vue).
-
-**Options.**
-- A) "Forgot password?" sending Supabase's reset email (`resetPasswordForEmail`), and a page to choose the new password when coming back from the link.
-- B) Sign-in by emailed link (magic link) next to the password.
-
-**Recommended.** A. It needs the redirect address allowed in Supabase Auth (local `config.toml` and the Supabase project, [13](13-deployment.md)) and an e2e test through the local mail catcher (Mailpit, [11](11-local-development.md)).
-
 ---
 
 [Contents](../README.md#documentation)

@@ -122,7 +122,7 @@ The app's ports are the common defaults plus 100, so they do not collide with ot
 |---|---|
 | 3100 (dev, and `pnpm preview`) | `package.json` (`dev` and `preview` scripts, `--port`), `supabase/config.toml` (`site_url`, `additional_redirect_urls`), `playwright.config.ts` (`E2E_DEV=1`), `scripts/stack.mjs` (start-up message), `scripts/check-r2.mjs` (default origin), the R2 CORS policy ([13.2](13-deployment.md#132-cloudflare-r2-audio-files)) |
 | 8180 (Docker) | `compose.yaml` (`ports`), `scripts/stack.mjs` (`DOCKER_APP_URL`) |
-| 3200 (e2e) | `playwright.config.ts` |
+| 3200 (e2e) | `playwright.config.ts`, `supabase/config.toml` (`additional_redirect_urls`: the reset email's link, followed by `password-reset.spec.ts`) |
 
 Plus the `Makefile` help texts, the README and these docs. The dev port goes on the command line, not in `devServer.port` in `nuxt.config.ts`: the Nuxt test environment reads that config too, and a fixed port there makes the component test suites time out when they run in parallel. Inside the app container Nuxt still listens on 3000 (`Dockerfile`); only the host side changes.
 
@@ -132,6 +132,7 @@ Plus the `Makefile` help texts, the README and these docs. The dev port goes on 
 - The **demo user** (`demo@chronovault.local` / `chronovault`) is created by `supabase/seed.sql` when the database is first created or reset.
 - **New migrations: `pnpm db:migrate`** (or `make db-migrate`) applies them and keeps every account and track. `pnpm db:reset` rebuilds the database from scratch and **deletes all local data** — use it only when you mean it.
 - Local and production data are separate (see [5.3](05-architecture.md#53-where-everything-runs)).
+- **Emails** the local Auth sends (sign-up confirmation when turned on, "Forgot password?") land in Mailpit (11.4), never in a real inbox. The reset email's text is in `supabase/templates/recovery.html`; Auth reads it, like the rest of `supabase/config.toml`, only when Supabase starts: after changing either, `pnpm stop` then `pnpm local`.
 
 ## 11.6 Updating dependencies
 
