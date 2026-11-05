@@ -74,13 +74,13 @@ The local database and the production database are **completely separate**: acco
 | Routes | Rendering | Why |
 |---|---|---|
 | `/`, `/tracks/**`, `/playlists`, `/playlists/**`, `/versions`, `/versions/**`, `/stats` | Client only (`ssr: false`) | Personal pages that use browser APIs (Web Audio, files, workers); nothing to gain from SSR |
-| `/login`, `/confirm` | Client only | A form submitted before hydration would send the password in the URL (native GET submit) |
+| `/login`, `/confirm`, `/reset-password` | Client only | A form submitted before hydration would send the password in the URL (native GET submit) |
 | `/t/:id`, `/p/:id` | **Server-rendered** | Link previews (chat apps, social networks) read the HTML: title, description and image must be in it |
 | `/api/**` | API, `Cache-Control: no-store` | Responses are personal or contain signed URLs |
 | `/cast-test` | Server-rendered (no rule), signed-in only | Temporary Cast diagnostic page, linked from nowhere: to be removed once casting works ([16](16-troubleshooting.md#16-troubleshooting)) |
 | `/api/covers/**` | API, `Cache-Control: private, max-age=31536000, immutable` | Cover images at versioned addresses: each device downloads a cover once ([7.2](07-data-flows.md#72-loading-the-library)) |
 
-The `@nuxtjs/supabase` route middleware sends signed-out visitors to `/login`, except on `/t/*` and `/p/*`.
+The `@nuxtjs/supabase` route middleware sends signed-out visitors to `/login`, except on `/t/*`, `/p/*` and `/reset-password` (its session comes from the email's link).
 
 Server-rendered pages hand the Pinia state they built to the browser, which applies it to the stores. The player's volume, shuffle and repeat are read from this browser's `localStorage` instead, so they are `skipHydrate` refs: opening `/t/…` and then the library keeps the settings saved on the device.
 

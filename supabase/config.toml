@@ -162,7 +162,16 @@ site_url = "http://localhost:3100"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://localhost:3100/confirm", "http://127.0.0.1:3100/confirm"]
+# Chronovault: an email's link leads to the address the app asks for only when it is listed here,
+# otherwise to site_url. /reset-password is the reset email's (login.vue); 3200 is the e2e server,
+# whose password-reset.spec.ts follows that link.
+additional_redirect_urls = [
+  "http://localhost:3100/confirm",
+  "http://127.0.0.1:3100/confirm",
+  "http://localhost:3100/reset-password",
+  "http://127.0.0.1:3100/reset-password",
+  "http://localhost:3200/reset-password",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -249,6 +258,14 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Chronovault: the reset email links straight to the app's /reset-password with a one-time token,
+# verified there, so the link works in any browser; Supabase's default goes through its /verify and
+# only works in the browser that asked. Production needs the same template in the Supabase
+# dashboard (docs/13-deployment.md, 13.4).
+[auth.email.template.recovery]
+subject = "Reset your Chronovault password"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
