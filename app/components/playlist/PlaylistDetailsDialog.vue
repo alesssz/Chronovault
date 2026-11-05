@@ -14,7 +14,7 @@ import { playlistsApi } from '~/services/api'
  * the Android back button) drops what was typed. Save sends the form; once it
  * went through, the page gets the saved playlist (`saved`) and the dialog
  * closes. While the form has unsaved changes, leaving the page asks first
- * (useEditForm).
+ * (useEditForm), Save and leave included.
  */
 const props = defineProps<{
   /** The playlist as last saved. */
@@ -42,8 +42,8 @@ function toFormState(p: PlaylistDetail): FormState {
   return { title: p.title, description: p.description ?? '', visibility: p.visibility }
 }
 
-/** The form, its unsaved changes and the leave-page warning. */
-const form = useEditForm<FormState>(toFormState(props.playlist))
+/** The form, its unsaved changes and the leave-page question. */
+const form = useEditForm<FormState>(toFormState(props.playlist), { save: saveBeforeLeaving })
 const { state, dirty } = form
 /** The save request (spinner on "Save"; the dialog stays open meanwhile). */
 const saving = useAsyncTask()
@@ -56,18 +56,34 @@ useCloseOnBack(open, () => {
   if (!saving.running) open.value = false
 })
 
-/** Saves title, description and visibility (validated by UForm with the shared schema). */
-async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
-  // True when the save went through; false when it failed (the task showed the error, the dialog stays).
+/** Saves title, description and visibility, already validated with the shared schema; true when saved. */
+async function save(values: PlaylistMetadata): Promise<boolean> {
+  // False when it failed (the task showed the error, the dialog stays).
   const saved = await saving.run(async () => {
     // The playlist as the server stored it.
-    const updated = await playlistsApi.update(props.playlist.id, event.data)
+    const updated = await playlistsApi.update(props.playlist.id, values)
     form.reset(toFormState(updated))
     emit('saved', updated)
   }, 'Save failed')
-  if (!saved) return
+  if (!saved) return false
   toast.add({ title: 'Changes saved', icon: 'i-lucide-check', color: 'success' })
   open.value = false
+  return true
+}
+
+/** Save: UForm validated the form. */
+async function onSubmit(event: FormSubmitEvent<PlaylistMetadata>) {
+  await save(event.data)
+}
+
+/** The form, for "Save and leave" (useEditForm), which saves without the Save button. */
+const playlistForm = useTemplateRef('playlistForm')
+
+/** "Save and leave": the same checks as Save, then the save; false keeps the page, errors shown. */
+async function saveBeforeLeaving(): Promise<boolean> {
+  // The values as UForm submits them; an invalid form shows its errors and gives none.
+  const values = await playlistForm.value?.validate({ nested: true, transform: true }).catch(() => undefined)
+  return values ? save(values as PlaylistMetadata) : false
 }
 
 /** Description placeholder: a group's description is the note its listeners read. */
@@ -87,6 +103,7 @@ const descriptionPlaceholder = computed(() => props.playlist.purpose === 'versio
     <template #body>
       <UForm
         id="playlist-form"
+        ref="playlistForm"
         :schema="playlistMetadataSchema"
         :state="state"
         class="grid gap-4"

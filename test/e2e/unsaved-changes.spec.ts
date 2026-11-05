@@ -2,7 +2,9 @@
  * End-to-end, unsaved changes survive an accidental reload or close: the track editor (and every
  * form built on useEditForm) makes the browser ask before the page goes away while there are
  * unsaved edits (beforeunload), and lets it go quietly once they are saved, or when nothing changed.
- * Leaving for another page of the app asks too, through the router (useEditForm). A line stamped
+ * Leaving for another page of the app asks too, through the router (useEditForm), in the app's own
+ * dialog: Stay, Leave without saving, Save and leave (which stays when the form is invalid); the
+ * playlist's details dialog offers the same. A line stamped
  * in the Sync tab while a save is on its way (the form's fields are disabled then, the editor's
  * keys are not) survives the save's answer, and stays unsaved until saved in turn.
  */
@@ -57,6 +59,86 @@ test.describe('unsaved changes', () => {
     await expect(page.getByText('Changes saved').first()).toBeVisible()
 
     expect(await browserAsksBeforeClosing(page)).toBe(false)
+  })
+
+  test('leaving for another page asks in the app\'s dialog: stay, leave without saving, save and leave', async ({ page }) => {
+    await signUp(page)
+    await uploadTrack(page, 'Leaving')
+    await openEditor(page, 'Leaving')
+    // Any box of the browser's own (window.confirm), dismissed: there must be none.
+    const browserDialogs: string[] = []
+    page.on('dialog', (dialog) => {
+      browserDialogs.push(dialog.type())
+      void dialog.dismiss()
+    })
+    const question = page.getByRole('dialog', { name: 'Unsaved changes' })
+    const title = page.getByTestId('field-title')
+    /** The track's title as the server keeps it. */
+    const savedTitle = () => page.evaluate(async () => {
+      const [track] = await (await fetch('/api/tracks')).json() as { title: string }[]
+      return track!.title
+    })
+
+    // Stay: the page and the edit stay.
+    await title.fill('Leaving, edited')
+    await page.getByRole('link', { name: 'Back to library' }).click()
+    await expect(question).toBeVisible()
+    await question.getByRole('button', { name: 'Stay' }).click()
+    await expect(question).toBeHidden()
+    await expect(page).toHaveURL(/\/tracks\/.+\/edit/)
+    await expect(title).toHaveValue('Leaving, edited')
+
+    // Save and leave with an invalid form (no title): nothing saved, the page stays with the error.
+    await title.fill('')
+    await page.getByRole('link', { name: 'Back to library' }).click()
+    await question.getByRole('button', { name: 'Save and leave' }).click()
+    await expect(page.getByText('Check the highlighted fields').first()).toBeVisible()
+    await expect(page).toHaveURL(/\/tracks\/.+\/edit/)
+    expect(await savedTitle()).toBe('Leaving')
+
+    // Save and leave: saved, then the library.
+    await title.fill('Leaving, saved')
+    await page.getByRole('link', { name: 'Back to library' }).click()
+    await question.getByRole('button', { name: 'Save and leave' }).click()
+    await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible()
+    expect(await savedTitle()).toBe('Leaving, saved')
+
+    // Leave without saving: the library, the edit dropped.
+    await page.getByRole('button', { name: 'Actions for Leaving, saved' }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await title.fill('Never saved')
+    await page.getByRole('link', { name: 'Back to library' }).click()
+    await question.getByRole('button', { name: 'Leave without saving' }).click()
+    await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible()
+    expect(await savedTitle()).toBe('Leaving, saved')
+    expect(browserDialogs).toEqual([])
+  })
+
+  test('the playlist\'s details dialog saves and leaves too', async ({ page }) => {
+    await signUp(page)
+    // A playlist, made through the API.
+    const id = await page.evaluate(async () => {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Road trip' }),
+      })
+      return (await response.json() as { id: string }).id
+    })
+    // Reached by clicks: the browser's Back then stays inside the app, where the router asks (a
+    // Back to a page loaded on its own, page.goto, reloads it and only the browser's question runs).
+    await page.getByRole('link', { name: 'Playlists' }).first().click()
+    await page.getByText('Road trip').first().click()
+    await expect(page).toHaveURL(new RegExp(`/playlists/${id}$`))
+    await page.getByTestId('playlist-edit-details').click()
+    await page.getByRole('dialog', { name: 'Edit playlist details' }).getByTestId('playlist-field-title').fill('Road trip, renamed')
+    // The browser's Back while the details are being edited.
+    await page.goBack()
+    const question = page.getByRole('dialog', { name: 'Unsaved changes' })
+    await question.getByRole('button', { name: 'Save and leave' }).click()
+    await expect(page).toHaveURL(/\/playlists$/)
+    const saved = await page.evaluate(async id => (await (await fetch(`/api/playlists/${id}`)).json() as { title: string }).title, id)
+    expect(saved).toBe('Road trip, renamed')
   })
 
   test('a line stamped while a save is on its way is kept, and still unsaved', async ({ page }) => {
