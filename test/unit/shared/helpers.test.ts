@@ -1,9 +1,9 @@
 /**
- * Small shared helpers: labels (plurals, cut texts, "A · B" lines), case-insensitive
+ * Small shared helpers: labels (plurals, cut texts, initials, "A · B" lines), case-insensitive
  * keys, blank values, clamping and moving an item inside an ordered list.
  */
 import { describe, expect, it } from 'vitest'
-import { capitalize, foldCase, hasText, joinParts, pluralize, truncate } from '~~/shared/utils/text'
+import { capitalize, foldCase, hasText, initials, joinParts, pluralize, truncate } from '~~/shared/utils/text'
 import { clamp } from '~~/shared/utils/numbers'
 import { moveItem } from '~~/shared/utils/arrays'
 
@@ -43,6 +43,27 @@ describe('truncate', () => {
     const cut = truncate('Night drive across the city', 13)
     expect(cut).toBe('Night drive…')
     expect(cut.length).toBeLessThanOrEqual(13)
+  })
+})
+
+describe('initials', () => {
+  it('takes the first letter of the first two words, in upper case', () => {
+    expect(initials('Road trip')).toBe('RT')
+    expect(initials('night drive across the city')).toBe('ND')
+  })
+
+  it('skips words without a letter or digit, and leading punctuation', () => {
+    expect(initials('— Punic Wars — full album')).toBe('PW')
+    expect(initials('"Ballads" (1993)')).toBe('B1')
+  })
+
+  it('keeps one letter for one word, and other alphabets', () => {
+    expect(initials('Kalevala')).toBe('K')
+    expect(initials('éclat ωμέγα')).toBe('ÉΩ')
+  })
+
+  it('gives nothing for a title without letters or digits', () => {
+    expect(initials('  ✦ — ✦ ')).toBe('')
   })
 })
 

@@ -522,6 +522,15 @@ test.describe('touch screens', () => {
     await expect(rows.nth(0).getByTestId('track-select')).toBeChecked()
     expect((await deviceLog(page)).vibrations).toEqual([15])
     await expect(page.getByTestId('player-bar')).toHaveCount(0)
+    // Nothing plays: no play icon over its cover. On phones the press focuses the row's title, and
+    // focus showed one (for keyboard users; a touch is not the keyboard). The overlay fades in:
+    // its transition is finished at once, so the opacity read is where it is heading, not a
+    // frame of the fade (which read 0 at the start of a fade towards 1).
+    const overlay = await rows.nth(0).getByTestId('track-cover-overlay').evaluate((element) => {
+      for (const animation of element.getAnimations()) animation.finish()
+      return getComputedStyle(element).opacity
+    })
+    expect(overlay).toBe('0')
 
     // Held on another row while selecting: ticked too, the first one kept.
     await hold(page, rows.nth(1).getByTestId('track-title'), 700)
