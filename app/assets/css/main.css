@@ -79,10 +79,14 @@
  * - light: 700 for both, 6.2:1 (gold) and 4.7:1 (spectral) on white, above
  *   the 4.5:1 that text needs;
  * - dark: the brand colours themselves (400), 8.6:1 and 11:1 on the night.
- * The warning colour (Nuxt UI's yellow) has the same problem in the light
- * theme: 500 reads at 1.9:1 on white, so the text of a warning alert or badge
- * ("Demo data", "Draft") was yellow on pale yellow. 800 reads at 6.8:1 on
- * white and 5.9:1 on the 10% tint of a subtle alert (700 only 4.3:1 there).
+ * The status colours have the same problem in the light theme: at 500 they
+ * read on white at 1.9:1 (warning, yellow), 2.2:1 (success, green), 3.8:1
+ * (info, blue) and 3.8:1 (error, red), so warning alerts were yellow on pale
+ * yellow, the "mastered" tick pale green, error lines faint. Each takes the
+ * first step whose text still reads above 4.5:1 on the 10% tint of a subtle
+ * alert or badge, the palest background it sits on: warning and success 800
+ * (5.9:1 and 6.1:1 there), info and error 700 (5.8:1 and 5.4:1; info 600
+ * would sit right on 4.5:1). White on their solid buttons reads better too.
  * Nuxt UI sets these in `@layer theme`; rules outside any layer win over it.
  */
 :root,
@@ -90,13 +94,19 @@
   --ui-primary: var(--ui-color-primary-700);
   --ui-secondary: var(--ui-color-secondary-700);
   --ui-warning: var(--ui-color-warning-800);
+  --ui-success: var(--ui-color-success-800);
+  --ui-info: var(--ui-color-info-700);
+  --ui-error: var(--ui-color-error-700);
 }
 
 .dark {
   --ui-primary: var(--ui-color-primary-400);
   --ui-secondary: var(--ui-color-secondary-400);
-  /* Nuxt UI's own step: without it the 800 above (`:root`) would reach the dark theme too. */
+  /* Nuxt UI's own steps: without them the light theme's (`:root`, above) would reach the dark theme too. */
   --ui-warning: var(--ui-color-warning-400);
+  --ui-success: var(--ui-color-success-400);
+  --ui-info: var(--ui-color-info-400);
+  --ui-error: var(--ui-color-error-400);
 }
 
 html {

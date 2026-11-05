@@ -88,20 +88,6 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A. The long press must not fight the page's scrolling or the row's tap (play), and must not open the browser's own menu on the cover image.
 
-### UI-23 Success, info and error colours are faint in the light theme
-
-**Priority:** low · **Kind:** accessibility · **Found:** 2026-11-05
-
-**What is wrong.** main.css raises primary, secondary and warning to darker steps in the light theme, because Nuxt UI's defaults read too faintly on white; success, info and error keep Nuxt UI's 500, measured on white at 2.2:1 (green), 3.8:1 (blue) and 3.8:1 (red). Text needs 4.5:1 and icons 3:1, so in the light theme the library's "mastered" tick, the feedback icons and every green toast icon are pale, and form errors and the info alert on Statistics ("Page views are not configured") are below the text threshold. The dark theme is fine.
-
-**Where.** [main.css](../app/assets/css/main.css), the block that picks each theme's steps (`:root, .light` and `.dark`); the uses are `text-success`, `text-error`, `color="success" | "info" | "error"` across the app.
-
-**Options.**
-- A) Darker steps in the light theme, as for warning: success 700 (4.9:1 on white), info 600 (5.3:1), error 600 (4.8:1), each checked also on the 10% tint of a subtle alert or badge (700 for info and error if 600 falls under 4.5:1 there), and the dark theme kept on Nuxt UI's 400.
-- B) Only the places where the colour carries text (form errors, alerts), leaving icons as they are.
-
-**Recommended.** A, the same rule for every colour; a light-theme contrast check in an e2e spec, as `stats.spec.ts` does for the demo-data alert.
-
 ---
 
 [Contents](../README.md#documentation)
