@@ -12,7 +12,10 @@
  * "Select" turns on selection mode: tick tracks (e.g. the versions of a
  * song), then act on all of them at once: mark as final, add to a
  * playlist, "Share for feedback" (a new unlisted group of versions, listed
- * on the Versions page, whose link is copied), delete.
+ * on the Versions page, whose link is copied), delete. On touch screens a
+ * long press on a row turns it on too, with that track ticked; the ✕ that
+ * leads the selection bar ends it, within reach where "Done" (at the top)
+ * is not once the list is scrolled.
  */
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { playlistsApi, tracksApi } from '~/services/api'
@@ -184,6 +187,12 @@ function toggleAll() {
 function stopSelecting() {
   selecting.value = false
   selectedIds.value = []
+}
+
+/** A long press on a row (touch screens): selection mode on, with that track ticked. */
+function selectByLongPress(track: TrackSummary) {
+  selecting.value = true
+  if (!selectedSet.value.has(track.id)) selectedIds.value = [...selectedIds.value, track.id]
 }
 
 // "Add to playlist" of the selection.
@@ -452,6 +461,16 @@ async function confirmDelete() {
         data-testid="selection-bar"
       >
         <div class="flex min-w-0 items-center gap-3">
+          <!-- Ends selection mode, like "Done" in the header, but within reach on phones -->
+          <IconButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            label="End selection"
+            class="-ml-1.5"
+            data-testid="selection-close"
+            @click="stopSelecting"
+          />
           <UCheckbox
             :model-value="allSelected"
             :indeterminate="selectedIds.length > 0 && !allSelected"
@@ -535,6 +554,7 @@ async function confirmDelete() {
           :tracks="filtered"
           :genre-name="genreName"
           :selectable="selecting"
+          @select="selectByLongPress"
           @play="onPlay"
           @delete="toDelete = $event"
           @status="(track, status) => setStatus([track.id], status)"

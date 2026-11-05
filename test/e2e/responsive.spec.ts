@@ -23,7 +23,8 @@
  * the versions of a song keep the end of their titles, and statistics keep their titles readable.
  * Also on phones: the track editor starts with its form (the cover a small row above it) and
  * brings up a Save bar while there is something to save, a playlist's page with its tracks, and
- * the library's filters live in a panel.
+ * the library's filters live in a panel. On both touch layouts a long press on a library row
+ * starts selecting, and the selection bar's ✕ ends it.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -226,6 +227,28 @@ async function swipe(page: Page, locator: Locator, dx: number, dy: number): Prom
     const point = { x: x + (dx * i) / steps, y: y + (dy * i) / steps }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] })
   }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await cdp.detach()
+}
+
+/**
+ * A finger held on the centre of `locator` for `ms`, as real touch events (Chrome DevTools
+ * Protocol). With `drift`, the finger first moves that far down in small steps, as when a slow
+ * scroll starts, then stays there for the rest of the time.
+ */
+async function hold(page: Page, locator: Locator, ms: number, drift = 0): Promise<void> {
+  // Where the element is on screen.
+  const box = (await locator.boundingBox())!
+  // Its center: where the finger lands.
+  const x = box.x + box.width / 2
+  const y = box.y + box.height / 2
+  // The DevTools protocol, to send real touch events.
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  for (let i = 1; i <= 5 && drift; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + (drift * i) / 5 }] })
+  }
+  await page.waitForTimeout(ms)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   await cdp.detach()
 }
@@ -475,6 +498,39 @@ test.describe('touch screens', () => {
     const plays = (await item.getByTestId('stats-item-plays').boundingBox())!
     expect(plays.y).toBeGreaterThanOrEqual(link.y + link.height)
     expect(link.width).toBeGreaterThan(200)
+  })
+
+  test('touch screens: a long press on a row starts selecting; a moving finger does not', async ({ page }) => {
+    test.setTimeout(90_000)
+    await installDeviceProbes(page)
+    await signUp(page)
+    for (const title of ['Held first', 'Held second']) await uploadTrack(page, title)
+    await page.goto('/')
+    const rows = page.getByTestId('track-row')
+    await expect(rows).toHaveCount(2)
+    const bar = page.getByTestId('selection-bar')
+
+    // A finger that moves as it presses is a scroll starting: nothing selected.
+    await hold(page, rows.nth(0).getByTestId('track-title'), 700, 40)
+    await expect(bar).toBeHidden()
+
+    // Held still: selection mode, that track ticked, a short vibration; the finger's release is
+    // not a tap (it would have played the track, or unticked it).
+    await hold(page, rows.nth(0).getByTestId('track-title'), 700)
+    await expect(bar).toBeVisible()
+    await expect(page.getByTestId('selection-count')).toHaveText('1 selected')
+    await expect(rows.nth(0).getByTestId('track-select')).toBeChecked()
+    expect((await deviceLog(page)).vibrations).toEqual([15])
+    await expect(page.getByTestId('player-bar')).toHaveCount(0)
+
+    // Held on another row while selecting: ticked too, the first one kept.
+    await hold(page, rows.nth(1).getByTestId('track-title'), 700)
+    await expect(page.getByTestId('selection-count')).toHaveText('2 selected')
+
+    // The ✕ leading the bar ends selecting, within reach where "Done" is not.
+    await bar.getByTestId('selection-close').tap()
+    await expect(bar).toBeHidden()
+    await expect(page.getByTestId('track-select')).toHaveCount(0)
   })
 
   test('phone: editors start with what they edit and keep Save within reach; filters live in a panel', async ({ page }, testInfo) => {

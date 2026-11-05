@@ -60,19 +60,19 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Recommended.** A: readable even in small sizes. Low priority while most tracks have covers of their own.
 
-### UI-21 Selection mode needs the Select button on phones
+### UI-24 A tapped row shows a play overlay on its cover on touch screens
 
-**Priority:** low · **Kind:** phones · **Found:** 2026-11-05
+**Priority:** low · **Kind:** touch screens · **Found:** 2026-11-05
 
-**What is wrong.** On phones, ticking several tracks starts from "Select" at the top of the library; photo galleries and file managers also start it with a long press on an item, which phone users try first. "Done" is up there too, out of reach once the list is scrolled (the selection bar itself is at the bottom of the screen).
+**What is wrong.** In the library, the play overlay of a cover shows for the current track, and for the others on hover or when the row holds the focus (`group-focus-within`), for keyboard users. On a touch screen a tap on a row's title gives that button the focus, so in selection mode every row just ticked (by a tap or a long press) shows a play icon over its cover, as if it were playing, until another row is touched. The touch layouts were meant to show it on the current track only.
 
-**Where.** [TrackList.vue](../app/components/track/TrackList.vue) (rows), [pages/index.vue](../app/pages/index.vue) (selection mode and its bar).
+**Where.** [TrackList.vue](../app/components/track/TrackList.vue), the overlay's classes (`group-hover:opacity-100 group-focus-within:opacity-100`).
 
 **Options.**
-- A) A long press on a row turns selection mode on with that track ticked, with a short vibration as on Android; a ✕ in the selection bar ends it.
-- B) Only the ✕ in the selection bar.
+- A) The focus shows it only when it came from the keyboard: `group-has-[:focus-visible]:opacity-100` in place of `group-focus-within`.
+- B) No overlay from focus or hover on coarse pointers (`pointer-coarse:`), the current track keeping its own.
 
-**Recommended.** A. The long press must not fight the page's scrolling or the row's tap (play), and must not open the browser's own menu on the cover image.
+**Recommended.** A: keyboard users keep it, a tap never shows it; check with a tap in selection mode on the phone project.
 
 ---
 

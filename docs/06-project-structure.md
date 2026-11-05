@@ -33,6 +33,7 @@ Chronovault/
 │   │                                 #   useCoverEditor, useCoverStorage, useSortableList,
 │   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),
 │   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
+│   │                                 #   useLongPress (a long press on a library row starts selecting, 7.17),
 │   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17),
 │   │                                 #   useUnseenFeedback (new votes: the dot on "Versions", 7.17),
 │   │                                 #   useVersionFeedback (a group's feedback on its owner page, the visit recorded: 7.17),
