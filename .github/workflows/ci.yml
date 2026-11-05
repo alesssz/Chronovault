@@ -57,11 +57,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # The whole local stack in Docker, every migration applied (supabase/migrations), the seed
-      # loaded. Only the services the tests need (no Studio, mail catcher, analytics…): faster
-      # startup. postgres-meta is left out too: `supabase gen types` (db:types:check below) runs
+      # loaded. Only the services the tests need (no Studio, analytics…): faster startup. The mail
+      # catcher (Mailpit) stays: password-reset.spec.ts reads the reset email from it.
+      # postgres-meta is left out too: `supabase gen types` (db:types:check below) runs
       # its own one-off container; if that step ever fails to connect, start it here instead.
       - name: Start local Supabase
-        run: pnpm exec supabase start -x studio,imgproxy,mailpit,postgres-meta,vector,logflare,supavisor
+        run: pnpm exec supabase start -x studio,imgproxy,postgres-meta,vector,logflare,supavisor
       # Writes .env from that stack (Supabase URL and key, its S3 endpoint as the audio storage):
       # the production build the end-to-end tests run reads it.
       - run: pnpm env:local
