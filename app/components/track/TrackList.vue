@@ -3,6 +3,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ComponentPublicInstance } from 'vue'
 import { useWindowVirtualizer } from '@tanstack/vue-virtual'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
+import { HAPTIC, haptic } from '~/lib/haptics'
 
 /**
  * The library list: cover (play/pause on click), title (play, or open the
@@ -15,7 +16,10 @@ import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
  * Selection mode (`selectable`): each row gets a checkbox, and clicking the
  * title toggles it instead of playing; the cover still plays, so versions
  * can be listened to while choosing. The page owns the selected ids
- * (`v-model:selected`) and the actions on them.
+ * (`v-model:selected`) and the actions on them. On touch screens a long
+ * press on a row asks for it to be selected (`select`), turning selection
+ * mode on, with a short vibration, as photo galleries do: phone users try
+ * that first, and "Select" is out of reach once the list is scrolled.
  *
  * Virtual scroll: only the rows on screen (and a margin around them) are in
  * the page, so a library of thousands of tracks scrolls as lightly as one
@@ -47,6 +51,8 @@ const emit = defineEmits<{
   delete: [track: TrackSummary]
   /** Mark the track as draft or final (the page saves it). */
   status: [track: TrackSummary, status: TrackStatus]
+  /** Long press (touch): select this track, turning selection mode on. */
+  select: [track: TrackSummary]
 }>()
 
 /** The ticked ids as a set (looked up for every row drawn, at every change). */
@@ -182,6 +188,21 @@ useResizeObserver(() => document.body, measureListTop)
 function measureRow(el: Element | ComponentPublicInstance | null) {
   if (el instanceof Element) virtualizer.value.measureElement(el)
 }
+
+// --- Long press (touch screens) ---------------------------------------------------------
+// One listener set on the list serves every row drawn. Not from the checkbox or the "⋮" menu,
+// which keep their own taps.
+useLongPress(listEl, {
+  ignore: '[data-long-press-ignore]',
+  onLongPress(element) {
+    // The row pressed, by the track id it carries.
+    const id = element.closest<HTMLElement>('[data-track-id]')?.dataset.trackId
+    const track = id ? props.tracks.find(t => t.id === id) : undefined
+    if (!track) return false
+    haptic(HAPTIC.tick)
+    emit('select', track)
+  },
+})
 </script>
 
 <template>
@@ -203,7 +224,8 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
       :data-index="index"
       :aria-posinset="index + 1"
       :aria-setsize="rows.length"
-      class="group absolute inset-x-0 top-0 flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-elevated/50 sm:px-3"
+      :data-track-id="track.id"
+      class="group absolute inset-x-0 top-0 flex items-center gap-3 px-2 py-2.5 transition-colors [-webkit-touch-callout:none] hover:bg-elevated/50 pointer-coarse:select-none sm:px-3"
       :class="{
         'bg-primary/5': isCurrent(track) || (selectable && isSelected(track)),
         // A divider between rows, as before (none under the last one: the card's own edge is there).
@@ -217,6 +239,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
         v-if="selectable"
         :model-value="isSelected(track)"
         :aria-label="`Select ${track.title}`"
+        data-long-press-ignore
         data-testid="track-select"
         @update:model-value="toggleSelected(track)"
       />
@@ -345,6 +368,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
           color="neutral"
           variant="ghost"
           :label="`Actions for ${track.title}`"
+          data-long-press-ignore
         />
       </UDropdownMenu>
     </li>
