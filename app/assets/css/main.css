@@ -159,6 +159,23 @@ html.player-expanded {
   --above-player: env(safe-area-inset-bottom);
 }
 
+/*
+ * The editors' Save bar (SaveBar, below `md` while a form has unsaved
+ * changes), fixed just above the player bar. While it is on screen, bars
+ * pinned above the player bar (the lyrics editor's Stamp line) rise by its
+ * height (`--save-bar-offset`), so it never covers them.
+ */
+:root {
+  --save-bar-height: 3.5rem;
+  --save-bar-offset: 0px;
+}
+
+@media (width < 48rem) {
+  :root:has([data-save-bar]) {
+    --save-bar-offset: var(--save-bar-height);
+  }
+}
+
 /* Keeps content from ending up underneath the player bar. */
 .has-player {
   --above-player: calc(var(--player-bar-height) + 3px + env(safe-area-inset-bottom));

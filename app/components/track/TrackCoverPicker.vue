@@ -5,7 +5,12 @@
  * emits the file with the chosen crop (`select`) or asks for removal
  * (`remove`): the page converts, uploads and saves. `busy` shows a spinner
  * over the preview. The `preview` slot replaces the image (playlists show
- * their mosaic).
+ * their mosaic); the default slot adds a note under the picker's own.
+ *
+ * From `md` it fills the editors' side column, the preview at full width. Below
+ * `md` the editors are one column and it is a compact row at their top: a
+ * small preview with the buttons beside it, so the form is not a whole screen
+ * of cover away.
  */
 import type { CropRect } from '~/lib/image'
 
@@ -49,8 +54,8 @@ function onChange(event: Event) {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="relative">
+  <div class="flex items-center gap-4 md:block md:space-y-3">
+    <div class="relative size-24 shrink-0 md:size-auto">
       <!-- The preview can be replaced, e.g. by a playlist's mosaic. -->
       <slot name="preview">
         <TrackCover
@@ -80,31 +85,36 @@ function onChange(event: Event) {
       data-testid="cover-input"
       @change="onChange"
     >
-    <!-- Add or change the cover; remove it -->
-    <div class="flex gap-2">
-      <UButton
-        :label="url ? 'Change cover' : 'Add cover'"
-        icon="i-lucide-image-up"
-        color="neutral"
-        variant="subtle"
-        class="flex-1 justify-center"
-        :disabled="busy"
-        @click="input?.click()"
-      />
-      <IconButton
-        v-if="url"
-        icon="i-lucide-trash-2"
-        color="neutral"
-        variant="ghost"
-        label="Remove cover"
-        :disabled="busy"
-        @click="emit('remove')"
-      />
+    <!-- Beside the preview below `md`, under it from `md` -->
+    <div class="min-w-0 flex-1 space-y-2 md:space-y-3">
+      <!-- Add or change the cover; remove it -->
+      <div class="flex gap-2">
+        <UButton
+          :label="url ? 'Change cover' : 'Add cover'"
+          icon="i-lucide-image-up"
+          color="neutral"
+          variant="subtle"
+          class="flex-1 justify-center"
+          :disabled="busy"
+          @click="input?.click()"
+        />
+        <IconButton
+          v-if="url"
+          icon="i-lucide-trash-2"
+          color="neutral"
+          variant="ghost"
+          label="Remove cover"
+          :disabled="busy"
+          @click="emit('remove')"
+        />
+      </div>
+      <!-- What happens to the picked image -->
+      <p class="text-xs text-muted">
+        You choose the square to keep; saved at up to 800×800.
+      </p>
+      <!-- A note of the page's own (a playlist's mosaic) -->
+      <slot />
     </div>
-    <!-- What happens to the picked image -->
-    <p class="text-xs text-muted">
-      You choose the square to keep; saved at up to 800×800.
-    </p>
 
     <!-- Every picked image is cropped here before the page uploads it. -->
     <CoverCropDialog

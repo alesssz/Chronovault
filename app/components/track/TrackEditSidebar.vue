@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { TrackDetail } from '~~/shared/types/track'
-import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { tracksApi } from '~/services/api'
 
 /**
- * Side column of the track editor (pages/tracks/[id]/edit.vue): what saves
- * at once or needs no saving, apart from the form and its "Save".
- *   Cover   picked and cropped → `<userId>/<trackId>.webp` in Storage →
- *           PATCH coverPath; the saved track goes back up (`updated`).
+ * Side column of the track editor (pages/tracks/[id]/edit.vue), under the
+ * cover: what saves at once or needs no saving, apart from the form and its
+ * "Save". The cover is the page's own (above this column from `md`, at the top
+ * of the page below it, where this column comes after the form).
  *   File    duration, format, size and upload date of the stored audio.
  *   Sharing the share link, based on the saved visibility (a change in the
  *           form only applies once saved).
@@ -20,20 +19,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  /** The cover was changed or removed: the track as the server stored it. */
-  updated: [track: TrackDetail]
   /** The track is gone: the page marks its form saved and goes back to the library. */
   deleted: []
 }>()
 
 // A deleted track leaves the player too.
 const player = usePlayerStore()
-
-// --- Cover -----------------------------------------------------------------------
-const cover = useCoverEditor({
-  path: userId => buildCoverPath(userId, props.track.id),
-  save: async coverPath => emit('updated', await tracksApi.update(props.track.id, { coverPath })),
-})
 
 // --- Sharing -----------------------------------------------------------------------
 /** Saved visibility is unlisted/public: show the share link. */
@@ -62,14 +53,6 @@ async function onDelete() {
 
 <template>
   <aside class="space-y-6">
-    <TrackCoverPicker
-      :url="track.coverUrl"
-      :title="track.title"
-      :busy="cover.busy"
-      @select="cover.select"
-      @remove="cover.remove"
-    />
-
     <!-- Technical data of the stored file -->
     <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
       <dt class="text-muted">

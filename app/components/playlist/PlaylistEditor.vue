@@ -15,6 +15,12 @@ import { getErrorMessage } from '~/utils/errors'
  * sharing box (with a warning when private tracks are included) and deletion.
  * Track list changes save immediately; the details form saves with "Save".
  *
+ * Below `md` the page is one column: the cover as a compact row at the top,
+ * then the form, the tracks and the feedback, then count, sharing and
+ * deletion (the side column first came before everything else). There a
+ * Save bar at the bottom of the screen (SaveBar) shows while the details
+ * have unsaved changes.
+ *
  * Both purposes work the same way; a group of versions only words things
  * differently ("versions", "group"), lets each version be marked final
  * or draft from its menu, since picking one is what the group is for, and
@@ -82,7 +88,7 @@ function toFormState(p: PlaylistDetail): FormState {
   return { title: p.title, description: p.description ?? '', visibility: p.visibility }
 }
 
-/** The details form, its unsaved changes and the leave-page warning. */
+/** The details form, its unsaved changes (also the Save bar, and room for it at the page's end) and the leave-page warning. */
 const form = useEditForm<FormState>(toFormState(playlist.value))
 const { state, dirty } = form
 /** The save request (spinner on "Save"). */
@@ -297,8 +303,9 @@ async function onDelete() {
   <UContainer
     v-if="playlist"
     class="max-w-5xl py-6 sm:py-8"
+    :class="{ 'max-md:pb-20': dirty }"
   >
-    <!-- Header: back, title, Play all, Save -->
+    <!-- Header: back, title, Play all, Save (from `md`: below it the Save bar comes up when needed) -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <IconButton
         :to="info.path"
@@ -329,86 +336,46 @@ async function onDelete() {
         label="Save"
         :loading="saving.running"
         :disabled="!dirty"
+        class="max-md:hidden"
         data-testid="save-playlist"
       />
     </div>
 
-    <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
-      <!-- Side column: cover, stats, sharing, deletion -->
-      <aside class="space-y-6">
-        <TrackCoverPicker
-          :url="playlist.coverUrl"
-          :title="playlist.title"
-          :busy="cover.busy"
-          @select="cover.select"
-          @remove="cover.remove"
-        >
-          <template #preview>
-            <PlaylistCover
-              :url="playlist.coverUrl"
-              :mosaic="playlist.mosaic"
-              :title="playlist.title"
-              rounded="rounded-lg"
-              class="w-full"
-            />
-          </template>
-        </TrackCoverPicker>
+    <!--
+      From `md`, two columns: cover and side column on the left, the main column on the right
+      across both rows (the first row as tall as the cover, the second taking the rest). Below
+      `md`, in the order written: cover, main column, side column.
+    -->
+    <div class="grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
+      <!-- Cover (custom, or the mosaic of the first tracks), saved at once -->
+      <TrackCoverPicker
+        :url="playlist.coverUrl"
+        :title="playlist.title"
+        :busy="cover.busy"
+        class="md:col-start-1 md:row-start-1"
+        @select="cover.select"
+        @remove="cover.remove"
+      >
+        <template #preview>
+          <PlaylistCover
+            :url="playlist.coverUrl"
+            :mosaic="playlist.mosaic"
+            :title="playlist.title"
+            rounded="rounded-lg"
+            class="w-full"
+          />
+        </template>
         <!-- No custom cover: explains where the mosaic comes from -->
         <p
           v-if="!playlist.coverUrl"
-          class="-mt-3 text-xs text-muted"
+          class="text-xs text-muted"
         >
           Without a cover of its own, the {{ info.noun }} shows the covers of its first {{ info.trackNoun }}s.
         </p>
-
-        <!-- Track count and total duration -->
-        <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-          <dt class="text-muted">
-            {{ capitalize(info.trackNoun) }}s
-          </dt>
-          <dd class="text-right tabular-nums">
-            {{ playlist.trackCount }}
-          </dd>
-          <dt class="text-muted">
-            Duration
-          </dt>
-          <dd class="text-right tabular-nums">
-            {{ formatTime(playlist.durationSeconds) }}
-          </dd>
-        </dl>
-
-        <!-- Sharing: link and warning about private tracks, or how to share -->
-        <ShareLinkBox
-          :id="id"
-          kind="playlist"
-          :shared="isShared"
-          :title="playlist?.title"
-        >
-          <!-- Sharing a playlist shares its private tracks too (only inside it) -->
-          <UAlert
-            v-if="playlist.privateTrackCount > 0"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-lock-open"
-            :title="`${pluralize(playlist.privateTrackCount, `private ${info.trackNoun}`)} included`"
-            :description="`They can be heard through this link, but only inside the ${info.noun}.`"
-            data-testid="private-tracks-warning"
-          />
-        </ShareLinkBox>
-
-        <!-- Deletion (asks for confirmation first) -->
-        <UButton
-          :label="`Delete ${info.noun}`"
-          icon="i-lucide-trash-2"
-          color="error"
-          variant="soft"
-          block
-          @click="deleteOpen = true"
-        />
-      </aside>
+      </TrackCoverPicker>
 
       <!-- Main column: details form, then the track list -->
-      <div class="min-w-0 space-y-8">
+      <div class="min-w-0 space-y-8 md:col-start-2 md:row-span-2 md:row-start-1">
         <!-- Details form, validated with the shared schema; the header's Save submits it -->
         <UForm
           id="playlist-form"
@@ -513,7 +480,62 @@ async function onDelete() {
           :tracks="tracks"
         />
       </div>
+
+      <!-- Side column: track count and duration, sharing, deletion -->
+      <aside class="space-y-6 md:col-start-1 md:row-start-2">
+        <!-- Track count and total duration -->
+        <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+          <dt class="text-muted">
+            {{ capitalize(info.trackNoun) }}s
+          </dt>
+          <dd class="text-right tabular-nums">
+            {{ playlist.trackCount }}
+          </dd>
+          <dt class="text-muted">
+            Duration
+          </dt>
+          <dd class="text-right tabular-nums">
+            {{ formatTime(playlist.durationSeconds) }}
+          </dd>
+        </dl>
+
+        <!-- Sharing: link and warning about private tracks, or how to share -->
+        <ShareLinkBox
+          :id="id"
+          kind="playlist"
+          :shared="isShared"
+          :title="playlist?.title"
+        >
+          <!-- Sharing a playlist shares its private tracks too (only inside it) -->
+          <UAlert
+            v-if="playlist.privateTrackCount > 0"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-lock-open"
+            :title="`${pluralize(playlist.privateTrackCount, `private ${info.trackNoun}`)} included`"
+            :description="`They can be heard through this link, but only inside the ${info.noun}.`"
+            data-testid="private-tracks-warning"
+          />
+        </ShareLinkBox>
+
+        <!-- Deletion (asks for confirmation first) -->
+        <UButton
+          :label="`Delete ${info.noun}`"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="soft"
+          block
+          @click="deleteOpen = true"
+        />
+      </aside>
     </div>
+
+    <!-- Below `md`: Save within reach while the details have something to save -->
+    <SaveBar
+      :show="dirty"
+      form="playlist-form"
+      :loading="saving.running"
+    />
 
     <!-- Delete confirmation: the tracks themselves stay in the library -->
     <ConfirmDialog

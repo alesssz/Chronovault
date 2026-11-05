@@ -21,6 +21,8 @@
  * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
  * only way to. On phones the library's selection bar sits at the bottom with each action named,
  * the versions of a song keep the end of their titles, and statistics keep their titles readable.
+ * Also on phones: the editors start with their form (the cover a small row above it) and bring
+ * up a Save bar while there is something to save, and the library's filters live in a panel.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -248,9 +250,10 @@ test.describe('touch screens', () => {
     const add = (await page.locator('header a[href="/tracks/new"]').filter({ visible: true }).boundingBox())!
     expect(sections.x + sections.width).toBeLessThanOrEqual(add.x)
     // The search box leaves room to read what is typed: beside the filters it shrank to its
-    // icon (58px) from 640px; it now has a row of its own below 1280px.
+    // icon (58px) from 640px; it now has a row of its own below 1280px, shared on phones only
+    // with the Filters button.
     const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
-    expect(search.width).toBeGreaterThan(300)
+    expect(search.width).toBeGreaterThan(testInfo.project.name === 'phone' ? 220 : 300)
 
     // A touch screen has no hover: a track that is not playing shows its cover, without the play
     // overlay (on every cover it darkened the whole list; a tap on the row plays already).
@@ -260,8 +263,8 @@ test.describe('touch screens', () => {
     await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
     await expect(page.getByRole('tab', { name: 'Sync' })).toBeVisible()
     await expectNoSidewaysScroll(page, '/tracks/[id]/edit')
-    // Its header keeps room for the title: on phones Play, Download and Save are icons
-    // (with their text the title shrank to a few letters).
+    // Its header keeps room for the title: on phones Play and Download are icons and Save is in
+    // the Save bar (with their text the title shrank to a few letters).
     const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!
     expect(heading.width).toBeGreaterThan(150)
   })
@@ -310,13 +313,16 @@ test.describe('touch screens', () => {
     const stamp = page.getByTestId('sync-stamp-mobile')
     await expect(stamp).toBeVisible()
 
-    // Scrolled to the middle of the lines, the bar is still on screen, right above the player bar.
+    // Scrolled to the middle of the lines, the bar is still on screen, right above the player bar,
+    // and above the Save bar the typed lyrics brought up (it never covers Stamp line).
     await page.getByTestId('sync-row-text').nth(15).scrollIntoViewIfNeeded()
     await expect(stamp).toBeInViewport()
-    // Where the pinned bar and the player bar are on screen.
+    // Where the pinned bar, the Save bar and the player bar are on screen.
     const bar = await page.getByTestId('sync-stamp-bar').boundingBox()
+    const saveBar = await page.getByTestId('save-bar').boundingBox()
     const player = await page.getByTestId('player-bar').boundingBox()
-    expect(bar!.y + bar!.height).toBeLessThanOrEqual(player!.y)
+    expect(bar!.y + bar!.height).toBeLessThanOrEqual(saveBar!.y)
+    expect(saveBar!.y + saveBar!.height).toBeLessThanOrEqual(player!.y + 1)
 
     // While syncing, the screen is kept on.
     await expect.poll(async () => (await deviceLog(page)).wakeLocks).toEqual(['screen'])
@@ -468,6 +474,82 @@ test.describe('touch screens', () => {
     const plays = (await item.getByTestId('stats-item-plays').boundingBox())!
     expect(plays.y).toBeGreaterThanOrEqual(link.y + link.height)
     expect(link.width).toBeGreaterThan(200)
+  })
+
+  test('phone: editors start with the form and keep Save within reach; filters live in a panel', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'phone', 'phone layout only')
+    await signUpWithTrack(page)
+    const height = page.viewportSize()!.height
+
+    // --- Library: search and a Filters button; the four choices in a panel ---
+    await expect(page.getByRole('combobox', { name: 'Filter by genre' })).toBeHidden()
+    const list = (await page.getByTestId('track-row').first().boundingBox())!
+    // The first track right under the search row (the 2×2 filters put it about 270px lower).
+    const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
+    expect(list.y - (search.y + search.height)).toBeLessThan(60)
+    await page.getByTestId('filters-open').tap()
+    const panel = page.getByRole('dialog', { name: 'Filters' })
+    await expect(panel).toBeVisible()
+    // Final versions only: the new upload is a draft, so the list empties; the button counts one filter.
+    await panel.getByRole('combobox', { name: 'Filter by version' }).tap()
+    await page.getByRole('option', { name: 'Final' }).tap()
+    await expect(panel.getByTestId('filters-done')).toHaveText('Show 0 tracks')
+    await panel.getByTestId('filters-done').tap()
+    await expect(panel).toBeHidden()
+    await expect(page.getByTestId('filters-count')).toHaveText('1')
+    await expect(page.getByTestId('library-count')).toHaveText('0 of 1 track')
+    // Clear in the panel brings the track back.
+    await page.getByTestId('filters-open').tap()
+    await panel.getByTestId('filters-clear').tap()
+    await panel.getByTestId('filters-done').tap()
+    await expect(page.getByTestId('track-row')).toHaveCount(1)
+    await expect(page.getByTestId('library-count')).toHaveText('1 track')
+    await expect(page.getByTestId('filters-count')).toHaveCount(0)
+
+    // --- Track editor: the form in the first screen, Save at the bottom while there are changes ---
+    const id = await firstTrackId(page)
+    await page.goto(`/tracks/${id}/edit`)
+    const title = page.getByTestId('field-title')
+    await expect(title).toBeVisible()
+    // Under the small cover row, not two screens down.
+    const field = (await title.boundingBox())!
+    expect(field.y + field.height).toBeLessThanOrEqual(height)
+    // Sharing and Delete come after the form.
+    const description = (await page.getByTestId('field-description').boundingBox())!
+    const remove = (await page.getByRole('button', { name: 'Delete track' }).boundingBox())!
+    expect(remove.y).toBeGreaterThan(description.y)
+    // Nothing to save: no bar. An edit brings it up, at the bottom of the screen.
+    const saveBar = page.getByTestId('save-bar')
+    await expect(saveBar).toHaveCount(0)
+    await title.fill('Touch screen song, renamed')
+    await expect(saveBar).toBeVisible()
+    const bar = (await saveBar.boundingBox())!
+    expect(Math.abs(bar.y + bar.height - height)).toBeLessThanOrEqual(1)
+    // Its Save saves the form, from the end of the page too; then the bar goes.
+    await page.getByRole('button', { name: 'Delete track' }).scrollIntoViewIfNeeded()
+    await clickAndWaitForApi(page, saveBar.getByRole('button', { name: 'Save' }), SAVE_TRACK)
+    await expect(saveBar).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Touch screen song, renamed')
+
+    // --- Playlist editor: the same layout and the same bar ---
+    const playlistId = await page.evaluate(async (trackId) => {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Phone playlist', trackIds: [trackId] }),
+      })
+      return (await response.json() as { id: string }).id
+    }, id)
+    await page.goto(`/playlists/${playlistId}`)
+    const playlistTitle = page.getByTestId('playlist-field-title')
+    await expect(playlistTitle).toBeVisible()
+    const playlistField = (await playlistTitle.boundingBox())!
+    expect(playlistField.y + playlistField.height).toBeLessThanOrEqual(height)
+    await playlistTitle.fill('Phone playlist, renamed')
+    await expect(saveBar).toBeVisible()
+    await clickAndWaitForApi(page, saveBar.getByRole('button', { name: 'Save' }), { method: 'PATCH', path: /^\/api\/playlists\/[0-9a-f-]+$/ })
+    await expect(saveBar).toHaveCount(0)
+    await expect(page.getByTestId('playlist-title')).toHaveText('Phone playlist, renamed')
   })
 
   test('phone: the back button closes the panel on top first', async ({ page }, testInfo) => {
@@ -638,7 +720,7 @@ test.describe('touch screens', () => {
     // An unlisted track has a public link.
     await page.goto(`/tracks/${await firstTrackId(page)}/edit`)
     await page.getByText('Unlisted', { exact: true }).tap()
-    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
+    await clickAndWaitForApi(page, page.getByTestId('save-bar').getByRole('button', { name: 'Save' }), SAVE_TRACK)
 
     // The share box: "Share link" hands title and link to the share sheet.
     const share = page.getByTestId('share-box').getByTestId('copy-share-link')

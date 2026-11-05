@@ -3,7 +3,11 @@
  * Library (home page, client-rendered): every track of the user, with
  * search, genre, mastering and version (draft/final) filters and sorting,
  * all applied in the browser (the whole library is loaded at once).
- * Playing a track uses the filtered list as the queue.
+ * Playing a track uses the filtered list as the queue. On phones the four
+ * choices sit in a Filters panel opened from beside the search box (in the
+ * page they took about a third of the screen), the button counting the
+ * active ones; while anything filters the list, the subtitle says how much
+ * it shows ("12 of 24 tracks").
  *
  * "Select" turns on selection mode: tick tracks (e.g. the versions of a
  * song), then act on all of them at once: mark as final, add to a
@@ -49,26 +53,6 @@ const genreOptions = computed(() => [
     .map(g => ({ label: g.name, value: g.id })),
 ])
 
-/** Options of the mastering filter ("Mastering" = no filter: short enough for phones). */
-const masteredOptions = [
-  { label: 'Mastering', value: 'all' },
-  { label: 'Mastered', value: 'yes' },
-  { label: 'Not mastered', value: 'no' },
-]
-
-/** Options of the version filter. */
-const statusOptions = [
-  { label: 'All versions', value: 'all' },
-  { label: 'Final', value: 'final' },
-  { label: 'Drafts', value: 'draft' },
-]
-
-/** Options of the sort menu. */
-const sortOptions = [
-  { label: 'Most recent', value: 'recent' },
-  { label: 'Title A-Z', value: 'title' },
-]
-
 /** Tracks matching the search (title, composers, album) and filters, in the chosen order. */
 const filtered = computed(() => {
   const q = foldCase(search.value)
@@ -90,6 +74,27 @@ const hasFilters = computed(() => !!search.value || genreFilter.value !== 'all' 
 /** "Clear filters" (the sort order is kept). */
 function resetFilters() {
   search.value = ''
+  clearChoices()
+}
+
+/** "12 of 24 tracks" while the search or a filter hides some, else "24 tracks". */
+const countLabel = computed(() => hasFilters.value
+  ? `${filtered.value.length} of ${pluralize(tracks.value.length, 'track')}`
+  : pluralize(tracks.value.length, 'track'))
+
+// --- Filters panel (phones) --------------------------------------------------------
+/** The Filters panel is open. */
+const filtersOpen = ref(false)
+// The Android back button closes the panel first.
+useCloseOnBack(filtersOpen, () => {
+  filtersOpen.value = false
+})
+
+/** How many of genre, mastering and version filter the list (the number on the Filters button). */
+const activeChoices = computed(() => [genreFilter.value, masteredFilter.value, statusFilter.value].filter(v => v !== 'all').length)
+
+/** The panel's "Clear": genre, mastering and version back to all (the search and the sort order stay). */
+function clearChoices() {
   genreFilter.value = 'all'
   masteredFilter.value = 'all'
   statusFilter.value = 'all'
@@ -290,8 +295,11 @@ async function confirmDelete() {
         <h1 class="text-2xl font-semibold tracking-tight">
           Your library
         </h1>
-        <p class="text-sm text-muted">
-          {{ pluralize(tracks.length, 'track') }}
+        <p
+          class="text-sm text-muted"
+          data-testid="library-count"
+        >
+          {{ countLabel }}
         </p>
       </div>
       <UButton
@@ -348,45 +356,88 @@ async function confirmDelete() {
       <!--
         Search, genre and mastering filters, sort order. One row only from `xl`: the filters have
         fixed widths, and below that the search box got what they left, down to its icon alone
-        (58px) at 640px. Below `xl` the search box has a row of its own; the filters sit two by
-        two on phones, four across from `md`.
+        (58px) at 640px. Below `xl` the search box has a row of its own, the filters four across
+        under it. On phones, where they took about a third of the screen, they move into the
+        Filters panel (below), opened by a button beside the search box.
       -->
       <div class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center">
-        <UInput
-          v-model="search"
-          icon="i-lucide-search"
-          placeholder="Search title, composers, album…"
-          class="xl:max-w-xs xl:flex-1"
-          aria-label="Search the library"
-        />
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:flex xl:flex-wrap">
-          <USelect
-            v-model="genreFilter"
-            :items="genreOptions"
-            class="w-full xl:w-40"
-            aria-label="Filter by genre"
+        <!-- The search box, and the Filters button on phones (with the number of active filters) -->
+        <div class="flex gap-2 xl:contents">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search title, composers, album…"
+            class="min-w-0 flex-1 xl:max-w-xs"
+            aria-label="Search the library"
           />
-          <USelect
-            v-model="masteredFilter"
-            :items="masteredOptions"
-            class="w-full xl:w-40"
-            aria-label="Filter by mastering"
-          />
-          <USelect
-            v-model="statusFilter"
-            :items="statusOptions"
-            class="w-full xl:w-36"
-            aria-label="Filter by version"
-            data-testid="status-filter"
-          />
-          <USelect
-            v-model="sort"
-            :items="sortOptions"
-            class="w-full xl:w-36"
-            aria-label="Sort"
-          />
+          <UButton
+            icon="i-lucide-sliders-horizontal"
+            label="Filters"
+            color="neutral"
+            variant="outline"
+            :aria-label="activeChoices ? `Filters, ${activeChoices} active` : 'Filters'"
+            class="md:hidden"
+            data-testid="filters-open"
+            @click="filtersOpen = true"
+          >
+            <template
+              v-if="activeChoices"
+              #trailing
+            >
+              <UBadge
+                :label="activeChoices"
+                size="sm"
+                data-testid="filters-count"
+              />
+            </template>
+          </UButton>
         </div>
+        <LibraryFilters
+          v-model:genre="genreFilter"
+          v-model:mastered="masteredFilter"
+          v-model:status="statusFilter"
+          v-model:sort="sort"
+          :genre-options="genreOptions"
+          class="hidden gap-2 md:grid md:grid-cols-4 xl:flex xl:flex-wrap"
+        />
       </div>
+
+      <!-- Phones: the filters and the sort order in a panel from the bottom of the screen -->
+      <USlideover
+        v-model:open="filtersOpen"
+        side="bottom"
+        title="Filters"
+        description="Genre, mastering, version and sort order."
+        :ui="{ footer: 'pb-[max(1rem,env(safe-area-inset-bottom))]' }"
+      >
+        <template #body>
+          <LibraryFilters
+            v-model:genre="genreFilter"
+            v-model:mastered="masteredFilter"
+            v-model:status="statusFilter"
+            v-model:sort="sort"
+            :genre-options="genreOptions"
+            class="grid gap-3"
+          />
+        </template>
+        <!-- Clear, and back to the list with what it now holds -->
+        <template #footer>
+          <UButton
+            label="Clear"
+            color="neutral"
+            variant="ghost"
+            :disabled="!activeChoices"
+            data-testid="filters-clear"
+            @click="clearChoices"
+          />
+          <UButton
+            :label="`Show ${pluralize(filtered.length, 'track')}`"
+            class="ml-auto"
+            data-testid="filters-done"
+            @click="filtersOpen = false"
+          />
+        </template>
+      </USlideover>
 
       <!--
         Selection bar: count, select all, and the actions on the ticked tracks. From `sm` it stays

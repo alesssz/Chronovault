@@ -46,36 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The first entries come from a review of 2026-11-04, made by driving the app with Playwright on the local stack, with a library of 24 tracks, 5 playlists and a group of versions with votes, at these sizes: desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch); dark theme (the default) and light theme; share pages as a visitor who is not signed in. Widths are CSS pixels; "phones" means below `sm` (640px), as in `main.css`.
 
-### UI-5 Editing a track starts with a whole screen of cover
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** Below `md` the edit page stacks the side column above the form: a full-width cover (about 340px), "Change cover", the file details, Sharing and "Delete track". The first field (Title) appears after about two screens, and the Sync tab after Sharing and Delete. The title in the page header is cut to "Carthago D…" by three icon buttons (Play, Download, Save), and Save lives only up there: after scrolling down a long form it is out of reach. The same layout serves playlists and groups of versions.
-
-**Where.** [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [TrackEditSidebar.vue](../app/components/track/TrackEditSidebar.vue); [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue) (`md:grid-cols-[16rem_1fr]`, aside first).
-
-**Options.**
-- A) On phones, a compact row at the top (a small cover with "Change cover" beside it), then the form, then file details, sharing and delete at the bottom.
-- B) A bar with Save fixed at the bottom (above the player bar) on phones, shown while there are unsaved changes.
-- C) Cover, details and sharing in a tab of their own next to Details, Lyrics and Sync.
-
-**Recommended.** A and B together, on all three editors. C hides sharing one tap further away.
-
-### UI-6 The library's filters take a third of the screen
-
-**Priority:** medium · **Kind:** phones · **Found:** 2026-11-04
-
-**What is wrong.** On phones the search box and the four filters (genre, mastering, version, sort, in a 2×2 grid) take about 270px before the first track, about a third of a 390×844 screen. The count under the title ("24 tracks") ignores the filters, so a filtered list does not say how much it hides.
-
-**Where.** [pages/index.vue](../app/pages/index.vue), the toolbar and the subtitle.
-
-**Options.**
-- A) Search plus a "Filters" button with the number of active filters, opening a bottom sheet with the four choices and "Clear".
-- B) Filters as a horizontally scrolling row of chips.
-- In both: the subtitle says "12 of 24 tracks" while filters are on.
-
-**Recommended.** A. Below 1280px the search box already has a row of its own; the sheet would take the filters off the page on every width.
-
 ### UI-11 The visibility choice wraps unevenly
 
 **Priority:** medium · **Kind:** desktop and tablet · **Found:** 2026-11-04
@@ -165,7 +135,7 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-04
 
-**What is wrong.** With nothing to save, the Save button of the editors is disabled, which Nuxt UI shows as the same gold button at 75% opacity: on a dark background it is hard to tell whether there is something to save.
+**What is wrong.** From `md` (768px), with nothing to save, the Save button in the editors' header is disabled, which Nuxt UI shows as the same gold button at 75% opacity: on a dark background it is hard to tell whether there is something to save.
 
 **Where.** The Save buttons of [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) and [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue).
 
@@ -173,7 +143,7 @@ The first entries come from a review of 2026-11-04, made by driving the app with
 - A) Neutral and subtle while there is nothing to save, gold (primary) once something changed.
 - B) Keep the colour, change the label: "Saved" with a check while clean, "Save" when dirty.
 
-**Recommended.** A; it pairs with the bottom bar of UI-5 (B), which appears only when there is something to save.
+**Recommended.** A. Below `md` the header has no Save: the Save bar at the bottom of the screen (SaveBar) appears only when there is something to save.
 
 ### UI-18 The demo-data notice is hard to read in the light theme
 

@@ -324,7 +324,7 @@ const lrcOpen = ref(false)
         v-for="(row, i) in rows"
         :key="i"
         ref="rowRefs"
-        class="flex scroll-mt-16 scroll-mb-[calc(var(--player-bar-height)+6rem)] items-center gap-2 px-2 py-1.5 md:scroll-m-0"
+        class="flex scroll-mt-16 scroll-mb-[calc(var(--player-bar-height)+6rem+var(--save-bar-offset))] items-center gap-2 px-2 py-1.5 md:scroll-m-0"
         :class="row.section
           ? 'bg-elevated/50 pt-3'
           : {
@@ -395,12 +395,13 @@ const lrcOpen = ref(false)
     <!--
       Phones: Undo and Stamp line pinned to the bottom of the screen, just above the player
       bar (its height and the home-indicator area, plus a small gap that also clears its thin
-      progress line), for as long as the editor is on screen. Last in the editor, so it rests
-      under the lines once the page is scrolled to the end.
+      progress line), for as long as the editor is on screen, and above the Save bar while there
+      is something to save (`--save-bar-offset`, main.css). Last in the editor, so it rests under
+      the lines once the page is scrolled to the end.
     -->
     <div
       v-if="isLoaded"
-      class="sticky bottom-[calc(var(--player-bar-height)+env(safe-area-inset-bottom)+0.5rem)] z-10 flex gap-2 rounded-lg border border-default bg-default/95 p-2 shadow-lg backdrop-blur md:hidden"
+      class="sticky bottom-[calc(var(--player-bar-height)+env(safe-area-inset-bottom)+0.5rem+var(--save-bar-offset))] z-10 flex gap-2 rounded-lg border border-default bg-default/95 p-2 shadow-lg backdrop-blur md:hidden"
       data-testid="sync-stamp-bar"
     >
       <UButton

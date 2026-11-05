@@ -11,6 +11,7 @@ Chronovault/
 │   │   ├── AppLogo.vue · AppMark.vue  # the Chronovault logo (mark + name + tagline) · the mark alone (5.6)
 │   │   ├── KeyboardShortcutsDialog.vue  # the list of the player's keyboard shortcuts (the ? key)
 │   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
+│   │   ├── SaveBar.vue · LibraryFilters.vue  # the editors' Save bar below 768px · the library's filters and sort
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync: the screen around lib/lyrics-sync.ts),
@@ -23,7 +24,7 @@ Chronovault/
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
 │   │   │                             #   ShareVersionVote (a group's vote panel), ShareLyrics (lyrics following the player) (public pages)
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
-│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (cover, file,
+│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (file,
 │   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,

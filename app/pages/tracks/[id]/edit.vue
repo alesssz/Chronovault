@@ -4,12 +4,19 @@
  *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering, draft/final
  *   Lyrics  → plain lyrics with [Section] headers
  *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
- * Cover and deletion live in the side column (TrackEditSidebar) and save
- * immediately; the form saves everything else with "Save" and warns about
- * unsaved changes.
+ * Cover and deletion live in the side column (the cover above
+ * TrackEditSidebar) and save immediately; the form saves everything else
+ * with "Save" and warns about unsaved changes.
+ *
+ * Below `md` the page is one column: the cover as a compact row at the top,
+ * then the form, then file details, sharing and deletion (the side column
+ * first put about two screens of it before the Title field). There a Save
+ * bar at the bottom of the screen (SaveBar) shows while there are unsaved
+ * changes, the header's Save being out of reach once the form is scrolled.
  */
 import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
 import type { TrackDetail } from '~~/shared/types/track'
+import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
 import { tracksApi } from '~/services/api'
 
@@ -59,7 +66,7 @@ function toFormState(t: TrackDetail): FormState {
   }
 }
 
-/** The form, its unsaved changes and the leave-page warning. */
+/** The form, its unsaved changes (also the Save bar, and room for it at the page's end) and the leave-page warning. */
 const form = useEditForm<FormState>(toFormState(track.value))
 const { state, dirty } = form
 /** The save request (spinner on "Save"). */
@@ -87,6 +94,12 @@ function applyServerTrack(updated: TrackDetail) {
   track.value = updated
   player.syncTrack(updated)
 }
+
+// Cover: picked and cropped → `<userId>/<trackId>.webp` in Storage → PATCH coverPath; saved at once.
+const cover = useCoverEditor({
+  path: userId => buildCoverPath(userId, id),
+  save: async coverPath => applyServerTrack(await tracksApi.update(id, { coverPath })),
+})
 
 /** Saves the whole form (already validated by UForm with the shared schema). */
 async function onSubmit(event: FormSubmitEvent<TrackMetadata>) {
@@ -127,11 +140,13 @@ const isCurrent = computed(() => player.current?.id === id)
   <UContainer
     v-if="track"
     class="max-w-5xl py-6 sm:py-8"
+    :class="{ 'max-md:pb-20': dirty }"
   >
     <!--
-      Header: back, title, Play/Pause, Download, Save. On phones the three buttons are icons only
+      Header: back, title, Play/Pause, Download, Save. On phones Play and Download are icons only
       (their text shows from `sm`, and `aria-label` names them for screen readers meanwhile),
-      so the title keeps most of the row instead of shrinking to a few letters.
+      so the title keeps most of the row instead of shrinking to a few letters. Save shows from
+      `md`: below it the Save bar (SaveBar) comes up whenever there is something to save.
     -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
       <IconButton
@@ -168,22 +183,28 @@ const isCurrent = computed(() => player.current?.id === id)
         type="submit"
         form="track-form"
         icon="i-lucide-save"
-        aria-label="Save"
+        label="Save"
         :loading="saving.running"
         :disabled="!dirty"
+        class="max-md:hidden"
         data-testid="save-track"
-      >
-        <span class="hidden sm:inline">Save</span>
-      </UButton>
+      />
     </div>
 
-    <!-- Two columns from `md`: the side column, then the form; one column on phones -->
-    <div class="grid gap-8 md:grid-cols-[16rem_1fr]">
-      <!-- Side column: cover (saved at once), file info, sharing, deletion -->
-      <TrackEditSidebar
-        :track="track"
-        @updated="applyServerTrack"
-        @deleted="onDeleted"
+    <!--
+      From `md`, two columns: cover and side column on the left, the form on the right across
+      both rows (the first row as tall as the cover, the second taking the rest). Below `md`, in
+      the order written: cover, form, side column.
+    -->
+    <div class="grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
+      <!-- Cover (saved at once) -->
+      <TrackCoverPicker
+        :url="track.coverUrl"
+        :title="track.title"
+        :busy="cover.busy"
+        class="md:col-start-1 md:row-start-1"
+        @select="cover.select"
+        @remove="cover.remove"
       />
 
       <!-- Main column: the form, its fields in three tabs (Save in the header submits it by its id) -->
@@ -191,7 +212,7 @@ const isCurrent = computed(() => player.current?.id === id)
         id="track-form"
         :schema="trackMetadataSchema"
         :state="state"
-        class="min-w-0"
+        class="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1"
         @submit="onSubmit"
         @error="onFormError"
       >
@@ -375,6 +396,20 @@ const isCurrent = computed(() => player.current?.id === id)
           </template>
         </UTabs>
       </UForm>
+
+      <!-- Side column: file info, sharing, deletion -->
+      <TrackEditSidebar
+        :track="track"
+        class="md:col-start-1 md:row-start-2"
+        @deleted="onDeleted"
+      />
     </div>
+
+    <!-- Below `md`: Save within reach while there is something to save -->
+    <SaveBar
+      :show="dirty"
+      form="track-form"
+      :loading="saving.running"
+    />
   </UContainer>
 </template>
