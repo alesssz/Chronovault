@@ -29,7 +29,8 @@
  * file already indexed, or one that cannot be indexed safely, is left as it is
  * with the reason. Safe to run again: indexed files are skipped.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { AwsClient } from 'aws4fetch'
 import { addSeekTable } from '../app/lib/flac/seektable.ts'
 import { localAudioStorageEnv, supabaseStatus } from './lib/local-stack.mjs'
@@ -49,13 +50,16 @@ function fail(message) {
 // --- Configuration --------------------------------------------------------------------------
 let storageEnv
 if (envFiles.length) {
+  storageEnv = {}
   for (const file of envFiles) {
     if (!existsSync(file)) {
       fail(`${file} not found. For R2: copy .env.r2.example to .env.r2 and fill it in with the values set on Vercel (NUXT_AUDIO_STORAGE_*).`)
     }
-    process.loadEnvFile(file)
+    // The file's own values only, never the shell's: a shell that loads the local .env by itself
+    // (oh-my-zsh's dotenv plugin, direnv) already holds NUXT_AUDIO_STORAGE_*, which
+    // process.loadEnvFile does not override, and the run went to the local stack instead of R2.
+    Object.assign(storageEnv, parseEnv(readFileSync(file, 'utf8')))
   }
-  storageEnv = process.env
 }
 else {
   // The local stack: its S3 endpoint, straight from the CLI.
@@ -93,7 +97,13 @@ async function flacKeys() {
     const url = new URL(bucketUrl)
     url.searchParams.set('list-type', '2')
     if (token) url.searchParams.set('continuation-token', token)
-    const response = await s3.fetch(url.toString())
+    let response
+    try {
+      response = await s3.fetch(url.toString())
+    }
+    catch (error) {
+      fail(`Could not reach the storage at ${bucketUrl}: ${error.cause?.message ?? error.message}`)
+    }
     if (!response.ok) fail(`Could not list the bucket (${response.status}): ${await response.text()}`)
     const xml = await response.text()
     for (const [, key] of xml.matchAll(/<Key>([\s\S]*?)<\/Key>/g)) {
