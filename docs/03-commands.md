@@ -36,8 +36,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm db:types:check` | Fail when the committed `database.types.ts` differs from the schema (a migration added without `pnpm db:types`); writes nothing |
 | `pnpm db:push` | Apply pending migrations to the linked Supabase Cloud project |
 | `pnpm env:local` | Write `.env` from the running local stack |
-| `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2` (written by hand, [13.2](13-deployment.md#132-cloudflare-r2-audio-files)): upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete. An empty value, a placeholder such as `[SENSITIVE]` or an endpoint that is no URL is named before any request, as in `flac:seektable` |
-| `pnpm flac:seektable [--env <file>] [--apply]` | Add a SEEKTABLE to the FLACs already in the audio storage ([7.4](07-data-flows.md#74-lossless-wav--flac-conversion)): the local stack by default, R2 with `--env .env.r2` ([13.5](13-deployment.md#135-updating-production)); storage only, never the database. Lists what it would do; writes only with `--apply`; safe to run again |
+| `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete |
 | `pnpm generate:brand` | Regenerate the brand images in `public/` (favicon, PWA icons, fallback cover) from `shared/brand.ts` and `brand/chronovault.jpg` ([5.6](05-architecture.md#56-brand-and-theme)) |
 | `pnpm doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs` |
 | `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, then merge it into `main`, push, delete the branch locally and on GitHub, end on an up-to-date `main` ([14.1](14-conventions.md#141-git-workflow)) |
@@ -58,8 +57,6 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make db-types` · `make db-types-check` · `make db-lint` · `make db-advisors` · `make db-test` | Types · types against the schema · SQL functions' types · Supabase advisors · pgTAP tests |
 | `make db-studio` | Prints the Supabase Studio address |
 | `make db-link ref=<project-ref>` · `make db-push` | Link Supabase Cloud · push migrations to it |
-| `make r2-check` · `make r2-check origin=https://<site>` | `pnpm r2:check`: the R2 setup in `.env.r2` · with that site's CORS |
-| `make flac-seektable` · `env=.env.r2` · `apply=1` | `pnpm flac:seektable`: seek tables for the FLACs already stored, on the local stack · on R2 · writing (only lists without it); e.g. `make flac-seektable env=.env.r2 apply=1` |
 | `make lint` · `lint-fix` · `typecheck` | Code quality |
 | `make test` · `test-unit` · `test-nuxt` · `test-e2e` · `test-coverage` | Tests |
 | `make check` | lint + typecheck + test-coverage: quick checks before a commit |
