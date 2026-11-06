@@ -14,24 +14,28 @@
  *
  * Usage:  pnpm r2:check [origin ...]     (default origin: http://localhost:3100)
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { AwsClient } from 'aws4fetch'
 
 // The R2 settings live in a separate, git-ignored file: never in .env (local stack).
 const envFile = '.env.r2'
 if (!existsSync(envFile)) {
-  console.error(`✖ ${envFile} not found. Create it from .env.r2.example and fill in your R2 values.`)
+  console.error(`✖ ${envFile} not found. Create it from .env.r2.example and fill in your R2 values (or run pnpm r2:env).`)
   process.exit(1)
 }
-process.loadEnvFile(envFile)
+// The file's own values only, never the shell's: a shell that loads the local .env by itself
+// (oh-my-zsh's dotenv plugin, direnv) already holds NUXT_AUDIO_STORAGE_*, which
+// process.loadEnvFile does not override, and the check ran on the local stack instead of R2.
+const r2 = parseEnv(readFileSync(envFile, 'utf8'))
 
 // Same variable names as on Vercel, so the file can be copied there as is.
 const config = {
-  endpoint: process.env.NUXT_AUDIO_STORAGE_ENDPOINT?.replace(/\/$/, ''),
-  region: process.env.NUXT_AUDIO_STORAGE_REGION || 'auto',
-  bucket: process.env.NUXT_AUDIO_STORAGE_BUCKET,
-  accessKeyId: process.env.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
-  secretAccessKey: process.env.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
+  endpoint: r2.NUXT_AUDIO_STORAGE_ENDPOINT?.replace(/\/$/, ''),
+  region: r2.NUXT_AUDIO_STORAGE_REGION || 'auto',
+  bucket: r2.NUXT_AUDIO_STORAGE_BUCKET,
+  accessKeyId: r2.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
+  secretAccessKey: r2.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
 }
 // Settings left empty in .env.r2.
 const missing = Object.entries(config).filter(([, v]) => !v).map(([k]) => k)
