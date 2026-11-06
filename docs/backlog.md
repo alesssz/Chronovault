@@ -46,20 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries from UI-25 come from a review of 2026-11-06, made like the first one (2026-11-04) by driving a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-26 The Sync tab's marker labels are unreadable in the light theme and cut in both
-
-**Priority:** medium · **Kind:** light theme, readability · **Found:** 2026-11-06
-
-**What is wrong.** On the waveform of the Sync tab each marker carries its line ("1. Under the ash of a…") as white text straight on the waveform: in the light theme the waveform is pale grey and the labels nearly vanish. In both themes a label runs into the next marker ("where the|3. Iron") or is cut at the edge ("A thousand nar", "burnir" on phones), so which marker is which line is hard to tell.
-
-**Where.** [LyricsSyncTimeline.vue](../app/components/lyrics/LyricsSyncTimeline.vue), the marker labels.
-
-**Options.**
-- A) Each label on a small solid chip in the theme's colours, cut with an ellipsis to the room before the next marker.
-- B) Numbers only on the waveform, the full line of the selected marker shown under it.
-
-**Recommended.** A; a light-theme contrast check like `theme-contrast.spec.ts`.
-
 ### UI-27 On tablets the editors' content column is too narrow: titles break mid-word
 
 **Priority:** medium · **Kind:** tablet layout · **Found:** 2026-11-06
@@ -115,20 +101,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 - B) Only the "Saved" mark.
 
 **Recommended.** A.
-
-### UI-31 Lyrics not being sung are too pale in the light theme
-
-**Priority:** medium · **Kind:** light theme, readability · **Found:** 2026-11-06
-
-**What is wrong.** Lyrics dim the lines after the current one (`text-dimmed`). In the light theme that is pale grey on near-white, below what text needs; on a share page before Play every line is dimmed, so a visitor reading the lyrics gets the whole text in pale grey.
-
-**Where.** [LyricsView.vue](../app/components/lyrics/LyricsView.vue), the line classes.
-
-**Options.**
-- A) `text-muted` for the coming lines in the light theme, and every line at full colour while nothing plays.
-- B) Only the full colour while nothing plays.
-
-**Recommended.** A; a contrast check on the coming lines in the light theme.
 
 ### UI-32 The lyrics panel of a shared playlist wraps almost every line on desktop
 

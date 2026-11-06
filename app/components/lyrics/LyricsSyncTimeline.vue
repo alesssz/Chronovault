@@ -69,19 +69,36 @@ const markers = computed<Marker[]>(() => {
   })
 })
 
-/** Small label shown on a marker: number and the first characters of the line. */
-function markerLabel(marker: Marker): HTMLElement {
+/** A label's widest (px), however far the next marker is. */
+const LABEL_MAX_WIDTH = 240
+/** Room left between a label and the next marker (px). */
+const LABEL_GAP = 6
+
+/**
+ * Small label shown on a marker: number and the line, on a dark chip, cut with
+ * an ellipsis to `maxWidth` (the room before the next marker). Its width is
+ * its own (`max-content`): inside the marker's 2px-wide region it shrank to the
+ * number, the rest of the text spilling out of the chip, white straight on the
+ * waveform (invisible on the light theme's pale one) and over the next label.
+ */
+function markerLabel(marker: Marker, maxWidth: number): HTMLElement {
   // Rendered inside wavesurfer's shadow DOM: inline styles, no Tailwind classes.
   const label = document.createElement('div')
   label.dataset.testid = 'sync-marker'
-  label.textContent = `${marker.number}. ${truncate(marker.text, 28) || '♪'}`
+  label.textContent = `${marker.number}. ${marker.text || '♪'}`
+  label.title = label.textContent
   Object.assign(label.style, {
+    width: 'max-content',
+    maxWidth: `${maxWidth}px`,
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     fontSize: '11px',
     lineHeight: '1.3',
     padding: '1px 6px',
     marginLeft: '2px',
     borderRadius: '4px',
-    background: 'rgba(0, 0, 0, 0.6)',
+    background: 'rgba(0, 0, 0, 0.72)',
     color: '#fff',
     whiteSpace: 'nowrap',
     cursor: 'grab',
@@ -91,18 +108,27 @@ function markerLabel(marker: Marker): HTMLElement {
 
 /** Redraws every marker (cheap: a few dozen regions). The selected one is highlighted. */
 function renderMarkers() {
-  if (!regions || !ready.value) return
+  if (!regions || !wavesurfer || !ready.value) return
   regions.clearRegions()
   // Markers use the progress color; the selected one the cursor's.
   const { progressColor: accent, cursorColor: highlight } = waveformColors()
+  // How many pixels a second of audio spans now (the zoom, or the width when the track fits).
+  const duration = wavesurfer.getDuration()
+  const pxPerSecond = duration > 0 ? wavesurfer.getWrapper().scrollWidth / duration : zoom.value
+  // Every start, in order: each label may run up to the next one.
+  const starts = markers.value.map(m => m.time).sort((a, b) => a - b)
   for (const marker of markers.value) {
+    // The next start after this one (the end of the track for the last).
+    const next = starts.find(time => time > marker.time) ?? duration
+    const room = Math.min(LABEL_MAX_WIDTH, (next - marker.time) * pxPerSecond - LABEL_GAP)
     regions.addRegion({
       id: `line-${marker.index}`,
       start: marker.time,
       drag: true,
       resize: false,
       color: marker.index === props.selected ? highlight : accent,
-      content: markerLabel(marker),
+      // At least the number stays readable, even with two markers almost together.
+      content: markerLabel(marker, Math.max(28, room)),
     })
   }
 }
@@ -146,6 +172,8 @@ function create() {
     ready.value = true
     renderMarkers()
   })
+  // A new zoom changes the room between markers: the labels are cut again to fit.
+  wavesurfer.on('zoom', renderMarkers)
   wavesurfer.on('error', () => {
     failed.value = true
   })
