@@ -14,26 +14,29 @@
  *
  * Usage:  pnpm r2:check [origin ...]     (default origin: http://localhost:3100)
  */
-import { existsSync, readFileSync } from 'node:fs'
-import { parseEnv } from 'node:util'
+import { existsSync } from 'node:fs'
 import { AwsClient } from 'aws4fetch'
-import { storageConfig, WHERE_ON_CLOUDFLARE } from './lib/storage-env.mjs'
 
 // The R2 settings live in a separate, git-ignored file: never in .env (local stack).
 const envFile = '.env.r2'
 if (!existsSync(envFile)) {
-  console.error(`✖ ${envFile} not found. Create it from .env.r2.example and fill in your R2 values (from Cloudflare).`)
+  console.error(`✖ ${envFile} not found. Create it from .env.r2.example and fill in your R2 values.`)
   process.exit(1)
 }
-// The file's own values only, never the shell's: a shell that loads the local .env by itself
-// (oh-my-zsh's dotenv plugin, direnv) already holds NUXT_AUDIO_STORAGE_*, which
-// process.loadEnvFile does not override, and the check ran on the local stack instead of R2.
-// Same variable names as on Vercel, so the file can be copied there as is; checked before any
-// request (empty values, placeholders such as Vercel's "[SENSITIVE]", an endpoint that is no URL).
-const { config, problems } = storageConfig(parseEnv(readFileSync(envFile, 'utf8')))
-if (problems.length) {
-  console.error(`✖ ${envFile} is not ready:\n${problems.map(p => `  - ${p}`).join('\n')}`)
-  console.error(`  Fill it in from Cloudflare:\n${WHERE_ON_CLOUDFLARE.map(w => `  - ${w}`).join('\n')}`)
+process.loadEnvFile(envFile)
+
+// Same variable names as on Vercel, so the file can be copied there as is.
+const config = {
+  endpoint: process.env.NUXT_AUDIO_STORAGE_ENDPOINT?.replace(/\/$/, ''),
+  region: process.env.NUXT_AUDIO_STORAGE_REGION || 'auto',
+  bucket: process.env.NUXT_AUDIO_STORAGE_BUCKET,
+  accessKeyId: process.env.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
+  secretAccessKey: process.env.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
+}
+// Settings left empty in .env.r2.
+const missing = Object.entries(config).filter(([, v]) => !v).map(([k]) => k)
+if (missing.length) {
+  console.error(`✖ Missing in ${envFile}: ${missing.join(', ')}`)
   process.exit(1)
 }
 

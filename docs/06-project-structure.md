@@ -118,8 +118,6 @@ Chronovault/
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check
-│   ├── lib/storage-env.mjs           # the audio storage settings, checked (empty, placeholders, endpoint)
-│   ├── flac-seektable.mjs            # pnpm flac:seektable (seek tables for FLACs stored before the encoder wrote them)
 │   ├── doctor.mjs                    # pnpm doctor (prerequisites check) · lib/doctor-checks.mjs
 │   ├── merge-main.mjs                # pnpm merge:main
 │   ├── lib/merge-message.mjs         # cumulative merge commit message

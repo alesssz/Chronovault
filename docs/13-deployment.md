@@ -34,7 +34,7 @@ Dashboard labels may change slightly over time.
    ```
    Origins must include the scheme (`https://`) and no trailing slash.
 4. **Manage API tokens → Create API token**: permission *Object Read & Write*, restricted to `chronovault-audio`. Copy the *Access Key ID*, the *Secret Access Key* (shown once) and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The "Token value" is not needed.
-5. Copy `.env.r2.example` to `.env.r2`, fill it in by hand from Cloudflare and run `pnpm r2:check`: every line must be ✔. The endpoint is the bucket's "S3 API" address without the bucket name (`https://<account id>.r2.cloudflarestorage.com`). Vercel cannot give the values back once they are marked "Sensitive" (it shows `[SENSITIVE]`), and a token's secret access key is shown only once, when the token is made: on another computer, make a new R2 API token ("Object Read & Write" on the bucket) for its `.env.r2`; the app keeps its own token. `r2:check` and `flac:seektable` name an empty value, a placeholder or an endpoint that is no URL before any request.
+5. Copy `.env.r2.example` to `.env.r2`, fill it in and run `pnpm r2:check`: every line must be ✔.
 
 ## 13.3 Vercel
 
@@ -59,7 +59,6 @@ Dashboard labels may change slightly over time.
 - **Code only:** commit and push to `main`; Vercel deploys.
 - **With a new migration:** `make db-push` first (so the new code finds the new schema), then commit and push. Vercel never touches the database.
 - Writing a migration: `make db-migration name=<description>` → write the SQL → `make db-migrate` → `make db-test` → `make db-types`.
-- **Once, for FLACs uploaded before the seek tables** (2026-11-06, [7.4](07-data-flows.md#74-lossless-wav--flac-conversion)), after the deploy that brings them: `pnpm flac:seektable --env .env.r2` (`make flac-seektable env=.env.r2`) to see what it would do (`.env.r2` as for `pnpm r2:check`, 13.2), then the same with `--apply` (`apply=1`). It works on R2 only, never the database: it lists the bucket's `.flac` files and rewrites each with its table under the same key (the audio itself unchanged, checked byte for byte, the new size checked in R2). The tracks' `size_bytes` keep their old value, a few hundred bytes short: it is only shown, rounded, in the editor. A second run finds nothing to do.
 - A new **SQL function**: decide who may call it ([8.3](08-data-model-and-security.md#83-database-functions)). Meant for the API: keep it in `public`, revoke it from `public` and grant it to the roles that need it. A helper of other functions: revoke it from `public`, `anon` and `authenticated` by name. A helper of policies: create it in `private`. Then add API functions to the lists in `function_privileges.test.sql`, or `make db-test` fails.
 
 ## 13.6 Statistics (Vercel Web Analytics)

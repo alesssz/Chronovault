@@ -15,9 +15,7 @@
  * every SEEK_POINT_SECONDS. The audio frames are left byte for byte as they
  * were, and a seek point's offset counts from the first frame, so it holds
  * whatever metadata comes before (tags written on download included).
- * Used by the encoder for new uploads, and by scripts/flac-seektable.mjs for
- * the files stored before it. No imports: that script loads this file as is
- * (Node strips the types).
+ * Used by the encoder for every converted WAV.
  */
 
 /** One seek point every this many seconds (the reference `flac` tool's default). */
