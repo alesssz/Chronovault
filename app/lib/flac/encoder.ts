@@ -1,6 +1,7 @@
 import type * as LibFlac from 'libflacjs/dist/index'
 import { createMD5 } from 'hash-wasm'
 import { concatBytes } from '../bytes'
+import { addSeekTable } from './seektable'
 import { flacIncompatibility, readWavSample, type WavInfo } from './wav'
 
 /**
@@ -114,8 +115,12 @@ export async function encodeWavToFlac(
     Flac.FLAC__stream_encoder_delete(encoder)
   }
 
-  // The whole FLAC file in one array.
-  const flac = concatBytes(output)
+  // The whole FLAC file in one array, with a SEEKTABLE so players jump into it with one request
+  // (libFLAC writes none here; see seektable.ts). Should indexing ever fail, the FLAC stays as
+  // encoded: slower to seek in, still lossless. The checks below run on the final file.
+  const encoded = concatBytes(output)
+  const indexed = addSeekTable(encoded)
+  const flac = indexed.status === 'added' ? indexed.flac : encoded
 
   // --- 2. Source MD5 === MD5 stored in the FLAC ----------------------------------------
   if (streamMd5 !== sourceMd5) {

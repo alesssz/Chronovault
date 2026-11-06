@@ -10,7 +10,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all merge doctor
+        check ci clean clean-all merge doctor r2-env r2-check flac-seektable
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -106,6 +106,21 @@ db-link: ## Link the remote Supabase project: make db-link ref=<project-ref>
 
 db-push: ## Apply migrations to the linked remote project
 	$(SUPABASE) db push
+
+# --- Production audio storage (Cloudflare R2) ---------------------------------
+
+# Options are variables, not flags: make reads anything starting with "--" as
+# one of its own options (make r2-env force=1 → pnpm r2:env --force).
+r2-env: ## Write .env.r2 from the Vercel project's production variables (force=1 replaces it)
+	$(PNPM) r2:env $(if $(force),--force)
+
+r2-check: ## Check the R2 setup in .env.r2 end to end (origin=https://<site> for its CORS; default localhost)
+	$(PNPM) r2:check $(origin)
+
+# Local stack by default; env=.env.r2 for production. Lists what it would do;
+# apply=1 writes (make flac-seektable env=.env.r2 apply=1).
+flac-seektable: ## Add a seek table to the FLACs already stored (env=.env.r2 for R2, apply=1 to write)
+	$(PNPM) flac:seektable $(if $(env),--env $(env)) $(if $(apply),--apply)
 
 # --- Quality and tests --------------------------------------------------------
 

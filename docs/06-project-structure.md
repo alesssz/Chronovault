@@ -63,7 +63,7 @@ Chronovault/
 │   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
 │   │   ├── media-session.ts · theme.ts  #   lock-screen card · waveform colours from the theme
 │   │   ├── google-cast.ts            #   Google Cast Web Sender SDK, loaded on demand (only /cast-test, temporary)
-│   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · flac.worker.ts · convert.ts
+│   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · seektable.ts · flac.worker.ts · convert.ts
 │   ├── pages/
 │   │   ├── index.vue                 # Library
 │   │   ├── login.vue · confirm.vue   # Sign-in / sign-up / forgot password · auth callback
@@ -118,6 +118,8 @@ Chronovault/
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check
+│   ├── r2-env.mjs                    # pnpm r2:env (.env.r2 from the Vercel project's variables)
+│   ├── flac-seektable.mjs            # pnpm flac:seektable (seek tables for FLACs stored before the encoder wrote them)
 │   ├── doctor.mjs                    # pnpm doctor (prerequisites check) · lib/doctor-checks.mjs
 │   ├── merge-main.mjs                # pnpm merge:main
 │   ├── lib/merge-message.mjs         # cumulative merge commit message

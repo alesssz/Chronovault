@@ -50,6 +50,10 @@ test.describe('library and player', () => {
     // (checked with an independent decoder, not the one used by the app).
     const stored = await downloadStoredAudio(page)
     expect(stored.subarray(0, 4).toString('latin1')).toBe('fLaC')
+    // A SEEKTABLE right after STREAMINFO (block type 3): players jump into the file with one
+    // request (without it a seek to the middle was a string of range requests).
+    expect(stored[4]! & 0x7f).toBe(0)
+    expect(stored[42]! & 0x7f).toBe(3)
     // An independent decoder, not the one the app uses for its own check.
     const decoder = new FLACDecoder()
     await decoder.ready
