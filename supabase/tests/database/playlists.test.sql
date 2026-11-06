@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(39);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -225,6 +225,14 @@ select isnt_empty(
      where p.oid = 'public.get_shared_playlist_tracks(uuid)'::regprocedure
        and arg.name = 'status' $$,
   'shared playlists return each track''s draft/final status ("Work in progress" marks)'
+);
+
+select isnt_empty(
+  $$ select 1
+     from pg_proc p, unnest(p.proargnames) as arg(name)
+     where p.oid = 'public.get_shared_playlist_tracks(uuid)'::regprocedure
+       and arg.name = 'visibility' $$,
+  'shared playlists return each track''s visibility (public tracks are never offered for download)'
 );
 
 select is_empty(

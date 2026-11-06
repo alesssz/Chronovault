@@ -70,10 +70,14 @@ describe('toSharedTrack', () => {
     }, 'https://signed/cover')
 
     expect(Object.keys(shared).sort()).toEqual([
-      'album', 'composers', 'coverUrl', 'description', 'durationSeconds', 'genre', 'id', 'lyrics',
-      'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'visibility', 'year',
+      'album', 'composers', 'coverUrl', 'description', 'downloadable', 'durationSeconds', 'fileExtension', 'genre', 'id',
+      'lyrics', 'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'visibility', 'year',
     ])
-    expect(shared).toMatchObject({ genre: 'Ambient', visibility: 'public', coverUrl: 'https://signed/cover' })
+    expect(shared).toMatchObject({ genre: 'Ambient', visibility: 'public', coverUrl: 'https://signed/cover', fileExtension: 'mp3' })
+    // A public track is never offered for download.
+    expect(shared.downloadable).toBe(false)
+    // The extension only: the path, which holds the owner's id, stays on the server.
+    expect(JSON.stringify(shared)).not.toContain(USER)
   })
 })
 
@@ -84,14 +88,25 @@ describe('toSharedPlaylistTrack', () => {
       id: TRACK, title: 'Night', composers: 'A, B', album: null, year: 2026, genre: 'Ambient',
       description: 'desc', lyrics: 'lyrics', lyrics_synced: [{ time: 1, text: 'lyrics' }],
       duration_seconds: 180.5, peaks: [0.1, 1], cover_path: `${USER}/${TRACK}.webp`,
-      audio_path: `${USER}/${TRACK}.mp3`, position: 3, status: 'draft', updated_at: '2026-10-18T11:00:00Z',
+      audio_path: `${USER}/${TRACK}.mp3`, position: 3, visibility: 'private', status: 'draft', updated_at: '2026-10-18T11:00:00Z',
     }, path => (path ? `https://signed/${path}` : null))
 
     expect(Object.keys(shared).sort()).toEqual([
-      'album', 'composers', 'coverUrl', 'description', 'durationSeconds', 'genre', 'id', 'lyrics',
-      'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'year',
+      'album', 'composers', 'coverUrl', 'description', 'downloadable', 'durationSeconds', 'fileExtension', 'genre', 'id',
+      'lyrics', 'lyricsSynced', 'peaks', 'status', 'title', 'updatedAt', 'year',
     ])
-    expect(shared).toMatchObject({ status: 'draft', coverUrl: `https://signed/${USER}/${TRACK}.webp` })
+    // A private track of a shared playlist downloads through it; its visibility itself is not sent.
+    expect(shared).toMatchObject({ status: 'draft', coverUrl: `https://signed/${USER}/${TRACK}.webp`, fileExtension: 'mp3', downloadable: true })
+  })
+
+  it('never offers a public track for download, whatever the playlist', () => {
+    // The same row, the track public.
+    const shared = toSharedPlaylistTrack({
+      id: TRACK, title: 'Night', composers: null, album: null, year: null, genre: null,
+      description: null, lyrics: null, lyrics_synced: null, duration_seconds: null, peaks: null, cover_path: null,
+      audio_path: `${USER}/${TRACK}.flac`, position: 1, visibility: 'public', status: 'final', updated_at: '2026-10-18T11:00:00Z',
+    }, () => null)
+    expect(shared.downloadable).toBe(false)
   })
 })
 

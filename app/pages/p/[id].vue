@@ -11,7 +11,9 @@ import { sharedApi } from '~/services/api'
  * gets a heart to pick it, and a panel under the list holds the pick's
  * optional name and comment, or says that voting is closed and which version
  * was chosen (useVersionVote, ShareVersionVote). Plays heard here are counted
- * by the app-wide play counter (plugins/play-counter.client.ts).
+ * by the app-wide play counter (plugins/play-counter.client.ts). Tracks can
+ * be downloaded, with their tags (useSharedTrackDownload), unless the track
+ * itself is public: the track's visibility decides, not the playlist's.
  */
 definePageMeta({ layout: 'public' })
 
@@ -121,6 +123,13 @@ function onLyricSeek(seconds: number) {
   if (isHere.value) player.seek(seconds)
 }
 
+// --- Download ---------------------------------------------------------------------
+/**
+ * A track's file with its tags, through the playlist (as the player gets it):
+ * a private track of the playlist downloads here, and only here.
+ */
+const { download, isDownloading } = useSharedTrackDownload(trackId => sharedApi.playlistTrackPlayback(id, trackId))
+
 // --- Votes (groups of versions) -----------------------------------------------------
 /** This browser's pick, the heart next to each version and the vote panel (groups only). */
 const vote = useVersionVote(id, () => isVersions.value)
@@ -191,7 +200,7 @@ function isPicked(trackId: string) {
           @toggle="togglePlay"
         />
 
-        <!-- The tracks: click to play (or toggle the active one); in a group, a heart to pick one -->
+        <!-- The tracks: click to play (or toggle the active one), download; in a group, a heart to pick one -->
         <ol
           v-if="playlist.tracks.length"
           class="divide-y divide-default rounded-xl border border-default"
@@ -264,6 +273,19 @@ function isPicked(trackId: string) {
                 :class="{ 'max-sm:hidden': isVersions }"
               >{{ formatTime(track.durationSeconds) }}</span>
             </button>
+            <!-- The track's file, with its tags; never for a public track -->
+            <IconButton
+              v-if="track.downloadable"
+              icon="i-lucide-download"
+              :label="`Download ${track.title}`"
+              color="neutral"
+              variant="ghost"
+              :loading="isDownloading(track.id)"
+              class="shrink-0"
+              :class="{ 'mr-2': !vote.canVote.value }"
+              data-testid="shared-track-download"
+              @click="download(track)"
+            />
             <!-- Pick this version (again: take the pick back); only while voting is open, never for the owner -->
             <IconButton
               v-if="vote.canVote.value"

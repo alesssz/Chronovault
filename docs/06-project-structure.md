@@ -28,7 +28,8 @@ Chronovault/
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (file,
 │   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
-│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload,
+│   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
+│   │                                 #   (and useSharedTrackDownload for the share pages),
 │   │                                 #   useAsyncTask, useEditForm, useLeaveConfirm (LeaveDialog: unsaved work, 7.8),
 │   │                                 #   useCoverEditor, useCoverStorage, useSortableList,
 │   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),

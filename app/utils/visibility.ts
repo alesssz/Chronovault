@@ -11,11 +11,28 @@ export const VISIBILITY_INFO: Record<TrackVisibility, { label: string, descripti
   public: { label: 'Public', description: 'Unlisted, and search engines may list it.', icon: 'i-lucide-globe' },
 }
 
-/** Options of the visibility radio cards (track editor, playlist page), in the order of TRACK_VISIBILITIES. */
+/** Options of the visibility radio cards (playlist details), in the order of TRACK_VISIBILITIES. */
 export const VISIBILITY_ITEMS = TRACK_VISIBILITIES.map(value => ({
   value,
   label: VISIBILITY_INFO[value].label,
   description: VISIBILITY_INFO[value].description,
+}))
+
+/**
+ * A track's visibility also decides whether visitors may download it (an
+ * unlisted track yes, a public one never, see SharedTrackContent.downloadable),
+ * so the track editor's cards say so. A playlist's cards cannot: its tracks
+ * follow their own visibility.
+ */
+const TRACK_DESCRIPTIONS: Partial<Record<TrackVisibility, string>> = {
+  unlisted: 'Anyone with the link can listen and download.',
+  public: 'Anyone with the link can listen, not download; search engines may list it.',
+}
+
+/** Options of the track editor's visibility cards: VISIBILITY_ITEMS with the download rule. */
+export const TRACK_VISIBILITY_ITEMS = VISIBILITY_ITEMS.map(item => ({
+  ...item,
+  description: TRACK_DESCRIPTIONS[item.value] ?? item.description,
 }))
 
 /**

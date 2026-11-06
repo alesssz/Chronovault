@@ -175,6 +175,6 @@ export interface SharedPlaylist {
   durationSeconds: number
   /** When it last changed (ISO 8601). */
   updatedAt: string
-  /** In playlist order. Track visibility is not exposed: visitors don't need it. */
+  /** In playlist order. Track visibility is not exposed, only whether each track is `downloadable`. */
   tracks: SharedTrackContent[]
 }

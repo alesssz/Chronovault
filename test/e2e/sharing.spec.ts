@@ -1,9 +1,12 @@
 /**
- * End-to-end, track sharing: an unlisted track opens without an account, never exposes the Suno
- * prompt or mastering status, and answers 404 once private again. Its cover is signed for the
+ * End-to-end, track sharing: an unlisted track opens without an account, plays and downloads with
+ * its tags (a public one plays but never downloads), never exposes the Suno prompt or mastering
+ * status, and answers 404 once private again. Its cover is signed for the
  * share page, but Storage's list endpoint, called with the public key every page ships, names no
  * shared cover and no user's folder (the ids an "unlisted" item is meant to keep to its link).
  */
+import { readFile } from 'node:fs/promises'
+import { parseBuffer } from 'music-metadata'
 import { expect, test } from './fixtures'
 import { clickAndWaitForApi, signUp, TINY_PNG, uniqueId, uploadTrack, waitForHydration } from './helpers'
 
@@ -72,6 +75,8 @@ test.describe('public sharing', () => {
     expect(body).not.toHaveProperty('sunoPrompt')
     expect(body).not.toHaveProperty('mastered')
     expect(body).not.toHaveProperty('audioPath')
+    // Only the file's extension, for the download: the storage key names the owner's account.
+    expect(body.fileExtension).toBe('flac')
     expect(JSON.stringify(body)).not.toContain(secretPrompt)
 
     // The library API stays closed to visitors.
@@ -83,6 +88,29 @@ test.describe('public sharing', () => {
     const play = visitor.getByTestId('shared-play')
     await play.click()
     await expect(play).toHaveAttribute('aria-label', 'Pause')
+
+    // …and download it: the stored FLAC with the shared fields written in, never the Suno prompt.
+    const downloadEvent = visitor.waitForEvent('download')
+    await visitor.getByTestId('shared-download').click()
+    // The file saved.
+    const download = await downloadEvent
+    expect(download.suggestedFilename()).toBe(`${title}.flac`)
+    await expect(visitor.getByText(`Downloaded ${title}`).first()).toBeVisible()
+    // Its bytes, and the tags music-metadata reads back.
+    const file = await readFile((await download.path())!)
+    const { common } = await parseBuffer(file, { mimeType: 'audio/flac' })
+    expect(common.title).toBe(title)
+    expect(common.comment?.[0]?.text).toBe('Written on a rainy night.')
+    expect(file.includes(Buffer.from(secretPrompt))).toBe(false)
+
+    // --- Public: still playable, never downloadable ---
+    await page.getByText('Public', { exact: true }).click()
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
+    await visitor.goto(shareUrl)
+    await waitForHydration(visitor)
+    await expect(visitor.getByTestId('shared-play')).toBeVisible()
+    await expect(visitor.getByTestId('shared-download')).toHaveCount(0)
+    expect((await (await visitor.request.get(`/api/shared/${trackId}`)).json() as { downloadable: boolean }).downloadable).toBe(false)
 
     // --- Back to private: the link stops working immediately ---
     await page.getByText('Private', { exact: true }).click()

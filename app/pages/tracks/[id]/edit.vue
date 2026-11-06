@@ -379,7 +379,7 @@ const isCurrent = computed(() => player.current?.id === id)
               >
                 <URadioGroup
                   v-model="state.visibility"
-                  :items="VISIBILITY_ITEMS"
+                  :items="TRACK_VISIBILITY_ITEMS"
                   variant="card"
                   :ui="VISIBILITY_GROUP_UI"
                   class="w-full"

@@ -428,14 +428,14 @@ async function onDelete() {
           :shared="isShared"
           :title="playlist?.title"
         >
-          <!-- Sharing a playlist shares its private tracks too (only inside it) -->
+          <!-- Sharing a playlist shares its private tracks too (only inside it), downloads included -->
           <UAlert
             v-if="playlist.privateTrackCount > 0"
             color="warning"
             variant="subtle"
             icon="i-lucide-lock-open"
             :title="`${pluralize(playlist.privateTrackCount, `private ${info.trackNoun}`)} included`"
-            :description="`They can be heard through this link, but only inside the ${info.noun}.`"
+            :description="`They can be heard and downloaded through this link, but only inside the ${info.noun}.`"
             data-testid="private-tracks-warning"
           />
         </ShareLinkBox>

@@ -20,6 +20,9 @@ import { ariaShortcut } from '~/lib/keyboard-shortcuts'
  *
  * Play, previous, next and full screen announce their keyboard shortcut to
  * screen readers (aria-keyshortcuts, app/lib/keyboard-shortcuts.ts).
+ *
+ * The `actions` slot adds the page's own buttons to the second row, after
+ * previous / next (the track page's Download).
  */
 defineProps<{
   /** The player holds this page's track (or a track of this page's playlist). */
@@ -77,7 +80,7 @@ const onScreen = useElementVisibility(root)
       </div>
     </div>
 
-    <!-- Second row: previous / next (playlists) on the left; volume and full screen on the right -->
+    <!-- Second row: previous / next (playlists) and the page's actions on the left; volume and full screen on the right -->
     <div class="mt-2 flex items-center justify-between gap-2">
       <div class="flex items-center gap-1">
         <template v-if="navigation">
@@ -102,6 +105,7 @@ const onScreen = useElementVisibility(root)
             @click="player.next()"
           />
         </template>
+        <slot name="actions" />
       </div>
       <div class="flex items-center gap-1">
         <!-- Mute and slider (mute only where the page cannot set the volume: iPhone, iPad) -->
