@@ -25,7 +25,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 |---|---|---|---|
 | `.env` | ignored | `pnpm local`, `pnpm env:local` | `pnpm dev`, e2e tests (`node --env-file=.env`) |
 | `.env.docker` | ignored | `pnpm docker` | The app container (`compose.yaml`) |
-| `.env.r2` | ignored | you, from `.env.r2.example`, or `pnpm r2:env` from the Vercel project | `pnpm r2:check`, `pnpm flac:seektable --env .env.r2`, which use its values only: `NUXT_AUDIO_STORAGE_*` already in the shell (a shell that loads `.env` by itself) never override it |
+| `.env.r2` | ignored | you, by hand from `.env.r2.example`, with the values from Cloudflare ([13.2](13-deployment.md#132-cloudflare-r2-audio-files)) | `pnpm r2:check`, `pnpm flac:seektable --env .env.r2`, which use its values only: `NUXT_AUDIO_STORAGE_*` already in the shell (a shell that loads `.env` by itself) never override it |
 | `.env.example` · `.env.r2.example` | committed | — | Templates with explanations |
 
 `writeEnvFile` only updates the variables it manages: other lines you add to `.env` are kept.

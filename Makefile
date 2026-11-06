@@ -10,7 +10,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all merge doctor r2-env r2-check flac-seektable
+        check ci clean clean-all merge doctor r2-check flac-seektable
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -109,11 +109,10 @@ db-push: ## Apply migrations to the linked remote project
 
 # --- Production audio storage (Cloudflare R2) ---------------------------------
 
-# Options are variables, not flags: make reads anything starting with "--" as
-# one of its own options (make r2-env force=1 → pnpm r2:env --force).
-r2-env: ## Write .env.r2 from the Vercel project's production variables (force=1 replaces it)
-	$(PNPM) r2:env $(if $(force),--force)
-
+# .env.r2 is written by hand from .env.r2.example, with the values from Cloudflare
+# (docs/13-deployment.md, 13.2): never pulled from Vercel, whose R2 variables are
+# "Sensitive" and cannot be read back. Options below are variables, not flags:
+# make reads anything starting with "--" as one of its own options.
 r2-check: ## Check the R2 setup in .env.r2 end to end (origin=https://<site> for its CORS; default localhost)
 	$(PNPM) r2:check $(origin)
 

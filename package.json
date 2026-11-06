@@ -42,7 +42,6 @@
     "env:local": "node scripts/setup-env.mjs",
     "generate:brand": "node scripts/generate-brand.mjs",
     "r2:check": "node scripts/check-r2.mjs",
-    "r2:env": "node scripts/r2-env.mjs",
     "flac:seektable": "node scripts/flac-seektable.mjs",
     "merge:main": "node scripts/merge-main.mjs",
     "doctor": "node scripts/doctor.mjs"
