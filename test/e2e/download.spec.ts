@@ -86,6 +86,8 @@ test.describe('download with tags', () => {
     // Its bytes.
     const file = await readFile((await download.path())!)
     expect(file.subarray(0, 4).toString('latin1')).toBe('fLaC')
+    // The tags written in keep the SEEKTABLE right after STREAMINFO (block type 3).
+    expect(file[42]! & 0x7f).toBe(3)
     // Its tags and format, read back by music-metadata.
     const { common, format } = await parseBuffer(file, { mimeType: 'audio/flac' })
     expect(format.container).toBe('FLAC')
