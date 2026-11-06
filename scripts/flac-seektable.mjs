@@ -34,6 +34,7 @@ import { parseEnv } from 'node:util'
 import { AwsClient } from 'aws4fetch'
 import { addSeekTable } from '../app/lib/flac/seektable.ts'
 import { localAudioStorageEnv, supabaseStatus } from './lib/local-stack.mjs'
+import { storageConfig, WHERE_ON_CLOUDFLARE } from './lib/storage-env.mjs'
 
 const args = process.argv.slice(2)
 /** Write the files; without it, only list what would be done. */
@@ -67,16 +68,11 @@ else {
   if (!status) fail('The local Supabase stack is not running (pnpm db:start), and no --env file was given.')
   storageEnv = localAudioStorageEnv(status)
 }
-const storage = {
-  endpoint: storageEnv.NUXT_AUDIO_STORAGE_ENDPOINT?.replace(/\/$/, ''),
-  region: storageEnv.NUXT_AUDIO_STORAGE_REGION || 'auto',
-  bucket: storageEnv.NUXT_AUDIO_STORAGE_BUCKET,
-  accessKeyId: storageEnv.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
-  secretAccessKey: storageEnv.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
+// Checked before any request: empty values, placeholders (Vercel's "[SENSITIVE]"), an endpoint that is no URL.
+const { config: storage, problems } = storageConfig(storageEnv)
+if (problems.length) {
+  fail(`The audio storage settings are not ready:\n${problems.map(p => `  - ${p}`).join('\n')}\n  From Cloudflare:\n${WHERE_ON_CLOUDFLARE.map(w => `  - ${w}`).join('\n')}`)
 }
-// Settings left empty.
-const missing = Object.entries(storage).filter(([, v]) => !v).map(([k]) => k)
-if (missing.length) fail(`Missing audio storage settings: ${missing.join(', ')}`)
 
 // Signs storage requests like the app (aws4fetch, SigV4).
 const s3 = new AwsClient({ ...storage, service: 's3' })
