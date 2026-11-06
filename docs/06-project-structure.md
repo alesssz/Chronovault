@@ -110,7 +110,7 @@ Chronovault/
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components and composables
-│   └── e2e/                          # Playwright: auth, password-reset, library, sharing, playlists, queue, persistent-queue, cover-cache, cover-crop, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, theme-contrast, desktop-layout, responsive (phone + tablet)
+│   └── e2e/                          # Playwright: auth, password-reset, library, sharing, playlists, queue, persistent-queue, cover-cache, cover-crop, download, lrc-transfer, storage, stats, versions, feedback, feedback-badge, share-player, library-virtual-scroll, track-change, track-registration, upload-leave, text-input, unsaved-changes, playlist-writes, lyrics-scroll, sync-tab, keyboard, streaming, keepalive, security-headers, theme-contrast, lyrics-readability, desktop-layout, responsive (phone + tablet)
 │                                     #   · fixtures.ts (the specs' test/expect: a test fails on any CSP violation) · helpers.ts
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop

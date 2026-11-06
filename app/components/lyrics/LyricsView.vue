@@ -48,6 +48,21 @@ const hasSynced = computed(() => !!props.synced?.length)
 /** Line currently sung (-1 before the first one). */
 const activeIndex = computed(() => (hasSynced.value ? findActiveLineIndex(props.synced!, props.currentTime) : -1))
 
+/**
+ * A synced line's colour: the one sung stands out, those sung before are
+ * muted, those to come dimmed. Dimmed only on the dark theme: on the light
+ * one it is pale grey on near-white, below what text needs, so the lines to
+ * come are muted there. Before the first line (a share page before Play, an
+ * intro) every line is readable text: all dimmed, a visitor reading the
+ * lyrics got the whole of them in pale grey.
+ */
+function lineClass(i: number): string {
+  if (i === activeIndex.value) return 'text-highlighted'
+  if (activeIndex.value < 0) return 'text-toned hover:text-highlighted'
+  if (i < activeIndex.value) return 'text-muted'
+  return 'text-muted hover:text-toned dark:text-dimmed dark:hover:text-muted'
+}
+
 /** Plain lyrics split in lines, with [Section] lines marked as headers. */
 const plainLines = computed(() =>
   (props.plain ?? '').split(/\r?\n/).map(text => ({
@@ -114,9 +129,7 @@ watch(activeIndex, (index) => {
           v-else
           type="button"
           class="cursor-pointer text-left transition-colors duration-300"
-          :class="i === activeIndex
-            ? 'text-highlighted'
-            : i < activeIndex ? 'text-muted' : 'text-dimmed hover:text-muted'"
+          :class="lineClass(i)"
           :aria-current="i === activeIndex ? 'true' : undefined"
           @click="emit('seek', line.time)"
         >
