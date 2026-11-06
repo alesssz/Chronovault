@@ -46,20 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries from UI-25 come from a review of 2026-11-06, made like the first one (2026-11-04) by driving a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-25 The full-screen player cuts its own controls on a 1280×720 laptop
-
-**Priority:** high · **Kind:** layout bug · **Found:** 2026-11-06
-
-**What is wrong.** At 1280×720 the full-screen player's left column (cover, title, waveform, controls) is taller than the window: the row of controls (shuffle, stop, previous, play, next, repeat) is cut in half by the bottom edge and the volume under it is off screen, with no way to scroll to them. A common laptop size, and the view's main buttons.
-
-**Where.** [PlayerExpanded.vue](../app/components/player/PlayerExpanded.vue), the cover's size in the two-column layout.
-
-**Options.**
-- A) Size the cover from the window's height, as the track's share page already does (`max(14rem, 100dvh − …)`), so the column fits.
-- B) Let the column scroll.
-
-**Recommended.** A; a check at 1280×720 in `desktop-layout.spec.ts` that the controls and the volume are inside the window.
-
 ### UI-26 The Sync tab's marker labels are unreadable in the light theme and cut in both
 
 **Priority:** medium · **Kind:** light theme, readability · **Found:** 2026-11-06

@@ -10,7 +10,8 @@
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
  *   the first screen (a 26rem cover put them on or below the bottom edge);
  * - the full-screen player of a track without lyrics shows its description beside the controls,
- *   and with neither a single centred column (half the screen held only "No lyrics");
+ *   and with neither a single centred column (half the screen held only "No lyrics"); its controls
+ *   stay inside the window down to 1280×720 and 1024×640 (at 1280×720 they fell under the edge);
  * - Save is grey until something changed, then gold (disabled, it was the same gold, faded);
  * - the mastering filter's "no filter" reads as a choice ("Any mastering", it said "Mastering").
  */
@@ -177,5 +178,15 @@ test.describe('desktop layout', () => {
     // The column of cover and controls (the first section of the view).
     const column = (await expanded.locator('section').first().boundingBox())!
     expect(Math.abs(column.x + column.width / 2 - 1440 / 2)).toBeLessThan(2)
+
+    // --- Full-screen player on smaller windows: every control of the column on screen ---
+    // At 1280×720 the cover kept 20rem and the controls fell under the bottom edge, out of reach.
+    for (const [width, windowHeight] of [[1440, 900], [1366, 768], [1280, 720], [1024, 640]] as const) {
+      await page.setViewportSize({ width, height: windowHeight })
+      // The lowest button or slider of the column, once the layout has followed the window.
+      await expect.poll(() => expanded.locator('section').first().evaluate(section => Math.max(
+        ...[...section.querySelectorAll('button, [role="slider"]')].map(control => control.getBoundingClientRect().bottom),
+      )), { message: `controls inside a ${width}×${windowHeight} window` }).toBeLessThanOrEqual(windowHeight)
+    }
   })
 })

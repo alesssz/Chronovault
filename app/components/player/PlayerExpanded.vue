@@ -324,18 +324,22 @@ const meta = computed(() => {
           <!--
             Left column: cover, info, waveform, controls. On desktop its width
             (and so the square cover) follows the window height, so the controls
-            always stay on screen; 23rem is the height of everything but the cover.
-            Phones do the same for the cover alone (the same 23rem), so on a short
+            always stay on screen; 24rem is the height of everything but the cover,
+            with the top bar and the bottom padding. The column keeps 20rem for the
+            title, waveform and controls, and below that only the cover shrinks
+            (down to 10rem): with the column itself held at 20rem, at 1280×720 the
+            controls fell under the window's bottom edge, out of reach.
+            Phones do the same for the cover alone (23rem there), so on a short
             screen (375×667, or less with the browser's bars) play, previous and next
             stay in the first screen instead of under its bottom edge; the title and
             waveform keep the full width.
           -->
-          <section class="mx-auto flex w-full max-w-md flex-col justify-center gap-5 md:max-w-[max(20rem,min(32rem,calc(100dvh-23rem)))]">
+          <section class="mx-auto flex w-full max-w-md flex-col justify-center gap-5 md:max-w-[max(20rem,min(32rem,calc(100dvh-24rem)))]">
             <TrackCover
               :url="track?.coverUrl"
               :title="track?.title"
               rounded="rounded-xl"
-              class="w-full shadow-2xl shadow-black/40 max-md:mx-auto max-md:max-w-[max(8rem,calc(100dvh-23rem))]"
+              class="mx-auto w-full shadow-2xl shadow-black/40 max-md:max-w-[max(8rem,calc(100dvh-23rem))] md:max-w-[max(10rem,calc(100dvh-24rem))]"
             />
 
             <div class="min-w-0">
