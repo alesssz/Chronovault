@@ -55,10 +55,10 @@ The addresses come ready-made in `coverUrl` and `mosaic` of the track and playli
 
 | Method | Path | Response |
 |---|---|---|
-| `GET` | `/api/shared/:id` | `SharedTrack` |
-| `GET` | `/api/shared/:id/playback` | `PlaybackSource` |
+| `GET` | `/api/shared/:id` | `SharedTrack` (shareable fields, plus `downloadable`, false for a public track, and `fileExtension` for the visitor's download: never the storage key) |
+| `GET` | `/api/shared/:id/playback` | `PlaybackSource` (the page's player and its Download) |
 | `GET` | `/api/shared/:id/cover` | `302` to a fresh signed cover URL |
-| `GET` | `/api/shared/playlists/:id` | `SharedPlaylist` (all tracks, shareable fields) |
+| `GET` | `/api/shared/playlists/:id` | `SharedPlaylist` (all tracks, shareable fields, each with `downloadable` and `fileExtension`) |
 | `GET` | `/api/shared/playlists/:id/tracks/:trackId/playback` | `PlaybackSource`, only for tracks of that playlist |
 | `GET` · `HEAD` | `/api/stream?k=&e=&s=` | The address in every `PlaybackSource`: `HEAD` → `200` with type and size, `GET` → `302` to a presigned GET; `400` when a part of the address is missing, `403` unless signed by the server and unexpired, `404` (`HEAD`) when the file is gone, `405` for any other method; readable from any origin (`Access-Control-Allow-Origin: *`), for cast devices ([7.7](07-data-flows.md#77-expired-streaming-urls)) |
 | `GET` | `/api/shared/playlists/:id/cover` | `302` to the custom cover, or the first track cover |

@@ -1,6 +1,7 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import type { SharedTrack, SharedTrackContent, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
 import type { TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
+import { getExtension } from '~~/shared/utils/audio-files'
 import { trackCoverUrlOf } from './cover-urls'
 
 /**
@@ -74,18 +75,20 @@ export type SharedTrackRow = Database['public']['Functions']['get_shared_track']
 
 /**
  * The shareable columns, common to get_shared_track() and
- * get_shared_playlist_tracks() rows (the latter add `position`, the former `visibility`).
+ * get_shared_playlist_tracks() rows (the latter add `position`).
  */
 export type SharedContentRow = Pick<SharedTrackRow,
   | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre' | 'description'
-  | 'lyrics' | 'lyrics_synced' | 'peaks' | 'duration_seconds' | 'status' | 'updated_at'
+  | 'lyrics' | 'lyrics_synced' | 'peaks' | 'duration_seconds' | 'status' | 'audio_path' | 'visibility' | 'updated_at'
 >
 
 /**
  * Shareable fields of a track, for the public track page and the tracks of a
  * shared playlist alike. The row has no Suno prompt or mastering status to
  * begin with (the SQL functions never select them); storage paths are not
- * copied. `coverUrl` is the signed URL computed by the sharing service.
+ * copied, only the audio file's extension (the visitor's download needs it).
+ * The track's visibility only decides `downloadable`: a playlist's tracks
+ * never show theirs. `coverUrl` is the signed URL computed by the sharing service.
  */
 export function toSharedTrackContent(row: SharedContentRow, coverUrl: string | null): SharedTrackContent {
   return {
@@ -104,6 +107,10 @@ export function toSharedTrackContent(row: SharedContentRow, coverUrl: string | n
     // Shown as "Work in progress" on the public pages.
     status: row.status ?? 'final',
     coverUrl,
+    // Unlisted, or private inside a shared playlist: yes; public: never (the track's own rule).
+    downloadable: row.visibility !== 'public',
+    // `<userId>/<trackId>.flac` → `flac`: the format, without the owner's id.
+    fileExtension: getExtension(row.audio_path ?? ''),
     updatedAt: row.updated_at,
   }
 }

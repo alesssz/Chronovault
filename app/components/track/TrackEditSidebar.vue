@@ -87,6 +87,7 @@ async function onDelete() {
       kind="track"
       :shared="isShared"
       :title="track.title"
+      :downloadable="track.visibility === 'unlisted'"
     />
 
     <!-- Deletion, after a confirmation (below) -->

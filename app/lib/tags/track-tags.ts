@@ -1,6 +1,6 @@
 /**
  * Metadata written into downloaded audio files ("Download" in the track
- * menus and on the edit page).
+ * menus and on the edit page, and on the public share pages).
  *
  * The library keeps metadata in the database, not inside the files: a file
  * fetched straight from storage has no title, cover or lyrics. On download
@@ -19,7 +19,7 @@
  * the mastering status are personal notes and are never written.
  */
 import type { SyncedLyricLine, TrackDetail } from '~~/shared/types/track'
-import { WAV_MIME_TYPES, getExtension } from '~~/shared/utils/audio-files'
+import { WAV_MIME_TYPES } from '~~/shared/utils/audio-files'
 import { writeFlacTags } from './flac-tags'
 import { writeMp3Tags } from './id3-tags'
 import { writeWavTags } from './wav-tags'
@@ -71,8 +71,14 @@ export function tagFormatOf(mimeType: string): TagFormat | null {
   return null
 }
 
-/** The tags of a track (genre given by name: the track only has its id). */
-export function tagsFromTrack(track: TrackDetail, genre: string | null, cover: CoverImage | null): TrackTags {
+/**
+ * The track fields that become tags: the owner's TrackDetail and a share
+ * page's SharedTrackContent both have them.
+ */
+export type TaggableTrack = Pick<TrackDetail, 'title' | 'composers' | 'album' | 'year' | 'description' | 'lyrics' | 'lyricsSynced'>
+
+/** The tags of a track (genre given by name: the owner's track only has its id). */
+export function tagsFromTrack(track: TaggableTrack, genre: string | null, cover: CoverImage | null): TrackTags {
   return {
     title: track.title,
     artist: track.composers,
@@ -106,10 +112,11 @@ const UNSAFE_FILE_CHARS = /[<>:"/\\|?*\u0000-\u001F]/g
 /**
  * Name of the downloaded file: "Composers - Title.ext" (or "Title.ext"),
  * with characters that file systems refuse replaced, at most 150 characters
- * before the extension. The extension is the stored file's.
+ * before the extension. `extension` is the stored file's (from its path for
+ * the owner, `fileExtension` on a share page); `audio` when it has none.
  */
-export function downloadFileName(track: Pick<TrackDetail, 'title' | 'composers' | 'audioPath'>): string {
-  return `${safeBaseName(track)}.${getExtension(track.audioPath) || 'audio'}`
+export function downloadFileName(track: Pick<TrackDetail, 'title' | 'composers'>, extension: string): string {
+  return `${safeBaseName(track)}.${extension || 'audio'}`
 }
 
 /** Name of an exported LRC file: "Composers - Title.lrc", like the audio download. */

@@ -19,15 +19,25 @@ const props = defineProps<{
   shared: boolean
   /** Name of the track or playlist, given to the share sheet along with the link. */
   title?: string
+  /** A track that visitors may download (unlisted); unused for playlists, whose tracks each follow their own visibility. */
+  downloadable?: boolean
 }>()
 
 // The link, the share action, and whether it opens the device's share sheet.
 const { shareUrl, shareLink, nativeShare } = useShareLink()
 
-/** What a visitor can do with the link. */
-const reach = computed(() => (props.kind === 'playlist'
-  ? 'Anyone with the link can listen to every track in this playlist, without an account.'
-  : 'Anyone with the link can listen, without an account.'))
+/**
+ * What a visitor can do with the link. Downloads follow each track's own
+ * visibility: unlisted and private ones yes, public ones never.
+ */
+const reach = computed(() => {
+  if (props.kind === 'playlist') {
+    return 'Anyone with the link can listen to every track in this playlist, without an account, and download those that are not public.'
+  }
+  return props.downloadable
+    ? 'Anyone with the link can listen and download, without an account.'
+    : 'Anyone with the link can listen, without an account; a public track cannot be downloaded.'
+})
 </script>
 
 <template>

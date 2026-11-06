@@ -65,7 +65,7 @@ const emit = defineEmits<{
           class="min-w-0"
           :class="version ? 'line-clamp-2 break-words' : 'truncate'"
         >{{ track.title }}</span>
-        <!-- Private tracks become audible when the playlist is shared -->
+        <!-- Private tracks become audible (and downloadable) when the playlist is shared -->
         <UIcon
           v-if="track.visibility === 'private'"
           name="i-lucide-lock"

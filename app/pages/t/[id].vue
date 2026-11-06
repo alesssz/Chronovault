@@ -5,7 +5,9 @@ import { APP_NAME } from '~~/shared/brand'
 /**
  * Public page of a track shared by link ('unlisted' or 'public'): no account
  * needed. Server-rendered, so link previews (chat apps, social networks) show
- * the title and the cover. Private tracks answer like missing ones.
+ * the title and the cover. Private tracks answer like missing ones. Visitors
+ * can also download an unlisted track, with its tags (useSharedTrackDownload);
+ * a public one, never.
  */
 definePageMeta({ layout: 'public' })
 
@@ -67,6 +69,10 @@ async function togglePlay() {
 function onLyricSeek(seconds: number) {
   if (isLoaded.value) player.seek(seconds)
 }
+
+// --- Download ---------------------------------------------------------------------
+/** The file with its tags, through the same streaming address the player uses. */
+const { download, isDownloading } = useSharedTrackDownload(sharedApi.playback)
 </script>
 
 <template>
@@ -123,12 +129,26 @@ function onLyricSeek(seconds: number) {
           </p>
         </div>
 
-        <!-- Play button, waveform, times, volume, full screen and playback errors -->
+        <!-- Play button, waveform, times, download, volume, full screen and playback errors -->
         <SharePlayer
           :active="isLoaded"
           :duration="track.durationSeconds"
           @toggle="togglePlay"
-        />
+        >
+          <!-- The file, with title, lyrics and cover written in (the left side is free: no previous / next); never for a public track -->
+          <template #actions>
+            <UButton
+              v-if="track.downloadable"
+              icon="i-lucide-download"
+              label="Download"
+              color="neutral"
+              variant="ghost"
+              :loading="isDownloading(track.id)"
+              data-testid="shared-download"
+              @click="download(track)"
+            />
+          </template>
+        </SharePlayer>
 
         <div
           v-if="track.description"

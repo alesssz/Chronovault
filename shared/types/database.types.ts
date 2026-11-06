@@ -191,7 +191,7 @@ isOneToOne: false
                            },
 "get_shared_playlist_tracks":
 { Args: { "p_playlist_id": string }; Returns: {
-              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"position": number,"status": Database["public"]['Enums']["track_status"],"title": string,"updated_at": string,"year": number
+              "album": string,"audio_path": string,"composers": string,"cover_path": string,"description": string,"duration_seconds": number,"genre": string,"id": string,"lyrics": string,"lyrics_synced": Json,"peaks": Json,"position": number,"status": Database["public"]['Enums']["track_status"],"title": string,"updated_at": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number
             }[]
                            },
 "get_shared_track":

@@ -1,6 +1,6 @@
 /**
  * End-to-end, playlists: create from a track's menu, add, reorder (persisted), play all, share;
- * a visitor plays private tracks inside the playlist only; private again → 404. "Play all"
+ * a visitor plays and downloads private tracks inside the playlist only; private again → 404. "Play all"
  * starts the playlist even while one of its tracks is playing from the library.
  */
 import { expect, test, type Page } from './fixtures'
@@ -107,9 +107,14 @@ test.describe('playlists', () => {
 
     // Private tracks play inside the playlist (once the page is interactive)…
     await waitForHydration(visitor)
-    await visitorRows.filter({ hasText: first }).getByRole('button').click()
+    // The row's first button plays it (the next one downloads it).
+    await visitorRows.filter({ hasText: first }).getByRole('button').first().click()
     await expect(visitor.getByTestId('shared-now-playing-title')).toHaveText(first)
     await expect(visitor.getByTestId('shared-play')).toHaveAttribute('aria-label', 'Pause')
+    // …and download there, as the stored FLAC named after the track.
+    const download = visitor.waitForEvent('download')
+    await visitorRows.filter({ hasText: first }).getByRole('button', { name: `Download ${first}` }).click()
+    expect((await download).suggestedFilename()).toBe(`${first}.flac`)
 
     // …but still have no page of their own, and nothing private leaks through the API.
     expect((await visitor.request.get(`/api/shared/${firstId}`)).status()).toBe(404)

@@ -220,21 +220,25 @@ describe('tagFormatOf', () => {
 
 describe('downloadFileName', () => {
   // A stored FLAC: the downloaded file keeps its extension.
-  const path = 'user/track.flac'
+  const ext = 'flac'
 
   it('is "Composers - Title" with the stored extension', () => {
-    expect(downloadFileName({ title: 'Night', composers: 'Ada', audioPath: path })).toBe('Ada - Night.flac')
-    expect(downloadFileName({ title: 'Night', composers: null, audioPath: 'u/t.mp3' })).toBe('Night.mp3')
+    expect(downloadFileName({ title: 'Night', composers: 'Ada' }, ext)).toBe('Ada - Night.flac')
+    expect(downloadFileName({ title: 'Night', composers: null }, 'mp3')).toBe('Night.mp3')
+  })
+
+  it('falls back to .audio for a file stored without an extension', () => {
+    expect(downloadFileName({ title: 'Night', composers: null }, '')).toBe('Night.audio')
   })
 
   it('replaces characters file systems refuse, and trailing dots', () => {
-    expect(downloadFileName({ title: 'A/B: "C"?*', composers: null, audioPath: path })).toBe('A_B_ _C___.flac')
-    expect(downloadFileName({ title: 'Ends with dots...', composers: null, audioPath: path })).toBe('Ends with dots.flac')
+    expect(downloadFileName({ title: 'A/B: "C"?*', composers: null }, ext)).toBe('A_B_ _C___.flac')
+    expect(downloadFileName({ title: 'Ends with dots...', composers: null }, ext)).toBe('Ends with dots.flac')
   })
 
   it('keeps names short', () => {
     // The file name of a very long title.
-    const name = downloadFileName({ title: 'x'.repeat(400), composers: null, audioPath: path })
+    const name = downloadFileName({ title: 'x'.repeat(400), composers: null }, ext)
     expect(name).toBe(`${'x'.repeat(150)}.flac`)
   })
 })

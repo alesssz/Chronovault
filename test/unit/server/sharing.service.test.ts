@@ -124,14 +124,13 @@ describe('shared playlists', () => {
     visibility: 'unlisted', updated_at: '2026-10-20T10:00:00Z',
   } as unknown as SharedPlaylistRow
 
-  /** A row as get_shared_playlist_tracks() returns it. */
-  function playlistTrack(id: string, position: number, cover: string | null): SharedPlaylistTrackRow {
-    const { visibility: _v, ...row } = makeRow({ id, cover_path: cover as string, audio_path: `${USER}/${id}.flac` })
-    return { ...row, position }
+  /** A row as get_shared_playlist_tracks() returns it (the track unlisted unless said otherwise). */
+  function playlistTrack(id: string, position: number, cover: string | null, visibility: SharedPlaylistTrackRow['visibility'] = 'unlisted'): SharedPlaylistTrackRow {
+    return { ...makeRow({ id, cover_path: cover as string, audio_path: `${USER}/${id}.flac`, visibility }), position }
   }
 
   /** Its tracks in order: the unlisted one (with a cover), then the private one. */
-  const tracks = [playlistTrack(TRACK, 0, COVER), playlistTrack(PRIVATE, 1, null)]
+  const tracks = [playlistTrack(TRACK, 0, COVER), playlistTrack(PRIVATE, 1, null, 'private')]
 
   it('lists every track in order, with signed covers and the mosaic', async () => {
     vi.mocked(findSharedPlaylistRow).mockResolvedValue(playlistRow)

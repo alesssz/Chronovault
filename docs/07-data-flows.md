@@ -314,7 +314,7 @@ flowchart LR
 
 ## 7.11 Downloading a track
 
-"Download" (track menu in the library and in playlists, button on the edit page) runs entirely in the browser (`useTrackDownload`, `app/lib/tags/`): a Vercel function may not return a 50 MB file.
+"Download" (track menu in the library and in playlists, button on the edit page) runs entirely in the browser (`useTrackDownload`, `app/lib/tags/`): a Vercel function may not return a 50 MB file. The share pages offer the same download to visitors (`useSharedTrackDownload`, [7.14](#714-sharing)): only the first step differs.
 
 ```mermaid
 sequenceDiagram
@@ -345,6 +345,7 @@ sequenceDiagram
 - **Synced lyrics:** in FLAC, `LYRICS` holds them as LRC text (the common convention: players that support it show them in sync) and `UNSYNCEDLYRICS` keeps the plain text; in MP3, the standard `SYLT` frame (times in ms) sits next to the plain `USLT` lyrics. Uploading such a file reads them back.
 - **The cover** is stored as WebP, which many players do not show inside a tag: it is re-encoded as JPEG for the file. A cover that cannot be read only means a file without cover, never a failed download.
 - **File name:** `Composers - Title.ext` (or `Title.ext`), with the characters Windows, macOS or Linux refuse replaced by `_`, at most 150 characters.
+- **On a share page** (only for tracks marked `downloadable`: not public, [7.14](#714-sharing)) the track data is already on the page (genre by name, a signed cover URL), so only the streaming address is asked for, through the same route the page's player uses: `/api/shared/:id/playback`, or `/api/shared/playlists/:id/tracks/:trackId/playback` on a playlist. The file's type comes from `fileExtension`, the one part of the storage key the shared data carries (the key itself names the owner's account). Nothing of the owner's API is called (`/api/tracks`, `/api/genres`).
 - **Feedback:** when a download takes more than about 0.7 s, a neutral toast with a spinner shows the progress (a fast download would only flash it, which looks like an error); at the end a toast lists exactly which fields were written.
 
 ## 7.12 Storage clean-up
@@ -410,11 +411,11 @@ sequenceDiagram
 
 ## 7.14 Sharing
 
-| Visibility | Who can listen | Share page |
-|---|---|---|
-| `private` | Only the owner | None: the link answers `404`, exactly like a missing item |
-| `unlisted` | Anyone with the link | `noindex`: kept out of search engines |
-| `public` | Anyone with the link | Can be indexed by search engines |
+| Visibility | Who can listen | Who can download (share pages) | Share page |
+|---|---|---|---|
+| `private` | Only the owner | Visitors of a shared playlist holding it, there only | None: the link answers `404`, exactly like a missing item |
+| `unlisted` | Anyone with the link | Anyone with the link | `noindex`: kept out of search engines |
+| `public` | Anyone with the link | Nobody (the owner from the library) | Can be indexed by search engines |
 
 There is no public catalog: other people reach an item only through its link (`/t/<track id>` or `/p/<playlist id>`); ids are random UUIDs, so links cannot be guessed. The share boxes and "Copy share link" use the **saved** visibility: a change applies once saved.
 
@@ -444,7 +445,8 @@ sequenceDiagram
 **A shared playlist** (`pages/p/[id].vue`) works the same way through `get_shared_playlist(id)` and `get_shared_playlist_tracks(id)`. The first track is cued on load; the page shows the list, the waveform and, beside them, the lyrics and description of the track being played: the queue's track (`displayTrack`), so a track chosen shows at once, while it loads and after it failed, and a click on any row goes through the store (`playSharedPlaylist`), which toggles the track it is on and starts any other. After a failed track the big Play tries that track again (it used to start the playlist over). The lyrics read the player's position inside `ShareLyrics` (also on `/t/…`): read in the page's template, it made the whole page, up to 1000 rows, render again on every animation frame while the music played. Audio comes from `GET /api/shared/playlists/:id/tracks/:trackId/playback`, which signs **only tracks that belong to that shared playlist**. It reads that one file's path (`get_shared_playlist_track_audio`), and the cover route the one cover it needs (`get_shared_playlist_cover`): both used to read the whole list, lyrics, synced lyrics and peaks included (up to ~11 KB per track), at every change of track.
 
 - **Only shareable fields leave the database.** Other people cannot read the `tracks` or `playlists` tables at all. The `get_shared_*` functions (security definer) return title, composers, album, year, genre name, description, lyrics, peaks and duration — never the Suno prompt, the mastering status or the owner's account (checked by pgTAP tests). The storage keys of the files (`audio_path`, `cover_path`) do come back, since the server needs them to sign the files: they start with the owner's user id, and a key alone opens nothing (both stores are private, every file is reached through a signature, and a row can only name its own files, [8.5](08-data-model-and-security.md#85-security-guarantees)). Nor can the keys be listed: someone else's shared files are signed by their exact name only, so Storage's list endpoint, called with the public key, names neither a user's folder nor the ids inside it.
-- **Private tracks inside a shared playlist** can be heard through that playlist only: their own `/t/` link still answers `404`, and their audio is signed only via the playlist's id. The playlist editor warns how many private tracks are included.
+- **Downloads.** Both pages offer the file with its tags, as the owner's download ([7.11](#711-downloading-a-track)): **Download** under the track page's player, a download button on each row of a playlist. **The track's own visibility decides**, not the playlist's: an unlisted track, or a private one inside a shared playlist, can be downloaded; a **public track never**, on its page or in any playlist. The server sends the outcome (`downloadable`), never the visibility of a playlist's tracks (`get_shared_playlist_tracks` returns it since `20261106000000_shared_track_downloads.sql`). It is a choice of what the page offers, not a lock: the streaming address the player gets is the whole file, so a determined visitor of a public track could still save the stream (untagged). Making the item private stops new downloads like it stops listening.
+- **Private tracks inside a shared playlist** can be heard and downloaded through that playlist only: their own `/t/` link still answers `404`, and their audio is signed only via the playlist's id. The playlist editor warns how many private tracks are included.
 - **Link previews.** The pages set `og:title`, `og:description`, `og:image` and `robots`. The image points to `/api/shared/…/cover`, a stable address that redirects to a fresh signed URL (previews are cached for a long time; signed URLs expire). A playlist without a custom cover uses its first track cover. An item with no cover at all, or a link no longer available, shows the Chronovault artwork (`/cover-fallback.jpg`, a static JPEG), and `og:site_name` is "Chronovault".
 - **Revoking.** Making an item private closes its page immediately (the next request answers `404`); an audio URL already handed out keeps working until it expires, at most 6 hours.
 - **The share pages' player** (`<SharePlayer>`): the public layout has no player bar, so each page brings its own controls: play/pause and the waveform; under them previous / next (playlists), the volume (`PlayerVolume`: mute only on touch screens) and **Full screen**, which opens the app's full-screen view (`PlayerExpanded`, mounted by the public layout with `shared`: no "Edit track", no Up next, for a track without lyrics "No lyrics" without the owner's hint to add some (`LyricsView`'s `shared`), the genre read from the shared track, and no request for the owner's genre list). While the page's player is scrolled out of view, **`<ShareMiniPlayer>`** slides up at the bottom of the screen, like the app's phone bar: a progress line, cover and title (tap for the full-screen view; on touch screens swipe left / right / up for next, previous, full screen), previous / play / next. The layout keeps room for it at the bottom (`has-mini-player`). The lock-screen card and media keys work here too.

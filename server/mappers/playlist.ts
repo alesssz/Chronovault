@@ -114,8 +114,9 @@ export type SharedPlaylistTrackRow = Database['public']['Functions']['get_shared
 
 /**
  * One track of a shared playlist: shareable fields only. The row's
- * `audio_path` is used by the service to sign playback URLs and is never
- * copied into the response.
+ * `audio_path` is used by the service to sign playback URLs; only its
+ * extension reaches the response (the visitor's download), and of its
+ * `visibility` only whether it may be downloaded.
  */
 export function toSharedPlaylistTrack(row: SharedPlaylistTrackRow, signed: SignedUrls): SharedTrackContent {
   // Same shareable fields as a shared track's page (drafts show as "Work in progress").

@@ -151,6 +151,18 @@ export interface SharedTrackContent {
   status: TrackStatus
   /** Signed Storage URL (6 h) of the cover: visitors have no session for /api/covers. */
   coverUrl: string | null
+  /**
+   * Visitors may download it (the share pages' Download): the track itself
+   * is 'unlisted', or 'private' and shared through a playlist. A 'public'
+   * track never is, on its own page or inside a playlist.
+   */
+  downloadable: boolean
+  /**
+   * The stored file's extension (`flac`, `mp3`…; `''` if it has none): the
+   * download's file name and tag format. The storage path itself, which
+   * holds the owner's id, is never sent.
+   */
+  fileExtension: string
   /** When it last changed (ISO 8601). */
   updatedAt: string
 }
