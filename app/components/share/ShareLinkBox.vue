@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PlaylistPurpose } from '~~/shared/types/playlist'
 import type { ShareKind } from '~/composables/useShareLink'
 
 /**
@@ -22,6 +23,8 @@ const props = defineProps<{
   shared: boolean
   /** Name of the track or playlist, given to the share sheet along with the link. */
   title?: string
+  /** A playlist's purpose, for its words: "every version in this group" for a group of versions (default: a playlist). */
+  purpose?: PlaylistPurpose
 }>()
 
 // The link, the share action, and whether it opens the device's share sheet.
@@ -32,9 +35,12 @@ const { shareUrl, shareLink, nativeShare } = useShareLink()
  * downloadable per its own visibility (unlisted and private ones yes, public
  * ones never); for a track, its visibility cards say it, so nothing here.
  */
-const reach = computed(() => props.kind === 'playlist'
-  ? 'Anyone with the link can listen to every track in this playlist, without an account, and download those that are not public. '
-  : '')
+const reach = computed(() => {
+  if (props.kind !== 'playlist') return ''
+  // In the purpose's words: a group's box spoke of "every track in this playlist" (UI-40).
+  const { noun, trackNoun } = PLAYLIST_PURPOSE_INFO[props.purpose ?? 'playlist']
+  return `Anyone with the link can listen to every ${trackNoun} in this ${noun}, without an account, and download those that are not public. `
+})
 </script>
 
 <template>

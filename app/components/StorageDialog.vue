@@ -203,13 +203,17 @@ function fileName(orphan: OrphanFile) {
           :disabled="cleaning.running"
           @click="open = false"
         />
+        <!--
+          Only when there is something to delete: disabled, "Nothing to delete" was still a red
+          button at 75% opacity and read as a live destructive action (UI-33); the report above
+          already says there is nothing.
+        -->
         <UButton
-          :label="deletable.length
-            ? `Delete ${pluralize(deletable.length, 'file')} (${formatBytes(deletableBytes)})`
-            : 'Nothing to delete'"
+          v-if="deletable.length"
+          :label="`Delete ${pluralize(deletable.length, 'file')} (${formatBytes(deletableBytes)})`"
           icon="i-lucide-trash-2"
           color="error"
-          :disabled="!deletable.length || loading"
+          :disabled="loading"
           :loading="cleaning.running"
           data-testid="storage-delete"
           @click="clean"

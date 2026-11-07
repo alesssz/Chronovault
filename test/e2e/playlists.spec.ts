@@ -78,6 +78,9 @@ test.describe('playlists', () => {
     await expect(details).toBeHidden()
     await expect(page.getByTestId('playlist-description')).toHaveText('Songs for the road.')
     await expect(page.getByTestId('private-tracks-warning')).toContainText('2 private tracks included')
+    // Who can listen, in a playlist's words; and the cover's note names the initials too.
+    await expect(shareBox).toContainText('every track in this playlist')
+    await expect(page.getByTestId('playlist-cover-hint')).toContainText('or its initials when they have none')
 
     await shareBox.getByTestId('copy-share-link').click()
     // The copied link.

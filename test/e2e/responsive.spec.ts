@@ -571,6 +571,12 @@ test.describe('touch screens', () => {
     await expect(page.getByTestId('track-row')).toHaveCount(1)
     await expect(page.getByTestId('library-count')).toHaveText('1 track')
     await expect(page.getByTestId('filters-count')).toHaveCount(0)
+    // The account menu: no "Keyboard shortcuts" on a touch screen, usually without a keyboard.
+    await page.getByRole('button', { name: 'User menu' }).tap()
+    await expect(page.getByRole('menuitem', { name: 'Storage' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Keyboard shortcuts' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menuitem', { name: 'Storage' })).toBeHidden()
 
     // --- Track editor: the form in the first screen, Save at the bottom while there are changes ---
     const id = await firstTrackId(page)

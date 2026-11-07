@@ -41,6 +41,8 @@ test.describe('storage clean-up', () => {
     await page.getByTestId('storage-delete').click()
     await expect(page.getByText('Deleted 1 file').first()).toBeVisible()
     await expect(page.getByTestId('storage-clean')).toBeVisible()
+    // Nothing left to delete: no delete button at all (disabled, it was still red).
+    await expect(page.getByTestId('storage-delete')).toHaveCount(0)
 
     // The real track still has its file and plays.
     const status = await page.evaluate(async () => {

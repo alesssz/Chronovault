@@ -339,12 +339,16 @@ async function onDelete() {
             class="w-full"
           />
         </template>
-        <!-- No custom cover: explains where the mosaic comes from -->
+        <!--
+          No custom cover: explains what shows instead. The initials too (PlaylistCover): without
+          them the note promised track covers where a user saw letters (UI-36).
+        -->
         <p
           v-if="!playlist.coverUrl"
           class="text-xs text-muted"
+          data-testid="playlist-cover-hint"
         >
-          Without a cover of its own, the {{ info.noun }} shows the covers of its first {{ info.trackNoun }}s.
+          Without a cover of its own, the {{ info.noun }} shows the covers of its first {{ info.trackNoun }}s, or its initials when they have none.
         </p>
       </TrackCoverPicker>
 
@@ -425,6 +429,7 @@ async function onDelete() {
         <ShareLinkBox
           :id="id"
           kind="playlist"
+          :purpose="purpose"
           :shared="isShared"
           :title="playlist?.title"
         >
