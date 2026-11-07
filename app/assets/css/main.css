@@ -120,14 +120,6 @@ html {
 }
 
 /*
- * The full-screen player covers the whole page while it is open, so it gets
- * its own, slightly smaller scale (19px) through a class set on <html>.
- */
-html.player-expanded {
-  font-size: 118.75%;
-}
-
-/*
  * Phones (below `sm`, 40rem = 640px: media queries ignore the base size
  * above) get a smaller base: 17px, the standard body size on iPhone. At 20px
  * a phone held barely 19 rem across, so filters truncated ("Most rece…")
@@ -136,17 +128,12 @@ html.player-expanded {
  * (text, spacing, buttons, the player bar's height), so the proportions
  * stay those of the larger screens.
  *
- * The full-screen player keeps the same 17px here: its smaller desktop scale
- * only exists to fit the cover and controls in a short window, while on a
- * phone the view scrolls.
- *
  * Form fields stay at 17px (`text-base`; Nuxt UI drops them to `text-sm`
  * only from `md`), above the 16px under which iPhones zoom the page when a
  * field is focused.
  */
 @media (width < 40rem) {
-  html,
-  html.player-expanded {
+  html {
     font-size: 106.25%;
   }
 }
@@ -201,7 +188,7 @@ html.player-expanded {
 
 /*
  * The same for the share pages' mini player (ShareMiniPlayer: a 4rem row
- * plus its progress line), whenever their player is in use.
+ * plus its progress line), while it is shown.
  */
 .has-mini-player {
   padding-bottom: calc(4rem + 2px + env(safe-area-inset-bottom));

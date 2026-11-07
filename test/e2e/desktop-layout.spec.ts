@@ -9,9 +9,13 @@
  *   pushed the tracks below the bottom edge);
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
  *   the first screen (a 26rem cover put them on or below the bottom edge);
- * - the full-screen player of a track without lyrics shows its description beside the controls,
- *   and with neither a single centred column (half the screen held only "No lyrics"); its controls
- *   stay inside the window down to 1280×720 and 1024×640 (at 1280×720 they fell under the edge);
+ * - the full-screen player (the share page's layout) of a track without lyrics shows its
+ *   description beside the cover, and with neither a single centred column (half the screen held
+ *   only "No lyrics"); its controls bar stays inside the window down to 1280×720 and 1024×640;
+ * - a shared track (TrackShowcase, the full-screen player's body too): the title, composers and
+ *   album in a centred band over two columns; on the left a square cover as wide as the column
+ *   and About under it; on the right the lyrics, exactly as tall, from the cover's top to About's
+ *   end; the player bar at the bottom of the window, as wide as the content;
  * - Save is grey until something changed, then gold (disabled, it was the same gold, faded);
  * - the mastering filter's "no filter" reads as a choice ("Any mastering", it said "Mastering").
  */
@@ -152,41 +156,125 @@ test.describe('desktop layout', () => {
     expect(shared.y + shared.height).toBeLessThanOrEqual(height)
     await page.goto(`/t/${ids[TRACKS[0]!]}`)
     await waitForHydration(page)
-    // The track's page: the row under the waveform too (full screen, volume), where Play sat
-    // on the bottom edge and that row under it.
-    const trackControls = (await page.getByTestId('shared-expand').boundingBox())!
+    // The track's page: its player bar at the window's bottom (Play sat on the bottom edge once,
+    // the row under the waveform under it).
+    const trackControls = (await page.getByTestId('shared-play').boundingBox())!
     expect(trackControls.y + trackControls.height).toBeLessThanOrEqual(height)
 
     // --- Full-screen player without lyrics ---
     await page.goto('/')
     const expanded = page.getByTestId('player-expanded')
-    // With a description: it fills the right column.
+    // With a description: it fills the right column, beside the cover (the share page's layout).
     await rows.filter({ hasText: TRACKS[0]! }).getByTestId('track-title').click()
     await rows.filter({ hasText: TRACKS[0]! }).getByTestId('track-title').click()
     await expect(expanded).toBeVisible()
-    const description = expanded.getByTestId('player-description')
+    const description = expanded.getByTestId('player-about')
     await expect(description).toContainText('Written for the desk.')
-    expect((await description.boundingBox())!.x).toBeGreaterThan(1440 / 2)
+    const cover = (await expanded.locator('img').first().boundingBox())!
+    expect((await description.boundingBox())!.x).toBeGreaterThan(cover.x + cover.width)
     // With neither lyrics nor a description: one column, in the middle of the screen.
     await page.keyboard.press('Escape')
     await expect(expanded).toBeHidden()
     await rows.filter({ hasText: TRACKS[1]! }).getByTestId('track-title').click()
     await rows.filter({ hasText: TRACKS[1]! }).getByTestId('track-title').click()
     await expect(expanded).toBeVisible()
-    await expect(expanded.getByTestId('player-description')).toHaveCount(0)
+    await expect(expanded.getByTestId('player-about')).toHaveCount(0)
     await expect(expanded.getByText('No lyrics')).toHaveCount(0)
-    // The column of cover and controls (the first section of the view).
+    // The column of title and cover (the first section of the view).
     const column = (await expanded.locator('section').first().boundingBox())!
     expect(Math.abs(column.x + column.width / 2 - 1440 / 2)).toBeLessThan(2)
 
-    // --- Full-screen player on smaller windows: every control of the column on screen ---
-    // At 1280×720 the cover kept 20rem and the controls fell under the bottom edge, out of reach.
+    // --- Full-screen player on smaller windows: every control of its bar on screen ---
+    // (At 1280×720 the controls, in the cover's column then, once fell under the bottom edge.)
+    const bar = expanded.getByTestId('player-expanded-bar')
     for (const [width, windowHeight] of [[1440, 900], [1366, 768], [1280, 720], [1024, 640]] as const) {
       await page.setViewportSize({ width, height: windowHeight })
-      // The lowest button or slider of the column, once the layout has followed the window.
-      await expect.poll(() => expanded.locator('section').first().evaluate(section => Math.max(
-        ...[...section.querySelectorAll('button, [role="slider"]')].map(control => control.getBoundingClientRect().bottom),
+      // The lowest button or slider of the bar, once the layout has followed the window.
+      await expect.poll(() => bar.evaluate(element => Math.max(
+        ...[...element.querySelectorAll('button, [role="slider"]')].map(control => control.getBoundingClientRect().bottom),
       )), { message: `controls inside a ${width}×${windowHeight} window` }).toBeLessThanOrEqual(windowHeight)
+    }
+  })
+
+  test('a shared track: a centred band, the cover and About on the left, the lyrics as tall beside them, a bottom bar', async ({ page, browser }) => {
+    await signUp(page)
+    await uploadTrack(page, 'Desk aria')
+    // Unlisted, with long lyrics and a description.
+    const id = await page.evaluate(async () => {
+      const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
+      const lyrics = Array.from({ length: 6 }, (_, v) => `[Verse ${v + 1}]\nA line\nAnother line\nA third line\nThe last line`).join('\n\n')
+      await fetch(`/api/tracks/${track!.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ visibility: 'unlisted', composers: 'Ada', album: 'Desk', year: 2026, lyrics, description: 'Written for the desk.' }),
+      })
+      return track!.id
+    })
+    // A visitor.
+    const context = await browser.newContext()
+    try {
+      const visitor = await context.newPage()
+      // Laptop and desktop windows, the 1505×738 one included (there the cover was 207px, play under the edge).
+      for (const [width, height] of [[1440, 900], [1505, 738], [1920, 1080]] as const) {
+        await visitor.setViewportSize({ width, height })
+        await visitor.goto(`/t/${id}`)
+        await waitForHydration(visitor)
+        await visitor.getByTestId('shared-play').click()
+        await expect(visitor.getByTestId('shared-play')).toHaveAttribute('aria-label', 'Pause')
+        /** Where everything is, in the window. */
+        const measure = () => visitor.evaluate(() => {
+          const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect()
+          return {
+            track: rect('[data-testid="shared-track"]'),
+            cover: document.querySelector('[data-testid="shared-track"] img')!.getBoundingClientRect(),
+            // The title's band (a draft's badge and the byline in it).
+            title: document.querySelector('[data-testid="shared-title"]')!.parentElement!.getBoundingClientRect(),
+            heading: rect('[data-testid="shared-title"]'),
+            // The byline (composers · album · year · genre): the element after the title.
+            byline: document.querySelector('[data-testid="shared-title"]')!.nextElementSibling!.getBoundingClientRect(),
+            about: rect('[data-testid="shared-description"]'),
+            panel: rect('[data-testid="shared-lyrics"]'),
+            bar: rect('[data-testid="shared-bar"]'),
+            play: rect('[data-testid="shared-play"]'),
+            download: rect('[data-testid="shared-download"]'),
+            rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+          }
+        })
+        const box = await measure()
+        const at = `${width}×${height}`
+        // The title's band over both columns, centred.
+        expect(box.title.bottom, `${at}: the band over the cover`).toBeLessThan(box.cover.top)
+        expect(box.title.bottom, `${at}: the band over the lyrics`).toBeLessThan(box.panel.top)
+        expect(Math.abs((box.title.left + box.title.right) / 2 - (box.track.left + box.track.right) / 2), `${at}: the band centred`).toBeLessThan(1)
+        // Two lines: the title, then the byline under it, centred (on the title's line it read as data).
+        expect(box.byline.top, `${at}: the byline under the title`).toBeGreaterThanOrEqual(box.heading.bottom - 1)
+        expect(Math.abs((box.byline.left + box.byline.right) / 2 - (box.track.left + box.track.right) / 2), `${at}: the byline centred`).toBeLessThan(1)
+        // Left: a square cover as wide as the column (at least 25rem: it was held to the screen's
+        // height, a thumbnail on short windows), then About.
+        expect(Math.abs(box.cover.width - box.cover.height), at).toBeLessThan(1)
+        expect(box.cover.width, at).toBeGreaterThanOrEqual(25 * box.rem)
+        expect(box.about.top, `${at}: About under the cover`).toBeGreaterThan(box.cover.bottom)
+        // Right: the lyrics panel exactly as tall as the left column, from the cover's top to About's end.
+        expect(Math.abs(box.cover.top - box.panel.top), `${at}: cover and panel start together`).toBeLessThan(1)
+        expect(Math.abs(box.about.bottom - box.panel.bottom), `${at}: About and panel end together`).toBeLessThan(1)
+        // The player bar at the bottom of the window, as wide as the content: play under the cover's
+        // left edge, Download under the panel's right edge.
+        expect(Math.abs(box.bar.bottom - height), at).toBeLessThan(1)
+        expect(Math.abs(box.play.left - box.cover.left), `${at}: play under the cover's edge`).toBeLessThan(1)
+        expect(Math.abs(box.download.right - box.panel.right), `${at}: Download under the panel's edge`).toBeLessThan(1)
+        // Scrolled to the end, About and the panel's end clear the bar.
+        await visitor.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await expect.poll(async () => (await measure()).panel.bottom, { message: `${at}: the end above the bar` }).toBeLessThanOrEqual(box.bar.top)
+      }
+      // No cover of its own: the Chronovault artwork it shows opens full screen all the same
+      // (it opened nothing at first, and a click on it seemed broken).
+      await visitor.getByRole('button', { name: 'Open the cover full screen' }).click()
+      await expect(visitor.getByTestId('cover-viewer').locator('img')).toHaveAttribute('src', /cover-fallback/)
+      await visitor.keyboard.press('Escape')
+      await expect(visitor.getByTestId('cover-viewer')).toBeHidden()
+    }
+    finally {
+      await context.close()
     }
   })
 })

@@ -8,6 +8,11 @@ import { APP_NAME } from '~~/shared/brand'
  * the title and the cover. Private tracks answer like missing ones. Visitors
  * can also download an unlisted track, with its tags (useSharedTrackDownload);
  * a public one, never.
+ * The body is TrackShowcase, the full-screen player's too: from `md` a band
+ * with the title, the cover and About on the left, the lyrics as tall beside
+ * them; the player is then a bar fixed at the bottom of the screen, with
+ * Download. Below `md` everything stacks (cover, title, player, lyrics,
+ * About) and the player is in the page.
  */
 definePageMeta({ layout: 'public' })
 
@@ -48,8 +53,16 @@ useShareMeta({
 // --- Playback ---------------------------------------------------------------------
 /** The player holds this track. */
 const isLoaded = computed(() => player.current?.id === id)
-/** The lyrics column is shown only when there are lyrics. */
+/** The track has lyrics: the lyrics panel, beside the cover from `md`. */
 const showLyrics = computed(() => !!track.value && hasLyrics(track.value))
+/**
+ * A tablet- or desktop-wide window (Tailwind's `md`, where TrackShowcase has
+ * two columns): the player is the bar at the bottom of the screen instead of
+ * a block in the page. false on the server, which cannot know: the in-page
+ * player is rendered, and hidden from `md` by CSS until the bar replaces it
+ * once mounted (the bar is fixed, so nothing moves).
+ */
+const isWide = useMediaQuery('(min-width: 768px)')
 
 // The audio is ready (waveform included) before the first click.
 onMounted(() => {
@@ -76,116 +89,98 @@ const { download, isDownloading } = useSharedTrackDownload(sharedApi.playback)
 </script>
 
 <template>
-  <UContainer class="py-6 sm:py-10">
-    <div
+  <UContainer class="py-6 sm:py-10 md:pt-4 md:pb-[calc(5.5rem+1px)]">
+    <!--
+      From `md`: the bottom padding keeps the end of the page above the player bar (4.5rem, its 1px
+      border, and 1rem of air).
+    -->
+    <!--
+      The track: TrackShowcase, the full-screen player's body too, so the two look the same
+      (band with the title, cover and About on the left, the lyrics as tall beside them). The page
+      brings what only it has: the in-page player below `md`, the lyrics that follow the player
+      without making the page render every frame (ShareLyrics), and Download.
+    -->
+    <TrackShowcase
       v-if="track"
-      class="mx-auto grid grid-cols-[minmax(0,1fr)] gap-8"
-      :class="showLyrics ? 'max-w-6xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-12' : 'max-w-md'"
-      data-testid="shared-track"
+      :title="track.title"
+      :composers="track.composers"
+      :meta="meta"
+      :draft="track.status === 'draft'"
+      :cover-url="track.coverUrl"
+      :description="track.description"
+      :has-lyrics="showLyrics"
+      testid="shared"
     >
-      <!--
-        Left: cover, title and details, player, description. The cover also shrinks with the
-        screen's height, so the play button is in the first screen: below `lg` (20rem: header,
-        title lines and the player row) even on a short phone (375×667) with the browser's bars;
-        from `lg` (27rem: the same, plus the controls under the waveform), where the column's full
-        26rem put Play on the bottom edge of a 1440×900 screen.
-      -->
-      <section class="flex min-w-0 flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
-        <TrackCover
-          :url="track.coverUrl"
-          :title="track.title"
-          rounded="rounded-xl"
-          class="mx-auto w-full max-w-[max(10rem,min(24rem,calc(100dvh-20rem)))] shadow-2xl shadow-black/40 lg:mx-0 lg:max-w-[max(14rem,calc(100dvh-27rem))]"
-        />
-
-        <div class="min-w-0">
-          <!-- A draft is one version among others: friends know it is not the final cut -->
-          <UBadge
-            v-if="track.status === 'draft'"
-            label="Work in progress"
-            icon="i-lucide-flask-conical"
-            color="warning"
-            variant="subtle"
-            class="mb-2"
-            data-testid="shared-wip"
-          />
-          <h1
-            class="text-3xl font-bold tracking-tight text-balance"
-            data-testid="shared-title"
-          >
-            {{ track.title }}
-          </h1>
-          <p
-            v-if="track.composers"
-            class="mt-1 text-lg text-muted"
-          >
-            {{ track.composers }}
-          </p>
-          <p
-            v-if="meta"
-            class="mt-1 text-sm text-dimmed"
-          >
-            {{ meta }}
-          </p>
-        </div>
-
-        <!-- Play button, waveform, times, download, volume, full screen and playback errors -->
+      <!-- Below `md`: the player in the page (play button, waveform, controls, errors), then Download -->
+      <template
+        v-if="!isWide"
+        #player
+      >
         <SharePlayer
           :active="isLoaded"
           :duration="track.durationSeconds"
           @toggle="togglePlay"
-        >
-          <!-- The file, with title, lyrics and cover written in (the left side is free: no previous / next); never for a public track -->
-          <template #actions>
-            <UButton
-              v-if="track.downloadable"
-              icon="i-lucide-download"
-              label="Download"
-              color="neutral"
-              variant="ghost"
-              :loading="isDownloading(track.id)"
-              data-testid="shared-download"
-              @click="download(track)"
-            />
-          </template>
-        </SharePlayer>
-
-        <div
-          v-if="track.description"
-          class="space-y-2"
-        >
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
-            About
-          </h2>
-          <p
-            class="whitespace-pre-line leading-relaxed"
-            data-testid="shared-description"
-          >
-            {{ track.description }}
-          </p>
-        </div>
-      </section>
-
-      <!-- Right: the lyrics (synced ones follow playback) -->
-      <section
-        v-if="showLyrics"
-        class="h-[70dvh] rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 lg:h-[calc(100dvh-10rem)]"
-        aria-label="Lyrics"
-        data-testid="shared-lyrics"
-      >
-        <!-- The position is read inside ShareLyrics, so the page does not render again every frame -->
+        />
+        <!--
+          The file, with title, lyrics and cover written in. Never for a public track. "Download" with
+          its icon, as on the owner's edit page (the format is in the toast that follows).
+        -->
+        <UButton
+          v-if="track.downloadable"
+          icon="i-lucide-download"
+          label="Download"
+          color="neutral"
+          variant="subtle"
+          size="lg"
+          block
+          :loading="isDownloading(track.id)"
+          data-testid="shared-download"
+          @click="download(track)"
+        />
+      </template>
+      <template #lyrics>
+        <!--
+          Centred: the panel is wide, and left-aligned lines left its right half empty. No room after
+          the last line (`end-room`): made for the phones' lyrics view, it was some 330px of nothing here.
+        -->
         <ShareLyrics
           :synced="track.lyricsSynced"
           :plain="track.lyrics"
           :following="isLoaded"
+          centered
+          :end-room="false"
           @seek="onLyricSeek"
         />
-      </section>
-    </div>
+      </template>
+    </TrackShowcase>
+
+    <!-- From `md`: the player as a bar at the bottom of the screen, Download at its end -->
+    <SharePlayer
+      v-if="track && isWide"
+      bar
+      :active="isLoaded"
+      :duration="track.durationSeconds"
+      @toggle="togglePlay"
+    >
+      <template #actions>
+        <!-- The file, with title, lyrics and cover written in. Never for a public track. -->
+        <UButton
+          v-if="track.downloadable"
+          icon="i-lucide-download"
+          label="Download"
+          color="neutral"
+          variant="subtle"
+          class="shrink-0"
+          :loading="isDownloading(track.id)"
+          data-testid="shared-download"
+          @click="download(track)"
+        />
+      </template>
+    </SharePlayer>
 
     <!-- Private, missing or malformed link -->
     <ShareUnavailable
-      v-else
+      v-if="!track"
       kind="track"
       :not-found="notFound"
     />

@@ -12,14 +12,18 @@ import type { SyncedLyricLine } from '~~/shared/types/track'
  * battery. Read here, only this component renders again, the same way
  * LyricsSyncClock keeps the sync editor out of the per-frame work.
  */
-defineProps<{
+withDefaults(defineProps<{
   /** Synced lines, which win over the plain lyrics when there are some. */
   synced: SyncedLyricLine[] | null
   /** Plain lyrics. */
   plain: string | null
   /** The player holds this very track: the lines follow its position (otherwise they rest at 0:00). */
   following: boolean
-}>()
+  /** Every line centred (the track page's wide panel). */
+  centered?: boolean
+  /** Room after the last synced line, to scroll it to the middle (see LyricsView's `endRoom`). */
+  endRoom?: boolean
+}>(), { centered: false, endRoom: true })
 
 /** A line was clicked: the page seeks there (only while it plays this track). */
 const emit = defineEmits<{ seek: [seconds: number] }>()
@@ -35,6 +39,8 @@ const player = usePlayerStore()
     :plain="plain"
     :current-time="following ? player.currentTime : 0"
     shared
+    :centered="centered"
+    :end-room="endRoom"
     @seek="emit('seek', $event)"
   />
 </template>
