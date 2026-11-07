@@ -5,7 +5,7 @@
  * emits the file with the chosen crop (`select`) or asks for removal
  * (`remove`): the page converts, uploads and saves. `busy` shows a spinner
  * over the preview. The `preview` slot replaces the image (playlists show
- * their mosaic); the default slot adds a note under the picker's own.
+ * their mosaic); the default slot adds a note under the buttons.
  *
  * From `md` it fills the editors' side column, the preview at full width. Below
  * `md` the editors are one column and it is a compact row at their top: a
@@ -108,10 +108,10 @@ function onChange(event: Event) {
           @click="emit('remove')"
         />
       </div>
-      <!-- What happens to the picked image -->
-      <p class="text-xs text-muted">
-        You choose the square to keep; saved at up to 800×800.
-      </p>
+      <!--
+        No note of the picker's own: "You choose the square to keep; saved at up to 800×800" said
+        what the crop editor shows anyway, once an image is picked.
+      -->
       <!-- A note of the page's own (a playlist's mosaic) -->
       <slot />
     </div>

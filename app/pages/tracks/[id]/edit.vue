@@ -250,18 +250,20 @@ const isCurrent = computed(() => player.current?.id === id)
           class="w-full"
         >
           <!--
-            Details tab. From `sm` a grid of six columns, so each row is full: title and composers
+            Details tab. A grid of six columns from `sm`, so each row is full: title and composers
             across it, album, year and genre in thirds, then description, Suno prompt and
-            visibility across it. (Mastering and version, the track's state, are in the left
-            column: as switches on a row of their own they left it looking empty.)
+            visibility across it. Below `sm` two columns: album and year share a row (a row each
+            made the phone's form a screen longer), the rest across it. (Mastering and version,
+            the track's state, are in the left column: as switches on a row of their own they left
+            it looking empty.)
           -->
           <template #details>
-            <div class="grid gap-4 pt-4 sm:grid-cols-6">
+            <div class="grid grid-cols-2 gap-4 pt-4 sm:grid-cols-6">
               <UFormField
                 label="Title"
                 name="title"
                 required
-                class="sm:col-span-6"
+                class="col-span-full"
               >
                 <UInput
                   v-model="state.title"
@@ -273,7 +275,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Composers / Authors"
                 name="composers"
-                class="sm:col-span-6"
+                class="col-span-full"
               >
                 <UInput
                   v-model="state.composers"
@@ -285,7 +287,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Album"
                 name="album"
-                class="sm:col-span-2"
+                class="min-w-0 sm:col-span-2"
               >
                 <UInput
                   v-model="state.album"
@@ -296,14 +298,21 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Year"
                 name="year"
-                class="sm:col-span-2"
+                class="min-w-0 sm:col-span-2"
               >
+                <!--
+                  No − / + buttons: a year is typed, not stepped to, and they took a third of the
+                  field (the arrow keys still step it). Text at the start, like the fields beside it.
+                -->
                 <UInputNumber
                   v-model="year"
                   :min="1000"
                   :max="9999"
                   :format-options="{ useGrouping: false }"
+                  :increment="false"
+                  :decrement="false"
                   placeholder="e.g. 2026"
+                  :ui="{ base: 'text-start' }"
                   class="w-full"
                 />
               </UFormField>
@@ -316,20 +325,24 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Genre"
                 name="genreId"
-                class="sm:col-span-2"
+                class="col-span-full sm:col-span-2"
               >
                 <TrackGenreSelect v-model="state.genreId" />
               </UFormField>
 
-              <!-- Description: shown on the share page and in the full-screen player -->
+              <!--
+                Description: shown on the share page and in the full-screen player. It and the Suno
+                prompt start at four rows and grow with the text (at eight, empty, the two pushed
+                Visibility below the first screen).
+              -->
               <UFormField
                 label="Description"
                 name="description"
-                class="sm:col-span-6"
+                class="col-span-full"
               >
                 <UTextarea
                   v-model="state.description"
-                  :rows="8"
+                  :rows="4"
                   autoresize
                   :maxrows="24"
                   placeholder="Notes, inspiration, summary…"
@@ -338,18 +351,21 @@ const isCurrent = computed(() => player.current?.id === id)
                 />
               </UFormField>
 
-              <!-- Suno prompt: a private note, never shared -->
+              <!--
+                Suno prompt: a private note, never shared. What it is for says its placeholder, as
+                the description's does (a help line under it was the form's only one).
+              -->
               <UFormField
                 label="Suno prompt"
                 name="sunoPrompt"
-                help="The prompt used to generate the track."
-                class="sm:col-span-6"
+                class="col-span-full"
               >
                 <UTextarea
                   v-model="state.sunoPrompt"
-                  :rows="8"
+                  :rows="4"
                   autoresize
                   :maxrows="24"
+                  placeholder="The prompt used to generate the track (never shared)"
                   class="w-full font-mono"
                   data-testid="field-suno-prompt"
                 />
@@ -359,7 +375,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Visibility"
                 name="visibility"
-                class="sm:col-span-6"
+                class="col-span-full"
               >
                 <URadioGroup
                   v-model="state.visibility"

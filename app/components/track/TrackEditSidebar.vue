@@ -53,33 +53,47 @@ async function onDelete() {
 
 <template>
   <aside class="space-y-6">
-    <!-- Technical data of the stored file -->
-    <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-      <dt class="text-muted">
-        Duration
-      </dt>
-      <dd class="text-right tabular-nums">
-        {{ formatTime(track.durationSeconds) }}
-      </dd>
-      <dt class="text-muted">
-        Format
-      </dt>
-      <dd class="text-right">
-        {{ track.mimeType.replace('audio/', '').toUpperCase() }}
-      </dd>
-      <dt class="text-muted">
-        Size
-      </dt>
-      <dd class="text-right">
-        {{ formatBytes(track.sizeBytes) }}
-      </dd>
-      <dt class="text-muted">
-        Uploaded
-      </dt>
-      <dd class="text-right">
-        {{ new Date(track.createdAt).toLocaleDateString() }}
-      </dd>
-    </dl>
+    <!--
+      Technical data of the stored file, under a heading like Status's and Sharing's around it:
+      without one, it read as part of the block above.
+    -->
+    <section
+      class="space-y-2"
+      aria-labelledby="track-file-heading"
+    >
+      <h2
+        id="track-file-heading"
+        class="text-xs font-semibold uppercase tracking-widest text-muted"
+      >
+        File
+      </h2>
+      <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+        <dt class="text-muted">
+          Duration
+        </dt>
+        <dd class="text-right tabular-nums">
+          {{ formatTime(track.durationSeconds) }}
+        </dd>
+        <dt class="text-muted">
+          Format
+        </dt>
+        <dd class="text-right">
+          {{ track.mimeType.replace('audio/', '').toUpperCase() }}
+        </dd>
+        <dt class="text-muted">
+          Size
+        </dt>
+        <dd class="text-right">
+          {{ formatBytes(track.sizeBytes) }}
+        </dd>
+        <dt class="text-muted">
+          Uploaded
+        </dt>
+        <dd class="text-right">
+          {{ new Date(track.createdAt).toLocaleDateString() }}
+        </dd>
+      </dl>
+    </section>
 
     <!-- Sharing: link of the public page, or how to get one -->
     <ShareLinkBox
@@ -87,7 +101,6 @@ async function onDelete() {
       kind="track"
       :shared="isShared"
       :title="track.title"
-      :downloadable="track.visibility === 'unlisted'"
     />
 
     <!-- Deletion, after a confirmation (below) -->
