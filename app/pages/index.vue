@@ -178,7 +178,18 @@ const deleteDescription = computed(() => {
 /** Every visible track is ticked (drives the "select all" checkbox). */
 const allSelected = computed(() => filtered.value.length > 0 && selectedIds.value.length === filtered.value.length)
 
-/** "Select all" checkbox: ticks every visible track, or none. */
+/**
+ * The "select all" checkbox's state: ticked, empty, or partly ticked (a dash)
+ * when some tracks are. Nuxt UI 4's checkbox takes the partial state as its
+ * value, 'indeterminate': it no longer has the `indeterminate` prop the page
+ * passed, so with 2 of 24 tracks ticked the box stayed empty (UI-35).
+ */
+const selectAllState = computed<boolean | 'indeterminate'>(() => {
+  if (allSelected.value) return true
+  return selectedIds.value.length > 0 ? 'indeterminate' : false
+})
+
+/** "Select all" checkbox: ticks every visible track (from empty or partly ticked), or none. */
 function toggleAll() {
   selectedIds.value = allSelected.value ? [] : filtered.value.map(t => t.id)
 }
@@ -472,8 +483,7 @@ async function confirmDelete() {
             @click="stopSelecting"
           />
           <UCheckbox
-            :model-value="allSelected"
-            :indeterminate="selectedIds.length > 0 && !allSelected"
+            :model-value="selectAllState"
             aria-label="Select all"
             @update:model-value="toggleAll"
           />

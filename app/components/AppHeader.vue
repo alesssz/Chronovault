@@ -66,15 +66,24 @@ const namesShown = useMediaQuery('(width >= 64rem)')
 const storageOpen = ref(false)
 /** The list of keyboard shortcuts (also opened by the ? key). */
 const shortcutsOpen = useShortcutsHelp()
+/**
+ * A mouse or trackpad is the primary pointer: only then does the menu offer
+ * "Keyboard shortcuts". On phones and tablets there is usually no keyboard
+ * (UI-42); one that has one still opens the list with "?". The pointer, not
+ * the width, decides, as for the volume slider (pageControlsVolume).
+ */
+const finePointer = useMediaQuery('(pointer: fine)')
 
-/** Account menu: who is signed in, Statistics, Storage, Keyboard shortcuts, Sign out. */
+/** Account menu: who is signed in, Statistics, Storage, Keyboard shortcuts (with a fine pointer), Sign out. */
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
   [
     // Visits to the share links (pages/stats.vue).
     { label: 'Statistics', icon: 'i-lucide-chart-column', to: '/stats' },
     { label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) },
-    { label: 'Keyboard shortcuts', icon: 'i-lucide-keyboard', onSelect: () => (shortcutsOpen.value = true) },
+    ...(finePointer.value
+      ? [{ label: 'Keyboard shortcuts', icon: 'i-lucide-keyboard', onSelect: () => (shortcutsOpen.value = true) }]
+      : []),
   ],
   [{ label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout }],
 ])

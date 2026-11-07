@@ -8,7 +8,8 @@ import { TRACK_VISIBILITIES, type TrackVisibility } from '~~/shared/types/track'
 export const VISIBILITY_INFO: Record<TrackVisibility, { label: string, description: string, icon: string }> = {
   private: { label: 'Private', description: 'Only you can listen to it.', icon: 'i-lucide-lock' },
   unlisted: { label: 'Unlisted', description: 'Anyone with the link can listen.', icon: 'i-lucide-link' },
-  public: { label: 'Public', description: 'Unlisted, and search engines may list it.', icon: 'i-lucide-globe' },
+  // Not "Unlisted, and…": a public item is not unlisted, and the card read as a contradiction (UI-40).
+  public: { label: 'Public', description: 'Anyone with the link can listen, and search engines may list it.', icon: 'i-lucide-globe' },
 }
 
 /** Options of the visibility radio cards (playlist details), in the order of TRACK_VISIBILITIES. */

@@ -28,6 +28,8 @@ test.describe('authentication', () => {
     await signUp(page)
 
     await page.getByRole('button', { name: 'User menu' }).click()
+    // With a mouse the menu offers the keyboard shortcuts (touch screens do not: responsive.spec).
+    await expect(page.getByRole('menuitem', { name: 'Keyboard shortcuts' })).toBeVisible()
     await page.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page).toHaveURL(/\/login/)
 

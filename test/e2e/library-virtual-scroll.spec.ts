@@ -63,11 +63,21 @@ test.describe('library with many tracks', () => {
     await search.fill('')
     await expect(rows.first()).toHaveAttribute('aria-setsize', String(COUNT))
 
-    // --- "Select all" selects the whole library ---
+    // --- "Select all" selects the whole library; partly ticked while only some tracks are ---
     await page.getByTestId('select-mode').click()
-    await page.getByRole('checkbox', { name: 'Select all' }).click()
+    const selectAll = page.getByRole('checkbox', { name: 'Select all' })
+    await expect(selectAll).toHaveAttribute('aria-checked', 'false')
+    await rows.first().getByTestId('track-select').click()
+    await expect(page.getByTestId('selection-count')).toHaveText('1 selected')
+    // The partial state (a dash): it stayed empty, the page passing a prop the checkbox no longer has.
+    await expect(selectAll).toHaveAttribute('aria-checked', 'mixed')
+    // From there, a click ticks every track.
+    await selectAll.click()
     await expect(page.getByTestId('selection-count')).toHaveText(`${COUNT} selected`)
-    await page.getByRole('checkbox', { name: 'Select all' }).click()
+    await expect(selectAll).toHaveAttribute('aria-checked', 'true')
+    await selectAll.click()
+    await expect(page.getByTestId('selection-count')).toHaveText('0 selected')
+    await expect(selectAll).toHaveAttribute('aria-checked', 'false')
     await page.getByTestId('select-mode').click()
 
     // --- Playing from a row queues the whole library (saved on the device) ---

@@ -114,20 +114,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Recommended.** Both.
 
-### UI-33 "Nothing to delete" is a red button
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-06
-
-**What is wrong.** In the Storage dialog, with no orphaned files the delete button reads "Nothing to delete" and is disabled, but Nuxt UI shows a disabled solid red button at 75% opacity: it looks like a live destructive action (the same problem as Save before UI-17).
-
-**Where.** [StorageDialog.vue](../app/components/StorageDialog.vue), the footer.
-
-**Options.**
-- A) Hide the button when there is nothing to delete (the list already says "None").
-- B) Neutral and subtle while disabled, red once there are files.
-
-**Recommended.** A.
-
 ### UI-34 The upload drop zone shows no way to pick files
 
 **Priority:** low · **Kind:** polish, touch screens · **Found:** 2026-11-06
@@ -139,30 +125,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 **Options.** A "Choose files" button in the zone, the text "Drop audio files here, or choose them" (just "Choose audio files" on touch screens), and a stronger border.
 
 **Recommended.** All three.
-
-### UI-35 The "Select all" checkbox stays empty when some tracks are ticked
-
-**Priority:** low · **Kind:** bug · **Found:** 2026-11-06
-
-**What is wrong.** With 2 of 24 tracks ticked the selection bar's checkbox is empty instead of showing the partial state. The page passes `indeterminate` as a prop, which Nuxt UI 4's `UCheckbox` no longer has: the partial state is the model value `'indeterminate'`.
-
-**Where.** [pages/index.vue](../app/pages/index.vue), the selection bar's `UCheckbox`.
-
-**Options.** The model value `true`, `'indeterminate'` or `false` from the count.
-
-**Recommended.** That, with a component or e2e check.
-
-### UI-36 The playlist cover hint no longer says what the cover shows
-
-**Priority:** low · **Kind:** wording · **Found:** 2026-11-06
-
-**What is wrong.** Under a playlist's or group's cover: "Without a cover of its own, the playlist shows the covers of its first tracks." When those tracks have no covers either, it now shows its initials (since UI-20), and the rows show each track's artwork: a user sees initials where the hint promised track covers.
-
-**Where.** [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue), the hint under the cover.
-
-**Options.** "…shows the covers of its first tracks, or its initials when they have none."
-
-**Recommended.** That wording.
 
 ### UI-37 The app's error page has no header or way around
 
@@ -204,18 +166,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Recommended.** Both.
 
-### UI-40 Wording: "Public — Unlisted, and…", and a group's sharing text speaks of a playlist
-
-**Priority:** low · **Kind:** wording · **Found:** 2026-11-06
-
-**What is wrong.** The Public card says "Unlisted, and search engines may list it", which reads like a contradiction. The sharing box of a group of versions says "every track in this playlist".
-
-**Where.** [utils/visibility.ts](../app/utils/visibility.ts); [ShareLinkBox.vue](../app/components/share/ShareLinkBox.vue) (`reach`).
-
-**Options.** Public: "Anyone with the link, and search engines may list it." The sharing box: the purpose's nouns ("every version in this group").
-
-**Recommended.** Both.
-
 ### UI-41 The password-reset messages differ from the forms around them
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-06
@@ -228,18 +178,3 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Recommended.** Both.
 
-### UI-42 "Keyboard shortcuts" is in the account menu on touch screens
-
-**Priority:** low · **Kind:** phones · **Found:** 2026-11-06
-
-**What is wrong.** The account menu offers "Keyboard shortcuts" on phones and tablets, where there is usually no keyboard.
-
-**Where.** [AppHeader.vue](../app/components/AppHeader.vue), the account menu.
-
-**Options.** Shown only with a fine pointer (mouse or trackpad), as the volume slider is.
-
-**Recommended.** That.
-
----
-
-[Contents](../README.md#documentation)

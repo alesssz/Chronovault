@@ -71,6 +71,8 @@ test.describe('draft versions', () => {
     await card.click()
     await expect(page).toHaveURL(/\/versions\/[0-9a-f-]{36}$/)
     await expect(page.getByTestId('playlist-title')).toHaveText('Night drive – versions')
+    // The sharing box in a group's words (it spoke of "every track in this playlist").
+    await expect(page.getByTestId('share-box')).toContainText('every version in this group')
     // The group page's row of a version.
     const versionRow = (title: string) => page.getByTestId('playlist-track').filter({ hasText: title })
     await versionRow('Night drive v2').getByRole('button', { name: 'Actions for Night drive v2' }).click()
