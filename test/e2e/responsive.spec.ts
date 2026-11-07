@@ -584,6 +584,11 @@ test.describe('touch screens', () => {
     const description = (await page.getByTestId('field-description').boundingBox())!
     const remove = (await page.getByRole('button', { name: 'Delete track' }).boundingBox())!
     expect(remove.y).toBeGreaterThan(description.y)
+    // Album and year share a row (a row each made the form a screen longer), each half of it.
+    const [album, year] = await Promise.all(['Album', 'Year'].map(label => page.locator('form label', { hasText: new RegExp(`^${label}`) })
+      .locator('xpath=ancestor::*[@data-slot="root"][1]').boundingBox()))
+    expect(year!.y).toBe(album!.y)
+    expect(Math.abs(year!.width - album!.width)).toBeLessThanOrEqual(1)
     // Nothing to save: no bar. An edit brings it up, at the bottom of the screen.
     const saveBar = page.getByTestId('save-bar')
     await expect(saveBar).toHaveCount(0)
