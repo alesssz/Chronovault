@@ -14,6 +14,8 @@ pnpm local       # Docker Desktop must be open → http://localhost:3100
                  # demo account: demo@chronovault.local / chronovault
 ```
 
+Locally the app is **two pieces**: Supabase (database, sign-in, files) in Docker, and Nuxt (the pages **and** the API, one process) on your computer with hot reload. `pnpm local` starts both, in that order ([5.3](docs/05-architecture.md#53-where-everything-runs)).
+
 ---
 
 ## Quick start
@@ -22,10 +24,10 @@ pnpm local       # Docker Desktop must be open → http://localhost:3100
 
 ```bash
 pnpm install       # installs dependencies (the package store lives in .pnpm-store/)
-pnpm local         # Supabase in Docker + .env + Nuxt dev server
+pnpm local         # 1. Supabase in Docker + .env  2. Nuxt (pages + API) here, hot reload
 ```
 
-Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally). `pnpm stop` stops everything and keeps the data. The everyday commands are in [2. Quick start](docs/02-quick-start.md).
+Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally). `pnpm stop` stops everything and keeps the data. `pnpm docker` (http://localhost:8180) is the production build in a container: only to try it, with no hot reload. The everyday commands are in [2. Quick start](docs/02-quick-start.md).
 
 ---
 
@@ -40,7 +42,7 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [2. Quick start](docs/02-quick-start.md) | The everyday commands on a computer already set up: "I want to…" → the command |
 | [3. Commands](docs/03-commands.md) | Every command: the whole stack in one (`pnpm local` / `docker` / `stop`), the `package.json` scripts and the Makefile |
 | [4. Tech stack](docs/04-tech-stack.md) | Frameworks, libraries and services, and why each one |
-| [5. Architecture](docs/05-architecture.md) | Overview, key principles, where everything runs, rendering modes, reusable building blocks, brand and theme |
+| [5. Architecture](docs/05-architecture.md) | Overview, key principles, where everything runs (two pieces: Supabase in Docker, Nuxt with pages and API), rendering modes, reusable building blocks, brand and theme |
 | [6. Project structure](docs/06-project-structure.md) | The folder tree, file by file |
 | [7. Data flows](docs/07-data-flows.md) | How each feature works end to end: sign-in, loading the library, upload, WAV → FLAC, playback and casting, queue, editing, lyrics, deletion, download, clean-up, playlists, sharing, statistics, draft versions |
 | [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, playlists holding only the owner's tracks, at most 1000, a track's genre built-in or its owner's, exact storage paths, shared files signed by name and never listed, uploads signed for one file, headers, Content Security Policy, caps) |

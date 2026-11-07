@@ -48,6 +48,18 @@ export function ensureDocker() {
   )
 }
 
+/**
+ * True when the app container of `pnpm docker` is running. It serves the
+ * production build made by its last `pnpm docker`, not the code being edited:
+ * `pnpm local` warns about it, so an old build on :8180 is not mistaken for
+ * the current code.
+ */
+export function appContainerRunning() {
+  // Services of compose.yaml that are up (nothing when Compose fails or none is).
+  const services = tryRun('docker compose ps --status running --services', 10_000)
+  return !!services?.split(/\r?\n/).includes('app')
+}
+
 /** Status of the local Supabase stack, or null when it is not running. */
 export function supabaseStatus() {
   // The CLI's JSON status (null when it fails: the stack is not running).

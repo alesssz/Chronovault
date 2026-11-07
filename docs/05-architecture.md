@@ -60,9 +60,16 @@ flowchart LR
 
 ## 5.3 Where everything runs
 
-| Piece | `pnpm local` | `pnpm docker` | Production |
+**Two pieces, not three.** The app is:
+
+1. **Supabase**: Postgres, Auth and Storage (covers; locally also the audio, through its S3 endpoint). Locally it always runs in Docker, in the containers the Supabase CLI manages.
+2. **Nuxt**: the pages **and** the API. `server/api/**` is not a separate server: Nitro serves it from the same process as the pages, so "the backend code" and "the frontend" start, stop and reload together.
+
+So developing means **Supabase in Docker, Nuxt on your computer**: `pnpm local` (or `make local`) starts the first, then runs the second in the terminal with hot reload, for pages, components and `server/api` alike. `pnpm docker` puts the same Nuxt app, built for production, in a container instead: it is there to try that build, and it keeps the code of its last `pnpm docker` until rebuilt (`pnpm local` warns when it is still running; `make docker-stop` stops it alone).
+
+| Piece | `pnpm local` (develop) | `pnpm docker` (try the build) | Production |
 |---|---|---|---|
-| Nuxt app | Dev server on the host, :3100 | Compose service `app` (project `chronovault`), :8180 | Vercel |
+| Nuxt: pages + API (`server/api`) | Dev server on the host, :3100, hot reload | Compose service `app` (project `chronovault`), :8180, rebuilt by each `pnpm docker` | Vercel |
 | Postgres, Auth, Storage (covers) | Supabase CLI containers (:54321) | Same Supabase containers, reached via `host.docker.internal` | Supabase Cloud |
 | Audio files | Supabase's local S3 endpoint, bucket `audio` | Same | Cloudflare R2, bucket `chronovault-audio` |
 | Config file | `.env` | `.env.docker` | Vercel environment variables |

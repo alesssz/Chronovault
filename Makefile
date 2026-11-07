@@ -7,7 +7,7 @@
 
 SHELL := bash
 .DEFAULT_GOAL := help
-.PHONY: help local docker stop docker-logs setup install env dev build preview \
+.PHONY: help local docker stop docker-stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
         check ci clean clean-all merge doctor
@@ -21,15 +21,24 @@ help: ## Show this list
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 # --- One-command start --------------------------------------------------------
+# The app is two pieces (docs/05-architecture.md, 5.3):
+#   1. Supabase, always in Docker: database, sign-in, covers and audio;
+#   2. Nuxt: the pages AND the API (server/api) in one process, no separate API server.
+# `make local` runs piece 2 on this computer with hot reload: the way to develop.
+# `make docker` runs piece 2 as the production build in a container: to try the
+# build only (no hot reload, rebuild after every change).
 
-local: ## Start everything for development: Supabase, .env, Nuxt (http://localhost:3100)
+local: ## Develop: Supabase in Docker, then Nuxt (pages + API) here with hot reload (http://localhost:3100)
 	$(PNPM) local
 
-docker: ## Start everything in Docker: Supabase + the app container (http://localhost:8180)
+docker: ## Try the production build: Supabase + the app in a container, no hot reload (http://localhost:8180)
 	$(PNPM) docker
 
 stop: ## Stop the app container and Supabase (data is kept)
 	$(PNPM) stop
+
+docker-stop: ## Stop only the app container of `make docker` (Supabase keeps running)
+	docker compose stop app
 
 docker-logs: ## Follow the logs of the app container
 	docker compose logs -f app
@@ -41,7 +50,7 @@ doctor: ## Check this computer's prerequisites (Node, pnpm, Docker…) and print
 
 setup: install db-start env db-types ## First run: dependencies, local DB, .env, types
 	@echo ""
-	@echo "✔ Ready. Start the app with: make dev"
+	@echo "✔ Ready. Start the app with: make dev (Nuxt, pages + API; Supabase is already up)"
 	@echo "  Demo user: demo@chronovault.local / chronovault"
 
 install: ## Install dependencies
