@@ -4,19 +4,20 @@
 
 | Command | What it does | App URL |
 |---|---|---|
-| `pnpm local` / `make local` | Checks Docker → starts Supabase (if not running) → writes `.env` → runs the Nuxt **dev server** in the foreground. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops Nuxt; Supabase keeps running. | http://localhost:3100 |
-| `pnpm docker` / `make docker` | Checks Docker → starts Supabase → writes `.env.docker` → builds the **production image** and starts the container in the background → waits until `/api/health` answers. | http://localhost:8180 |
+| `pnpm local` / `make local` | **Develop.** Checks Docker → **1/2** starts Supabase in Docker (if not running) → writes `.env` → **2/2** runs the Nuxt **dev server** (pages and API, hot reload) in the foreground. Warns when the `pnpm docker` container is also running, since it serves an older build. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops Nuxt; Supabase keeps running. | http://localhost:3100 |
+| `pnpm docker` / `make docker` | **Try the production build.** Checks Docker → starts Supabase → writes `.env.docker` → builds the **production image** and starts the container in the background → waits until `/api/health` answers. No hot reload: run it again after a change. | http://localhost:8180 |
+| `make docker-stop` | Stops only the app container of `pnpm docker`; Supabase keeps running. | |
 | `pnpm stop` / `make stop` | Removes the app container and stops Supabase. **Data is kept** (Docker volumes) for the next start. Works also without a `.env.docker` (someone who only used `pnpm local`). | |
 | `make docker-logs` | Follows the app container logs (`docker compose logs -f app`). | |
 
-Docker Desktop is never started automatically: when it is not running, the commands stop with a clear message. Both modes use the same local Supabase, so they share the same accounts and tracks.
+Docker Desktop is never started automatically: when it is not running, the commands stop with a clear message. Both modes use the same local Supabase, so they share the same accounts and tracks. Neither starts a separate API server: the API (`server/api`) is part of the Nuxt app, in the dev server or in the container ([5.3](05-architecture.md#53-where-everything-runs)).
 
 ## 3.2 `package.json` scripts
 
 | Script | What it does |
 |---|---|
 | `pnpm local` · `pnpm docker` · `pnpm stop` | The whole stack, see above (`scripts/stack.mjs`) |
-| `pnpm dev` | Nuxt dev server only, on http://localhost:3100 (Supabase and `.env` must already be there) |
+| `pnpm dev` | Nuxt dev server only (pages and API), on http://localhost:3100 (Supabase and `.env` must already be there) |
 | `pnpm build` · `pnpm preview` | Production build (`.output/`) · serve it locally, on http://localhost:3100 |
 | `pnpm lint` · `pnpm lint:fix` | ESLint, formatting rules included · with automatic fixes |
 | `pnpm typecheck` | vue-tsc over app, server, shared and config files |
@@ -47,7 +48,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 
 | Target | What it does |
 |---|---|
-| `make local` · `make docker` · `make stop` · `make docker-logs` | The whole stack (see 3.1) |
+| `make local` · `make docker` · `make stop` · `make docker-stop` · `make docker-logs` | The whole stack (see 3.1) |
 | `make setup` | First run, step by step: install → `db-start` → `.env` → DB types |
 | `make install` · `make env` · `make dev` · `make build` · `make preview` | Single steps |
 | `make db-start` · `db-stop` · `db-status` | Local Supabase stack |

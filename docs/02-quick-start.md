@@ -4,17 +4,18 @@ The everyday commands, for a computer already set up. Setting one up, from insta
 
 ```bash
 pnpm install       # after a pull that changed the dependencies (the package store lives in .pnpm-store/)
-pnpm local         # Docker Desktop open → Supabase in Docker + .env + Nuxt dev server
+pnpm local         # Docker Desktop open → 1. Supabase in Docker + .env  2. Nuxt (pages + API) here, hot reload
 ```
 
-Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally). <kbd>Ctrl</kbd>+<kbd>C</kbd> stops the app; `pnpm stop` stops Supabase too, keeping the data.
+Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `chronovault`** (or create an account: email confirmation is off locally). <kbd>Ctrl</kbd>+<kbd>C</kbd> stops the app; `pnpm stop` stops Supabase too, keeping the data. There is no separate API server to start: the API (`server/api`) runs inside Nuxt, and reloads with the pages ([5.3](05-architecture.md#53-where-everything-runs)).
 
 ## 2.1 I want to…
 
 | I want to… | Command |
 |---|---|
-| Develop with hot reload | `pnpm local` (or `make local`) → http://localhost:3100 |
-| Run the production build in a container | `pnpm docker` (or `make docker`) → http://localhost:8180; logs: `make docker-logs` |
+| Develop with hot reload (pages and API) | `pnpm local` (or `make local`) → http://localhost:3100 |
+| Run the production build in a container | `pnpm docker` (or `make docker`) → http://localhost:8180; logs: `make docker-logs`. It shows the code of its last `pnpm docker`: run it again after a change |
+| Stop only that container (Supabase keeps running) | `make docker-stop` |
 | Stop everything (data is kept) | `pnpm stop` (or `make stop`) |
 | Look inside the database | Supabase Studio → http://127.0.0.1:54323 |
 | Read the emails the local sign-in sends | Mailpit → http://127.0.0.1:54324 |

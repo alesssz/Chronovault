@@ -2,14 +2,23 @@
 /**
  * One command to run the whole stack. Docker Desktop must already be running.
  *
- *   pnpm local    Supabase + .env + Nuxt dev server (http://localhost:3100)
- *   pnpm docker   Supabase + the app built and run in a container (http://localhost:8180)
+ * The app is two pieces (docs/05-architecture.md, 5.3):
+ *   1. Supabase, in Docker: database, sign-in, storage (covers, and the audio
+ *      through its S3 endpoint). Containers managed by the Supabase CLI.
+ *   2. Nuxt: the pages AND the API (server/api) in one process. There is no
+ *      separate API server: the "backend" code runs inside Nuxt.
+ *
+ *   pnpm local    piece 1 in Docker, piece 2 on this computer with hot reload
+ *                 (the way to develop, http://localhost:3100)
+ *   pnpm docker   piece 1 in Docker, piece 2 built for production in a container
+ *                 (to try the build, http://localhost:8180; no hot reload)
  *   pnpm stop     stops the app container and Supabase (data is kept)
  *
  * The same commands are available as `make local`, `make docker`, `make stop`.
  */
 import { resolve } from 'node:path'
 import {
+  appContainerRunning,
   dockerIsRunning,
   ensureDocker,
   ensureSupabase,
@@ -36,11 +45,17 @@ function dockerSupabaseUrl(apiUrl) {
 }
 
 /**
- * `pnpm local`: Docker check → Supabase up → .env written → `pnpm dev` in
- * the foreground (Ctrl+C stops Nuxt only; Supabase keeps running).
+ * `pnpm local`: Docker check → piece 1, Supabase up → .env written → piece 2,
+ * `pnpm dev` in the foreground (Ctrl+C stops Nuxt only; Supabase keeps running).
+ * Each step says which piece it starts and where it runs.
  */
 async function local() {
   await ensureDocker()
+  console.log('Chronovault for development, in two pieces:')
+  console.log('  1. Supabase   in Docker         database, sign-in, covers and audio')
+  console.log('  2. Nuxt       on this computer  the pages and the API (server/api), one process, hot reload\n')
+
+  console.log('▸ 1/2 Supabase (Docker)')
   // The running stack's URLs and keys (started when needed).
   const status = await ensureSupabase()
   writeEnvFile(resolve('.env'), {
@@ -49,7 +64,16 @@ async function local() {
     ...localAudioStorageEnv(status),
   })
   console.log('✔ .env updated')
-  console.log('▸ Starting Nuxt on http://localhost:3100  (Ctrl+C stops the app; `pnpm stop` stops Supabase too)\n')
+  // The container of `pnpm docker` still up: its old build on :8180 is not this code.
+  if (appContainerRunning()) {
+    console.log(`⚠ The app container of \`pnpm docker\` is also running (${DOCKER_APP_URL}): it serves the build of its`)
+    console.log('  last `pnpm docker`, not the code you are editing. Use :3100; stop it with `make docker-stop`.')
+  }
+
+  console.log('\n▸ 2/2 Nuxt, pages + API (this terminal)')
+  console.log('  App      http://localhost:3100   (hot reload: pages, components and server/api)')
+  if (status.STUDIO_URL) console.log(`  Studio   ${status.STUDIO_URL}   (the database)`)
+  console.log('  Ctrl+C stops Nuxt only; `pnpm stop` stops Supabase too (data is kept)\n')
   return runInherited('pnpm dev')
 }
 
@@ -80,6 +104,8 @@ async function docker() {
     return 1
   }
   console.log(`\n✔ Chronovault is running in Docker: ${DOCKER_APP_URL}`)
+  console.log('  The production build of the code as it is now: rebuild with `pnpm docker` after a change')
+  console.log('  (to develop with hot reload: `pnpm local`, http://localhost:3100).')
   console.log('  Demo user: demo@chronovault.local / chronovault')
   console.log('  Logs: docker compose logs -f app · Stop everything: pnpm stop')
   return 0

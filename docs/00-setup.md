@@ -115,7 +115,7 @@ pnpm install     # dependencies; the package store goes to .pnpm-store/, inside 
 pnpm local       # or: make local
 ```
 
-`pnpm local` checks Docker, starts Supabase, writes `.env` from it and runs the Nuxt dev server in the foreground ([3.1](03-commands.md#31-the-whole-stack-in-one-command)). **The first time** it downloads the Supabase images (about 6 GB, several minutes) and creates the database from the migrations and `supabase/seed.sql`. The app is ready when the terminal shows `Local: http://localhost:3100/`.
+`pnpm local` checks Docker, starts Supabase in Docker (database, sign-in, files), writes `.env` from it and runs the Nuxt dev server in the foreground: the pages **and** the API, one process with hot reload, so there is no separate backend to start ([3.1](03-commands.md#31-the-whole-stack-in-one-command), [5.3](05-architecture.md#53-where-everything-runs)). **The first time** it downloads the Supabase images (about 6 GB, several minutes) and creates the database from the migrations and `supabase/seed.sql`. The app is ready when the terminal shows `Local: http://localhost:3100/`.
 
 Open **http://localhost:3100** and sign in with the demo account **`demo@chronovault.local` / `chronovault`**, or create one: email confirmation is off locally, and any email the local Auth sends lands in Mailpit (0.5). The first page takes a while: Vite compiles the dependencies on the first request.
 
@@ -126,7 +126,7 @@ Uploaded audio goes to the local Supabase Storage (bucket `audio`), not to R2: l
 | What | Address |
 |---|---|
 | **The app** (`pnpm local`, with hot reload) | http://localhost:3100 |
-| **The app in Docker** (`pnpm docker`, production build) | http://localhost:8180 |
+| **The app in Docker** (`pnpm docker`, production build of the code at its last `pnpm docker`) | http://localhost:8180 |
 | Supabase Studio: tables, users, files, SQL editor | http://127.0.0.1:54323 |
 | Mailpit: emails sent by the local Auth | http://127.0.0.1:54324 |
 | Supabase API (what the app talks to) | http://127.0.0.1:54321 |
@@ -140,6 +140,7 @@ Uploaded audio goes to the local Supabase Storage (bucket `audio`), not to R2: l
 | To… | Do |
 |---|---|
 | Stop the app only | <kbd>Ctrl</kbd>+<kbd>C</kbd> in the terminal of `pnpm local`. Supabase keeps running, so the next `pnpm local` starts in seconds |
+| Stop the Docker-mode app only | `make docker-stop`: Supabase keeps running |
 | Stop everything | `pnpm stop` (or `make stop`): removes the Docker-mode app container and stops Supabase. **Data is kept** |
 | Start again | `pnpm local`: it starts Supabase when it is not running, and writes `.env` again |
 | After a restart of the computer | Open Docker Desktop, wait until it runs, then `pnpm local` |
@@ -149,11 +150,12 @@ Accounts, tracks, playlists and files live in Docker volumes: they survive `pnpm
 
 ### Docker mode
 
-`pnpm docker` (or `make docker`) runs the **production build** in a container, the way Vercel runs it, against the same local Supabase (same accounts and tracks): useful to check the PWA, the service worker and the Content Security Policy, which the dev server leaves out. No hot reload: run it again after a change (the image is rebuilt; unchanged steps come from the cache).
+`pnpm docker` (or `make docker`) runs the **production build** in a container, the way Vercel runs it, against the same local Supabase (same accounts and tracks): useful to check the PWA, the service worker and the Content Security Policy, which the dev server leaves out. No hot reload: run it again after a change (the image is rebuilt; unchanged steps come from the cache). Until then the container keeps serving the old build: to develop, use `pnpm local` (http://localhost:3100), which warns when this container is still up.
 
 ```bash
 pnpm docker          # builds and starts in the background → http://localhost:8180
 make docker-logs     # follow the app's logs (Ctrl+C stops following, not the app)
+make docker-stop     # stops only the container (Supabase keeps running)
 pnpm stop            # stops the container and Supabase
 ```
 

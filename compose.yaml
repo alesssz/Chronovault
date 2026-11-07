@@ -1,6 +1,10 @@
-# Chronovault app container. Supabase (database, auth, storage) runs in its own
-# containers managed by the Supabase CLI. Use `pnpm docker` to start both:
-# it also writes the .env.docker file this service reads.
+# Chronovault app container: the whole Nuxt app, pages and API (server/api) in one
+# process, as the production build. Supabase (database, auth, storage) runs in its
+# own containers managed by the Supabase CLI. Use `pnpm docker` to start both: it
+# also writes the .env.docker file this service reads.
+# To develop, use `pnpm local` instead: Supabase stays in Docker and Nuxt runs on
+# the host with hot reload. This container keeps the build of its last
+# `pnpm docker` (`make docker-stop` stops it alone).
 name: chronovault
 
 services:
