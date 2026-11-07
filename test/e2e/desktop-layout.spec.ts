@@ -4,7 +4,9 @@
  * - the library rows' genre and icons stand in columns (a genre badge as wide as its name moved
  *   the icons from row to row);
  * - the visibility cards are three equal columns (as a row of cards as wide as their text,
- *   Public sat alone on a second line);
+ *   Public sat alone on a second line); the track editor's rows are full (album, year and genre
+ *   in thirds), its status switches in the left column under the cover (on a row of the form
+ *   of their own, they left it looking empty);
  * - a playlist's page starts with its tracks, its details in a dialog (the form came first and
  *   pushed the tracks below the bottom edge);
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
@@ -121,12 +123,46 @@ test.describe('desktop layout', () => {
     }))
     expect(new Set(boxes.map(b => b.y)).size).toBe(1)
     expect(new Set(boxes.map(b => b.width)).size).toBe(1)
+    // Rows with no empty part: album, year and genre on one, genre ending where the title does.
+    /** A form field's box: the nearest root around its label (the tabs' root holds them all). */
+    const field = (label: string) => page.locator('form label', { hasText: new RegExp(`^${label}`) })
+      .locator('xpath=ancestor::*[@data-slot="root"][1]').evaluate((element) => {
+        const box = element.getBoundingClientRect()
+        return { y: box.y, right: Math.round(box.right) }
+      })
+    const [title, album, year, genre] = await Promise.all(['Title', 'Album', 'Year', 'Genre'].map(field))
+    expect(year!.y).toBe(album!.y)
+    expect(genre!.y).toBe(album!.y)
+    expect(genre!.right).toBe(title!.right)
+    // And as tall: no help line under the genre (the menu's search box has the hint).
+    const heights = await Promise.all(['Album', 'Genre'].map(label => page.locator('form label', { hasText: new RegExp(`^${label}`) })
+      .locator('xpath=ancestor::*[@data-slot="root"][1]').evaluate(element => Math.round(element.getBoundingClientRect().height))))
+    expect(heights[1]).toBe(heights[0])
+    await page.getByRole('button', { name: 'Genre', exact: true }).click()
+    await expect(page.getByPlaceholder('Search or type a new genre…')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByPlaceholder('Search or type a new genre…')).toBeHidden()
+    // Mastering and version in the left column, under the cover, before the file's data (as
+    // switches on a row of the form they left it looking empty).
+    const status = (await page.getByTestId('track-status').boundingBox())!
+    // The cover's button (the track has the Chronovault artwork, with no alt text).
+    const coverBox = (await page.getByRole('button', { name: 'Add cover' }).boundingBox())!
+    const fileData = (await page.getByText('Duration', { exact: true }).boundingBox())!
+    expect(Math.round(status.x)).toBe(Math.round(coverBox.x))
+    expect(Math.round(status.x)).toBe(Math.round(fileData.x))
+    expect(status.y).toBeGreaterThan(coverBox.y + coverBox.height)
+    expect(status.y + status.height).toBeLessThan(fileData.y)
     // Save: grey with nothing to save, gold after an edit, grey again once the edit is undone.
     const saveTrack = page.getByTestId('save-track')
     expect(await isPrimary(saveTrack)).toBe(false)
     await page.getByTestId('field-title').fill(`${TRACKS[0]}!`)
     await expect.poll(() => isPrimary(saveTrack)).toBe(true)
     await page.getByTestId('field-title').fill(TRACKS[0]!)
+    await expect.poll(() => isPrimary(saveTrack)).toBe(false)
+    // The status switches are the form's, outside its element: an edit like any other.
+    await page.getByRole('switch', { name: 'Final version' }).click()
+    await expect.poll(() => isPrimary(saveTrack)).toBe(true)
+    await page.getByRole('switch', { name: 'Final version' }).click()
     await expect.poll(() => isPrimary(saveTrack)).toBe(false)
 
     // --- Playlist page: the tracks first, the details in a dialog ---

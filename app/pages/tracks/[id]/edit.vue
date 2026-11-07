@@ -1,15 +1,16 @@
 <script setup lang="ts">
 /**
  * Track editor (client-rendered), in three tabs:
- *   Details → metadata, visibility (+ sharing box), Suno prompt, mastering, draft/final
+ *   Details → metadata, description, Suno prompt, visibility
  *   Lyrics  → plain lyrics with [Section] headers
  *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
  * Cover and deletion live in the side column (the cover above
  * TrackEditSidebar) and save immediately; the form saves everything else
- * with "Save" and warns about unsaved changes.
+ * with "Save" and warns about unsaved changes, the Status switches too
+ * (mastered, draft/final), which sit in the left column under the cover.
  *
  * Below `md` the page is one column: the cover as a compact row at the top,
- * then the form, then file details, sharing and deletion (the side column
+ * then the form, then status, file details, sharing and deletion (the side column
  * first put about two screens of it before the Title field). There a Save
  * bar at the bottom of the screen (SaveBar) shows while there are unsaved
  * changes, the header's Save being out of reach once the form is scrolled.
@@ -216,9 +217,9 @@ const isCurrent = computed(() => player.current?.id === id)
     </div>
 
     <!--
-      From `md`, two columns: cover and side column on the left, the form on the right across
-      both rows (the first row as tall as the cover, the second taking the rest). Below `md`, in
-      the order written: cover, form, side column.
+      From `md`, two columns: cover, then status and side column on the left, the form on the
+      right across both rows (the first row as tall as the cover, the second taking the rest).
+      Below `md`, in the order written: cover, form, status and side column.
     -->
     <div class="grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
       <!-- Cover (saved at once) -->
@@ -248,14 +249,19 @@ const isCurrent = computed(() => player.current?.id === id)
           variant="link"
           class="w-full"
         >
-          <!-- Details tab: metadata, Suno prompt, mastering, visibility -->
+          <!--
+            Details tab. From `sm` a grid of six columns, so each row is full: title and composers
+            across it, album, year and genre in thirds, then description, Suno prompt and
+            visibility across it. (Mastering and version, the track's state, are in the left
+            column: as switches on a row of their own they left it looking empty.)
+          -->
           <template #details>
-            <div class="grid gap-4 pt-4 sm:grid-cols-2">
+            <div class="grid gap-4 pt-4 sm:grid-cols-6">
               <UFormField
                 label="Title"
                 name="title"
                 required
-                class="sm:col-span-2"
+                class="sm:col-span-6"
               >
                 <UInput
                   v-model="state.title"
@@ -267,7 +273,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Composers / Authors"
                 name="composers"
-                class="sm:col-span-2"
+                class="sm:col-span-6"
               >
                 <UInput
                   v-model="state.composers"
@@ -279,6 +285,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Album"
                 name="album"
+                class="sm:col-span-2"
               >
                 <UInput
                   v-model="state.album"
@@ -289,6 +296,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Year"
                 name="year"
+                class="sm:col-span-2"
               >
                 <UInputNumber
                   v-model="year"
@@ -300,48 +308,24 @@ const isCurrent = computed(() => player.current?.id === id)
                 />
               </UFormField>
 
-              <!-- Genre: a built-in one, one of the user's own, or a new one typed in -->
+              <!--
+                Genre: a built-in one, one of the user's own, or a new one typed in. No help line
+                under it (the menu's search box says so): it made this row taller than album and
+                year.
+              -->
               <UFormField
                 label="Genre"
                 name="genreId"
-                help="Type a new name to create a custom genre."
+                class="sm:col-span-2"
               >
                 <TrackGenreSelect v-model="state.genreId" />
-              </UFormField>
-
-              <UFormField
-                label="Mastering"
-                name="mastered"
-              >
-                <div class="flex h-8 items-center">
-                  <USwitch
-                    v-model="state.mastered"
-                    :label="state.mastered ? 'Mastered' : 'Not mastered'"
-                  />
-                </div>
-              </UFormField>
-
-              <!-- Draft (work in progress, e.g. one of several versions) or the final one -->
-              <UFormField
-                label="Version"
-                name="status"
-                help="Drafts are marked “Work in progress” on share pages."
-              >
-                <div class="flex h-8 items-center">
-                  <USwitch
-                    :model-value="state.status === 'final'"
-                    :label="state.status === 'final' ? 'Final' : 'Draft'"
-                    data-testid="field-status"
-                    @update:model-value="state.status = $event ? 'final' : 'draft'"
-                  />
-                </div>
               </UFormField>
 
               <!-- Description: shown on the share page and in the full-screen player -->
               <UFormField
                 label="Description"
                 name="description"
-                class="sm:col-span-2"
+                class="sm:col-span-6"
               >
                 <UTextarea
                   v-model="state.description"
@@ -359,7 +343,7 @@ const isCurrent = computed(() => player.current?.id === id)
                 label="Suno prompt"
                 name="sunoPrompt"
                 help="The prompt used to generate the track."
-                class="sm:col-span-2"
+                class="sm:col-span-6"
               >
                 <UTextarea
                   v-model="state.sunoPrompt"
@@ -375,7 +359,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Visibility"
                 name="visibility"
-                class="sm:col-span-2"
+                class="sm:col-span-6"
               >
                 <URadioGroup
                   v-model="state.visibility"
@@ -422,12 +406,49 @@ const isCurrent = computed(() => player.current?.id === id)
         </UTabs>
       </UForm>
 
-      <!-- Side column: file info, sharing, deletion -->
-      <TrackEditSidebar
-        :track="track"
-        class="md:col-start-1 md:row-start-2"
-        @deleted="onDeleted"
-      />
+      <div class="space-y-6 md:col-start-1 md:row-start-2">
+        <!--
+          Status: mastered or not, draft or final. Part of the form's state (Save saves them, an
+          edit turns it gold) though outside its element: the switches are buttons, not inputs,
+          so nothing of theirs is submitted by the browser. Here, beside the file's data, as the
+          track's state; in the Details grid they sat on a row of their own that looked empty.
+        -->
+        <section
+          class="space-y-3"
+          aria-labelledby="track-status-heading"
+          data-testid="track-status"
+        >
+          <h2
+            id="track-status-heading"
+            class="text-xs font-semibold uppercase tracking-widest text-muted"
+          >
+            Status
+          </h2>
+          <USwitch
+            v-model="state.mastered"
+            label="Mastered"
+            data-testid="field-mastered"
+          />
+          <!--
+            Draft (work in progress, e.g. one of several versions) or the final one. Fixed labels,
+            named by what "on" means: the switch shows the state, and a label that changed with it
+            ("Not mastered") read as the switch's name.
+          -->
+          <USwitch
+            :model-value="state.status === 'final'"
+            label="Final version"
+            description="Drafts are marked “Work in progress” on share pages."
+            data-testid="field-status"
+            @update:model-value="state.status = $event ? 'final' : 'draft'"
+          />
+        </section>
+
+        <!-- Side column: file info, sharing, deletion -->
+        <TrackEditSidebar
+          :track="track"
+          @deleted="onDeleted"
+        />
+      </div>
     </div>
 
     <!-- Below `md`: Save within reach while there is something to save -->
