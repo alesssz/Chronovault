@@ -7,7 +7,7 @@ Chronovault/
 │   ├── app.config.ts                 # Nuxt UI theme: gold, spectral blue, night blue (5.6)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, fonts and colour scales, base scale, room for the player bar
 │   ├── components/
-│   │   ├── AppHeader.vue · ConfirmDialog.vue · LeaveDialog.vue · StorageDialog.vue · CoverCropDialog.vue · DragHandle.vue
+│   │   ├── AppHeader.vue · ConfirmDialog.vue · LeaveDialog.vue · StorageDialog.vue · CoverCropDialog.vue · CoverViewer.vue · DragHandle.vue
 │   │   ├── AppLogo.vue · AppMark.vue  # the Chronovault logo (mark + name + tagline) · the mark alone (5.6)
 │   │   ├── KeyboardShortcutsDialog.vue  # the list of the player's keyboard shortcuts (the ? key)
 │   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
@@ -25,7 +25,8 @@ Chronovault/
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
 │   │   │                             #   ShareVersionVote (a group's vote panel), ShareLyrics (lyrics following the player) (public pages)
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
-│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, the editor's TrackEditSidebar (file,
+│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, TrackShowcase (the share page's and the
+│   │                                 #   full-screen view's body), the editor's TrackEditSidebar (file,
 │   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload

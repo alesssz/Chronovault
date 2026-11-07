@@ -25,9 +25,13 @@ export type QueueResult = 'started' | 'queued' | 'current' | 'already-queued'
 /** What happens at the end of a track: carry on and stop after the last one, loop the queue, or repeat the track. */
 export type RepeatMode = 'off' | 'all' | 'one'
 
-/** A queued track: what the player bar shows while the full data loads. */
+/**
+ * A queued track: what the player bar shows while the full data loads.
+ * `status` gives the full-screen view its "WIP" badge; optional, like the
+ * genre, since a queue saved by an older version has neither.
+ */
 export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
-  & Partial<Pick<TrackSummary, 'genreId'>>
+  & Partial<Pick<TrackSummary, 'genreId' | 'status'>>
 
 /**
  * The track being played: a library track or a shared one (public page).

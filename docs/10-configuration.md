@@ -44,7 +44,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 - `icon`: every Lucide icon the code names is bundled into the client (`clientBundle.scan`), so none is fetched at runtime; one the scan misses comes from the app's own `/api/_nuxt_icon`, never from Iconify's public API (`fallbackToApi: false`), which the Content Security Policy blocks: when the app's endpoint answered slowly, the header's icons went missing that way.
 - `app.head` and `pwa.manifest`: name, description and night-blue theme colour from `shared/brand.ts` ([5.6](05-architecture.md#56-brand-and-theme)).
 - `pwa`: manifest and a Workbox service worker that caches static assets only (audio comes from signed URLs, covers use the browser cache, the analytics script is left alone); `webp` is among them for the fallback cover.
-- `app/assets/css/main.css`: base font size 125% (20 px), 118.75% while the full-screen player is open; on phones (below `sm`, 640 px) 106.25% (17 px, the standard body size on iPhone) everywhere, full-screen player included, so about 15% more fits on a line. Form fields stay at 17 px there (`text-base`), above the 16 px under which iPhones zoom the page on focus.
+- `app/assets/css/main.css`: base font size 125% (20 px); on phones (below `sm`, 640 px) 106.25% (17 px, the standard body size on iPhone) everywhere, full-screen player included, so about 15% more fits on a line. Form fields stay at 17 px there (`text-base`), above the 16 px under which iPhones zoom the page on focus.
 
 ---
 

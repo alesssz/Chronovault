@@ -151,7 +151,10 @@ function isPicked(trackId: string) {
         Left: cover or mosaic with title and description beside it, player, track list. From `sm`
         the cover is a header row's small square: as a 26rem column it put Play on the bottom edge
         of a 1440×900 screen and every track below it, though the list is what a friend opens the
-        link for. On phones the cover stays large, above the title.
+        link for. On phones the cover stays large, above the title, but shrinks with the screen's
+        height (24rem: header, title, summary, the waveform and the row of controls under it), so
+        Play stays in the first screen of a 375×667 phone: since play moved under the waveform, a
+        cover as wide as the screen put it under the bottom edge (UI-29 is about the list after it).
       -->
       <section class="flex min-w-0 flex-col gap-6">
         <div class="flex flex-col gap-6 sm:flex-row sm:items-end">
@@ -160,7 +163,7 @@ function isPicked(trackId: string) {
             :mosaic="playlist.mosaic"
             :title="playlist.title"
             rounded="rounded-xl"
-            class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 sm:mx-0 sm:w-48 sm:shrink-0 lg:w-56"
+            class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 max-sm:max-w-[max(10rem,min(24rem,calc(100dvh-24rem)))] sm:mx-0 sm:w-48 sm:shrink-0 lg:w-56"
           />
 
           <div class="min-w-0">

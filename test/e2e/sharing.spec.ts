@@ -1,7 +1,7 @@
 /**
  * End-to-end, track sharing: an unlisted track opens without an account, plays and downloads with
  * its tags (a public one plays but never downloads), never exposes the Suno prompt or mastering
- * status, and answers 404 once private again. Its cover is signed for the
+ * status, and answers 404 once private again. Its cover opens full screen. Its cover is signed for the
  * share page, but Storage's list endpoint, called with the public key every page ships, names no
  * shared cover and no user's folder (the ids an "unlisted" item is meant to keep to its link).
  */
@@ -171,6 +171,49 @@ test.describe('public sharing', () => {
       }, owner)
       // Before: the folder named the track (`<id>.webp`), and the root every user with a shared cover.
       expect(listed).toEqual({ folder: [], root: [] })
+    }
+    finally {
+      await visitorContext.close()
+    }
+  })
+
+  test('a shared track\'s cover opens full screen, and closes with Esc or a click', async ({ page, browser }) => {
+    await signUp(page)
+    // A track with a cover, shared by link.
+    const title = `cover-${uniqueId()}`
+    await uploadTrack(page, title)
+    await page.getByRole('link', { name: 'Go to library' }).click()
+    await page.getByTestId('track-row').filter({ hasText: title }).getByRole('button', { name: `Actions for ${title}` }).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await page.getByTestId('cover-input').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: TINY_PNG })
+    await clickAndWaitForApi(page, page.getByTestId('crop-confirm'), SAVE_TRACK)
+    await page.getByText('Unlisted', { exact: true }).click()
+    await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
+    // The track's id, from the edit page's address (/tracks/:id/edit).
+    const id = new URL(page.url()).pathname.split('/')[2]!
+
+    const visitorContext = await browser.newContext()
+    try {
+      const visitor = await visitorContext.newPage()
+      await visitor.goto(`/t/${id}`)
+      await waitForHydration(visitor)
+      // The cover on the page, a button.
+      const cover = visitor.getByRole('button', { name: 'Open the cover full screen' })
+      const viewer = visitor.getByTestId('cover-viewer')
+      // The same image, full screen.
+      await cover.click()
+      await expect(viewer).toBeVisible()
+      // (`locator('img')`: inside a button with its own name, the image has no role of its own.)
+      const src = await visitor.getByTestId('shared-cover').locator('img').getAttribute('src')
+      await expect(viewer.getByRole('img', { name: `Cover of ${title}` })).toHaveAttribute('src', src!)
+      // Esc closes it…
+      await visitor.keyboard.press('Escape')
+      await expect(viewer).toBeHidden()
+      // …and so does a click anywhere.
+      await cover.click()
+      await expect(viewer).toBeVisible()
+      await viewer.click({ position: { x: 10, y: 10 } })
+      await expect(viewer).toBeHidden()
     }
     finally {
       await visitorContext.close()

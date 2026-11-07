@@ -27,7 +27,17 @@ const props = withDefaults(defineProps<{
   size?: 'default' | 'large'
   /** Shown to a share page's visitor: no hint to add lyrics, which only the owner can do. */
   shared?: boolean
-}>(), { size: 'default', shared: false })
+  /** Every line centred (the track page's wide panel, where left-aligned lines left its right half empty). */
+  centered?: boolean
+  /**
+   * Room after the last synced line (45vh), so the last lines also scroll up
+   * to the middle while they are sung. Made for boxes nearly as tall as the
+   * screen (full-screen view, phones' lyrics view); the track page's panel,
+   * shorter, turns it off: there it was some 330px of nothing after the last
+   * line, and the last lines simply stop lower as the scroll ends.
+   */
+  endRoom?: boolean
+}>(), { size: 'default', shared: false, centered: false, endRoom: true })
 
 // A line was clicked: jump to its time.
 const emit = defineEmits<{ seek: [seconds: number] }>()
@@ -99,18 +109,19 @@ watch(activeIndex, (index) => {
   <div
     ref="container"
     class="h-full overflow-y-auto overscroll-contain"
+    :class="{ 'text-center': centered }"
     @wheel.passive="onUserScroll"
     @touchmove.passive="onUserScroll"
   >
     <!--
       Lyrics start at the top; the bottom padding only lets the last lines
-      scroll up to the middle while they play.
+      scroll up to the middle while they play (see `endRoom`).
     -->
     <ol
       v-if="hasSynced"
       ref="listEl"
-      class="space-y-3 pt-2 pb-[45vh] font-semibold leading-snug"
-      :class="size === 'large' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'"
+      class="space-y-3 pt-2 font-semibold leading-snug"
+      :class="[size === 'large' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl', endRoom ? 'pb-[45vh]' : 'pb-4']"
       data-testid="lyrics-synced"
     >
       <li
@@ -128,8 +139,8 @@ watch(activeIndex, (index) => {
         <button
           v-else
           type="button"
-          class="cursor-pointer text-left transition-colors duration-300"
-          :class="lineClass(i)"
+          class="cursor-pointer transition-colors duration-300"
+          :class="[centered ? 'text-center' : 'text-left', lineClass(i)]"
           :aria-current="i === activeIndex ? 'true' : undefined"
           @click="emit('seek', line.time)"
         >

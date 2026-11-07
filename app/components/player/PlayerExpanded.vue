@@ -15,11 +15,15 @@ import { STORAGE_KEYS } from '~/lib/storage-keys'
  * `data-swipe-ignore`. The Android back button collapses it too.
  *
  * Layouts:
- * - tablets and desktops (`md` and up): two columns, cover, info, waveform
- *   and controls on the left, the lyrics on the right. A track without
- *   lyrics shows its description there instead ("About this track", as on
- *   phones); with neither, the left column stands alone, centred, instead of
- *   beside a half screen holding only "No lyrics";
+ * - tablets and desktops (`md` and up): TrackShowcase, the share page's
+ *   (pages/t/[id].vue) body, scrolling between the top bar and a bar with the
+ *   controls, the waveform and the volume: a centred band with the title,
+ *   the cover and About on the left, the lyrics, centred, in a panel as tall
+ *   beside them (the description there instead for a track without lyrics;
+ *   with neither, one centred column). The same component on both, so they
+ *   cannot drift apart: this view was a column of cover, info, waveform and
+ *   controls beside the lyrics, and the same track looked one way here and
+ *   another on its share page.
  * - phones, normal view: one scrolling column, cover, info, waveform and
  *   controls, then the track's description when it has one. The lyrics are
  *   not under the controls any more: there they could never fill the
@@ -102,11 +106,9 @@ const lyricsChosen = useLocalStorage(STORAGE_KEYS.lyricsView, false)
 const lyricsView = computed(() => isPhone.value && hasLyrics.value && lyricsChosen.value)
 /**
  * The track's description ('' when there is none): under the controls in the phones' normal
- * view, in the right column from `md` when the track has no lyrics.
+ * view; from `md`, under the cover, or in the right panel when the track has no lyrics.
  */
 const description = computed(() => player.current?.description?.trim() ?? '')
-/** From `md`, the right column has something to hold: the lyrics, or else the description. */
-const twoColumns = computed(() => hasLyrics.value || !!description.value)
 
 // --- Screen kept on in the lyrics view ------------------------------------------------
 // Reading along means not touching the phone, which would otherwise dim and lock after
@@ -138,9 +140,6 @@ function onOpenAutoFocus(event: Event) {
 useCloseOnBack(open, () => {
   open.value = false
 })
-
-// Slightly smaller base scale while the full-screen view is open (see main.css).
-useHead({ htmlAttrs: { class: computed(() => (open.value ? 'player-expanded' : '')) } })
 
 /** What the view shows (the queued summary while the full data loads). */
 const track = computed(() => player.displayTrack)
@@ -308,38 +307,124 @@ const meta = computed(() => {
         </div>
 
         <!--
-          The normal layout, whenever the lyrics view above is not showing (always from `md`).
-          Scrolling area on phones (the pull-down starts only at its top). `overscroll-y-contain`
-          keeps a pull at the top from reaching the browser (pull to refresh) instead of the view.
-          `grid-cols-1` matters on phones: without an explicit column, the column grows to the
-          width of the longest unbroken text (a long title, which only truncates inside a column
-          of fixed width) and the whole view spilled off the right edge.
+          From `md`: the share page's layout (see the file comment). The columns' row takes the
+          height between the top bar and the controls bar: the left column scrolls by itself, the
+          lyrics scroll in their panel, and nothing is ever a pull-down there (`data-swipe-ignore`:
+          a pull on the top bar still closes the view). Body and bar share max-w-6xl and their
+          padding, so the bar's edges sit under the columns'.
+        -->
+        <div
+          v-else-if="!isPhone"
+          class="flex min-h-0 flex-1 flex-col"
+          data-testid="player-expanded-wide"
+        >
+          <!--
+            The track: TrackShowcase, the share page's body too, so the two look the same (same side
+            padding as the share page's UContainer). It scrolls here, between the top bar and the
+            controls bar; nothing in it is a pull-down (a pull on the top bar still closes the view).
+          -->
+          <div
+            class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-4 sm:px-6 lg:px-8"
+            data-swipe-ignore
+          >
+            <TrackShowcase
+              v-if="track"
+              :title="track.title"
+              :composers="track.composers ?? null"
+              :meta="meta"
+              :draft="(player.current?.status ?? track.status) === 'draft'"
+              :cover-url="track.coverUrl ?? null"
+              :description="description || null"
+              :has-lyrics="hasLyrics"
+              testid="player"
+            >
+              <template #lyrics>
+                <!-- One view per track (key): a new track's lyrics start at the top -->
+                <LyricsView
+                  :key="player.current?.id"
+                  :synced="player.current?.lyricsSynced ?? null"
+                  :plain="player.current?.lyrics ?? null"
+                  :current-time="player.currentTime"
+                  :shared="shared"
+                  centered
+                  :end-room="false"
+                  @seek="player.seek"
+                />
+              </template>
+            </TrackShowcase>
+          </div>
+
+          <!--
+            The controls bar: controls, elapsed time, waveform, time left, volume (the share page's
+            player bar). Below `lg` in two rows, the waveform and its times the whole width on top:
+            in one row, on a 820px tablet the six controls and the volume left it about 100px.
+          -->
+          <div
+            class="border-t border-default"
+            data-swipe-ignore
+            data-testid="player-expanded-bar"
+          >
+            <!--
+              The padding outside the max width, as around the showcase, and the same as the share
+              page's container (UContainer's): the bar's edges sit under the columns', and the
+              columns are as wide as on the share page.
+            -->
+            <div class="px-4 sm:px-6 lg:px-8">
+              <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 py-3 lg:h-18 lg:flex-nowrap lg:py-0">
+                <PlayerControls
+                  size="lg"
+                  class="shrink-0"
+                />
+                <div class="order-first flex w-full min-w-0 items-center gap-4 lg:order-none lg:w-auto lg:flex-1">
+                  <span class="w-10 shrink-0 text-right text-xs tabular-nums text-muted">{{ formatTime(player.currentTime) }}</span>
+                  <div class="min-w-0 flex-1">
+                    <PlayerWaveform
+                      v-if="player.current && open"
+                      :key="player.current.id"
+                      :peaks="player.current.peaks"
+                      :duration="player.duration"
+                      :height="40"
+                    />
+                    <p
+                      v-if="player.status === 'error'"
+                      class="truncate text-xs text-error"
+                    >
+                      {{ player.error }}
+                    </p>
+                  </div>
+                  <span class="w-12 shrink-0 text-xs tabular-nums text-muted">{{ formatRemaining(player.currentTime, player.duration) }}</span>
+                </div>
+                <PlayerVolume class="ml-auto shrink-0" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Phones' normal layout, whenever the lyrics view above is not showing: one scrolling column
+          (the pull-down starts only at its top). `overscroll-y-contain` keeps a pull at the top from
+          reaching the browser (pull to refresh) instead of the view. `grid-cols-1` matters: without
+          an explicit column, the column grows to the width of the longest unbroken text (a long
+          title, which only truncates inside a column of fixed width) and the whole view spilled off
+          the right edge.
         -->
         <div
           v-else
           ref="scroller"
-          class="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto overscroll-y-contain px-4 pb-6 md:gap-10 md:overflow-hidden md:px-10"
-          :class="{ 'md:grid-cols-2': twoColumns }"
+          class="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto overscroll-y-contain px-4 pb-6"
         >
           <!--
-            Left column: cover, info, waveform, controls. On desktop its width
-            (and so the square cover) follows the window height, so the controls
-            always stay on screen; 24rem is the height of everything but the cover,
-            with the top bar and the bottom padding. The column keeps 20rem for the
-            title, waveform and controls, and below that only the cover shrinks
-            (down to 10rem): with the column itself held at 20rem, at 1280×720 the
-            controls fell under the window's bottom edge, out of reach.
-            Phones do the same for the cover alone (23rem there), so on a short
-            screen (375×667, or less with the browser's bars) play, previous and next
-            stay in the first screen instead of under its bottom edge; the title and
-            waveform keep the full width.
+            Cover, info, waveform, controls. The cover follows the screen's height (23rem: everything
+            else, with the top bar and the bottom padding), so on a short screen (375×667, or less
+            with the browser's bars) play, previous and next stay in the first screen instead of
+            under its bottom edge; the title and waveform keep the full width.
           -->
-          <section class="mx-auto flex w-full max-w-md flex-col justify-center gap-5 md:max-w-[max(20rem,min(32rem,calc(100dvh-24rem)))]">
+          <section class="mx-auto flex w-full max-w-md flex-col justify-center gap-5">
             <TrackCover
               :url="track?.coverUrl"
               :title="track?.title"
               rounded="rounded-xl"
-              class="mx-auto w-full shadow-2xl shadow-black/40 max-md:max-w-[max(8rem,calc(100dvh-23rem))] md:max-w-[max(10rem,calc(100dvh-24rem))]"
+              class="mx-auto w-full max-w-[max(8rem,calc(100dvh-23rem))] shadow-2xl shadow-black/40"
             />
 
             <div class="min-w-0">
@@ -379,39 +464,17 @@ const meta = computed(() => {
               {{ player.error }}
             </p>
 
-            <!-- Controls on their own row (six buttons fill this column), the volume under them -->
+            <!-- Controls on their own row, the volume under them -->
             <div class="flex flex-col items-center gap-3">
               <PlayerControls size="xl" />
               <PlayerVolume data-swipe-ignore />
             </div>
           </section>
 
-          <!-- Right column (md+): lyrics, in their own scrolling box (never a pull-down) -->
+          <!-- The description under the controls (the lyrics have their own view, see the top bar) -->
           <section
-            v-if="!isPhone && hasLyrics"
-            class="min-h-0"
-            data-swipe-ignore
-          >
-            <!-- One view per track (key), as on phones above -->
-            <LyricsView
-              :key="player.current?.id"
-              :synced="player.current?.lyricsSynced ?? null"
-              :plain="player.current?.lyrics ?? null"
-              :current-time="player.currentTime"
-              :shared="shared"
-              @seek="player.seek"
-            />
-          </section>
-
-          <!--
-            The description: on phones under the controls (the lyrics have their own view, see the
-            top bar); from `md`, for a track without lyrics, the right column, centred and
-            scrolling by itself when long (never a pull-down there).
-          -->
-          <section
-            v-else-if="description"
-            class="mx-auto w-full max-w-md md:flex md:min-h-0 md:max-w-none md:flex-col md:justify-center md:overflow-y-auto"
-            :data-swipe-ignore="isPhone ? undefined : ''"
+            v-if="description"
+            class="mx-auto w-full max-w-md"
             data-testid="player-description"
           >
             <h3 class="text-xs font-semibold uppercase tracking-widest text-muted">
