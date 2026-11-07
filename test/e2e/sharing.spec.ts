@@ -37,7 +37,7 @@ test.describe('public sharing', () => {
     const secretPrompt = `secret-prompt-${uniqueId()}`
     await page.getByTestId('field-description').fill('Written on a rainy night.')
     await page.getByTestId('field-suno-prompt').fill(secretPrompt)
-    await page.getByRole('switch', { name: 'Mastering' }).click()
+    await page.getByRole('switch', { name: 'Mastered' }).click()
     await page.getByText('Unlisted', { exact: true }).click()
     await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
     await expect(page.getByText('Changes saved').first()).toBeVisible()
