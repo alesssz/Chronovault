@@ -26,11 +26,14 @@ import { ariaShortcut } from '~/lib/keyboard-shortcuts'
  * does not need it does not scroll by that room.
  *
  * `bar`: the same controls as a bar fixed at the bottom of the screen, the
- * whole width, in one row (play, time, waveform, duration, volume, then the
- * page's `actions` slot: the track page's Download). The track page uses it
- * from `md`, where it is always in view, so it brings no mini player. Nor a
- * full-screen button: the full-screen view has that page's own layout there,
- * so it only opened the same thing again (the F key still opens it).
+ * whole width, in one row (previous / play / next, time, waveform, duration,
+ * volume, then the page's `actions` slot: the track page's Download, and the
+ * full-screen button when asked for). Both share pages use it from `md`,
+ * where it is always in view, so it brings no mini player. The track page
+ * asks for no full-screen button: the full-screen view has that page's own
+ * layout there, so it only opened the same thing again (the F key still
+ * opens it). The playlist page does: there the view shows the track playing
+ * large, which the page itself does not.
  */
 const props = defineProps<{
   /** The player holds this page's track (or a track of this page's playlist). */
@@ -41,6 +44,8 @@ const props = defineProps<{
   navigation?: boolean
   /** A bar fixed at the bottom of the screen instead of a block in the page (see above). */
   bar?: boolean
+  /** In the bar, a full-screen button at its end (the in-page player always has one). */
+  fullScreen?: boolean
 }>()
 
 /** Play/pause: the page decides (it may have to load its item first). */
@@ -74,16 +79,44 @@ onBeforeUnmount(() => {
     <!-- As wide as the track page's content (max-w-6xl), so play sits under the cover's edge and the last control under the panel's -->
     <UContainer>
       <div class="mx-auto flex h-18 max-w-6xl items-center gap-4">
-        <IconButton
-          :icon="active && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-          :label="active && player.isPlaying ? 'Pause' : 'Play'"
-          :loading="active && player.status === 'loading'"
-          size="xl"
-          class="shrink-0 rounded-full p-3"
-          data-testid="shared-play"
-          :aria-keyshortcuts="ariaShortcut('toggle-play')"
-          @click="emit('toggle')"
-        />
+        <!-- Previous / play / next (a playlist), or play alone; play on the content's left edge without them -->
+        <div class="flex shrink-0 items-center gap-1">
+          <IconButton
+            v-if="navigation"
+            icon="i-lucide-skip-back"
+            color="neutral"
+            variant="ghost"
+            size="lg"
+            label="Previous track"
+            class="-ml-1.5"
+            :aria-keyshortcuts="ariaShortcut('previous')"
+            :disabled="!active"
+            data-testid="shared-previous"
+            @click="player.previous()"
+          />
+          <IconButton
+            :icon="active && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
+            :label="active && player.isPlaying ? 'Pause' : 'Play'"
+            :loading="active && player.status === 'loading'"
+            size="xl"
+            class="shrink-0 rounded-full p-3"
+            data-testid="shared-play"
+            :aria-keyshortcuts="ariaShortcut('toggle-play')"
+            @click="emit('toggle')"
+          />
+          <IconButton
+            v-if="navigation"
+            icon="i-lucide-skip-forward"
+            color="neutral"
+            variant="ghost"
+            size="lg"
+            label="Next track"
+            :aria-keyshortcuts="ariaShortcut('next')"
+            :disabled="!active || !player.hasNext"
+            data-testid="shared-next"
+            @click="player.next()"
+          />
+        </div>
         <span class="w-10 shrink-0 text-right text-xs tabular-nums text-muted">{{ formatTime(active ? player.currentTime : 0) }}</span>
         <div
           class="min-w-0 flex-1"
@@ -112,9 +145,30 @@ onBeforeUnmount(() => {
           </p>
         </div>
         <span class="w-10 shrink-0 text-xs tabular-nums text-muted">{{ formatTime(active ? player.duration : duration) }}</span>
-        <!-- Mute and slider -->
-        <PlayerVolume class="shrink-0" />
+        <!--
+          Mute and slider; below `lg` the speaker button with its popover, so the waveform keeps a
+          real width between previous / play / next and the end of the bar (on a tablet-wide
+          window the slider left it about 200px).
+        -->
+        <PlayerVolume class="shrink-0 max-lg:hidden" />
+        <PlayerVolume
+          compact
+          class="shrink-0 lg:hidden"
+        />
         <slot name="actions" />
+        <!-- The full-screen view: the track playing, large, with its lyrics (the playlist page) -->
+        <IconButton
+          v-if="fullScreen"
+          icon="i-lucide-maximize-2"
+          color="neutral"
+          variant="ghost"
+          label="Full screen"
+          :aria-keyshortcuts="ariaShortcut('full-screen')"
+          :disabled="!active || !player.current"
+          class="-mr-1.5 shrink-0"
+          data-testid="shared-expand"
+          @click="player.setExpanded(true)"
+        />
       </div>
     </UContainer>
   </div>

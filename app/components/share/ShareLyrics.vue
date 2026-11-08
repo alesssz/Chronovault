@@ -23,7 +23,9 @@ withDefaults(defineProps<{
   centered?: boolean
   /** Room after the last synced line, to scroll it to the middle (see LyricsView's `endRoom`). */
   endRoom?: boolean
-}>(), { centered: false, endRoom: true })
+  /** Text size (see LyricsView): 'compact' in the playlist page's narrow panel. */
+  size?: 'default' | 'compact'
+}>(), { centered: false, endRoom: true, size: 'default' })
 
 /** A line was clicked: the page seeks there (only while it plays this track). */
 const emit = defineEmits<{ seek: [seconds: number] }>()
@@ -41,6 +43,7 @@ const player = usePlayerStore()
     shared
     :centered="centered"
     :end-room="endRoom"
+    :size="size"
     @seek="emit('seek', $event)"
   />
 </template>

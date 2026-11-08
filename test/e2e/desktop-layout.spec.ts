@@ -10,7 +10,9 @@
  * - a playlist's page starts with its tracks, its details in a dialog (the form came first and
  *   pushed the tracks below the bottom edge);
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
- *   the first screen (a 26rem cover put them on or below the bottom edge);
+ *   the first screen (a 26rem cover put them on or below the bottom edge); the playlist's, like the
+ *   track's, has its player as a bar at the bottom (previous / next and full screen in it), its
+ *   list in the top half and its now-playing panel ending above the bar;
  * - the full-screen player (the share page's layout) of a track without lyrics shows its
  *   description beside the cover, and with neither a single centred column (half the screen held
  *   only "No lyrics"); its controls bar stays inside the window down to 1280×720 and 1024×640;
@@ -190,6 +192,17 @@ test.describe('desktop layout', () => {
     expect(play.y + play.height).toBeLessThanOrEqual(height)
     const shared = (await page.getByTestId('shared-playlist-track').first().boundingBox())!
     expect(shared.y + shared.height).toBeLessThanOrEqual(height)
+    // The playlist's page as the track's: the player a bar at the window's bottom, with previous /
+    // next and full screen (the view shows the track playing, which this page does not); the list
+    // in the top half under a compact header (a large cover started it at the bottom edge); the
+    // now-playing panel ending above the bar.
+    const playlistBar = page.getByTestId('shared-bar')
+    const barBox = (await playlistBar.boundingBox())!
+    expect(Math.round(barBox.y + barBox.height)).toBe(height)
+    for (const control of ['shared-previous', 'shared-next', 'shared-expand']) await expect(playlistBar.getByTestId(control)).toBeVisible()
+    expect(shared.y).toBeLessThan(height / 2)
+    const nowPlaying = (await page.getByTestId('shared-now-playing').boundingBox())!
+    expect(nowPlaying.y + nowPlaying.height).toBeLessThanOrEqual(barBox.y)
     await page.goto(`/t/${ids[TRACKS[0]!]}`)
     await waitForHydration(page)
     // The track's page: its player bar at the window's bottom (Play sat on the bottom edge once,

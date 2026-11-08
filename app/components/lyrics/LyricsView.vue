@@ -15,6 +15,12 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  *
  * `size="large"`: one step bigger, for the phones' lyrics view of the
  * full-screen player, where the lyrics have the whole screen to themselves.
+ * `size="compact"`: two steps smaller, for a narrow panel (the playlist share
+ * page's, beside the list), where the default size wrapped nearly every line.
+ *
+ * While there is more to scroll below, the box's bottom edge fades out: a
+ * box ending on a cut line (or a lone section header) gave no hint that it
+ * scrolled. Gone once the end is reached, so the last line reads whole.
  *
  * `shared`: on a share page's full-screen view, a track without lyrics shows
  * "No lyrics" alone: the hint to add some is for the owner, who alone can.
@@ -23,8 +29,8 @@ const props = withDefaults(defineProps<{
   synced: SyncedLyricLine[] | null
   plain: string | null
   currentTime: number
-  /** Text size: 'default' (beside the cover) or 'large' (lyrics on their own). */
-  size?: 'default' | 'large'
+  /** Text size: 'default' (beside the cover), 'large' (lyrics on their own) or 'compact' (a narrow panel). */
+  size?: 'default' | 'large' | 'compact'
   /** Shown to a share page's visitor: no hint to add lyrics, which only the owner can do. */
   shared?: boolean
   /** Every line centred (the track page's wide panel, where left-aligned lines left its right half empty). */
@@ -44,6 +50,17 @@ const emit = defineEmits<{ seek: [seconds: number] }>()
 
 /** The scrolling box. */
 const container = ref<HTMLElement | null>(null)
+/** The plain text inside it (the synced lines are `listEl`, below): its size changes what is left to scroll. */
+const content = ref<HTMLElement | null>(null)
+
+/** More of the lyrics below the box's bottom edge: the edge fades out. */
+const moreBelow = ref(false)
+/** Measures what is left to scroll (on scroll, and when the box or the lines change size). */
+function measure() {
+  const box = container.value
+  moreBelow.value = !!box && box.scrollTop + box.clientHeight < box.scrollHeight - 1
+}
+
 /**
  * The list of synced lines: the active one is found by its place in it, to
  * scroll it into view. Not v-for refs: Vue does not keep that array in list
@@ -52,6 +69,10 @@ const container = ref<HTMLElement | null>(null)
  * the mirror line of the one sung.
  */
 const listEl = ref<HTMLOListElement | null>(null)
+
+useResizeObserver(container, measure)
+useResizeObserver(content, measure)
+useResizeObserver(listEl, measure)
 
 /** Synced lyrics win over plain lyrics when both exist. */
 const hasSynced = computed(() => !!props.synced?.length)
@@ -86,6 +107,11 @@ const userScrolledAt = ref(0)
 /** Auto-scroll pauses this long (ms) after the user scrolls by hand. */
 const AUTO_SCROLL_PAUSE = 4000
 
+/** Text size of the synced lines. */
+const syncedSize = computed(() => ({ large: 'text-2xl sm:text-3xl', default: 'text-xl sm:text-2xl', compact: 'text-base sm:text-lg' })[props.size])
+/** Text size of plain lyrics. */
+const plainSize = computed(() => ({ large: 'text-xl', default: 'text-lg', compact: 'text-sm sm:text-base' })[props.size])
+
 /** Wheel or touch scrolling: remember when, to pause auto-scroll. */
 function onUserScroll() {
   userScrolledAt.value = Date.now()
@@ -109,9 +135,11 @@ watch(activeIndex, (index) => {
   <div
     ref="container"
     class="h-full overflow-y-auto overscroll-contain"
-    :class="{ 'text-center': centered }"
+    :class="{ 'text-center': centered, '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]': moreBelow }"
+    :data-more-below="moreBelow || undefined"
     @wheel.passive="onUserScroll"
     @touchmove.passive="onUserScroll"
+    @scroll.passive="measure"
   >
     <!--
       Lyrics start at the top; the bottom padding only lets the last lines
@@ -121,7 +149,7 @@ watch(activeIndex, (index) => {
       v-if="hasSynced"
       ref="listEl"
       class="space-y-3 pt-2 font-semibold leading-snug"
-      :class="[size === 'large' ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl', endRoom ? 'pb-[45vh]' : 'pb-4']"
+      :class="[syncedSize, endRoom ? 'pb-[45vh]' : 'pb-4']"
       data-testid="lyrics-synced"
     >
       <li
@@ -152,8 +180,9 @@ watch(activeIndex, (index) => {
     <!-- Not synced: the plain text, section headers as titles -->
     <div
       v-else-if="plain"
+      ref="content"
       class="space-y-1 py-4 leading-relaxed"
-      :class="size === 'large' ? 'text-xl' : 'text-lg'"
+      :class="plainSize"
     >
       <p
         v-for="(line, i) in plainLines"
