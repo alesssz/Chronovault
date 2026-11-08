@@ -74,20 +74,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Recommended.** B: the bar stays under the header as on desktop, with names that fit; the count never cut.
 
-### UI-29 On phones a shared playlist's cover pushes its tracks and the vote below the first screen
-
-**Priority:** medium · **Kind:** phones, share pages · **Found:** 2026-11-06
-
-**What is wrong.** Below `sm` a playlist's share page (`/p/…`) starts with a cover as wide as the screen: at 390×844 the first track is at the bottom edge, and on a group of versions, whose point is choosing one, the hearts are out of sight; at 375×667 the list starts below the first screen. (From `sm` the cover is already a small square beside the title.)
-
-**Where.** [pages/p/[id].vue](../app/pages/p/[id].vue), the header row.
-
-**Options.**
-- A) On phones too, a smaller cover beside the title (about a third of the width).
-- B) Only for groups of versions.
-
-**Recommended.** A: the track page (`/t/…`) keeps its large cover, the playlist's list is the content; check that the first rows are in the first screen at 375×667.
-
 ### UI-30 A visitor's vote page puts its instruction at the bottom and never says the pick is saved
 
 **Priority:** medium · **Kind:** share pages · **Found:** 2026-11-06
@@ -101,18 +87,6 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 - B) Only the "Saved" mark.
 
 **Recommended.** A.
-
-### UI-32 The lyrics panel of a shared playlist wraps almost every line on desktop
-
-**Priority:** low · **Kind:** share pages · **Found:** 2026-11-06
-
-**What is wrong.** On a playlist's share page the lyrics sit in a 24rem column with the full-screen view's large type: nearly every line wraps ("burning / sky"), and the box ends on a lone "CHORUS" heading, giving no hint that it scrolls.
-
-**Where.** [pages/p/[id].vue](../app/pages/p/[id].vue) (the side column), [ShareLyrics.vue](../app/components/share/ShareLyrics.vue).
-
-**Options.** A smaller type in that panel, and a fade at its bottom edge while there is more to scroll.
-
-**Recommended.** Both.
 
 ### UI-34 The upload drop zone shows no way to pick files
 

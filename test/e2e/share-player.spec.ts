@@ -229,6 +229,14 @@ test.describe('share page player', () => {
       const play = visitor.getByTestId('shared-play')
       await rows.nth(0).getByRole('button').first().click()
       await expect(play).toHaveAttribute('aria-label', 'Pause')
+      // A second click on the row playing opens it full screen (its description is there, not in
+      // the page), and the music goes on.
+      await rows.nth(0).getByRole('button').first().click()
+      const expanded = visitor.getByTestId('player-expanded')
+      await expect(expanded).toContainText('Tide 1')
+      await expect(play).toHaveAttribute('aria-label', 'Pause')
+      await expanded.getByRole('button', { name: 'Collapse player' }).click()
+      await expect(expanded).toBeHidden()
 
       // --- Tide 3 chosen, its address held back: while it loads, it is Tide 3 that shows ---
       // The address of the track being moved to, held until the test lets it go.

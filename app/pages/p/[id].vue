@@ -4,8 +4,8 @@ import { sharedApi } from '~/services/api'
 /**
  * Public page of a playlist shared by link ('unlisted' or 'public'): no
  * account needed. Lists every track (private ones included: sharing a
- * playlist shares its content) and shows the lyrics and description of the
- * track being played. Server-rendered for link previews.
+ * playlist shares its content) and shows the lyrics of the track being
+ * played; a second click on its row opens it full screen, description too. Server-rendered for link previews.
  * A group of versions (purpose 'versions', made by "Share for feedback") is the
  * same page, introduced as versions of one song to choose from: each version
  * gets a heart to pick it, and a panel under the list holds the pick's
@@ -14,6 +14,10 @@ import { sharedApi } from '~/services/api'
  * by the app-wide play counter (plugins/play-counter.client.ts). Tracks can
  * be downloaded, with their tags (useSharedTrackDownload), unless the track
  * itself is public: the track's visibility decides, not the playlist's.
+ *
+ * Laid out like the track page: from `md` the player is a bar at the bottom
+ * of the window (SharePlayer's `bar`); a compact header and the list come
+ * first, the now-playing panel beside them from `lg`.
  */
 definePageMeta({ layout: 'public' })
 
@@ -84,6 +88,15 @@ const activeMeta = computed(() => {
 /** The active track has lyrics to show (otherwise "No lyrics for this track"). */
 const activeHasLyrics = computed(() => !!activeTrack.value && hasLyrics(activeTrack.value))
 
+/**
+ * A tablet- or desktop-wide window (Tailwind's `md`): the player is the bar at
+ * the bottom of the screen, as on the track page, instead of a block between
+ * the title and the list. false on the server, which cannot know: the in-page
+ * player is rendered, and hidden from `md` by CSS until the bar replaces it
+ * once mounted (the bar is fixed, so nothing moves).
+ */
+const isWide = useMediaQuery('(min-width: 768px)')
+
 // The first track is ready (waveform included) before the first click.
 onMounted(() => {
   if (playlist.value?.tracks.length) void player.playSharedPlaylist(playlist.value, 0, false)
@@ -102,10 +115,22 @@ function isActive(trackId: string) {
 /**
  * Plays the playlist from a given track. The track the player is already on
  * is toggled instead (playSharedPlaylist), while it loads too: the row's
- * click goes through the store, which knows the queue's track.
+ * click (onRowClick, when that track is not playing) goes through the
+ * store, which knows the queue's track.
  */
 function playAt(index: number) {
   if (playlist.value) void player.playSharedPlaylist(playlist.value, index)
+}
+
+/**
+ * A row's click: the track playing opens the full-screen view (its cover,
+ * lyrics and description, which this page does not show); any other track,
+ * or this one paused or not started, plays. A first click plays, a second
+ * shows it large. Pause stays with the big button, the bar and Space.
+ */
+function onRowClick(index: number, trackId: string) {
+  if (isActive(trackId) && player.isPlaying) player.setExpanded(true)
+  else playAt(index)
 }
 
 /**
@@ -141,67 +166,75 @@ function isPicked(trackId: string) {
 </script>
 
 <template>
-  <UContainer class="py-6 sm:py-10">
+  <UContainer class="py-6 sm:py-10 md:pt-4 md:pb-[calc(5.5rem+1px)]">
+    <!--
+      From `md`: the bottom padding keeps the end of the page above the player bar (4.5rem, its 1px
+      border, and 1rem of air), as on the track page.
+    -->
     <div
       v-if="playlist"
-      class="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-12"
+      class="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-12"
       data-testid="shared-playlist"
     >
       <!--
-        Left: cover or mosaic with title and description beside it, player, track list. From `sm`
-        the cover is a header row's small square: as a 26rem column it put Play on the bottom edge
-        of a 1440×900 screen and every track below it, though the list is what a friend opens the
-        link for. On phones the cover stays large, above the title, but shrinks with the screen's
-        height (24rem: header, title, summary, the waveform and the row of controls under it), so
-        Play stays in the first screen of a 375×667 phone: since play moved under the waveform, a
-        cover as wide as the screen put it under the bottom edge (UI-29 is about the list after it).
+        Left: a compact header (a small cover beside the title and summary, the description under
+        them), then the track list, which is what a friend opens the link for. The cover was a
+        large square: on a 1505×738 window the list started at the bottom edge, and on phones,
+        as wide as the screen, it pushed the list (and a group's hearts) below the first screen
+        (UI-29). Below `md` the player sits between the header and the list; from `md` it is the
+        bar at the bottom of the screen, as on the track page.
       -->
       <section class="flex min-w-0 flex-col gap-6">
-        <div class="flex flex-col gap-6 sm:flex-row sm:items-end">
-          <PlaylistCover
-            :url="playlist.coverUrl"
-            :mosaic="playlist.mosaic"
-            :title="playlist.title"
-            rounded="rounded-xl"
-            class="mx-auto w-full max-w-sm shadow-2xl shadow-black/40 max-sm:max-w-[max(10rem,min(24rem,calc(100dvh-24rem)))] sm:mx-0 sm:w-48 sm:shrink-0 lg:w-56"
-          />
-
-          <div class="min-w-0">
-            <h1
-              class="text-3xl font-bold tracking-tight text-balance"
-              data-testid="shared-playlist-title"
-            >
-              {{ playlist.title }}
-            </h1>
-            <p class="mt-1 text-sm text-dimmed">
-              {{ summary }}
-            </p>
-            <p
-              v-if="playlist.description"
-              class="mt-3 whitespace-pre-line leading-relaxed"
-              data-testid="shared-playlist-description"
-            >
-              {{ playlist.description }}
-            </p>
-            <!-- A group without a note of its own: what the listener is asked to do -->
-            <p
-              v-else-if="isVersions"
-              class="mt-3 leading-relaxed text-muted"
-              data-testid="shared-versions-hint"
-            >
-              Different versions of the same song: listen to each and pick your favourite.
-            </p>
+        <div class="space-y-3">
+          <div class="flex items-center gap-4 sm:gap-6">
+            <PlaylistCover
+              :url="playlist.coverUrl"
+              :mosaic="playlist.mosaic"
+              :title="playlist.title"
+              rounded="rounded-lg"
+              class="w-24 shrink-0 shadow-xl shadow-black/40 sm:w-32"
+            />
+            <div class="min-w-0">
+              <h1
+                class="text-2xl font-bold tracking-tight text-balance sm:text-3xl"
+                data-testid="shared-playlist-title"
+              >
+                {{ playlist.title }}
+              </h1>
+              <p class="mt-1 text-sm text-dimmed">
+                {{ summary }}
+              </p>
+            </div>
           </div>
+          <p
+            v-if="playlist.description"
+            class="whitespace-pre-line leading-relaxed"
+            data-testid="shared-playlist-description"
+          >
+            {{ playlist.description }}
+          </p>
+          <!-- A group without a note of its own: what the listener is asked to do -->
+          <p
+            v-else-if="isVersions"
+            class="leading-relaxed text-muted"
+            data-testid="shared-versions-hint"
+          >
+            Different versions of the same song: listen to each and pick your favourite.
+          </p>
         </div>
 
-        <!-- Play button, waveform, times, previous / next, volume, full screen and playback errors -->
-        <SharePlayer
-          v-if="playlist.tracks.length"
-          :active="isHere"
-          :duration="activeTrack?.durationSeconds ?? null"
-          navigation
-          @toggle="togglePlay"
-        />
+        <!-- Below `md`: play button, waveform, times, previous / next, volume, full screen and playback errors -->
+        <div
+          v-if="playlist.tracks.length && !isWide"
+          class="md:hidden"
+        >
+          <SharePlayer
+            :active="isHere"
+            :duration="activeTrack?.durationSeconds ?? null"
+            navigation
+            @toggle="togglePlay"
+          />
+        </div>
 
         <!-- The tracks: click to play (or toggle the active one), download; in a group, a heart to pick one -->
         <ol
@@ -220,7 +253,8 @@ function isPicked(trackId: string) {
               type="button"
               class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-elevated/50"
               :aria-current="isActive(track.id) ? 'true' : undefined"
-              @click="playAt(index)"
+              :title="isActive(track.id) && player.isPlaying ? 'Open full screen' : undefined"
+              @click="onRowClick(index, track.id)"
             >
               <span class="w-5 shrink-0 text-right text-sm tabular-nums text-dimmed">
                 <UIcon
@@ -326,10 +360,17 @@ function isPicked(trackId: string) {
         />
       </section>
 
-      <!-- Now playing: lyrics and description of the active track -->
+      <!--
+        Now playing: the active track's title and lyrics, nothing else. Its description (About) is
+        in the full-screen view, a second click on the row away: here, a long one squeezed the
+        lyrics to two lines. From `lg` the right column, from
+        the header's top edge down to the player bar (100dvh less the page's header and top
+        padding, 4.5rem and 1px, and the bar with its 1rem of air, 5.5rem and 1px), staying in
+        view while the list scrolls.
+      -->
       <section
         v-if="activeTrack"
-        class="flex min-w-0 flex-col gap-4 lg:sticky lg:top-6 lg:h-[calc(100dvh-8rem)] lg:self-start"
+        class="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:h-[calc(100dvh-10rem-2px)] lg:self-start"
         aria-label="Now playing"
         data-testid="shared-now-playing"
       >
@@ -360,11 +401,19 @@ function isPicked(trackId: string) {
           data-testid="shared-lyrics"
         >
           <!-- The position is read inside ShareLyrics: read here, it re-rendered the whole page every frame -->
+          <!--
+            Centred and two sizes smaller than the track page's (`compact`): at that size, in this
+            narrower panel, nearly every line wrapped (UI-32). No room after the last line, as on
+            the track page: the panel is not as tall as the screen.
+          -->
           <ShareLyrics
             :key="activeTrack.id"
             :synced="activeTrack.lyricsSynced"
             :plain="activeTrack.lyrics"
             :following="isHere && player.current?.id === activeTrack.id"
+            centered
+            :end-room="false"
+            size="compact"
             @seek="onLyricSeek"
           />
         </div>
@@ -374,27 +423,23 @@ function isPicked(trackId: string) {
         >
           No lyrics for this track.
         </p>
-
-        <div
-          v-if="activeTrack.description"
-          class="max-h-48 shrink-0 space-y-1 overflow-y-auto"
-        >
-          <h3 class="text-xs font-semibold uppercase tracking-widest text-muted">
-            About this track
-          </h3>
-          <p
-            class="whitespace-pre-line text-sm leading-relaxed"
-            data-testid="shared-track-description"
-          >
-            {{ activeTrack.description }}
-          </p>
-        </div>
       </section>
     </div>
 
+    <!-- From `md`: the player as a bar at the bottom of the screen, with previous / next and full screen -->
+    <SharePlayer
+      v-if="playlist?.tracks.length && isWide"
+      bar
+      navigation
+      full-screen
+      :active="isHere"
+      :duration="activeTrack?.durationSeconds ?? null"
+      @toggle="togglePlay"
+    />
+
     <!-- Private, missing or malformed link -->
     <ShareUnavailable
-      v-else
+      v-if="!playlist"
       kind="playlist"
       :not-found="notFound"
     />
