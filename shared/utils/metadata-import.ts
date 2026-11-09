@@ -141,11 +141,19 @@ function cellText(cell: ImportCell): string {
 const YES = new Set(['yes', 'y', 'true', '1', 'x', 'si', 'sì', 'mastered'])
 const NO = new Set(['no', 'n', 'false', '0', 'not mastered'])
 
-/** A text field checked against the edit form's own rule (length, no NUL), or its message. */
+/** The first message of a value Zod refused (a refusal always has one). */
+function firstIssue(error: { issues: { message: string }[] }): string {
+  return error.issues[0]!.message
+}
+
+/**
+ * A text field checked against the edit form's own rule (length, no NUL), or
+ * its message. The schema turns '' into null, which cannot happen here: the
+ * text is trimmed and a blank cell never gets this far (readCell).
+ */
 function textField(field: 'composers' | 'album' | 'description' | 'sunoPrompt' | 'lyrics', text: string): { value?: string, error?: string } {
   const result = trackMetadataSchema.shape[field].safeParse(text)
-  if (!result.success) return { error: result.error.issues[0]?.message ?? 'invalid' }
-  return result.data === null ? {} : { value: result.data }
+  return result.success ? { value: result.data! } : { error: firstIssue(result.error) }
 }
 
 /**
@@ -170,7 +178,7 @@ function readCell(column: Exclude<ImportColumn, 'title'>, cell: ImportCell): { v
     }
     case 'genre': {
       const result = genreCreateSchema.shape.name.safeParse(text)
-      return result.success ? { value: result.data } : { error: result.error.issues[0]?.message ?? 'invalid' }
+      return result.success ? { value: result.data } : { error: firstIssue(result.error) }
     }
     case 'mastered': {
       if (typeof cell === 'boolean') return { value: cell }

@@ -97,6 +97,19 @@ describe('parseImportRows', () => {
     ])
   })
 
+  it('reads a date Excel gives as its day, which is no year; takes wip as draft', () => {
+    // A cell Excel formats as a date comes back as a Date.
+    const day = new Date(Date.UTC(2026, 4, 1))
+    const parsed = parseImportRows(rows({ title: 'A', album: day, year: day, status: 'WIP' }), ['title', 'album', 'year', 'status'])
+    expect(parsed.rows[0]!.fields).toEqual({ album: '2026-05-01', status: 'draft' })
+    expect(parsed.rows[0]!.errors).toEqual(['year: "2026-05-01" is not a year'])
+  })
+
+  it('refuses a genre name the genre form would refuse', () => {
+    const parsed = parseImportRows(rows({ title: 'A', genre: 'g'.repeat(61) }), ['title', 'genre'])
+    expect(parsed.rows[0]!.errors).toEqual(['genre: At most 60 characters'])
+  })
+
   it('drops rows without a title, and lists the headers it ignores', () => {
     const parsed = parseImportRows(rows({ title: 'A', bpm: '120' }, { title: '  ', bpm: '90' }), ['title', 'bpm', ''])
     expect(parsed.rows.map(r => r.title)).toEqual(['A'])
@@ -141,15 +154,51 @@ describe('planImport', () => {
     expect(result.unchanged).toEqual([{ line: 2, title: 'Night drive' }])
   })
 
+  it('lists every short field that changes, with what it was', () => {
+    const library = [track('t1', 'Song', { composers: 'Ada', year: 2025, genreId: 'g-gone', mastered: false, status: 'draft', visibility: 'private' })]
+    const result = planImport(parseImportRows(rows({
+      title: 'Song',
+      composers: 'Bo',
+      year: '2026',
+      genre: 'Rock',
+      mastered: 'yes',
+      status: 'final',
+      visibility: 'public',
+    }), ['title', 'composers', 'year', 'genre', 'mastered', 'status', 'visibility']), library, GENRES)
+    expect(result.updates[0]!.changes).toEqual([
+      { column: 'composers', from: 'Ada', to: 'Bo' },
+      { column: 'year', from: '2025', to: '2026' },
+      // A genre the list no longer has: shown as empty.
+      { column: 'genre', from: '', to: 'Rock' },
+      { column: 'mastered', from: 'no', to: 'yes' },
+      { column: 'status', from: 'draft', to: 'final' },
+      { column: 'visibility', from: 'private', to: 'public' },
+    ])
+    expect(result.updates[0]!.fields).toEqual({ composers: 'Bo', year: 2026, genre: 'Rock', mastered: true, status: 'final', visibility: 'public' })
+  })
+
+  it('shows a field the track did not have as empty before', () => {
+    const result = planImport(parseImportRows(rows({ title: 'Twin', composers: 'Ada', year: '2026', description: 'About it', suno_prompt: 'rock' }), ['title', 'composers', 'year', 'description', 'suno_prompt']), [track('t3', 'Twin')], GENRES)
+    expect(result.updates[0]!.changes).toEqual([
+      { column: 'composers', from: '', to: 'Ada' },
+      { column: 'year', from: '', to: '2026' },
+      { column: 'description', from: '', to: 'About it' },
+      { column: 'suno_prompt', from: '', to: 'rock' },
+    ])
+  })
+
   it('compares the long texts too, line endings aside: the export imported back changes nothing', () => {
     const library = [track('t1', 'Song', { description: 'About it', sunoPrompt: 'baroque rock', lyrics: '[Verse]\nOne\nTwo' })]
     const same = planImport(parseImportRows(rows({ title: 'Song', description: 'About it', suno_prompt: 'baroque rock', lyrics: '[Verse]\r\nOne\r\nTwo' }), ['title', 'description', 'suno_prompt', 'lyrics']), library, GENRES)
     expect(same.updates).toEqual([])
     expect(same.unchanged).toEqual([{ line: 2, title: 'Song' }])
 
-    const edited = planImport(parseImportRows(rows({ title: 'Song', description: 'New words', lyrics: '[Verse]\nOne\nThree' }), ['title', 'description', 'lyrics']), library, GENRES)
+    const long = `${'A long description, '.repeat(4)}and more.`
+    const edited = planImport(parseImportRows(rows({ title: 'Song', description: long, suno_prompt: 'synthwave', lyrics: '[Verse]\nOne\nThree' }), ['title', 'description', 'suno_prompt', 'lyrics']), library, GENRES)
     expect(edited.updates[0]!.changes).toEqual([
-      { column: 'description', from: 'About it', to: 'New words' },
+      // Long texts shortened to 60 characters for the preview.
+      { column: 'description', from: 'About it', to: `${long.slice(0, 57)}…` },
+      { column: 'suno_prompt', from: 'baroque rock', to: 'synthwave' },
       { column: 'lyrics', from: '3 lines', to: '3 lines, edited' },
     ])
   })
