@@ -91,11 +91,13 @@ const activeHasLyrics = computed(() => !!activeTrack.value && hasLyrics(activeTr
 /**
  * A tablet- or desktop-wide window (Tailwind's `md`): the player is the bar at
  * the bottom of the screen, as on the track page, instead of a block between
- * the title and the list. false on the server, which cannot know: the in-page
- * player is rendered, and hidden from `md` by CSS until the bar replaces it
- * once mounted (the bar is fixed, so nothing moves).
+ * the title and the list. false on the server, which cannot know, and while
+ * the page hydrates, so the browser's first pass matches the server's HTML
+ * (useMountedMediaQuery): the in-page player is rendered, and hidden from
+ * `md` by CSS until the bar replaces it once mounted (the bar is fixed, so
+ * nothing moves).
  */
-const isWide = useMediaQuery('(min-width: 768px)')
+const isWide = useMountedMediaQuery('(min-width: 768px)')
 
 // The first track is ready (waveform included) before the first click.
 onMounted(() => {

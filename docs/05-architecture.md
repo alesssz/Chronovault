@@ -137,6 +137,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `<SharePlayer>`, `<ShareUnavailable>`, `<ShareLinkBox>` | components | Public pages' player and "not available" state; the "Sharing" box of the editors |
 | `useQueueActions().menuItems`, `usePlaylists().addToPlaylistMenu` | composables | "Play next / Add to queue" and "Add to playlist" menu entries (library, selection bar, playlist page) |
 | `useSignedInRedirect` | composable | Sign-in and confirmation pages: enter the app once a session exists |
+| `useMountedMediaQuery` | composable | A layout chosen by window width on a server-rendered page (the share pages' player bar from `md`): false until mounted, so the browser's first pass matches the server's HTML (no hydration mismatch) |
 | `usePageTitle` | composable | Every page's browser tab title: "Library · Chronovault" (the name from `shared/brand.ts`) |
 | `<AppLogo>`, `<AppMark>` | components | The logo (mark + name, optionally the tagline) in the headers and on the sign-in page; the mark alone, drawn from the shared geometry |
 | `APP_NAME`, `FALLBACK_COVER`, `BRAND_COLORS`, `MARK_STROKES` | `shared/brand.ts` | The brand for code: the name wherever it is written, the fallback cover, the colours of the manifest and icons, the mark's geometry ([5.6](#56-brand-and-theme)) |

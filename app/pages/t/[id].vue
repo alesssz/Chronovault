@@ -58,11 +58,13 @@ const showLyrics = computed(() => !!track.value && hasLyrics(track.value))
 /**
  * A tablet- or desktop-wide window (Tailwind's `md`, where TrackShowcase has
  * two columns): the player is the bar at the bottom of the screen instead of
- * a block in the page. false on the server, which cannot know: the in-page
- * player is rendered, and hidden from `md` by CSS until the bar replaces it
- * once mounted (the bar is fixed, so nothing moves).
+ * a block in the page. false on the server, which cannot know, and while the
+ * page hydrates, so the browser's first pass matches the server's HTML
+ * (useMountedMediaQuery): the in-page player is rendered, and hidden from
+ * `md` by CSS until the bar replaces it once mounted (the bar is fixed, so
+ * nothing moves).
  */
-const isWide = useMediaQuery('(min-width: 768px)')
+const isWide = useMountedMediaQuery('(min-width: 768px)')
 
 // The audio is ready (waveform included) before the first click.
 onMounted(() => {
