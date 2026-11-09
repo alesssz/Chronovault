@@ -43,11 +43,11 @@ test.describe('text with a NUL character', () => {
         lyrics: await send('PATCH', `/api/tracks/${first!.id}`, { lyrics: nul }),
         synced: await send('PATCH', `/api/tracks/${first!.id}`, { lyricsSynced: [{ time: 1, text: nul }] }),
         playlist: await send('POST', '/api/playlists', { title: nul }),
-        genre: await send('POST', '/api/genres', { name: nul }),
+        subgenre: await send('POST', `/api/genres/${(await (await fetch('/api/genres')).json())[0].id}/subgenres`, { name: nul }),
       }
     }, WITH_NUL)
     expect({ ...owner, group: undefined, firstTrack: undefined }).toEqual({
-      group: undefined, firstTrack: undefined, title: 400, lyrics: 400, synced: 400, playlist: 400, genre: 400,
+      group: undefined, firstTrack: undefined, title: 400, lyrics: 400, synced: 400, playlist: 400, subgenre: 400,
     })
 
     // An anonymous visitor's vote, with a NUL in the comment.

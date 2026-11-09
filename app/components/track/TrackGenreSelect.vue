@@ -1,18 +1,16 @@
 <script setup lang="ts">
 /**
- * Genre field of the track editor: a built-in genre, one of the user's own,
- * or a new one typed in ("Create" makes the custom genre and selects it).
- * The menu's search box says a new name can be typed ("Search or type a new
- * genre…"): there, where it is typed, rather than in a help line under the
- * field, which made the editor's row taller than its neighbours.
+ * Genre field of the track editor: one of the fixed list of genres (none can
+ * be added: a style that needs a name of its own is a subgenre, in
+ * TrackSubgenreSelect beside it). The menu's search box filters the list.
  * Put it inside a UFormField (name="genreId"), which labels and validates it.
  */
 
 /** The genre id; null for none (the select says undefined when cleared: converted here, as the schema expects null). */
 const model = defineModel<string | null>({ required: true })
 
-// The genre list (cached app-wide), and creating a genre typed in the select.
-const { genres, createGenre } = useGenres()
+// The genre list (cached app-wide).
+const { genres } = useGenres()
 
 /** The select's value: undefined for none, as USelectMenu speaks. */
 const value = computed({
@@ -22,18 +20,8 @@ const value = computed({
   },
 })
 
-/** Genre options for the select menu (built-in and custom, sorted by name). */
+/** Genre options for the select menu, sorted by name. */
 const items = computed(() => genres.value.map(g => ({ label: g.name, value: g.id })))
-
-/** Creating a custom genre from the menu (an error shows a toast). */
-const creating = useAsyncTask()
-
-/** "Create" in the menu: creates the custom genre and selects it. */
-async function onCreate(name: string) {
-  await creating.run(async () => {
-    model.value = (await createGenre(name)).id
-  }, 'Genre not created')
-}
 </script>
 
 <template>
@@ -41,11 +29,10 @@ async function onCreate(name: string) {
     v-model="value"
     :items="items"
     value-key="value"
-    create-item
     clear
     placeholder="Select a genre"
-    :search-input="{ placeholder: 'Search or type a new genre…' }"
+    :search-input="{ placeholder: 'Search genres…' }"
     class="w-full"
-    @create="onCreate"
+    data-testid="genre-select"
   />
 </template>

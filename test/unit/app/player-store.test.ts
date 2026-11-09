@@ -111,7 +111,7 @@ function loadSlowly(): () => void {
 /** A library item with the given id (120 s, no cover). */
 function summary(id: string): TrackSummary {
   return {
-    id, title: `Track ${id}`, composers: null, album: null, year: null, genreId: null, mastered: false,
+    id, title: `Track ${id}`, composers: null, album: null, year: null, genreId: null, subgenreId: null, mastered: false,
     visibility: 'private', durationSeconds: 120, hasLyrics: false, hasSyncedLyrics: false, coverUrl: null,
     createdAt: '', updatedAt: '',
   }

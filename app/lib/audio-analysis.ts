@@ -27,7 +27,7 @@ export interface AudioAnalysis {
   album: string | null
   /** The year tag, when it is a plausible year. */
   year: number | null
-  /** The first genre tag (matched to a genre, or created, by the uploader). */
+  /** The first genre tag (matched to a genre and subgenre by the uploader; nothing is created). */
   genre: string | null
   /** Plain lyrics from the tags. */
   lyrics: string | null

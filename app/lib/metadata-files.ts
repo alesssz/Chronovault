@@ -20,7 +20,7 @@
  *   with a byte-order mark, so Excel reads its accents right.
  * - JSON (.json): a list of objects, or `{ "tracks": [...] }`.
  */
-import type { TrackMetadata } from '~~/shared/types/track'
+import type { Genre, TrackMetadata } from '~~/shared/types/track'
 import { IMPORT_COLUMNS, IMPORT_COLUMN_HELP, columnOf, yesNo, type ImportCell, type ImportColumn, type ImportRow } from '~~/shared/utils/metadata-import'
 
 /** A file read: its headers in order, and its rows. */
@@ -198,13 +198,16 @@ export async function readMetadataFile(file: File): Promise<MetadataFile> {
 /** A download row: each column's value as text ('' for nothing). */
 export type TemplateRow = Record<ImportColumn, string>
 
+/** A genre or subgenre id's name (useGenres' genreName and subgenreName). */
+type NameOf = (id: string | null) => string | null
+
 /**
  * The download's rows: every track by title, with every field it has
- * (GET /api/tracks/metadata), the genre by name. Synced lyrics are not
- * part of it: the import never changes them. Without tracks, one example
- * row shows the shape.
+ * (GET /api/tracks/metadata), the genre and subgenre by name. Synced lyrics
+ * are not part of it: the import never changes them. Without tracks, one
+ * example row shows the shape.
  */
-export function templateRows(library: TrackMetadata[], genreName: (id: string | null) => string | null): TemplateRow[] {
+export function templateRows(library: TrackMetadata[], genreName: NameOf, subgenreName: NameOf): TemplateRow[] {
   if (!library.length) {
     return [{
       title: 'My song',
@@ -212,6 +215,7 @@ export function templateRows(library: TrackMetadata[], genreName: (id: string | 
       album: 'First album',
       year: '2026',
       genre: 'Rock',
+      subgenre: 'Indie Rock',
       description: 'A few words about the song.',
       suno_prompt: 'dark baroque rock, harpsichord, violins',
       lyrics: '[Verse]\nFirst line\nSecond line',
@@ -228,6 +232,7 @@ export function templateRows(library: TrackMetadata[], genreName: (id: string | 
       album: track.album ?? '',
       year: track.year === null ? '' : String(track.year),
       genre: genreName(track.genreId) ?? '',
+      subgenre: subgenreName(track.subgenreId) ?? '',
       description: track.description ?? '',
       suno_prompt: track.sunoPrompt ?? '',
       lyrics: track.lyrics ?? '',
@@ -274,7 +279,7 @@ const COLOURS = {
 /** The column groups over the headers, in the sheet's order. */
 const COLUMN_GROUPS: { label: string, columns: ImportColumn[] }[] = [
   { label: 'Track', columns: ['title'] },
-  { label: 'Credits', columns: ['composers', 'album', 'year', 'genre'] },
+  { label: 'Credits', columns: ['composers', 'album', 'year', 'genre', 'subgenre'] },
   { label: 'State', columns: ['mastered', 'status', 'visibility'] },
   { label: 'Texts', columns: ['description', 'suno_prompt', 'lyrics'] },
 ]
@@ -288,7 +293,7 @@ const COLUMN_GROUPS: { label: string, columns: ImportColumn[] }[] = [
 const SHEET_COLUMNS: ImportColumn[] = COLUMN_GROUPS.flatMap(group => group.columns)
 
 /** Column widths, in characters: the long texts wider. */
-const COLUMN_WIDTHS: Record<ImportColumn, number> = { title: 30, composers: 24, album: 24, year: 8, genre: 16, description: 44, suno_prompt: 44, lyrics: 44, mastered: 11, status: 10, visibility: 12 }
+const COLUMN_WIDTHS: Record<ImportColumn, number> = { title: 30, composers: 24, album: 24, year: 8, genre: 18, subgenre: 22, description: 44, suno_prompt: 44, lyrics: 44, mastered: 11, status: 10, visibility: 12 }
 
 /** The long texts: wrapped, in rows of LONG_TEXT_ROW_HEIGHT. */
 const LONG_TEXTS: ImportColumn[] = ['description', 'suno_prompt', 'lyrics']
@@ -302,17 +307,30 @@ const CENTRED: ImportColumn[] = ['year', 'mastered', 'status', 'visibility']
 /** Rows above the headers: the title, the note, the column groups. */
 const ROWS_ABOVE_HEADERS = 3
 
-/** A cell's 1-based column letter in a formula (A to K: never past Z). */
+/** A cell's 1-based column letter in a formula (A to L: never past Z). */
 function columnLetter(column: ImportColumn): string {
   return String.fromCharCode(65 + SHEET_COLUMNS.indexOf(column))
 }
 
+/** Where the Help sheet's genre list is: its rows, for the formulas that look names up in it. */
+interface GenreListRange {
+  /** First row (1-based) of the list's data, in columns A (genre), B (subgenre) and C ("yours"). */
+  first: number
+  /** Last row of the list's data: the same as the first for an empty list (the formulas still need a range). */
+  last: number
+}
+
 /**
  * Conditional formatting: a value the import would refuse turns red as it is
- * typed (mastered, status, visibility, year), down to row 1000, so rows added
- * under the tracks are checked too. Excel compares text case aside.
+ * typed (mastered, status, visibility, year, genre, subgenre), down to row
+ * 1000, so rows added under the tracks are checked too. Excel compares text
+ * case aside. The genre and subgenre are looked up in the Help sheet's list
+ * (`genres`): a genre not in it; a subgenre named like a genre, or like a
+ * built-in subgenre (no "yours") of a genre other than the row's. A new
+ * subgenre name stays as it is: the import creates it. Without a genre cell
+ * the subgenre is not checked against one (the import takes the track's).
  */
-function invalidValueRules(firstRow: number) {
+function invalidValueRules(firstRow: number, genres: GenreListRange) {
   const lastRow = Math.max(firstRow + 1000, 1000)
   /** A rule on one column: the formula for its first cell, Excel moving it down. */
   const rule = (column: ImportColumn, formula: (cell: string) => string) => ({
@@ -320,6 +338,10 @@ function invalidValueRules(firstRow: number) {
     condition: { formula: formula(`${columnLetter(column)}${firstRow}`) },
     style: { backgroundColor: COLOURS.errorBackground, textColor: COLOURS.errorText, fontWeight: 'bold' as const },
   })
+  /** A column of the Help sheet's genre list, as an absolute range. */
+  const helpRange = (column: 'A' | 'B' | 'C') => `Help!$${column}$${genres.first}:$${column}$${genres.last}`
+  /** The list's genre column. */
+  const helpGenres = helpRange('A')
   /** Not empty, and none of the words. */
   const noneOf = (cell: string, words: string[]) => `AND(${cell}<>"",NOT(OR(${words.map(w => `${cell}="${w}"`).join(',')})))`
   return [
@@ -327,6 +349,13 @@ function invalidValueRules(firstRow: number) {
     rule('status', cell => noneOf(cell, ['draft', 'final', 'wip'])),
     rule('visibility', cell => noneOf(cell, ['private', 'unlisted', 'public'])),
     rule('year', cell => `AND(${cell}<>"",OR(NOT(ISNUMBER(${cell})),${cell}<1000,${cell}>9999,${cell}<>INT(${cell})))`),
+    rule('genre', cell => `AND(${cell}<>"",COUNTIF(${helpGenres},${cell})=0)`),
+    rule('subgenre', (cell) => {
+      // The row's genre cell.
+      const genre = `${columnLetter('genre')}${firstRow}`
+      return `AND(${cell}<>"",OR(COUNTIF(${helpGenres},${cell})>0,AND(${genre}<>"",`
+        + `COUNTIFS(${helpRange('B')},${cell},${helpGenres},"<>"&${genre},${helpRange('C')},"")>0)))`
+    }),
   ]
 }
 
@@ -337,10 +366,11 @@ function invalidValueRules(firstRow: number) {
  * the headers (title, the key, in gold), then one row per track, rows
  * alternately tinted, titles bold on gold; the header rows stay in view
  * while scrolling, and a value the import would refuse turns red. The
- * "Help" sheet says what each column takes. Read back by fromGrid, which
- * finds the headers under the band.
+ * "Help" sheet says what each column takes, then lists the genres with their
+ * subgenres (the user's own marked "yours"), which the red-value rules look
+ * names up in. Read back by fromGrid, which finds the headers under the band.
  */
-export async function templateXlsx(rows: TemplateRow[]): Promise<Blob> {
+export async function templateXlsx(rows: TemplateRow[], genres: Genre[]): Promise<Blob> {
   const { default: writeExcelFile } = await import('write-excel-file/universal')
   const span = SHEET_COLUMNS.length
   /** Empty cells after a cell spanning the row (the sheet's structure keeps them). */
@@ -430,6 +460,30 @@ export async function templateXlsx(rows: TemplateRow[]): Promise<Blob> {
     helpRow('new rows', 'A row whose title no track has is skipped, and listed on the import page with the others it skips.', SHEET_COLUMNS.length + 1),
   ]
 
+  // Then the genres and subgenres: a title, headers, one row per subgenre (a genre's name on
+  // each of its rows, so the red-value rules can look a subgenre's genre up). After a blank row.
+  const genreTitle = [
+    { value: 'Genres and subgenres', type: String, columnSpan: 3, backgroundColor: COLOURS.night900, textColor: COLOURS.gold400, fontWeight: 'bold' as const, fontSize: 13, alignVertical: 'center' as const, indent: 1, height: 28 },
+    null,
+    null,
+  ]
+  // The list's headers, like the column help's.
+  const genreHeaders = ['Genre', 'Subgenre', 'Yours'].map(value => ({ value, type: String, fontWeight: 'bold' as const, backgroundColor: COLOURS.night800, textColor: COLOURS.white, bottomBorderStyle: 'medium' as const, bottomBorderColor: COLOURS.gold400, height: 24, alignVertical: 'center' as const }))
+  // One row per subgenre: its genre, its name, and "yours" for the user's own (built-in ones have none, which the formulas test).
+  const genreRows = genres.flatMap((genre, genreIndex) => genre.subgenres.map((subgenre) => {
+    // Genres alternately tinted, so where one ends shows.
+    const style = { backgroundColor: genreIndex % 2 ? COLOURS.night50 : COLOURS.white, borderStyle: 'thin' as const, borderColor: COLOURS.night200 }
+    return [
+      { value: genre.name, type: String, fontWeight: 'bold' as const, ...style },
+      { value: subgenre.name, type: String, ...style },
+      { value: subgenre.custom ? 'yours' : '', type: String, ...style },
+    ]
+  }))
+  // The list's first data row (1-based): after the column help, a blank row, the title and the headers.
+  const firstGenreRow = help.length + 4
+  // The list's rows, after a blank one under the column help.
+  const genreList = [[null, null, null], genreTitle, genreHeaders, ...genreRows]
+
   const firstDataRow = ROWS_ABOVE_HEADERS + 2
   return writeExcelFile([
     {
@@ -440,8 +494,8 @@ export async function templateXlsx(rows: TemplateRow[]): Promise<Blob> {
       // splits the band's merged cells at its edge, and scrolling right cut the title and the note.
       stickyRowsCount: ROWS_ABOVE_HEADERS + 1,
       showGridLines: false,
-      conditionalFormatting: invalidValueRules(firstDataRow),
+      conditionalFormatting: invalidValueRules(firstDataRow, { first: firstGenreRow, last: Math.max(firstGenreRow, firstGenreRow + genreRows.length - 1) }),
     },
-    { data: help, sheet: 'Help', columns: [{ width: 18 }, { width: 90 }], showGridLines: false },
+    { data: [...help, ...genreList], sheet: 'Help', columns: [{ width: 22 }, { width: 90 }, { width: 8 }], showGridLines: false },
   ]).toBlob()
 }

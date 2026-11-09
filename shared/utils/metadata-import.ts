@@ -1,5 +1,6 @@
-import { genreCreateSchema, trackMetadataSchema } from '../schemas/track'
+import { subgenreCreateSchema, trackMetadataSchema } from '../schemas/track'
 import { TRACK_STATUSES, TRACK_VISIBILITIES, type Genre, type TrackMetadata, type TrackStatus, type TrackVisibility } from '../types/track'
+import { findBuiltinSubgenre, findGenreByName, findSubgenreByName, subgenreNameProblem } from './genres'
 import { foldCase } from './text'
 
 /**
@@ -13,7 +14,9 @@ import { foldCase } from './text'
  *   3. the rows matched to the library and compared with every field of it,
  *      long texts included (planImport): what changes, and every row that
  *      cannot be applied, with why. The export imported back changes nothing.
- * Applying the plan (genres created, tracks saved) is the page's.
+ *      The genre must be one of the fixed list; the subgenre one of its genre's,
+ *      or a new name coherent with it (created when the plan is applied).
+ * Applying the plan (subgenres created, tracks saved) is the page's.
  */
 
 /** The import's fields, in the downloads' order (Excel, CSV and JSON alike). `title` is the key, never changed. */
@@ -23,6 +26,7 @@ export const IMPORT_COLUMNS = [
   'album',
   'year',
   'genre',
+  'subgenre',
   'mastered',
   'status',
   'visibility',
@@ -40,7 +44,8 @@ export const IMPORT_COLUMN_HELP: Record<ImportColumn, string> = {
   composers: 'Free text, e.g. "Jane Doe, John Smith".',
   album: 'Free text.',
   year: 'A year, e.g. 2026.',
-  genre: 'A genre\'s name; a name you do not have yet is created as a custom genre.',
+  genre: 'One of the genres (listed after the columns in the Help sheet, and on the import page); no other name is taken.',
+  subgenre: 'A subgenre of the row\'s genre (its genre cell, else the track\'s genre): one of the list, one of yours, or a new name, created as yours. Not a genre\'s name, nor a subgenre of another genre. A new genre without a subgenre clears the old one.',
   description: 'Free text, shown on share pages and in the full-screen player.',
   suno_prompt: 'Free text, never shared.',
   lyrics: 'Plain lyrics, one line per line; [Verse], [Chorus]… become section headers. Synced lyrics are kept as they are.',
@@ -64,6 +69,7 @@ const HEADER_NAMES: Record<ImportColumn, string[]> = {
   album: ['album'],
   year: ['year'],
   genre: ['genre'],
+  subgenre: ['subgenre', 'subgenres', 'style'],
   description: ['description', 'about'],
   suno_prompt: ['sunoprompt', 'suno', 'prompt'],
   lyrics: ['lyrics'],
@@ -98,8 +104,10 @@ export interface ImportFields {
   composers?: string
   album?: string
   year?: number
-  /** The genre's name, matched to the genres (or created) when the plan is made. */
+  /** The genre's name, matched to the genres when the plan is made (an unknown one makes the row invalid). */
   genre?: string
+  /** The subgenre's name, matched to the genre's subgenres when the plan is made (a new one is created when applied). */
+  subgenre?: string
   description?: string
   sunoPrompt?: string
   lyrics?: string
@@ -176,8 +184,10 @@ function readCell(column: Exclude<ImportColumn, 'title'>, cell: ImportCell): { v
       const year = typeof cell === 'number' ? cell : Number(text)
       return Number.isInteger(year) && year >= 1000 && year <= 9999 ? { value: year } : { error: `"${text}" is not a year` }
     }
-    case 'genre': {
-      const result = genreCreateSchema.shape.name.safeParse(text)
+    case 'genre':
+    case 'subgenre': {
+      // A name as the subgenre form takes it (length, no NUL); whether the lists know it is planImport's.
+      const result = subgenreCreateSchema.shape.name.safeParse(text)
       return result.success ? { value: result.data } : { error: firstIssue(result.error) }
     }
     case 'mastered': {
@@ -204,6 +214,7 @@ const FIELD_OF: Record<Exclude<ImportColumn, 'title'>, keyof ImportFields> = {
   album: 'album',
   year: 'year',
   genre: 'genre',
+  subgenre: 'subgenre',
   description: 'description',
   suno_prompt: 'sunoPrompt',
   lyrics: 'lyrics',
@@ -257,8 +268,12 @@ export interface ImportUpdate {
   trackId: string
   /** The library's title (the row's may differ in case). */
   title: string
-  /** The fields to save; the genre by name, its id found or created when applied. */
-  fields: ImportFields
+  /** The fields to save, but the genre and subgenre (below, as ids). */
+  fields: Omit<ImportFields, 'genre' | 'subgenre'>
+  /** The new genre, when it changes (the server then clears the old subgenre, unless `subgenre` is set). */
+  genreId?: string
+  /** The new subgenre, when it changes: an existing one, or a new one created under its genre when applied. */
+  subgenre?: { id: string } | NewSubgenre
   changes: ImportChange[]
   /** The lyrics change while the track has synced lyrics: those are kept, and may no longer match. */
   syncedLyricsKept: boolean
@@ -277,8 +292,97 @@ export interface ImportPlan {
   repeated: { title: string, lines: number[] }[]
   /** Rows with a cell that could not be read. */
   invalid: { line: number, title: string, errors: string[] }[]
-  /** Genre names that do not exist yet: created when the import is applied. */
-  newGenres: string[]
+  /** Subgenres that do not exist yet: created (as the user's own) when the import is applied. */
+  newSubgenres: NewSubgenre[]
+}
+
+/** A subgenre the import creates: its name, under a genre. */
+export interface NewSubgenre {
+  /** The genre it is created under. */
+  genreId: string
+  /** The genre's name, for the preview ("Metal › Swamp Metal"). */
+  genreName: string
+  /** The name, as first spelled in the file. */
+  name: string
+}
+
+/** A row's genre and subgenre, matched to the lists: what changes, or why the row cannot be applied. */
+interface GenrePlan {
+  /** The new genre, when it changes. */
+  genreId?: string
+  /** The new subgenre, when it changes. */
+  subgenre?: { id: string } | NewSubgenre
+  /** The preview's lines. */
+  changes: ImportChange[]
+  /** The row's problems ("genre: …"): it is not applied. */
+  errors: string[]
+}
+
+/**
+ * Matches a row's genre and subgenre cells to the lists, against its track.
+ * The genre: one of the list. The subgenre: under the genre cell's genre,
+ * else (a built-in name) under its own genre, which the row then sets too,
+ * else under the track's genre; one of that genre's, or a new name coherent
+ * with it. A new genre without a subgenre cell clears the old subgenre (the
+ * server does it; the preview says so).
+ */
+function planGenre(fields: ImportFields, track: TrackMetadata, genres: Genre[], pending: Map<string, NewSubgenre>): GenrePlan {
+  // Nothing changes and nothing is wrong, until the cells say otherwise.
+  const result: GenrePlan = { changes: [], errors: [] }
+  // The track's genre as it is (undefined without one), for the preview's "before".
+  const currentGenre = genres.find(g => g.id === track.genreId)
+  // Its subgenre, among that genre's (built-in or the user's own).
+  const currentSubgenre = currentGenre?.subgenres.find(s => s.id === track.subgenreId)
+
+  // The genre the row names, if any.
+  let genre: Genre | undefined
+  if (fields.genre !== undefined) {
+    genre = findGenreByName(genres, fields.genre)
+    if (!genre) {
+      result.errors.push(`genre: "${fields.genre}" is not one of the genres`)
+      return result
+    }
+  }
+
+  // The subgenre the row names: an existing one, or a new one, and its genre.
+  let subgenre: { id: string, name: string } | NewSubgenre | undefined
+  if (fields.subgenre !== undefined) {
+    // Without a genre cell, a built-in name brings its own genre.
+    genre ??= findBuiltinSubgenre(genres, fields.subgenre)?.genre ?? currentGenre
+    if (!genre) {
+      result.errors.push(`subgenre: "${fields.subgenre}" needs a genre (the row has none, nor has the track)`)
+      return result
+    }
+    // The genre's subgenre with that name, built-in or the user's own: the one to use.
+    const existing = findSubgenreByName(genre, fields.subgenre)
+    if (existing) {
+      subgenre = existing
+    }
+    else {
+      // A new name: coherent with the genre, or the row is not applied (the editor's rule).
+      const problem = subgenreNameProblem(genres, genre, fields.subgenre)
+      if (problem) {
+        result.errors.push(`subgenre: ${problem}`)
+        return result
+      }
+      // One new subgenre per genre and name, however many rows name it (the first spelling).
+      const key = `${genre.id}:${foldCase(fields.subgenre)}`
+      if (!pending.has(key)) pending.set(key, { genreId: genre.id, genreName: genre.name, name: fields.subgenre })
+      subgenre = pending.get(key)!
+    }
+  }
+
+  if (genre && genre.id !== track.genreId) {
+    result.genreId = genre.id
+    result.changes.push({ column: 'genre', from: currentGenre?.name ?? '', to: genre.name })
+    // A new genre without a subgenre: the old one goes (it belonged to the old genre).
+    if (!subgenre && currentSubgenre) result.changes.push({ column: 'subgenre', from: currentSubgenre.name, to: '' })
+  }
+  if (subgenre && !('id' in subgenre && subgenre.id === track.subgenreId)) {
+    result.subgenre = 'id' in subgenre ? { id: subgenre.id } : subgenre
+    result.changes.push({ column: 'subgenre', from: currentSubgenre?.name ?? '', to: subgenre.name })
+  }
+  return result
 }
 
 /** Lyrics as the preview counts them. */
@@ -310,7 +414,8 @@ export function yesNo(value: boolean): string {
  * change, and every row that will not be applied, with why.
  */
 export function planImport(parsed: ParsedImport, library: TrackMetadata[], genres: Genre[]): ImportPlan {
-  const plan: ImportPlan = { updates: [], unchanged: [], notFound: [], ambiguous: [], repeated: [], invalid: [], newGenres: [] }
+  // Every list empty, filled row by row.
+  const plan: ImportPlan = { updates: [], unchanged: [], notFound: [], ambiguous: [], repeated: [], invalid: [], newSubgenres: [] }
 
   // The library's tracks by folded title (several when titles repeat).
   const tracksByTitle = new Map<string, TrackMetadata[]>()
@@ -318,17 +423,14 @@ export function planImport(parsed: ParsedImport, library: TrackMetadata[], genre
     const key = foldCase(track.title)
     tracksByTitle.set(key, [...(tracksByTitle.get(key) ?? []), track])
   }
-  // Genres by folded name, and their names by id.
-  const genreByName = new Map(genres.map(g => [foldCase(g.name), g]))
-  const genreNameById = new Map(genres.map(g => [g.id, g.name]))
   // The file's rows by folded title: a title on two rows is applied from neither.
   const rowsByTitle = new Map<string, ParsedImportRow[]>()
   for (const row of parsed.rows) {
     const key = foldCase(row.title)
     rowsByTitle.set(key, [...(rowsByTitle.get(key) ?? []), row])
   }
-  // New genre names, once each (the first spelling met).
-  const newGenres = new Map<string, string>()
+  // New subgenres by genre and folded name, once each (the first spelling met).
+  const newSubgenres = new Map<string, NewSubgenre>()
 
   for (const [key, rows] of rowsByTitle) {
     if (rows.length > 1) {
@@ -351,24 +453,24 @@ export function planImport(parsed: ParsedImport, library: TrackMetadata[], genre
     }
     const track = tracks[0]!
     const { fields } = row
+    // The genre and subgenre, matched to the lists (a row naming ones it cannot use is not applied).
+    const genrePlan = planGenre(fields, track, genres, newSubgenres)
+    if (genrePlan.errors.length) {
+      plan.invalid.push({ line: row.line, title: row.title, errors: genrePlan.errors })
+      continue
+    }
     // The fields that differ from the track, and how the preview shows them.
-    const toSave: ImportFields = {}
+    const toSave: ImportUpdate['fields'] = {}
     const changes: ImportChange[] = []
     /** Notes a field that changes. */
-    const change = (column: ImportChange['column'], field: keyof ImportFields, from: string, to: string) => {
+    const change = (column: ImportChange['column'], field: keyof ImportUpdate['fields'], from: string, to: string) => {
       Object.assign(toSave, { [field]: fields[field] })
       changes.push({ column, from, to })
     }
     if (fields.composers !== undefined && fields.composers !== track.composers) change('composers', 'composers', track.composers ?? '', fields.composers)
     if (fields.album !== undefined && fields.album !== track.album) change('album', 'album', track.album ?? '', fields.album)
     if (fields.year !== undefined && fields.year !== track.year) change('year', 'year', track.year === null ? '' : String(track.year), String(fields.year))
-    if (fields.genre !== undefined) {
-      const existing = genreByName.get(foldCase(fields.genre))
-      if (!existing || existing.id !== track.genreId) {
-        if (!existing && !newGenres.has(foldCase(fields.genre))) newGenres.set(foldCase(fields.genre), fields.genre)
-        change('genre', 'genre', track.genreId ? genreNameById.get(track.genreId) ?? '' : '', existing?.name ?? fields.genre)
-      }
-    }
+    changes.push(...genrePlan.changes)
     if (fields.description !== undefined && !sameText(track.description, fields.description)) change('description', 'description', preview(track.description ?? ''), preview(fields.description))
     if (fields.sunoPrompt !== undefined && !sameText(track.sunoPrompt, fields.sunoPrompt)) change('suno_prompt', 'sunoPrompt', preview(track.sunoPrompt ?? ''), preview(fields.sunoPrompt))
     if (fields.lyrics !== undefined && !sameText(track.lyrics, fields.lyrics)) {
@@ -390,11 +492,14 @@ export function planImport(parsed: ParsedImport, library: TrackMetadata[], genre
       trackId: track.id,
       title: track.title,
       fields: toSave,
+      ...(genrePlan.genreId ? { genreId: genrePlan.genreId } : {}),
+      ...(genrePlan.subgenre ? { subgenre: genrePlan.subgenre } : {}),
       changes,
       syncedLyricsKept: toSave.lyrics !== undefined && track.hasSyncedLyrics,
     })
   }
-  plan.newGenres = [...newGenres.values()]
+  // The new subgenres the rows to apply need (a row adds one only once its genre and subgenre are accepted).
+  plan.newSubgenres = [...newSubgenres.values()]
   // In the file's order.
   plan.updates.sort((a, b) => a.line - b.line)
   return plan

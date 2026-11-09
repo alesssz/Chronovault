@@ -45,14 +45,14 @@ isOneToOne: true
                   ]
                 },"genres": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"user_id": string | null
+                    "created_at": string,"id": string,"name": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"user_id"?: string | null
+                    "created_at"?: string,"id"?: string,"name": string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"user_id"?: string | null
+                    "created_at"?: string,"id"?: string,"name"?: string
                   }
                   Relationships: [
                     
@@ -117,16 +117,36 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"tracks": {
+                },"subgenres": {
                   Row: {
-                    "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"status": Database["public"]['Enums']["track_status"],"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
+                    "created_at": string,"genre_id": string,"id": string,"name": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "album"?: string | null,"audio_path": string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type": string,"peaks"?: Json | null,"size_bytes": number,"status"?: Database["public"]['Enums']["track_status"],"suno_prompt"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
+                    "created_at"?: string,"genre_id": string,"id"?: string,"name": string,"user_id"?: string | null
                   }
                   Update: {
-                    "album"?: string | null,"audio_path"?: string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type"?: string,"peaks"?: Json | null,"size_bytes"?: number,"status"?: Database["public"]['Enums']["track_status"],"suno_prompt"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
+                    "created_at"?: string,"genre_id"?: string,"id"?: string,"name"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "subgenres_genre_id_fkey"
+      columns: ["genre_id"]
+isOneToOne: false
+      referencedRelation: "genres"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tracks": {
+                  Row: {
+                    "album": string | null,"audio_path": string,"composers": string | null,"cover_path": string | null,"created_at": string,"description": string | null,"duration_seconds": number | null,"genre_id": string | null,"has_lyrics": boolean | null,"has_synced_lyrics": boolean | null,"id": string,"lyrics": string | null,"lyrics_synced": Json | null,"mastered": boolean,"mime_type": string,"peaks": Json | null,"size_bytes": number,"status": Database["public"]['Enums']["track_status"],"subgenre_id": string | null,"suno_prompt": string | null,"title": string,"updated_at": string,"user_id": string,"visibility": Database["public"]['Enums']["track_visibility"],"year": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "album"?: string | null,"audio_path": string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type": string,"peaks"?: Json | null,"size_bytes": number,"status"?: Database["public"]['Enums']["track_status"],"subgenre_id"?: string | null,"suno_prompt"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
+                  }
+                  Update: {
+                    "album"?: string | null,"audio_path"?: string,"composers"?: string | null,"cover_path"?: string | null,"created_at"?: string,"description"?: string | null,"duration_seconds"?: number | null,"genre_id"?: string | null,"has_lyrics"?: never,"has_synced_lyrics"?: never,"id"?: string,"lyrics"?: string | null,"lyrics_synced"?: Json | null,"mastered"?: boolean,"mime_type"?: string,"peaks"?: Json | null,"size_bytes"?: number,"status"?: Database["public"]['Enums']["track_status"],"subgenre_id"?: string | null,"suno_prompt"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string,"visibility"?: Database["public"]['Enums']["track_visibility"],"year"?: number | null
                   }
                   Relationships: [
                     {
@@ -134,6 +154,12 @@ isOneToOne: false
       columns: ["genre_id"]
 isOneToOne: false
       referencedRelation: "genres"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tracks_subgenre_id_fkey"
+      columns: ["subgenre_id"]
+isOneToOne: false
+      referencedRelation: "subgenres"
       referencedColumns: ["id"]
     }
                   ]

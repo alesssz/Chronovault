@@ -8,7 +8,7 @@ import { pingDatabase } from '../repositories/keepalive.repository'
  * (vercel.json). /api/health cannot do it: it never reaches the database.
  *
  * Auth: none, on purpose. It runs as the anonymous role and reads one
- * built-in genre, which anyone holding the public Supabase key can already
+ * genre, which anyone holding the public Supabase key can already
  * read straight from Supabase: a secret would protect nothing.
  * 200 → { status: "ok", time: ISO timestamp } · 500 when the database does not answer
  */

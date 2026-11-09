@@ -37,7 +37,7 @@ const PROGRESS_TOAST_DELAY = 700
 interface DownloadSource {
   /** The fields written as tags (title, artist, lyrics…). */
   track: TaggableTrack
-  /** The genre's name, or null. */
+  /** The genre's most specific name (the subgenre, else the genre), or null. */
   genre: string | null
   /** The cover's address (the app's /api/covers, or a signed one on share pages), or null. */
   coverUrl: string | null
@@ -51,8 +51,8 @@ interface DownloadSource {
 
 /** The download action for the menus and the edit page: `download(trackId)`, and `isDownloading(trackId)` for its spinner. */
 export function useTrackDownload() {
-  // Genre names: the owner's track only carries the genre id.
-  const { genreName } = useGenres()
+  // Genre names: the owner's track only carries the genre and subgenre ids.
+  const { trackGenreLabel } = useGenres()
   // The steps after the first, and the spinner state.
   const { run, isDownloading } = useDownloadSteps()
 
@@ -63,7 +63,8 @@ export function useTrackDownload() {
       const [track, source] = await Promise.all([tracksApi.get(trackId), tracksApi.playback(trackId)])
       return {
         track,
-        genre: genreName(track.genreId),
+        // The most specific name, as the share pages give it: the upload reads it back to both.
+        genre: trackGenreLabel(track),
         coverUrl: track.coverUrl,
         mimeType: track.mimeType,
         extension: getExtension(track.audioPath),

@@ -3,7 +3,7 @@
  * titles) are filled in from one file. The account menu leads to the page; the CSV download holds
  * the library's titles; a filled-in CSV, as Excel in Italian saves it (semicolons, lyrics on several
  * lines in a quoted cell), shows what it changes and what it skips before anything is saved; Apply
- * creates the new genre and saves the tracks, as the API then reads them. The JSON export then
+ * creates the new subgenre (under its genre) and saves the tracks, as the API then reads them. The JSON export then
  * holds every field, lyrics included, and imported back as it is changes nothing.
  */
 import { readFile } from 'node:fs/promises'
@@ -29,17 +29,17 @@ test.describe('metadata import', () => {
     const template = await download
     expect(template.suggestedFilename()).toBe('chronovault-metadata.csv')
     const templateText = await readFile((await template.path())!, 'utf8')
-    expect(templateText.split('\r\n')[0]).toBe('\uFEFFtitle,composers,album,year,genre,mastered,status,visibility,description,suno_prompt,lyrics')
-    expect(templateText).toContain('Artemisia,,,,,no,draft,private,,,')
-    expect(templateText).toContain('Night drive,,,,,no,draft,private,,,')
+    expect(templateText.split('\r\n')[0]).toBe('\uFEFFtitle,composers,album,year,genre,subgenre,mastered,status,visibility,description,suno_prompt,lyrics')
+    expect(templateText).toContain('Artemisia,,,,,,no,draft,private,,,')
+    expect(templateText).toContain('Night drive,,,,,,no,draft,private,,,')
 
     // --- A filled-in file, as Excel in Italian saves it ---
     const csv = [
-      'Title;Composers;Album;Year;Genre;Lyrics;Mastered;Status;Visibility;BPM',
-      'artemisia;Chronovault;History\'s Tales Vol.1;2026;Dark Baroque;"[Verse]\nTra l\'ombra e la luce\nil mio pennello";sì;final;unlisted;140',
-      'Night drive;;;;Rock;;;;;',
-      'Nowhere;Someone;;;;;;;;',
-      'Night drive 2;;;soon;;;;;;',
+      'Title;Composers;Album;Year;Genre;Subgenre;Lyrics;Mastered;Status;Visibility;BPM',
+      'artemisia;Chronovault;History\'s Tales Vol.1;2026;Metal;Dark Baroque;"[Verse]\nTra l\'ombra e la luce\nil mio pennello";sì;final;unlisted;140',
+      'Night drive;;;;Rock;;;;;;',
+      'Nowhere;Someone;;;;;;;;;',
+      'Night drive 2;;;soon;;;;;;;',
     ].join('\r\n')
     await page.locator('input[type="file"]').setInputFiles({ name: 'filled.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
 
@@ -47,7 +47,7 @@ test.describe('metadata import', () => {
     const preview = page.getByTestId('import-preview')
     await expect(page.getByTestId('import-summary')).toContainText('2 tracks to update')
     await expect(page.getByTestId('import-ignored-columns')).toContainText('BPM')
-    await expect(page.getByTestId('import-new-genres')).toContainText('Dark Baroque')
+    await expect(page.getByTestId('import-new-subgenres')).toContainText('Metal › Dark Baroque')
     await expect(page.getByTestId('import-not-found')).toContainText('Row 4, “Nowhere”: no track has this title.')
     await expect(page.getByTestId('import-invalid')).toContainText('Row 5, “Night drive 2”: year: "soon" is not a year.')
     await expect(page.getByTestId('import-skipped')).toContainText('2 rows will be skipped')
@@ -65,25 +65,32 @@ test.describe('metadata import', () => {
     await expect(page.getByTestId('import-result')).toContainText('2 tracks updated')
     const saved = await page.evaluate(async () => {
       const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
-      const genres = await (await fetch('/api/genres')).json() as { id: string, name: string }[]
+      const genres = await (await fetch('/api/genres')).json() as { id: string, name: string, subgenres: { id: string, name: string, custom: boolean }[] }[]
       const detail = async (title: string) => (await fetch(`/api/tracks/${tracks.find(t => t.title === title)!.id}`)).json() as Promise<Record<string, unknown>>
       const name = (id: unknown) => genres.find(g => g.id === id)?.name ?? null
+      // A subgenre by id, whichever genre it is in (with `custom`: the import creates the user's own).
+      const subgenre = (id: unknown) => genres.flatMap(g => g.subgenres).find(s => s.id === id) ?? null
       const a = await detail('Artemisia')
       const n = await detail('Night drive')
-      return { a: { ...a, genre: name(a.genreId) }, n: { ...n, genre: name(n.genreId) } }
+      return {
+        a: { ...a, genre: name(a.genreId), subgenre: subgenre(a.subgenreId) },
+        n: { ...n, genre: name(n.genreId), subgenre: subgenre(n.subgenreId) },
+      }
     })
     expect(saved.a).toMatchObject({
       composers: 'Chronovault',
       album: 'History\'s Tales Vol.1',
       year: 2026,
-      genre: 'Dark Baroque',
+      genre: 'Metal',
+      // Created by the import, as the user's own.
+      subgenre: { name: 'Dark Baroque', custom: true },
       lyrics: '[Verse]\nTra l\'ombra e la luce\nil mio pennello',
       mastered: true,
       status: 'final',
       visibility: 'unlisted',
     })
     // Empty cells left the rest as it was.
-    expect(saved.n).toMatchObject({ genre: 'Rock', composers: null, mastered: false, status: 'draft', visibility: 'private' })
+    expect(saved.n).toMatchObject({ genre: 'Rock', subgenre: null, composers: null, mastered: false, status: 'draft', visibility: 'private' })
 
     // --- The JSON export: every field, read back as it is, changes nothing ---
     const exported = page.waitForEvent('download')
@@ -92,7 +99,8 @@ test.describe('metadata import', () => {
     const json = await readFile((await exportFile.path())!, 'utf8')
     expect(JSON.parse(json)).toContainEqual(expect.objectContaining({
       title: 'Artemisia',
-      genre: 'Dark Baroque',
+      genre: 'Metal',
+      subgenre: 'Dark Baroque',
       lyrics: '[Verse]\nTra l\'ombra e la luce\nil mio pennello',
       mastered: true,
     }))

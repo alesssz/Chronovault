@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
  * Library (home page, client-rendered): every track of the user, with
- * search, genre, mastering and version (draft/final) filters and sorting,
+ * search, genre, subgenre, mastering and version (draft/final) filters and sorting,
  * all applied in the browser (the whole library is loaded at once).
- * Playing a track uses the filtered list as the queue. On phones the four
+ * Playing a track uses the filtered list as the queue. On phones the five
  * choices sit in a Filters panel opened from beside the search box (in the
  * page they took about a third of the screen), the button counting the
  * active ones; while anything filters the list, the subtitle says how much
@@ -29,8 +29,8 @@ usePageTitle('Library')
 const player = usePlayerStore()
 // Delete confirmations and failures.
 const toast = useToast()
-// The genres, and the name of a genre id (filter and rows).
-const { genres, genreName } = useGenres()
+// The genres with their subgenres, and a track's genre names (filters and rows).
+const { genres, trackGenreLabel, trackGenrePath } = useGenres()
 
 // The library (newest first); empty while it loads. Shared with the saved-queue restore when both ask at once.
 const { data: tracks, status, error, refresh } = await useAsyncData('tracks', () => readLibrary(), {
@@ -41,6 +41,12 @@ const { data: tracks, status, error, refresh } = await useAsyncData('tracks', ()
 const search = ref('')
 /** Genre id, or 'all'. */
 const genreFilter = ref<string>('all')
+/** Subgenre id (one of the chosen genre's), or 'all'. */
+const subgenreFilter = ref<string>('all')
+// Another genre: the subgenre chosen belonged to the old one.
+watch(genreFilter, () => {
+  subgenreFilter.value = 'all'
+})
 /** Mastered tracks only, not mastered only, or both. */
 const masteredFilter = ref<'all' | 'yes' | 'no'>('all')
 /** Final versions only, drafts only, or both. */
@@ -56,11 +62,27 @@ const genreOptions = computed(() => [
     .map(g => ({ label: g.name, value: g.id })),
 ])
 
+/** The chosen genre's subgenres that at least one track uses ("All subgenres" alone without a genre). */
+const subgenreOptions = computed(() => [
+  { label: 'All subgenres', value: 'all' },
+  ...(genres.value.find(g => g.id === genreFilter.value)?.subgenres ?? [])
+    .filter(s => tracks.value.some(t => t.subgenreId === s.id))
+    .map(s => ({ label: s.name, value: s.id })),
+])
+
+/** A track's genre for its row: the most specific name, and the path on hover. */
+function genreOf(track: TrackSummary) {
+  // The subgenre's name, else the genre's.
+  const label = trackGenreLabel(track)
+  return label ? { label, path: trackGenrePath(track) ?? label } : null
+}
+
 /** Tracks matching the search (title, composers, album) and filters, in the chosen order. */
 const filtered = computed(() => {
   const q = foldCase(search.value)
   const list = tracks.value.filter((t) => {
     if (genreFilter.value !== 'all' && t.genreId !== genreFilter.value) return false
+    if (subgenreFilter.value !== 'all' && t.subgenreId !== subgenreFilter.value) return false
     if (masteredFilter.value !== 'all' && t.mastered !== (masteredFilter.value === 'yes')) return false
     if (statusFilter.value !== 'all' && t.status !== statusFilter.value) return false
     if (!q) return true
@@ -93,12 +115,13 @@ useCloseOnBack(filtersOpen, () => {
   filtersOpen.value = false
 })
 
-/** How many of genre, mastering and version filter the list (the number on the Filters button). */
-const activeChoices = computed(() => [genreFilter.value, masteredFilter.value, statusFilter.value].filter(v => v !== 'all').length)
+/** How many of genre, subgenre, mastering and version filter the list (the number on the Filters button). */
+const activeChoices = computed(() => [genreFilter.value, subgenreFilter.value, masteredFilter.value, statusFilter.value].filter(v => v !== 'all').length)
 
-/** The panel's "Clear": genre, mastering and version back to all (the search and the sort order stay). */
+/** The panel's "Clear": genre, subgenre, mastering and version back to all (the search and the sort order stay). */
 function clearChoices() {
   genreFilter.value = 'all'
+  subgenreFilter.value = 'all'
   masteredFilter.value = 'all'
   statusFilter.value = 'all'
 }
@@ -374,10 +397,10 @@ async function confirmDelete() {
 
     <template v-else>
       <!--
-        Search, genre and mastering filters, sort order. One row only from `xl`: the filters have
-        fixed widths, and below that the search box got what they left, down to its icon alone
-        (58px) at 640px. Below `xl` the search box has a row of its own, the filters four across
-        under it. On phones, where they took about a third of the screen, they move into the
+        Search, genre, subgenre, mastering and version filters, sort order. One row only from `xl`:
+        the filters have fixed widths, and below that the search box got what they left, down to
+        its icon alone (58px) at 640px. Below `xl` the search box has a row of its own, the filters
+        under it, three across from `md` (five did not fit their names at 768px), five from `lg`. On phones, where they took about a third of the screen, they move into the
         Filters panel (below), opened by a button beside the search box.
       -->
       <div class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center">
@@ -414,11 +437,13 @@ async function confirmDelete() {
         </div>
         <LibraryFilters
           v-model:genre="genreFilter"
+          v-model:subgenre="subgenreFilter"
           v-model:mastered="masteredFilter"
           v-model:status="statusFilter"
           v-model:sort="sort"
           :genre-options="genreOptions"
-          class="hidden gap-2 md:grid md:grid-cols-4 xl:flex xl:flex-wrap"
+          :subgenre-options="subgenreOptions"
+          class="hidden gap-2 md:grid md:grid-cols-3 lg:grid-cols-5 xl:flex xl:flex-wrap"
         />
       </div>
 
@@ -427,16 +452,18 @@ async function confirmDelete() {
         v-model:open="filtersOpen"
         side="bottom"
         title="Filters"
-        description="Genre, mastering, version and sort order."
+        description="Genre, subgenre, mastering, version and sort order."
         :ui="{ footer: 'pb-[max(1rem,env(safe-area-inset-bottom))]' }"
       >
         <template #body>
           <LibraryFilters
             v-model:genre="genreFilter"
+            v-model:subgenre="subgenreFilter"
             v-model:mastered="masteredFilter"
             v-model:status="statusFilter"
             v-model:sort="sort"
             :genre-options="genreOptions"
+            :subgenre-options="subgenreOptions"
             class="grid gap-3"
           />
         </template>
@@ -562,7 +589,7 @@ async function confirmDelete() {
           v-if="filtered.length"
           v-model:selected="selectedIds"
           :tracks="filtered"
-          :genre-name="genreName"
+          :genre-of="genreOf"
           :selectable="selecting"
           @select="selectByLongPress"
           @play="onPlay"

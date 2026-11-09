@@ -65,7 +65,7 @@ function playlistRow(overrides: Partial<PlaylistRow> = {}): PlaylistRow {
 /** A private 60 s track with a cover. */
 function trackRow(id: string, overrides: Partial<TrackSummaryRow> = {}): TrackSummaryRow {
   return {
-    id, title: `Track ${id.slice(0, 2)}`, composers: null, album: null, year: null, genre_id: null, mastered: false,
+    id, title: `Track ${id.slice(0, 2)}`, composers: null, album: null, year: null, genre_id: null, subgenre_id: null, mastered: false,
     visibility: 'private', duration_seconds: 60, has_lyrics: false, has_synced_lyrics: false,
     cover_path: `${USER}/${id}.webp`, created_at: UPDATED_AT, updated_at: UPDATED_AT,
     ...overrides,

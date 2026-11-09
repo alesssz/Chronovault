@@ -1,7 +1,7 @@
 import type { Genre } from '~~/shared/types/track'
 import { MAX_AUDIO_BYTES, resolveAudioMimeType, storageExtension } from '~~/shared/utils/audio-files'
 import { buildCoverPath } from '~~/shared/utils/storage-paths'
-import { foldCase } from '~~/shared/utils/text'
+import { resolveGenreName } from '~~/shared/utils/genres'
 import { analyzeAudioFile } from '~/lib/audio-analysis'
 import { convertWavToFlac } from '~/lib/flac/convert'
 import { isWavFile } from '~/lib/flac/wav'
@@ -57,7 +57,7 @@ export function useTrackUploader() {
   const items = ref<UploadItem[]>([])
   /** True while the queue is being processed (one file at a time). */
   const running = ref(false)
-  /** Genre list, loaded once per page to match the genre tag to a genre id. */
+  /** Genre list, loaded once per page to match the genre tag to a genre and subgenre. */
   let genres: Genre[] | null = null
   /**
    * The page went away (left after confirming, with files still queued): the
@@ -132,13 +132,16 @@ export function useTrackUploader() {
     }
   }
 
-  /** Built-in or custom genre whose name matches the tag (case-insensitive), or null. */
-  async function findGenreId(name: string | null): Promise<string | null> {
-    if (!name) return null
+  /**
+   * The genre and subgenre a genre tag names (resolveGenreName: a genre; a
+   * built-in subgenre and its genre; one of the user's own subgenres), or
+   * none. Nothing is created: a tag the lists do not know leaves the track
+   * without a genre.
+   */
+  async function findGenre(name: string | null): Promise<{ genreId: string | null, subgenreId: string | null }> {
+    if (!name) return { genreId: null, subgenreId: null }
     genres ??= await genresApi.list().catch(() => [])
-    // The tag's genre name, folded like the existing ones for the comparison.
-    const wanted = foldCase(name)
-    return genres.find(g => foldCase(g.name) === wanted)?.id ?? null
+    return resolveGenreName(genres, name) ?? { genreId: null, subgenreId: null }
   }
 
   /** Runs steps 1-5 for one file; any failure marks the item as failed and cleans up. */
@@ -208,7 +211,8 @@ export function useTrackUploader() {
         composers: analysis.composers,
         album: analysis.album,
         year: analysis.year,
-        genreId: await findGenreId(analysis.genre),
+        // The tag's genre and subgenre ("Thrash Metal": Metal › Thrash Metal).
+        ...await findGenre(analysis.genre),
         lyrics: analysis.lyrics,
         // Synced lyrics in the tags (e.g. a file downloaded from Chronovault) are kept.
         lyricsSynced: analysis.lyricsSynced,

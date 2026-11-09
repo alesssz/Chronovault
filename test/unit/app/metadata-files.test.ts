@@ -5,7 +5,7 @@
  * same rows, long texts and line breaks included.
  */
 import { describe, expect, it } from 'vitest'
-import type { TrackMetadata } from '~~/shared/types/track'
+import type { Genre, TrackMetadata } from '~~/shared/types/track'
 import { parseImportRows, planImport } from '~~/shared/utils/metadata-import'
 import { detectSeparator, formatOf, parseCsv, parseJson, readMetadataFile, templateCsv, templateJson, templateRows, templateXlsx } from '~/lib/metadata-files'
 
@@ -72,6 +72,7 @@ describe('templates', () => {
     album: null,
     year: null,
     genreId: null,
+    subgenreId: null,
     mastered: false,
     visibility: 'private',
     status: 'draft',
@@ -86,6 +87,7 @@ describe('templates', () => {
       composers: 'Ada; Bo',
       year: 2026,
       genreId: 'g-rock',
+      subgenreId: 's-grunge',
       mastered: true,
       status: 'final',
       visibility: 'unlisted',
@@ -95,7 +97,17 @@ describe('templates', () => {
     }),
     track('Artemisia'),
   ]
-  const rows = templateRows(library, id => (id === 'g-rock' ? 'Rock' : null))
+  /** Rock, with a built-in subgenre and one of the user's own. */
+  const genres: Genre[] = [{
+    id: 'g-rock',
+    name: 'Rock',
+    subgenres: [
+      { id: 's-grunge', genreId: 'g-rock', name: 'Grunge', custom: false },
+      { id: 's-mine', genreId: 'g-rock', name: 'Garage Gothic', custom: true },
+    ],
+  }]
+  // The download's rows, the names looked up as useGenres does.
+  const rows = templateRows(library, id => (id === 'g-rock' ? 'Rock' : null), id => (id === 's-grunge' ? 'Grunge' : null))
 
   it('lists the library by title, with every field', () => {
     expect(rows.map(r => r.title)).toEqual(['Artemisia', 'Night drive, "live"'])
@@ -105,6 +117,7 @@ describe('templates', () => {
       album: '',
       year: '2026',
       genre: 'Rock',
+      subgenre: 'Grunge',
       description: 'She said "go", at night',
       suno_prompt: 'synthwave; 120 bpm',
       lyrics: '[Verse]\nOne, two\n"Three"',
@@ -115,7 +128,7 @@ describe('templates', () => {
   })
 
   it('has an example row for an empty library', () => {
-    expect(templateRows([], () => null)).toHaveLength(1)
+    expect(templateRows([], () => null, () => null)).toHaveLength(1)
   })
 
   /** A template read back as an uploaded file, then parsed as the import does. */
@@ -127,7 +140,7 @@ describe('templates', () => {
   it('reads every format back to the same rows, which change nothing on the same library', async () => {
     const csv = await readBack(templateCsv(rows), 'chronovault-metadata.csv')
     const json = await readBack(templateJson(rows), 'chronovault-metadata.json')
-    const xlsx = await readBack(await templateXlsx(rows), 'chronovault-metadata.xlsx')
+    const xlsx = await readBack(await templateXlsx(rows, genres), 'chronovault-metadata.xlsx')
     expect(csv).toEqual([
       { title: 'Artemisia', fields: { mastered: false, status: 'draft', visibility: 'private' }, errors: [] },
       {
@@ -136,6 +149,7 @@ describe('templates', () => {
           composers: 'Ada; Bo',
           year: 2026,
           genre: 'Rock',
+          subgenre: 'Grunge',
           description: 'She said "go", at night',
           sunoPrompt: 'synthwave; 120 bpm',
           lyrics: '[Verse]\nOne, two\n"Three"',
@@ -150,8 +164,23 @@ describe('templates', () => {
     expect(xlsx).toEqual(csv)
     // Imported back, the export changes nothing.
     const { headers, rows: read } = await readMetadataFile(new File([templateCsv(rows)], 'chronovault-metadata.csv'))
-    const plan = planImport(parseImportRows(read, headers), library, [{ id: 'g-rock', name: 'Rock', custom: false }])
+    const plan = planImport(parseImportRows(read, headers), library, genres)
     expect(plan.updates).toEqual([])
     expect(plan.unchanged).toHaveLength(2)
+  })
+
+  it('lists the genres and subgenres on the Excel Help sheet, the user\'s own marked', async () => {
+    // The reader the import uses, here for the second sheet.
+    const { readSheet } = await import('read-excel-file/universal')
+    // The Help sheet's rows as text, empty cells as ''.
+    const help = (await readSheet(new File([await templateXlsx(rows, genres)], 'chronovault-metadata.xlsx'), 'Help'))
+      .map(row => row.map(cell => (cell === null ? '' : String(cell))))
+    // The list: under its headers, one row per subgenre.
+    const headers = help.findIndex(row => row[0] === 'Genre' && row[1] === 'Subgenre')
+    expect(help[headers - 1]![0]).toBe('Genres and subgenres')
+    expect(help.slice(headers + 1)).toEqual([
+      ['Rock', 'Grunge', ''],
+      ['Rock', 'Garage Gothic', 'yours'],
+    ])
   })
 })

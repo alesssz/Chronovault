@@ -17,6 +17,7 @@ function track(id: string, title: string, extra: Partial<TrackMetadata> = {}): T
     album: null,
     year: null,
     genreId: null,
+    subgenreId: null,
     mastered: false,
     visibility: 'private',
     status: 'draft',
@@ -28,9 +29,17 @@ function track(id: string, title: string, extra: Partial<TrackMetadata> = {}): T
   }
 }
 
+/** Two genres: built-in subgenres, and one of the user's own. */
 const GENRES: Genre[] = [
-  { id: 'g-rock', name: 'Rock', custom: false },
-  { id: 'g-pop', name: 'Pop', custom: false },
+  {
+    id: 'g-rock',
+    name: 'Rock',
+    subgenres: [
+      { id: 's-grunge', genreId: 'g-rock', name: 'Grunge', custom: false },
+      { id: 's-mine', genreId: 'g-rock', name: 'Garage Gothic', custom: true },
+    ],
+  },
+  { id: 'g-pop', name: 'Pop', subgenres: [{ id: 's-kpop', genreId: 'g-pop', name: 'K-Pop', custom: false }] },
 ]
 
 /** Rows from plain objects, numbered as a spreadsheet's (the header is row 1). */
@@ -138,7 +147,8 @@ describe('planImport', () => {
       line: 2,
       trackId: 't1',
       title: 'Artemisia',
-      fields: { album: 'History\'s Tales', genre: 'rock', lyrics: 'One\nTwo' },
+      fields: { album: 'History\'s Tales', lyrics: 'One\nTwo' },
+      genreId: 'g-rock',
       changes: [
         { column: 'album', from: 'Old', to: 'History\'s Tales' },
         { column: 'genre', from: 'Pop', to: 'Rock' },
@@ -174,7 +184,8 @@ describe('planImport', () => {
       { column: 'status', from: 'draft', to: 'final' },
       { column: 'visibility', from: 'private', to: 'public' },
     ])
-    expect(result.updates[0]!.fields).toEqual({ composers: 'Bo', year: 2026, genre: 'Rock', mastered: true, status: 'final', visibility: 'public' })
+    expect(result.updates[0]!.fields).toEqual({ composers: 'Bo', year: 2026, mastered: true, status: 'final', visibility: 'public' })
+    expect(result.updates[0]!.genreId).toBe('g-rock')
   })
 
   it('shows a field the track did not have as empty before', () => {
@@ -211,13 +222,73 @@ describe('planImport', () => {
     expect(result.updates.map(u => u.trackId)).toEqual(['t1'])
   })
 
-  it('creates a genre it does not know, once', () => {
-    const result = plan(rows({ title: 'Artemisia', genre: 'Dark Baroque' }, { title: 'Night drive', genre: 'dark baroque' }), ['title', 'genre'])
-    expect(result.newGenres).toEqual(['Dark Baroque'])
-    expect(result.updates.map(u => u.changes[0])).toEqual([
-      { column: 'genre', from: 'Pop', to: 'Dark Baroque' },
-      { column: 'genre', from: '', to: 'dark baroque' },
+  it('takes only a genre of the list: another name skips the row, with why', () => {
+    // A genre name the list does not have: genres are never created.
+    const result = plan(rows({ title: 'Artemisia', genre: 'Dark Baroque' }), ['title', 'genre'])
+    expect(result.updates).toEqual([])
+    expect(result.invalid).toEqual([{ line: 2, title: 'Artemisia', errors: ['genre: "Dark Baroque" is not one of the genres'] }])
+  })
+
+  it('takes a subgenre of the row\'s genre, else of the track\'s, and a built-in one brings its genre', () => {
+    const result = plan(rows(
+      // Artemisia is Pop: the row's genre decides.
+      { title: 'Artemisia', genre: 'rock', subgenre: 'grunge' },
+      // Night drive has no genre: a built-in subgenre brings its own.
+      { title: 'Night drive', subgenre: 'K-pop' },
+    ), ['title', 'genre', 'subgenre'])
+    expect(result.updates.map(u => [u.genreId, u.subgenre, u.changes])).toEqual([
+      ['g-rock', { id: 's-grunge' }, [{ column: 'genre', from: 'Pop', to: 'Rock' }, { column: 'subgenre', from: '', to: 'Grunge' }]],
+      ['g-pop', { id: 's-kpop' }, [{ column: 'genre', from: '', to: 'Pop' }, { column: 'subgenre', from: '', to: 'K-Pop' }]],
     ])
+    expect(result.newSubgenres).toEqual([])
+  })
+
+  it('creates a new subgenre under its genre, once however many rows name it', () => {
+    // Two Rock tracks, each named with the same new subgenre (spelled two ways).
+    const library = [track('t1', 'One', { genreId: 'g-rock' }), track('t2', 'Two', { genreId: 'g-rock' })]
+    const result = planImport(parseImportRows(rows(
+      { title: 'One', subgenre: 'Dark Surf' },
+      { title: 'Two', subgenre: 'dark surf' },
+    ), ['title', 'subgenre']), library, GENRES)
+    // The subgenre to create, as first spelled, which both rows then use.
+    const created = { genreId: 'g-rock', genreName: 'Rock', name: 'Dark Surf' }
+    expect(result.newSubgenres).toEqual([created])
+    expect(result.updates.map(u => u.subgenre)).toEqual([created, created])
+    expect(result.updates.map(u => u.genreId)).toEqual([undefined, undefined])
+  })
+
+  it('skips a subgenre incoherent with its genre, or with no genre at all, with why', () => {
+    // A Pop track, and two without a genre.
+    const library = [track('t1', 'One', { genreId: 'g-pop' }), track('t2', 'Two'), track('t3', 'Three')]
+    const result = planImport(parseImportRows(rows(
+      { title: 'One', genre: 'Pop', subgenre: 'Grunge' },
+      { title: 'Two', genre: 'Pop', subgenre: 'Rock' },
+      { title: 'Three', subgenre: 'Something new' },
+    ), ['title', 'genre', 'subgenre']), library, GENRES)
+    expect(result.updates).toEqual([])
+    expect(result.invalid.map(i => i.errors)).toEqual([
+      ['subgenre: Grunge belongs to Rock'],
+      ['subgenre: Rock is a genre, not a subgenre'],
+      ['subgenre: "Something new" needs a genre (the row has none, nor has the track)'],
+    ])
+    expect(result.newSubgenres).toEqual([])
+  })
+
+  it('says a new genre without a subgenre clears the old one; the same ones again change nothing', () => {
+    // A Rock track in one of the user's own subgenres.
+    const library = [track('t1', 'Song', { genreId: 'g-rock', subgenreId: 's-mine' })]
+    // Another genre, no subgenre cell.
+    const moved = planImport(parseImportRows(rows({ title: 'Song', genre: 'Pop' }), ['title', 'genre']), library, GENRES)
+    expect(moved.updates[0]!.changes).toEqual([
+      { column: 'genre', from: 'Rock', to: 'Pop' },
+      { column: 'subgenre', from: 'Garage Gothic', to: '' },
+    ])
+    // The server clears it: no subgenre is sent.
+    expect(moved.updates[0]!.subgenre).toBeUndefined()
+
+    // The same genre and subgenre, case aside.
+    const same = planImport(parseImportRows(rows({ title: 'Song', genre: 'rock', subgenre: 'garage gothic' }), ['title', 'genre', 'subgenre']), library, GENRES)
+    expect(same.unchanged).toEqual([{ line: 2, title: 'Song' }])
   })
 
   it('skips, with why: a title no track has, one several tracks share, one on two rows, a value it cannot read', () => {

@@ -54,8 +54,8 @@ select table_privs_are('public', 'genres', 'anon', array['SELECT'],
   'anonymous visitors can only read genres');
 select table_privs_are('public', 'tracks', 'authenticated', array['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   'signed-in users can read and write tracks (RLS limits the rows)');
-select table_privs_are('public', 'genres', 'authenticated', array['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
-  'signed-in users can read and write genres (RLS limits the rows)');
+select table_privs_are('public', 'genres', 'authenticated', array['SELECT'],
+  'signed-in users can only read genres too (a fixed list)');
 
 -- -----------------------------------------------------------------------------
 -- Schema constraints
@@ -148,25 +148,27 @@ select lives_ok(
 );
 
 select ok(
-  (select count(*) from public.genres where user_id is null) > 0,
-  'built-in genres are visible'
+  (select count(*) from public.genres) > 0,
+  'the genres are visible'
 );
 
 select lives_ok(
-  $$ insert into public.genres (user_id, name) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Vaporwave') $$,
-  'B creates a custom genre'
+  $$ insert into public.subgenres (user_id, genre_id, name)
+     values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', (select id from public.genres where name = 'Metal'), 'Mountain Doom') $$,
+  'B creates a custom subgenre'
 );
 
 select throws_ok(
-  $$ insert into public.genres (user_id, name) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', ' vaporwave ') $$,
+  $$ insert into public.subgenres (user_id, genre_id, name)
+     values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', (select id from public.genres where name = 'Metal'), ' mountain doom ') $$,
   '23505', null,
-  'genre names are unique per user (ignoring case and spaces)'
+  'subgenre names are unique per user and genre (ignoring case and spaces)'
 );
 
 select throws_ok(
-  $$ insert into public.genres (user_id, name) values (null, 'Global genre') $$,
+  $$ insert into public.genres (name) values ('Global genre') $$,
   '42501', null,
-  'users cannot create built-in genres'
+  'users cannot create genres'
 );
 
 -- Storage
@@ -211,8 +213,8 @@ select results_eq(
 );
 
 select is_empty(
-  $$ select 1 from public.genres where name = 'Vaporwave' $$,
-  'A cannot see B''s custom genres'
+  $$ select 1 from public.subgenres where name = 'Mountain Doom' $$,
+  'A cannot see B''s custom subgenres'
 );
 
 select results_eq(

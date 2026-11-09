@@ -145,10 +145,19 @@ export async function createTrack(
 export async function updateTrack(db: DbClient, userId: string, id: string, input: TrackUpdate): Promise<TrackDetail> {
   if (input.coverPath) assertCoverPath(input.coverPath, userId, id)
 
-  // When the cover is removed we need the old path to delete the file.
-  const previousCover = input.coverPath === null
-    ? (await tracksRepo.findTrackRow(db, userId, id))?.cover_path ?? null
+  // A genre sent without a subgenre: the current one decides whether the subgenre stays.
+  const genreWithoutSubgenre = input.genreId !== undefined && input.subgenreId === undefined
+  // The row as it is, when needed (none when missing or not the user's: the update then answers 404).
+  const current = input.coverPath === null || genreWithoutSubgenre
+    ? await tracksRepo.findTrackRow(db, userId, id)
     : null
+
+  // When the cover is removed we need the old path to delete the file.
+  const previousCover = input.coverPath === null ? current?.cover_path ?? null : null
+
+  // A new genre without a subgenre: the old subgenre (of the old genre) goes, or the
+  // database would refuse the pair. The same genre sent again keeps it.
+  if (genreWithoutSubgenre && current && current.genre_id !== input.genreId) input = { ...input, subgenreId: null }
 
   // The updated row (none when missing or not the user's).
   const row = await tracksRepo.updateTrackRow(db, userId, id, toTrackUpdate(input))

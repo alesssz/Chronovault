@@ -44,13 +44,28 @@ export interface SyncedLyricLine {
   section?: boolean
 }
 
-/** A genre as the API returns it. */
+/**
+ * A main genre as the API returns it: one of a fixed list (nobody adds one),
+ * with its subgenres, the built-in ones and the user's own.
+ */
 export interface Genre {
   /** Row id (uuid), what tracks store in `genreId`. */
   id: string
   /** The name shown in the filters and the editor. */
   name: string
-  /** true when created by the user, false for built-in genres. */
+  /** Its subgenres, built-in and the user's own, sorted by name. */
+  subgenres: Subgenre[]
+}
+
+/** A subgenre: under one genre, built-in or created by the user (coherent with its genre). */
+export interface Subgenre {
+  /** Row id (uuid), what tracks store in `subgenreId`. */
+  id: string
+  /** The genre it belongs to. */
+  genreId: string
+  /** The name shown in the editor and, outside it, in place of the genre's (the most specific). */
+  name: string
+  /** true when created by the user, false for built-in subgenres. */
   custom: boolean
 }
 
@@ -66,8 +81,10 @@ export interface TrackSummary {
   album: string | null
   /** Year of release or creation. */
   year: number | null
-  /** The genre (built-in or the owner's own), or none. */
+  /** The genre (one of the fixed list), or none. */
   genreId: string | null
+  /** A subgenre of that genre (built-in or the owner's own), or none; never set without a genre. */
+  subgenreId: string | null
   /** The owner marked it as mastered (a private note: never shared). */
   mastered: boolean
   /** Who may open its share page (see TrackVisibility). */
@@ -120,7 +137,7 @@ export interface TrackDetail extends TrackSummary {
  * file details or cover. Only ever returned to the owner.
  */
 export type TrackMetadata = Pick<TrackDetail,
-  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genreId' | 'mastered' | 'status' | 'visibility'
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genreId' | 'subgenreId' | 'mastered' | 'status' | 'visibility'
   | 'description' | 'sunoPrompt' | 'lyrics' | 'hasSyncedLyrics'
 >
 
@@ -146,7 +163,7 @@ export interface SharedTrackContent {
   album: string | null
   /** Year of release or creation. */
   year: number | null
-  /** Genre name (the genre itself may be one of the owner's custom genres). */
+  /** The most specific genre name: the subgenre's when set (maybe one of the owner's own), else the genre's. */
   genre: string | null
   /** Free text about the track. */
   description: string | null
