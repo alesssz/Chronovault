@@ -74,13 +74,15 @@ const shortcutsOpen = useShortcutsHelp()
  */
 const finePointer = useMediaQuery('(pointer: fine)')
 
-/** Account menu: who is signed in, Statistics, Storage, Keyboard shortcuts (with a fine pointer), Sign out. */
+/** Account menu: who is signed in, Statistics, Storage, Export & import metadata, Keyboard shortcuts (with a fine pointer), Sign out. */
 const menu = computed<DropdownMenuItem[][]>(() => [
   [{ label: user.value?.email ?? 'Account', type: 'label', icon: 'i-lucide-user' }],
   [
     // Visits to the share links (pages/stats.vue).
     { label: 'Statistics', icon: 'i-lucide-chart-column', to: '/stats' },
     { label: 'Storage', icon: 'i-lucide-hard-drive', onSelect: () => (storageOpen.value = true) },
+    // Every track's metadata in one file, and many tracks filled in from one (pages/tracks/import.vue).
+    { label: 'Export & import metadata', icon: 'i-lucide-file-spreadsheet', to: '/tracks/import' },
     ...(finePointer.value
       ? [{ label: 'Keyboard shortcuts', icon: 'i-lucide-keyboard', onSelect: () => (shortcutsOpen.value = true) }]
       : []),

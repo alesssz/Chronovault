@@ -1,4 +1,4 @@
-import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 import type {
   PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, UnseenFeedback, VersionFeedback, VersionVoteState,
@@ -21,6 +21,8 @@ import type { FeedbackSeenInput, PlayRecordInput, VersionVoteInput } from '~~/sh
 export const tracksApi = {
   list: () => $fetch<TrackSummary[]>('/api/tracks'),
   get: (id: string) => $fetch<TrackDetail>(`/api/tracks/${id}`),
+  /** Every metadata field of every track, long texts included (the metadata export and import). */
+  metadata: () => $fetch<TrackMetadata[]>('/api/tracks/metadata'),
   uploadUrl: (body: AudioUploadRequest) => $fetch<AudioUploadTarget>('/api/tracks/upload-url', { method: 'POST', body }),
   create: (body: TrackCreateInput) => $fetch<TrackDetail>('/api/tracks', { method: 'POST', body }),
   update: (id: string, body: TrackUpdateInput) => $fetch<TrackDetail>(`/api/tracks/${id}`, { method: 'PATCH', body }),

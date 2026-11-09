@@ -94,8 +94,12 @@ onBeforeRouteLeave(async () => {
 
     <!-- What is read from the files -->
     <p class="mt-3 text-sm text-muted">
-      Title, composers, album, year, genre, lyrics and cover are read from the file tags.
-      You can edit them later.
+      Title, composers, album, year, genre, lyrics and cover are read from the file tags (a file without tags
+      takes its name as title). You can edit them later, one by one or many at once with
+      <ULink
+        to="/tracks/import"
+        class="text-primary underline-offset-2 hover:underline"
+      >Export & import metadata</ULink>.
     </p>
 
     <!-- What happens to WAV files (lossless FLAC conversion) -->
