@@ -1,5 +1,5 @@
 import type { Database, Tables, TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
-import type { SharedTrack, SharedTrackContent, SyncedLyricLine, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { SharedTrack, SharedTrackContent, SyncedLyricLine, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
 import type { TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { getExtension } from '~~/shared/utils/audio-files'
 import { trackCoverUrlOf } from './cover-urls'
@@ -50,6 +50,37 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
     coverUrl: trackCoverUrlOf(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  }
+}
+
+/** Columns read for the metadata export and import: the editable fields, no synced lines, peaks or files. */
+export const TRACK_METADATA_COLUMNS = [
+  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'mastered', 'status', 'visibility',
+  'description', 'suno_prompt', 'lyrics', 'has_synced_lyrics',
+].join(',')
+
+/** The columns TRACK_METADATA_COLUMNS reads. */
+export type TrackMetadataRow = Pick<TrackRow,
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'mastered' | 'status' | 'visibility'
+  | 'description' | 'suno_prompt' | 'lyrics' | 'has_synced_lyrics'
+>
+
+/** Metadata row → the export's view. */
+export function toTrackMetadata(row: TrackMetadataRow): TrackMetadata {
+  return {
+    id: row.id,
+    title: row.title,
+    composers: row.composers,
+    album: row.album,
+    year: row.year,
+    genreId: row.genre_id,
+    mastered: row.mastered,
+    status: row.status,
+    visibility: row.visibility,
+    description: row.description,
+    sunoPrompt: row.suno_prompt,
+    lyrics: row.lyrics,
+    hasSyncedLyrics: row.has_synced_lyrics ?? false,
   }
 }
 

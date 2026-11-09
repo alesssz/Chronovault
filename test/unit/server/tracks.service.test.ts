@@ -17,6 +17,7 @@ import {
   createUploadTarget,
   deleteTrack,
   getPlaybackSource,
+  listTrackMetadata,
   listTracks,
   updateTrack,
 } from '~~/server/services/tracks.service'
@@ -93,6 +94,31 @@ describe('listTracks', () => {
     // The version is updated_at in base 36: a new cover (new updated_at) means a new address.
     const version = Date.parse('2026-10-18T10:00:00Z').toString(36)
     expect(result.map(t => t.coverUrl)).toEqual([`/api/covers/tracks/${TRACK}?v=${version}`, null])
+  })
+})
+
+describe('listTrackMetadata', () => {
+  it('gives every metadata field of every track, long texts included', async () => {
+    vi.mocked(tracksRepo.listTrackMetadataRows).mockResolvedValue([
+      makeRow({ status: 'draft', composers: 'Ada', genre_id: 'g1', description: 'About', suno_prompt: 'rock', lyrics: 'One', has_synced_lyrics: true }),
+    ])
+
+    expect(await listTrackMetadata(db, USER)).toEqual([{
+      id: TRACK,
+      title: 'Track',
+      composers: 'Ada',
+      album: null,
+      year: null,
+      genreId: 'g1',
+      mastered: false,
+      status: 'draft',
+      visibility: 'private',
+      description: 'About',
+      sunoPrompt: 'rock',
+      lyrics: 'One',
+      hasSyncedLyrics: true,
+    }])
+    expect(tracksRepo.listTrackMetadataRows).toHaveBeenCalledWith(db, USER)
   })
 })
 

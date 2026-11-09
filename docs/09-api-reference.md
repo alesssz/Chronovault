@@ -9,6 +9,7 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `GET` | `/api/health` | | `{ status, time }` (public) |
 | `GET` | `/api/keepalive` | | `{ status, time }` (public): one tiny database query, called daily by Vercel Cron ([13.7](13-deployment.md#137-keeping-supabase-awake)); `500` when the database does not answer |
 | `GET` | `/api/tracks` | | `TrackSummary[]`, newest first |
+| `GET` | `/api/tracks/metadata` | | `TrackMetadata[]`: every editable field of every track, description, Suno prompt and lyrics included, and whether it has synced lyrics (the metadata export and import, [7.18](07-data-flows.md#718-exporting-and-importing-metadata)) |
 | `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour, signed for the declared size and type: another file gets `403` from the storage); `409` when the id is already registered (its file is never overwritten) |
 | `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file, and for the one of two identical registrations at the same moment that loses the race (the track is there: the other one registered it, and the file is kept); `400` when a path is not exactly `<userId>/<trackId>.<ext>` (cover: `.webp`), when the file is not in storage yet, or when its size differs from `sizeBytes` (the file is then deleted) |
 | `GET` | `/api/tracks/:id` | | `TrackDetail` |

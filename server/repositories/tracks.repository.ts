@@ -2,7 +2,7 @@ import type { TablesInsert, TablesUpdate } from '~~/shared/types/database.types'
 import type { DbClient } from '../utils/auth'
 import { toHttpError } from '../utils/errors'
 import { readAllPages } from './pages'
-import { TRACK_SUMMARY_COLUMNS, type TrackRow, type TrackSummaryRow } from '../mappers/track'
+import { TRACK_METADATA_COLUMNS, TRACK_SUMMARY_COLUMNS, type TrackMetadataRow, type TrackRow, type TrackSummaryRow } from '../mappers/track'
 
 /**
  * Access to the `tracks` table. RLS already limits every user to their own
@@ -25,6 +25,18 @@ export async function listTrackRows(db: DbClient, userId: string): Promise<Track
     .range(from, to)
     // The column list is a runtime string: tell the typed client what it returns.
     .overrideTypes<TrackSummaryRow[], { merge: false }>(), 'tracks.list')
+}
+
+/** Every editable field of every track of the user (the metadata export and import), read in pages: a library can pass 1000 tracks. */
+export async function listTrackMetadataRows(db: DbClient, userId: string): Promise<TrackMetadataRow[]> {
+  return readAllPages((from, to) => db
+    .from('tracks')
+    .select(TRACK_METADATA_COLUMNS)
+    .eq('user_id', userId)
+    .order('id')
+    .range(from, to)
+    // The column list is a runtime string: tell the typed client what it returns.
+    .overrideTypes<TrackMetadataRow[], { merge: false }>(), 'tracks.listMetadata')
 }
 
 /** What the Statistics page shows of a track (and needs for its cover address). */

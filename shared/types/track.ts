@@ -114,6 +114,17 @@ export interface TrackDetail extends TrackSummary {
 }
 
 /**
+ * Every metadata field of a track, for the metadata export and import
+ * (GET /api/tracks/metadata): the library's fields plus the long texts, and
+ * whether it has synced lyrics (not the lines themselves), without peaks,
+ * file details or cover. Only ever returned to the owner.
+ */
+export type TrackMetadata = Pick<TrackDetail,
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genreId' | 'mastered' | 'status' | 'visibility'
+  | 'description' | 'sunoPrompt' | 'lyrics' | 'hasSyncedLyrics'
+>
+
+/**
  * What anyone with the link sees of an 'unlisted' or 'public' track
  * (the public share page). Never includes the Suno prompt, the mastering
  * status or storage paths.

@@ -61,6 +61,7 @@ Chronovault/
 │   │   ├── storage-keys.ts           #   every localStorage key, and the move from the former chronoplayer: names
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
+│   │   ├── metadata-files.ts         #   metadata export and import: reads and writes Excel, CSV and JSON (7.18)
 │   │   ├── haptics.ts                #   short vibrations as touch feedback (Android)
 │   │   ├── tags/                     #   tags for downloads: track-tags · flac-tags · id3-tags · wav-tags
 │   │   ├── media-session.ts · theme.ts  #   lock-screen card · waveform colours from the theme
@@ -71,6 +72,7 @@ Chronovault/
 │   │   ├── login.vue · confirm.vue   # Sign-in / sign-up / forgot password · auth callback
 │   │   ├── reset-password.vue        # New password, from the reset email's link
 │   │   ├── tracks/new.vue            # Upload
+│   │   ├── tracks/import.vue         # Export & import metadata: every track's metadata in one file, and back (7.18)
 │   │   ├── tracks/[id]/edit.vue      # Track editor (details, lyrics, sync)
 │   │   ├── playlists/index.vue       # Playlists
 │   │   ├── playlists/[id].vue        # Playlist editor (PlaylistEditor)
@@ -103,6 +105,7 @@ Chronovault/
 │   ├── schemas/                      # track.ts · playlist.ts · analytics.ts · feedback.ts (Zod)
 │   ├── types/                        # track.ts · playlist.ts · storage.ts · analytics.ts · database.types.ts (generated)
 │   └── utils/                        # lyrics (LRC) · peaks · storage-paths · audio-files · time · text · numbers · arrays
+│                                     #   · metadata-import (columns, cells, matching by title: 7.18)
 ├── supabase/
 │   ├── config.toml                   # Local stack (ports, auth settings, S3 protocol)
 │   ├── migrations/                   # Versioned schema (section 8.2)

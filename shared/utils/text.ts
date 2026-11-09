@@ -44,11 +44,15 @@ export function joinParts(parts: readonly (string | number | null | undefined)[]
 }
 
 /**
- * Comparison key for case-insensitive matches (search, genre names):
- * trimmed and lower-cased with English rules, so it is the same on every device.
+ * Comparison key for case-insensitive matches (search, genre names, the
+ * metadata import's titles): trimmed and lower-cased with English rules, so it
+ * is the same on every device, and in Unicode's composed form (NFC). An
+ * accented letter can be one character or a letter plus a combining accent:
+ * titles read from file tags on macOS often come in the second form, typed
+ * text in the first, and a typed "Forlì" must match the one a tag gave.
  */
 export function foldCase(text: string): string {
-  return text.trim().toLocaleLowerCase('en')
+  return text.normalize('NFC').trim().toLocaleLowerCase('en')
 }
 
 /**

@@ -85,6 +85,12 @@ describe('foldCase', () => {
   it('ignores case and surrounding spaces', () => {
     expect(foldCase('  Synth Wave ')).toBe(foldCase('synth wave'))
   })
+
+  it('matches an accented letter written as one character or as a letter plus an accent', () => {
+    // "ì" as U+00EC, and as "i" followed by the combining grave accent U+0300 (macOS file names and tags).
+    expect(foldCase('Forl\u00EC')).toBe(foldCase('Forli\u0300'))
+    expect(foldCase('H\u0101ligar Hain')).toBe(foldCase('Ha\u0304ligar Hain'))
+  })
 })
 
 describe('hasText', () => {

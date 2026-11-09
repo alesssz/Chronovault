@@ -1,10 +1,10 @@
-import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackSummary } from '~~/shared/types/track'
+import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
 import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
 import { buildAudioPath, buildCoverPath, isAudioPath } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { badRequest, conflict, isConflict, notFound } from '../utils/errors'
-import { toTrackDetail, toTrackInsert, toTrackSummary, toTrackUpdate } from '../mappers/track'
+import { toTrackDetail, toTrackInsert, toTrackMetadata, toTrackSummary, toTrackUpdate } from '../mappers/track'
 import type { AudioStorage } from '../repositories/audio-storage'
 import * as tracksRepo from '../repositories/tracks.repository'
 import { expiresIn, playbackSource, removeCoverFiles } from './playback'
@@ -35,6 +35,16 @@ export async function listTracks(db: DbClient, userId: string): Promise<TrackSum
   // Summary rows, newest first.
   const rows = await tracksRepo.listTrackRows(db, userId)
   return rows.map(toTrackSummary)
+}
+
+/**
+ * Every metadata field of every track of the user, long texts included (the
+ * metadata export, and what the import compares a file with): one request,
+ * where the detail of each track would be one per track, peaks and all.
+ */
+export async function listTrackMetadata(db: DbClient, userId: string): Promise<TrackMetadata[]> {
+  const rows = await tracksRepo.listTrackMetadataRows(db, userId)
+  return rows.map(toTrackMetadata)
 }
 
 /** Full detail of one of the user's tracks (404 otherwise). */
