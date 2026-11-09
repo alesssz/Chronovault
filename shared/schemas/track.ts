@@ -53,6 +53,8 @@ export const trackMetadataSchema = z.object({
   title: safeText().trim().min(1, 'Title is required').max(200, 'At most 200 characters'),
   composers: optionalText(300),
   genreId: z.uuid().nullable(),
+  /** One of the genre's subgenres (the database checks it belongs to the genre and to the owner or the app). */
+  subgenreId: z.uuid().nullable(),
   year: z.number().int().min(1000, 'Invalid year').max(9999, 'Invalid year').nullable(),
   album: optionalText(200),
   description: optionalText(5000),
@@ -117,10 +119,13 @@ export type TrackUpdateInput = z.input<typeof trackUpdateSchema>
 /** Validated PATCH body (only the fields present are updated). */
 export type TrackUpdate = z.output<typeof trackUpdateSchema>
 
-/** Body of POST /api/genres: a custom genre name (unique per user, case-insensitive). */
-export const genreCreateSchema = z.object({
+/**
+ * Body of POST /api/genres/:id/subgenres: a custom subgenre's name (unique per
+ * user and genre, case-insensitive; its coherence with the genre is the service's).
+ */
+export const subgenreCreateSchema = z.object({
   name: safeText().trim().min(1, 'Name is required').max(60, 'At most 60 characters'),
 })
 
-/** Validated body of POST /api/genres. */
-export type GenreCreate = z.output<typeof genreCreateSchema>
+/** Validated body of POST /api/genres/:id/subgenres. */
+export type SubgenreCreate = z.output<typeof subgenreCreateSchema>

@@ -28,17 +28,18 @@ export type RepeatMode = 'off' | 'all' | 'one'
 /**
  * A queued track: what the player bar shows while the full data loads.
  * `status` gives the full-screen view its "WIP" badge; optional, like the
- * genre, since a queue saved by an older version has neither.
+ * genre and subgenre, since a queue saved by an older version may lack them.
  */
 export type QueueItem = Pick<TrackSummary, 'id' | 'title' | 'composers' | 'album' | 'year' | 'durationSeconds' | 'coverUrl'>
-  & Partial<Pick<TrackSummary, 'genreId' | 'status'>>
+  & Partial<Pick<TrackSummary, 'genreId' | 'subgenreId' | 'status'>>
 
 /**
  * The track being played: a library track or a shared one (public page).
  * Every source provides these fields (TrackDetail and the shared tracks
  * alike); the description is shown under the controls of the phones'
- * full-screen view. Shared tracks also carry their genre's name (`genre`):
- * visitors cannot look a `genreId` up in the owner's genre list.
+ * full-screen view. Shared tracks also carry their genre's name (`genre`,
+ * the most specific): visitors cannot look a `genreId` or `subgenreId` up in
+ * the owner's genre list.
  */
 export type PlayerTrack = QueueItem & Pick<TrackDetail, 'lyrics' | 'lyricsSynced' | 'peaks' | 'description'>
   & { genre?: string | null }

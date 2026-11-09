@@ -55,6 +55,7 @@ function toFormState(t: TrackDetail): FormState {
     title: t.title,
     composers: t.composers ?? '',
     genreId: t.genreId,
+    subgenreId: t.subgenreId,
     year: t.year,
     album: t.album ?? '',
     description: t.description ?? '',
@@ -72,6 +73,12 @@ const form = useEditForm<FormState>(toFormState(track.value), { save: saveBefore
 const { state, dirty } = form
 /** The save request (spinner on "Save"). */
 const saving = useAsyncTask()
+
+/** A genre chosen (or cleared): a different one clears the subgenre, which belonged to the old genre. */
+function setGenre(genreId: string | null) {
+  if (genreId !== state.genreId) state.subgenreId = null
+  state.genreId = genreId
+}
 
 // The number input emits undefined when cleared (or NaN): the schema expects null.
 const year = computed({
@@ -251,9 +258,10 @@ const isCurrent = computed(() => player.current?.id === id)
         >
           <!--
             Details tab. A grid of six columns from `sm`, so each row is full: title and composers
-            across it, album, year and genre in thirds, then description, Suno prompt and
-            visibility across it. Below `sm` two columns: album and year share a row (a row each
-            made the phone's form a screen longer), the rest across it. (Mastering and version,
+            across it, album and year in halves, genre and subgenre in halves, then description,
+            Suno prompt and visibility across it. Below `sm` two columns: album and year share a
+            row (a row each made the phone's form a screen longer), the rest across it (a
+            subgenre's name needs the width). (Mastering and version,
             the track's state, are in the left column: as switches on a row of their own they left
             it looking empty.)
           -->
@@ -287,7 +295,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Album"
                 name="album"
-                class="min-w-0 sm:col-span-2"
+                class="min-w-0 sm:col-span-3"
               >
                 <UInput
                   v-model="state.album"
@@ -298,7 +306,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <UFormField
                 label="Year"
                 name="year"
-                class="min-w-0 sm:col-span-2"
+                class="min-w-0 sm:col-span-3"
               >
                 <!--
                   No − / + buttons: a year is typed, not stepped to, and they took a third of the
@@ -318,16 +326,31 @@ const isCurrent = computed(() => player.current?.id === id)
               </UFormField>
 
               <!--
-                Genre: a built-in one, one of the user's own, or a new one typed in. No help line
-                under it (the menu's search box says so): it made this row taller than album and
-                year.
+                Genre: one of the fixed list. Subgenre: one of that genre's, built-in or the user's
+                own, or a new one typed in (the menu's search box says so, rather than a help line
+                that made the row taller); disabled until a genre is chosen. A new genre clears the
+                subgenre (setGenre): the old one belongs to the old genre.
               -->
               <UFormField
                 label="Genre"
                 name="genreId"
-                class="col-span-full sm:col-span-2"
+                class="col-span-full sm:col-span-3"
               >
-                <TrackGenreSelect v-model="state.genreId" />
+                <TrackGenreSelect
+                  :model-value="state.genreId"
+                  @update:model-value="setGenre"
+                />
+              </UFormField>
+
+              <UFormField
+                label="Subgenre"
+                name="subgenreId"
+                class="col-span-full sm:col-span-3"
+              >
+                <TrackSubgenreSelect
+                  v-model="state.subgenreId"
+                  :genre-id="state.genreId"
+                />
               </UFormField>
 
               <!--

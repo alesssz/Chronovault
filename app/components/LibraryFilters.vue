@@ -2,18 +2,23 @@
 import type { TrackStatus } from '~~/shared/types/track'
 
 /**
- * The library's filters and sort order (pages/index.vue): genre, mastering,
- * version (final / drafts), sort. The page owns the values (one v-model each)
- * and places the four: in the toolbar from `md` (its classes lay them out),
- * stacked in the Filters panel on phones.
+ * The library's filters and sort order (pages/index.vue): genre, subgenre,
+ * mastering, version (final / drafts), sort. The page owns the values (one
+ * v-model each) and places the five: in the toolbar from `md` (its classes
+ * lay them out), stacked in the Filters panel on phones. The subgenre filter
+ * is disabled until a genre is chosen, as in the editor.
  */
 defineProps<{
   /** "All genres", then the genres the library uses. */
   genreOptions: { label: string, value: string }[]
+  /** "All subgenres", then the chosen genre's subgenres the library uses. */
+  subgenreOptions: { label: string, value: string }[]
 }>()
 
 /** Genre id, or 'all'. */
 const genre = defineModel<string>('genre', { required: true })
+/** Subgenre id, or 'all' (always 'all' while the genre is). */
+const subgenre = defineModel<string>('subgenre', { required: true })
 /** Mastered tracks only, not mastered only, or both. */
 const mastered = defineModel<'all' | 'yes' | 'no'>('mastered', { required: true })
 /** Final versions only, drafts only, or both. */
@@ -50,6 +55,16 @@ const sortOptions = [
       :items="genreOptions"
       class="w-full xl:w-40"
       aria-label="Filter by genre"
+      data-testid="genre-filter"
+    />
+    <!-- The chosen genre's subgenres the library uses; disabled while every genre is shown -->
+    <USelect
+      v-model="subgenre"
+      :items="subgenreOptions"
+      :disabled="genre === 'all'"
+      class="w-full xl:w-44"
+      aria-label="Filter by subgenre"
+      data-testid="subgenre-filter"
     />
     <USelect
       v-model="mastered"

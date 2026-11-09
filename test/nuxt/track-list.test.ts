@@ -13,7 +13,7 @@ import TrackList from '~/components/track/TrackList.vue'
 /** A private library item with lyrics (final unless said otherwise). */
 function summary(id: string, title: string, status: TrackSummary['status'] = 'final'): TrackSummary {
   return {
-    id, title, composers: 'Chronovault', album: null, year: 2026, genreId: null, mastered: false,
+    id, title, composers: 'Chronovault', album: null, year: 2026, genreId: null, subgenreId: null, mastered: false,
     visibility: 'private', status, durationSeconds: 200, hasLyrics: true, hasSyncedLyrics: true, coverUrl: null,
     createdAt: '', updatedAt: '',
   }
@@ -26,7 +26,7 @@ const tracks = [summary('a', 'Artemisia'), summary('b', 'Caravaggio', 'draft')]
 async function mountList(props: { selectable?: boolean } = {}) {
   // A host component holding the selection, like the library page.
   const Host = defineComponent({
-    render: () => h(UApp, null, () => h(TrackList, { tracks, genreName: () => null, ...props })),
+    render: () => h(UApp, null, () => h(TrackList, { tracks, genreOf: () => null, ...props })),
   })
   // The host, mounted.
   const wrapper = await mountSuspended(Host)

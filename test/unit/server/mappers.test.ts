@@ -17,6 +17,7 @@ const row: TrackRow = {
   title: 'Night',
   composers: 'A, B',
   genre_id: null,
+  subgenre_id: null,
   year: 2026,
   album: null,
   description: 'desc',
@@ -161,9 +162,10 @@ describe('toTrackInsert', () => {
 describe('toTrackUpdate', () => {
   it('only includes present fields, mapping column names', () => {
     // Only the three fields given, under their column names.
-    expect(toTrackUpdate({ sunoPrompt: 'p', genreId: null, coverPath: null })).toEqual({
+    expect(toTrackUpdate({ sunoPrompt: 'p', genreId: null, subgenreId: null, coverPath: null })).toEqual({
       suno_prompt: 'p',
       genre_id: null,
+      subgenre_id: null,
       cover_path: null,
     })
   })

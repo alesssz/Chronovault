@@ -35,7 +35,8 @@ import { HAPTIC, haptic } from '~/lib/haptics'
 const props = defineProps<{
   /** Already filtered and sorted by the page. */
   tracks: TrackSummary[]
-  genreName: (id: string | null) => string | null
+  /** A track's genre: the most specific name (its subgenre, else its genre) and the path (`Metal › Thrash Metal`); null for none. */
+  genreOf: (track: TrackSummary) => { label: string, path: string } | null
   /** Show checkboxes (selection mode). */
   selectable?: boolean
 }>()
@@ -131,7 +132,7 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
 }
 
 /** Genre names resolved once per render instead of in the template. */
-const rows = computed(() => props.tracks.map(track => ({ track, genre: props.genreName(track.genreId) })))
+const rows = computed(() => props.tracks.map(track => ({ track, genre: props.genreOf(track) })))
 
 // --- Virtual scroll ---------------------------------------------------------------------
 /** Rows drawn beyond the edges of the screen, so a quick scroll never shows a gap. */
@@ -319,13 +320,14 @@ useLongPress(listEl, {
         From `md`: the genre, then the mastered, lyrics and visibility icons, in columns: the genre
         as plain text of a fixed width, each icon in a slot of its own (an empty one for a track
         without lyrics). As a badge as wide as its name, the genre moved the icons from row to row.
+        The most specific name (the subgenre, else the genre); the whole path on hover.
       -->
       <div class="hidden items-center gap-3 md:flex">
         <span
           class="w-28 truncate text-sm text-muted"
-          :title="genre ?? undefined"
+          :title="genre?.path"
           data-testid="track-genre"
-        >{{ genre }}</span>
+        >{{ genre?.label }}</span>
         <div class="flex items-center gap-1.5">
           <UTooltip :text="track.mastered ? 'Mastered' : 'Not mastered'">
             <UIcon

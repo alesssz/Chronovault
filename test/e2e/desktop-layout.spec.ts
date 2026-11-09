@@ -4,8 +4,8 @@
  * - the library rows' genre and icons stand in columns (a genre badge as wide as its name moved
  *   the icons from row to row);
  * - the visibility cards are three equal columns (as a row of cards as wide as their text,
- *   Public sat alone on a second line); the track editor's rows are full (album, year and genre
- *   in thirds), its status switches in the left column under the cover (on a row of the form
+ *   Public sat alone on a second line); the track editor's rows are full (album and year, genre
+ *   and subgenre, in halves), its status switches in the left column under the cover (on a row of the form
  *   of their own, they left it looking empty);
  * - a playlist's page starts with its tracks, its details in a dialog (the form came first and
  *   pushed the tracks below the bottom edge);
@@ -43,7 +43,8 @@ async function seed(page: Page): Promise<{ playlist: string, ids: Record<string,
     // A short genre name and a long one.
     const genres = await (await fetch('/api/genres')).json() as { id: string, name: string }[]
     const short = genres.find(g => g.name === 'Pop')!
-    const long = genres.find(g => g.name === 'Classical')!
+    // (the longest of the fixed list)
+    const long = genres.find(g => g.name === 'Gospel & Religious')!
     /** Saves fields of a track. */
     const patch = (id: string, body: object) => fetch(`/api/tracks/${id}`, {
       method: 'PATCH',
@@ -125,25 +126,28 @@ test.describe('desktop layout', () => {
     }))
     expect(new Set(boxes.map(b => b.y)).size).toBe(1)
     expect(new Set(boxes.map(b => b.width)).size).toBe(1)
-    // Rows with no empty part: album, year and genre on one, genre ending where the title does.
+    // Rows with no empty part: album and year on one, genre and subgenre on the next, each row
+    // ending where the title does.
     /** A form field's box: the nearest root around its label (the tabs' root holds them all). */
     const field = (label: string) => page.locator('form label', { hasText: new RegExp(`^${label}`) })
       .locator('xpath=ancestor::*[@data-slot="root"][1]').evaluate((element) => {
         const box = element.getBoundingClientRect()
         return { y: box.y, right: Math.round(box.right) }
       })
-    const [title, album, year, genre] = await Promise.all(['Title', 'Album', 'Year', 'Genre'].map(field))
+    const [title, album, year, genre, subgenre] = await Promise.all(['Title', 'Album', 'Year', 'Genre', 'Subgenre'].map(field))
     expect(year!.y).toBe(album!.y)
-    expect(genre!.y).toBe(album!.y)
-    expect(genre!.right).toBe(title!.right)
-    // And as tall: no help line under the genre (the menu's search box has the hint).
-    const heights = await Promise.all(['Album', 'Genre'].map(label => page.locator('form label', { hasText: new RegExp(`^${label}`) })
+    expect(year!.right).toBe(title!.right)
+    expect(subgenre!.y).toBe(genre!.y)
+    expect(genre!.y).toBeGreaterThan(album!.y)
+    expect(subgenre!.right).toBe(title!.right)
+    // And as tall: no help line under the subgenre (the menu's search box has the hint).
+    const heights = await Promise.all(['Album', 'Subgenre'].map(label => page.locator('form label', { hasText: new RegExp(`^${label}`) })
       .locator('xpath=ancestor::*[@data-slot="root"][1]').evaluate(element => Math.round(element.getBoundingClientRect().height))))
     expect(heights[1]).toBe(heights[0])
-    await page.getByRole('button', { name: 'Genre', exact: true }).click()
-    await expect(page.getByPlaceholder('Search or type a new genre…')).toBeVisible()
+    await page.getByRole('button', { name: 'Subgenre', exact: true }).click()
+    await expect(page.getByPlaceholder('Search or type a new subgenre…')).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(page.getByPlaceholder('Search or type a new genre…')).toBeHidden()
+    await expect(page.getByPlaceholder('Search or type a new subgenre…')).toBeHidden()
     // Mastering and version in the left column, under the cover, before the file's data (as
     // switches on a row of the form they left it looking empty).
     const status = (await page.getByTestId('track-status').boundingBox())!

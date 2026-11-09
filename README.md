@@ -4,7 +4,7 @@
 
 The music library and player of **Chronovault**, a Suno artist exploring history through sound (metal, folk, cinematic), made to keep its tracks and share them. The app carries the project's name and look: the portal logo, gold and spectral blue on night blue, and the Chronovault artwork wherever a track has no cover of its own ([5.6](docs/05-architecture.md#56-brand-and-theme)). It was first called ChronoPlayer: every name, from the repository to the storage bucket, now says Chronovault, and what browsers had saved under the old name moves to the new one by itself ([7.15](docs/07-data-flows.md#715-where-each-piece-of-data-lives)).
 
-A personal music library in the browser. Upload your tracks, play them with an interactive waveform, manage their metadata (composers, genre, Suno prompt, mastering status…), sync the lyrics line by line to watch them scroll while you listen, organize tracks in playlists and share tracks or playlists through a link. Every track's metadata can be downloaded in one Excel, CSV or JSON file, edited and uploaded back to fill in many tracks at once.
+A personal music library in the browser. Upload your tracks, play them with an interactive waveform, manage their metadata (composers, genre and subgenre, Suno prompt, mastering status…), sync the lyrics line by line to watch them scroll while you listen, organize tracks in playlists and share tracks or playlists through a link. Every track's metadata can be downloaded in one Excel, CSV or JSON file, edited and uploaded back to fill in many tracks at once.
 
 It works on desktop and smartphones and can be installed as a PWA. It runs entirely on free tiers: Supabase (database, auth, covers), Cloudflare R2 (audio files) and Vercel (app).
 
@@ -45,13 +45,13 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [5. Architecture](docs/05-architecture.md) | Overview, key principles, where everything runs (two pieces: Supabase in Docker, Nuxt with pages and API), rendering modes, reusable building blocks, brand and theme |
 | [6. Project structure](docs/06-project-structure.md) | The folder tree, file by file |
 | [7. Data flows](docs/07-data-flows.md) | How each feature works end to end: sign-in, loading the library, upload, WAV → FLAC, playback and casting, queue, editing, lyrics, deletion, download, clean-up, playlists, sharing, statistics, draft versions |
-| [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, playlists holding only the owner's tracks, at most 1000, a track's genre built-in or its owner's, exact storage paths, shared files signed by name and never listed, uploads signed for one file, headers, Content Security Policy, caps) |
+| [8. Data model and security](docs/08-data-model-and-security.md) | Tables, migrations, database functions, storage buckets and the security guarantees (RLS, playlists holding only the owner's tracks, at most 1000, genres a fixed list, a track's subgenre one of its genre's, built-in or its owner's, exact storage paths, shared files signed by name and never listed, uploads signed for one file, headers, Content Security Policy, caps) |
 | [9. API reference](docs/09-api-reference.md) | Every API route: method, body, answers and errors |
 | [10. Configuration](docs/10-configuration.md) | Environment variables, env files and the notable `nuxt.config.ts` settings |
 | [11. Local development in detail](docs/11-local-development.md) | Prerequisites, updating a computer set up before the port change, what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the dependency audit (weekly, and on every branch that changes them) |
 | [12. Testing](docs/12-testing.md) | Unit, component, database and end-to-end tests, coverage floors, CI |
 | [13. Deployment (Supabase + Cloudflare R2 + Vercel)](docs/13-deployment.md) | Supabase Cloud, Cloudflare R2, Vercel, updating production, statistics, keeping Supabase awake |
-| [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, new endpoints and tables) |
+| [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, page layout, new endpoints and tables) |
 | [15. Known limitations and next steps](docs/15-limitations-and-next-steps.md) | What the app does not do yet, and what could come next |
 | [16. Troubleshooting](docs/16-troubleshooting.md) | Known problems and their fixes |
 

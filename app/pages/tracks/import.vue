@@ -13,18 +13,22 @@
  *      (shared/utils/metadata-import.ts). Nothing is saved yet: the page shows
  *      what changes, track by track, and every row that will not be applied,
  *      with why (title not found, shared by several tracks, on two rows of the
- *      file, a value that cannot be read).
- *   3. "Apply": the genres the file names that do not exist are created, then
- *      each track is saved with PATCH /api/tracks/:id, the edit page's own
- *      request and checks (a few at a time). Failures are listed; the rest
- *      stays saved.
+ *      file, a value that cannot be read, a genre not in the list, a subgenre
+ *      incoherent with its genre).
+ *   3. "Apply": the subgenres the file names that do not exist are created
+ *      (as the user's own, under their genre), then each track is saved with
+ *      PATCH /api/tracks/:id, the edit page's own request and checks (a few
+ *      at a time). Failures are listed; the rest stays saved.
+ *
+ * Step 1 also lists the genres and subgenres (GenreReference): the names the
+ * file's genre columns take, for CSV and JSON, which have no Help sheet.
  *
  * An empty cell leaves its field as it is. Every user has it: it only ever
  * reaches the user's own tracks, like the rest of the app.
  */
 import type { TrackUpdateInput } from '~~/shared/schemas/track'
 import type { TrackMetadata } from '~~/shared/types/track'
-import { parseImportRows, planImport, IMPORT_COLUMNS, IMPORT_COLUMN_HELP, type ImportPlan, type ImportUpdate } from '~~/shared/utils/metadata-import'
+import { parseImportRows, planImport, IMPORT_COLUMNS, IMPORT_COLUMN_HELP, type ImportPlan, type ImportUpdate, type NewSubgenre } from '~~/shared/utils/metadata-import'
 import { METADATA_FILE_ACCEPT, readMetadataFile, templateCsv, templateJson, templateRows, templateXlsx, type MetadataFormat } from '~/lib/metadata-files'
 import { saveFile } from '~/lib/save-file'
 import { tracksApi } from '~/services/api'
@@ -37,8 +41,8 @@ const toast = useToast()
 const { data: library, refresh } = await useAsyncData('track-metadata', () => tracksApi.metadata(), {
   default: () => [] as TrackMetadata[],
 })
-// Genres: names in the downloads, matching and creating them on import.
-const { genres, genreName, createGenre } = useGenres()
+// Genres and subgenres: names in the downloads, matching them (and creating subgenres) on import.
+const { genres, genreName, subgenreName, createSubgenre } = useGenres()
 
 // --- 1. The download: export and template -------------------------------------------------
 
@@ -53,8 +57,10 @@ const building = ref<MetadataFormat | null>(null)
 async function downloadTemplate(format: MetadataFormat) {
   building.value = format
   try {
-    const rows = templateRows(library.value, genreName)
-    const blob = format === 'xlsx' ? await templateXlsx(rows) : format === 'csv' ? templateCsv(rows) : templateJson(rows)
+    // Every track's fields as text, the genre and subgenre by name.
+    const rows = templateRows(library.value, genreName, subgenreName)
+    // The file in the format asked for (the Excel one also lists the genres and subgenres on its Help sheet).
+    const blob = format === 'xlsx' ? await templateXlsx(rows, genres.value) : format === 'csv' ? templateCsv(rows) : templateJson(rows)
     saveFile(blob, `chronovault-metadata.${format}`)
   }
   catch (error) {
@@ -121,13 +127,25 @@ const result = ref<{ saved: number, failed: { title: string, error: string }[] }
 /** Tracks saved at once: a few requests in parallel, not a burst of hundreds. */
 const PARALLEL_SAVES = 4
 
-/** A row's fields as the edit page's PATCH body; the genre by its id. */
-function updateBody(update: ImportUpdate, genreIds: Map<string, string>): TrackUpdateInput {
-  const { genre, ...fields } = update.fields
-  return genre === undefined ? fields : { ...fields, genreId: genreIds.get(foldCase(genre))! }
+/** A new subgenre's key: its genre and its folded name (the plan has each once). */
+function newSubgenreKey(subgenre: NewSubgenre): string {
+  return `${subgenre.genreId}:${foldCase(subgenre.name)}`
 }
 
-/** Creates the new genres, then saves every track that changes. */
+/**
+ * A row's fields as the edit page's PATCH body: the genre by its id, the
+ * subgenre by its id (a new one's, created first, from `created`). A new
+ * genre without a subgenre: the server clears the old one.
+ */
+function updateBody(update: ImportUpdate, created: Map<string, string>): TrackUpdateInput {
+  // The other fields as they are; the genre and subgenre added below when they change.
+  const body: TrackUpdateInput = { ...update.fields }
+  if (update.genreId) body.genreId = update.genreId
+  if (update.subgenre) body.subgenreId = 'id' in update.subgenre ? update.subgenre.id : created.get(newSubgenreKey(update.subgenre))!
+  return body
+}
+
+/** Creates the new subgenres, then saves every track that changes. */
 async function apply() {
   const p = plan.value
   if (!p || applying.value) return
@@ -135,18 +153,17 @@ async function apply() {
   saved.value = 0
   const failed: { title: string, error: string }[] = []
   try {
-    // Every genre by folded name, the new ones created first.
-    const genreIds = new Map(genres.value.map(g => [foldCase(g.name), g.id]))
-    for (const name of p.newGenres) {
-      const genre = await createGenre(name)
-      genreIds.set(foldCase(name), genre.id)
+    // The new subgenres' ids by key, created first.
+    const created = new Map<string, string>()
+    for (const subgenre of p.newSubgenres) {
+      created.set(newSubgenreKey(subgenre), (await createSubgenre(subgenre.genreId, subgenre.name)).id)
     }
     // The tracks, a few at a time.
     const queue = [...p.updates]
     const worker = async () => {
       for (let update = queue.shift(); update; update = queue.shift()) {
         try {
-          await tracksApi.update(update.trackId, updateBody(update, genreIds))
+          await tracksApi.update(update.trackId, updateBody(update, created))
           saved.value++
         }
         catch (error) {
@@ -157,7 +174,7 @@ async function apply() {
     await Promise.all(Array.from({ length: PARALLEL_SAVES }, worker))
   }
   catch (error) {
-    // A genre could not be created: nothing was saved.
+    // A subgenre could not be created: nothing was saved.
     toast.add({ title: 'Import stopped', description: getErrorMessage(error), color: 'error' })
   }
   finally {
@@ -239,11 +256,8 @@ async function apply() {
         />
       </div>
       <!-- What each column takes (the Excel file has it on its Help sheet too) -->
-      <details class="rounded-lg border border-default px-4 py-2 text-sm">
-        <summary class="cursor-pointer py-1 font-medium">
-          The columns
-        </summary>
-        <dl class="grid gap-x-4 gap-y-2 py-2 sm:grid-cols-[10rem_1fr]">
+      <HelpAccordion label="The columns">
+        <dl class="grid gap-x-4 gap-y-2 sm:grid-cols-[10rem_1fr]">
           <template
             v-for="column in IMPORT_COLUMNS"
             :key="column"
@@ -256,7 +270,9 @@ async function apply() {
             </dd>
           </template>
         </dl>
-      </details>
+      </HelpAccordion>
+      <!-- The names the genre and subgenre columns take (the Excel file lists them on its Help sheet too) -->
+      <GenreReference :genres="genres" />
     </section>
 
     <!-- 2. The filled-in file -->
@@ -326,14 +342,15 @@ async function apply() {
           <span class="text-muted"> · {{ plan.unchanged.length }} unchanged · {{ skippedCount }} skipped</span>
         </p>
 
+        <!-- Subgenres the file names that do not exist yet: "Metal › Swamp Metal", created as the user's own on Apply -->
         <UAlert
-          v-if="plan.newGenres.length"
+          v-if="plan.newSubgenres.length"
           color="info"
           variant="subtle"
           icon="i-lucide-tag"
-          :title="`New ${plan.newGenres.length === 1 ? 'genre' : 'genres'}, created when applied`"
-          :description="plan.newGenres.join(', ')"
-          data-testid="import-new-genres"
+          :title="`New ${plan.newSubgenres.length === 1 ? 'subgenre' : 'subgenres'}, created as yours when applied`"
+          :description="plan.newSubgenres.map(s => `${s.genreName} › ${s.name}`).join(', ')"
+          data-testid="import-new-subgenres"
         />
 
         <!-- Rows that will not be applied -->
@@ -413,7 +430,15 @@ async function apply() {
                     v-else
                     class="text-dimmed italic"
                   >empty</span>
-                  → <span class="text-highlighted">{{ change.to }}</span>
+                  →
+                  <span
+                    v-if="change.to"
+                    class="text-highlighted"
+                  >{{ change.to }}</span>
+                  <span
+                    v-else
+                    class="text-dimmed italic"
+                  >empty</span>
                 </dd>
               </template>
             </dl>

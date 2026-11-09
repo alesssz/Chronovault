@@ -12,6 +12,8 @@ Chronovault/
 │   │   ├── KeyboardShortcutsDialog.vue  # the list of the player's keyboard shortcuts (the ? key)
 │   │   ├── IconButton.vue · ThemeButton.vue  # icon-only buttons with their tooltip · light/dark switch
 │   │   ├── SaveBar.vue · LibraryFilters.vue  # the editors' Save bar below 768px · the library's filters and sort
+│   │   ├── HelpAccordion.vue · GenreReference.vue  # a closed help panel (Nuxt UI accordion) · the genres and
+│   │   │                             #   subgenres in one, searchable (the metadata import page, 7.18)
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync: the screen around lib/lyrics-sync.ts),
@@ -27,7 +29,8 @@ Chronovault/
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, TrackShowcase (the share page's and the
 │   │                                 #   full-screen view's body), the editor's TrackEditSidebar (file,
-│   │                                 #   sharing, deletion) and TrackGenreSelect (genre field, custom genres created in it)
+│   │                                 #   sharing, deletion), TrackGenreSelect (genre field, the fixed list) and
+│   │                                 #   TrackSubgenreSelect (subgenre field, custom subgenres created in it)
 │   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
 │   │                                 #   (and useSharedTrackDownload for the share pages),
@@ -112,7 +115,7 @@ Chronovault/
 │   ├── migrations/                   # Versioned schema (section 8.2)
 │   ├── seed.sql                      # Local demo user
 │   ├── templates/recovery.html       # The reset email (also pasted into the Supabase project, 13.4)
-│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql · track_genres.test.sql
+│   └── tests/database/               # pgTAP: rls.test.sql · playlists.test.sql · plays_votes.test.sql · function_privileges.test.sql · feedback_seen.test.sql · write_caps.test.sql · storage_paths.test.sql · playlist_track_rules.test.sql · track_genres.test.sql (genres and subgenres)
 ├── test/
 │   ├── unit/                         # Vitest in Node: app/, server/, shared/, scripts/, config/ (nuxt.config.ts, brand checks, pnpm and Node versions of the Dockerfile)
 │   ├── nuxt/                         # Vitest in a Nuxt environment: components and composables

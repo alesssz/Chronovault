@@ -2,7 +2,7 @@
 
 All routes live in `server/api/`. **Auth:** every route requires a session cookie (`401` otherwise), except `/api/health`, `/api/keepalive`, `/api/plays`, `/api/shared/**` and `/api/stream` (its signed address is the permission: a cast device has no session). **Errors:** JSON `{ statusCode, message }`; validation errors are `400` with per-field `data.issues` (a NUL character, U+0000, in any text is one of them: Postgres cannot store it); a malformed id in the path, invalid JSON and the services' own refusals are `400` with a message only; an item that is missing, private or someone else's is always `404`; the anonymous writes past their caps are `429` (`Limit reached`). Every answer is `Cache-Control: no-store`, except the covers (below). Types: `shared/types/*.ts`; request bodies: `shared/schemas/*.ts`.
 
-**Tracks and genres**
+**Tracks, genres and subgenres**
 
 | Method | Path | Body | Response |
 |---|---|---|---|
@@ -13,11 +13,11 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `POST` | `/api/tracks/upload-url` | `{ trackId, extension, mimeType, sizeBytes }` | `AudioUploadTarget` (PUT URL, 1 hour, signed for the declared size and type: another file gets `403` from the storage); `409` when the id is already registered (its file is never overwritten) |
 | `POST` | `/api/tracks` | `trackCreateSchema` | `201 TrackDetail`; safe to repeat: the same registration again answers `201` with the track already there; `409` when the id is registered with another file, and for the one of two identical registrations at the same moment that loses the race (the track is there: the other one registered it, and the file is kept); `400` when a path is not exactly `<userId>/<trackId>.<ext>` (cover: `.webp`), when the file is not in storage yet, or when its size differs from `sizeBytes` (the file is then deleted) |
 | `GET` | `/api/tracks/:id` | | `TrackDetail` |
-| `PATCH` | `/api/tracks/:id` | any non-empty subset of `trackMetadataSchema`, `coverPath` (exactly `<userId>/<trackId>.webp`; `null` removes the cover and its file) | `TrackDetail` |
+| `PATCH` | `/api/tracks/:id` | any non-empty subset of `trackMetadataSchema`, `coverPath` (exactly `<userId>/<trackId>.webp`; `null` removes the cover and its file) | `TrackDetail`; a new `genreId` without `subgenreId` clears the old subgenre; `400` for a subgenre that is not the genre's, or someone else's |
 | `DELETE` | `/api/tracks/:id` | | `204` |
 | `GET` | `/api/tracks/:id/playback` | | `PlaybackSource { url, expiresAt }` (6 hours) |
-| `GET` | `/api/genres` | | `Genre[]` |
-| `POST` | `/api/genres` | `{ name }` | `Genre` (existing one if the name is taken) |
+| `GET` | `/api/genres` | | `Genre[]`: the fixed list, each with its `subgenres` (`{ id, genreId, name, custom }`, built-in and the user's own), by name |
+| `POST` | `/api/genres/:id/subgenres` | `{ name }` | `Subgenre`: a custom subgenre under the genre (the genre's existing one, built-in or own, if the name is taken); `404` unknown genre; `409` a name incoherent with the genre, the reason as message ("Thrash Metal belongs to Metal", "Jazz is a genre, not a subgenre"). Genres themselves cannot be created |
 | `GET` | `/api/storage` | | `StorageReport`: usage (audio, covers) and orphaned files |
 | `DELETE` | `/api/storage/orphans` | | `StorageCleanupResult`: deletes the orphans older than the minimum age |
 

@@ -5,8 +5,10 @@
 ```mermaid
 erDiagram
   AUTH_USERS ||--o{ TRACKS : owns
-  AUTH_USERS ||--o{ GENRES : "creates (custom)"
+  GENRES ||--o{ SUBGENRES : contains
+  AUTH_USERS ||--o{ SUBGENRES : "creates (custom)"
   GENRES |o--o{ TRACKS : classifies
+  SUBGENRES |o--o{ TRACKS : "classifies (within the genre)"
   AUTH_USERS ||--o{ PLAYLISTS : owns
   PLAYLISTS ||--o{ PLAYLIST_TRACKS : contains
   TRACKS ||--o{ PLAYLIST_TRACKS : "appears in"
@@ -22,6 +24,7 @@ erDiagram
     text title "1-200 chars"
     text composers
     uuid genre_id FK
+    uuid subgenre_id FK "one of the genre's"
     smallint year "1000-9999"
     text album
     text description
@@ -44,8 +47,14 @@ erDiagram
   }
   GENRES {
     uuid id PK
+    text name "fixed list of 19, unique, case-insensitive"
+    timestamptz created_at
+  }
+  SUBGENRES {
+    uuid id PK
+    uuid genre_id FK
     uuid user_id FK "NULL = built-in"
-    text name "1-60, unique per owner, case-insensitive"
+    text name "1-60; built-in unique overall, custom per owner and genre"
     timestamptz created_at
   }
   PLAYLISTS {
@@ -119,6 +128,7 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `20261028120000_storage_sign_only.sql` | Someone else's shared files can be **signed by name only, never listed**: the read policy's shared branch now holds for the `object.sign` and `object.sign_many` operations alone (`storage.allow_any_operation`). With the public key, Storage's list endpoint used to name every user's folder and every shared cover in it, so the id of every unlisted track and playlist with a cover |
 | `20261028180000_track_genre_and_lock_order.sql` | A track's genre must be built-in or its owner's own (trigger `tracks_check_genre`; any other id answers like a missing one, `23503`, 400): the tracks policies check the owner only, and the foreign key ignores RLS, so another user's private genre could be set on one's own track and showed on its share page. `set_playlist_tracks` and `append_playlist_tracks` lock the tracks they will hold (`for key share`) before writing, and count them: a reorder and the deletion of one of its tracks used to deadlock (`40P01`, 500), and a track deleted meanwhile is now "not found" (404) |
 | `20261106000000_shared_track_downloads.sql` | `get_shared_playlist_tracks` also returns each track's `visibility`, so the server can tell which tracks visitors may download (not public ones); the API sends only that outcome (`downloadable`), never the visibility itself |
+| `20261109000000_subgenres.sql` | **Genres become a fixed list of 19** (built-in only: `user_id`, its index and the write policies and grants dropped, names unique case aside) and **subgenres** come under them. Custom genres are deleted (their tracks are left without a genre); the old built-in genres that are no longer main genres become subgenres, their tracks moving with them (Techno → Electronic › Techno, Classical → Other › Classical…, the table in the file; `updated_at` left alone). New table `subgenres` (418 built-in, names unique across the list; the user's own unique per genre; RLS read built-in and own, write own; only the name can be updated) with the trigger `subgenres_check_name`; `tracks.subgenre_id` (null when its subgenre is deleted), checked by `tracks_check_genre`, rewritten; `get_shared_track` and `get_shared_playlist_tracks` name the subgenre when set, else the genre |
 
 ## 8.3 Database functions
 
@@ -132,7 +142,8 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 | `set_playlist_tracks(id, ids[])` | invoker | Replaces a playlist's tracks in one transaction, the playlist's row locked first, then the tracks it will hold (`for key share`, so none is deleted meanwhile: a reorder and a deletion at once used to deadlock) (RLS applies); a track that is not the caller's (missing, someone else's or deleted meanwhile) is `P0002` (404), nothing written; signed-in users only |
 | `append_playlist_tracks(id, ids[])` | invoker | Appends tracks at the end, in order, skipping those already there, in one locked step, its tracks locked like `set_playlist_tracks`'s (RLS applies); a track that is not the caller's is `P0002` (404); signed-in users only |
 | `private.enforce_playlist_size()` | trigger, invoker | After each insert into `playlist_tracks`: a playlist past 1000 tracks fails the statement (`23514`, 400), whatever wrote it |
-| `private.check_track_genre()` | trigger, invoker | Before a track is created or its genre changed: the genre must be built-in or the track owner's own, any other id answering like a missing one (`23503`, 400) |
+| `private.check_track_genre()` | trigger, invoker | Before a track is created or its genre or subgenre changed: the subgenre must be one of the track's genre, built-in or the track owner's own (none without a genre), any other id answering like a missing one (`23503`, 400) |
+| `private.check_subgenre_name()` | trigger, invoker | Before a custom subgenre is created or renamed: its name may not be a genre's ("Jazz is a genre, not a subgenre") nor a built-in subgenre's ("Thrash Metal belongs to Metal"; under its own genre, the built-in one is the one to use), `23514` (400; the API checks first and answers `409` with the reason) |
 | `private.owns_playlist(id)` | invoker | RLS helper for `playlist_tracks`, `version_votes` and `feedback_seen`; also the ownership check of `set_playlist_tracks` and `append_playlist_tracks` |
 | `record_play(track, playlist, listener, completed)` | definer | Counts a play where the caller can listen (shared track page, shared playlist containing it, own track); the owner, recognised by the session, gets `owner` plays; at most 100 different visitors per track and day (`53400` → `429`) |
 | `cast_version_vote(group, track, voter, name, comment)` · `withdraw_version_vote(group, voter)` | definer | A visitor's pick in a shared group of versions: the version must belong to it; `403` for the owner, `409` once a version is final, `429` for a new voter in a group that has 50 votes already |
@@ -160,9 +171,9 @@ Applied in order from `supabase/migrations/`. An applied migration's statements 
 
 Verified by the pgTAP tests (`supabase/tests/database/`), plus unit and end-to-end tests:
 
-- A user reads, changes and deletes only their own tracks, genres and playlists. Nobody can create items for someone else or change an item's owner. **A track's genre is a built-in one or its owner's own** (`20261028180000_track_genre_and_lock_order.sql`): the foreign key alone ignores RLS, and another user's private genre could be set on one's own track, its name then shown on the track's share page; such an id now answers like a missing one, so it tells nothing about what exists.
+- A user reads, changes and deletes only their own tracks, subgenres and playlists. Nobody can create items for someone else or change an item's owner. **The genres are a fixed list nobody writes to**; **a track's subgenre is one of its genre's, built-in or its owner's own** (`20261028180000_track_genre_and_lock_order.sql`, then `20261109000000_subgenres.sql`): the foreign key alone ignores RLS, and another user's private subgenre could be set on one's own track, its name then shown on the track's share page; such an id now answers like a missing one, so it tells nothing about what exists. A custom subgenre is coherent with its genre (not a genre's name, nor another genre's built-in subgenre), and cannot be moved to another genre (only its name can be updated), which would leave its tracks in a genre it is not part of.
 - Playlists can only contain the owner's own tracks, and at most 1000 of them. Entries are added and removed, never updated (`20261028000000_playlist_track_rules.sql`): the update policy checked only the playlist, so a signed-in user writing straight through the Data API could point an entry of their own playlist at someone else's track (its id was enough) and share it, exposing that track's lyrics, audio and cover. The 1000-track limit is a trigger on the table, so it holds for direct writes too, not only in the app's functions.
-- Anonymous visitors cannot read any table but `genres`, and of it only the built-in genres (the ones `/api/keepalive` reads); through the API they can otherwise only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner's account (only the storage keys of the files, which start with the owner's id: the server signs files by them), and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
+- Anonymous visitors cannot read any table but `genres` (the ones `/api/keepalive` reads) and `subgenres`, of the latter only the built-in ones; through the API they can otherwise only call the `get_shared_*` functions, which return nothing for private items and never the Suno prompt, the mastering status or the owner's account (only the storage keys of the files, which start with the owner's id: the server signs files by them), and the plays and votes functions. Internal helpers are not callable at all (checked function by function).
 - A private track inside a shared playlist is reachable only through that playlist.
 - Plays and votes are written only through their functions, only where the caller can listen or vote; the owner's plays are kept apart by the session, and only the owner reads plays and votes. A visitor sees their own pick, never anyone else's. The owner's visits to their groups (`feedback_seen`) are theirs alone.
 - **Anonymous writes are capped** in the database functions themselves (`20261026000000_anonymous_write_caps.sql`): at most 100 different visitors per track and UTC day in `record_play`, at most 50 votes per group in `cast_version_vote`; past them `53400`, answered `429`. A visitor is only a browser id the server cannot check, so without caps a script making up a new id per request could inflate the statistics, flood a group with votes and comments, and grow the tables up to the Free plan's limit (where every write of the app fails). The caps are in SQL, not in the app's server, because `anon` may call these functions straight through the Data API with the public key; and they are per track and per group, not per IP, because requests through the app reach Supabase from the server's address. A transaction-scoped advisory lock per track (per group) keeps parallel requests from all taking the last place.

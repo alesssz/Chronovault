@@ -13,6 +13,7 @@ const validMetadata = {
   title: '  Night  ',
   composers: '',
   genreId: null,
+  subgenreId: null,
   year: 2026,
   album: 'Album',
   description: '',

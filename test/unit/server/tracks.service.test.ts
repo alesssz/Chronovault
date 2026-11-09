@@ -58,7 +58,7 @@ const storage = () => audio as unknown as AudioStorage
 /** A complete track row (private, FLAC, 60 s). */
 function makeRow(overrides: Partial<TrackRow> = {}): TrackRow {
   return {
-    id: TRACK, user_id: USER, title: 'Track', composers: null, genre_id: null, year: null, album: null,
+    id: TRACK, user_id: USER, title: 'Track', composers: null, genre_id: null, subgenre_id: null, year: null, album: null,
     description: null, suno_prompt: null, mastered: false, visibility: 'private', lyrics: null,
     lyrics_synced: null, has_lyrics: false, has_synced_lyrics: false, audio_path: AUDIO, cover_path: null,
     mime_type: 'audio/flac', size_bytes: 10, duration_seconds: 60, peaks: null,
@@ -100,7 +100,7 @@ describe('listTracks', () => {
 describe('listTrackMetadata', () => {
   it('gives every metadata field of every track, long texts included', async () => {
     vi.mocked(tracksRepo.listTrackMetadataRows).mockResolvedValue([
-      makeRow({ status: 'draft', composers: 'Ada', genre_id: 'g1', description: 'About', suno_prompt: 'rock', lyrics: 'One', has_synced_lyrics: true }),
+      makeRow({ status: 'draft', composers: 'Ada', genre_id: 'g1', subgenre_id: 's1', description: 'About', suno_prompt: 'rock', lyrics: 'One', has_synced_lyrics: true }),
     ])
 
     expect(await listTrackMetadata(db, USER)).toEqual([{
@@ -110,6 +110,7 @@ describe('listTrackMetadata', () => {
       album: null,
       year: null,
       genreId: 'g1',
+      subgenreId: 's1',
       mastered: false,
       status: 'draft',
       visibility: 'private',
@@ -270,6 +271,29 @@ describe('updateTrack', () => {
 
     expect(tracksRepo.updateTrackRow).toHaveBeenCalledWith(db, USER, TRACK, { cover_path: null })
     expect(storageRepo.removeObjects).toHaveBeenCalledWith(db, 'covers', [COVER])
+  })
+
+  it('clears the subgenre when the genre changes without one', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ genre_id: 'metal', subgenre_id: 'thrash' }))
+    vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(makeRow({ genre_id: 'rock' }))
+
+    await updateTrack(db, USER, TRACK, { genreId: 'rock' })
+
+    // The old genre's subgenre would leave the pair incoherent: the database would refuse it.
+    expect(tracksRepo.updateTrackRow).toHaveBeenCalledWith(db, USER, TRACK, { genre_id: 'rock', subgenre_id: null })
+  })
+
+  it('keeps the subgenre when the same genre is sent again, or the subgenre is sent too', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ genre_id: 'metal', subgenre_id: 'thrash' }))
+    vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(makeRow())
+
+    await updateTrack(db, USER, TRACK, { genreId: 'metal', title: 'x' })
+    expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { genre_id: 'metal', title: 'x' })
+
+    await updateTrack(db, USER, TRACK, { genreId: 'rock', subgenreId: 'grunge' })
+    expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { genre_id: 'rock', subgenre_id: 'grunge' })
+    // Only the first call needed the current row.
+    expect(tracksRepo.findTrackRow).toHaveBeenCalledTimes(1)
   })
 
   it('does not touch storage for metadata-only changes', async () => {

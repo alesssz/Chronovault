@@ -143,11 +143,14 @@ useCloseOnBack(open, () => {
 
 /** What the view shows (the queued summary while the full data loads). */
 const track = computed(() => player.displayTrack)
-/** "Album · Year · Genre" line (only the parts that are set; a shared track names its genre itself). */
+/**
+ * "Album · Year · Genre" line (only the parts that are set; the genre is the
+ * most specific name, the subgenre when set; a shared track names it itself).
+ */
 const meta = computed(() => {
   // The loaded track's full data (none while it loads).
   const t = player.current
-  return t ? joinParts([t.album, t.year, t.genre ?? genres?.genreName(t.genreId) ?? null]) : ''
+  return t ? joinParts([t.album, t.year, t.genre ?? genres?.trackGenreLabel(t) ?? null]) : ''
 })
 </script>
 

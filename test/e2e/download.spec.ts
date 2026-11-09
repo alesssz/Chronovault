@@ -27,10 +27,12 @@ test.describe('download with tags', () => {
     // The track's id, from the edit page's address.
     const trackId = page.url().split('/tracks/')[1]!.split('/')[0]!
 
-    // Metadata through the API (faster than filling the form), genre by name.
+    // Metadata through the API (faster than filling the form), genre and subgenre by name.
     await page.evaluate(async (id) => {
-      // The built-in genres, to pick one by name.
-      const genres = await (await fetch('/api/genres')).json() as { id: string, name: string }[]
+      // The genres with their subgenres, to pick them by name.
+      const genres = await (await fetch('/api/genres')).json() as { id: string, name: string, subgenres: { id: string, name: string }[] }[]
+      // Electronic › Ambient: the file's genre tag is the most specific name.
+      const electronic = genres.find(g => g.name === 'Electronic')!
       // The metadata saved through the API.
       const response = await fetch(`/api/tracks/${id}`, {
         method: 'PATCH',
@@ -39,7 +41,8 @@ test.describe('download with tags', () => {
           composers: 'Ada Lovelace',
           album: 'Notturni',
           year: 2026,
-          genreId: genres.find(g => g.name === 'Ambient')!.id,
+          genreId: electronic.id,
+          subgenreId: electronic.subgenres.find(s => s.name === 'Ambient')!.id,
           description: 'Written on a rainy night.',
           lyrics: '[Verse 1]\nFirst line\nSecond line',
           sunoPrompt: 'never-in-the-file',

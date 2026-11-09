@@ -20,13 +20,13 @@ export type TrackRow = Tables<'tracks'>
 
 /** Columns read for the library (no lyrics, peaks or descriptions). */
 export const TRACK_SUMMARY_COLUMNS = [
-  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'mastered', 'visibility', 'status',
+  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'subgenre_id', 'mastered', 'visibility', 'status',
   'duration_seconds', 'has_lyrics', 'has_synced_lyrics', 'cover_path', 'created_at', 'updated_at',
 ].join(',')
 
 /** The columns listed in TRACK_SUMMARY_COLUMNS (keep the two in sync). */
 export type TrackSummaryRow = Pick<TrackRow,
-  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'mastered' | 'visibility' | 'status'
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'subgenre_id' | 'mastered' | 'visibility' | 'status'
   | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'cover_path' | 'created_at' | 'updated_at'
 >
 
@@ -39,6 +39,7 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
     album: row.album,
     year: row.year,
     genreId: row.genre_id,
+    subgenreId: row.subgenre_id,
     mastered: row.mastered,
     visibility: row.visibility,
     status: row.status,
@@ -55,13 +56,13 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
 
 /** Columns read for the metadata export and import: the editable fields, no synced lines, peaks or files. */
 export const TRACK_METADATA_COLUMNS = [
-  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'mastered', 'status', 'visibility',
+  'id', 'title', 'composers', 'album', 'year', 'genre_id', 'subgenre_id', 'mastered', 'status', 'visibility',
   'description', 'suno_prompt', 'lyrics', 'has_synced_lyrics',
 ].join(',')
 
 /** The columns TRACK_METADATA_COLUMNS reads. */
 export type TrackMetadataRow = Pick<TrackRow,
-  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'mastered' | 'status' | 'visibility'
+  | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'subgenre_id' | 'mastered' | 'status' | 'visibility'
   | 'description' | 'suno_prompt' | 'lyrics' | 'has_synced_lyrics'
 >
 
@@ -74,6 +75,7 @@ export function toTrackMetadata(row: TrackMetadataRow): TrackMetadata {
     album: row.album,
     year: row.year,
     genreId: row.genre_id,
+    subgenreId: row.subgenre_id,
     mastered: row.mastered,
     status: row.status,
     visibility: row.visibility,
@@ -163,6 +165,7 @@ export function toTrackInsert(userId: string, input: TrackCreate): TablesInsert<
     title: input.title,
     composers: input.composers ?? null,
     genre_id: input.genreId ?? null,
+    subgenre_id: input.subgenreId ?? null,
     year: input.year ?? null,
     album: input.album ?? null,
     description: input.description ?? null,
@@ -194,6 +197,7 @@ export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
     title: 'title',
     composers: 'composers',
     genreId: 'genre_id',
+    subgenreId: 'subgenre_id',
     year: 'year',
     album: 'album',
     description: 'description',

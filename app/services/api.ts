@@ -1,5 +1,5 @@
-import type { AudioUploadTarget, Genre, PlaybackSource, SharedTrack, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
-import type { AudioUploadRequest, GenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
+import type { AudioUploadTarget, Genre, PlaybackSource, Subgenre, SharedTrack, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
+import type { AudioUploadRequest, SubgenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 import type {
   PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, UnseenFeedback, VersionFeedback, VersionVoteState,
 } from '~~/shared/types/playlist'
@@ -93,8 +93,10 @@ export const analyticsApi = {
   plays: (days: AnalyticsPeriod) => $fetch<PlaysReport>('/api/analytics/plays', { query: { days } }),
 }
 
-/** Built-in and custom genres (sign-in required). */
+/** The genres with their subgenres, and the user's own subgenres (sign-in required). */
 export const genresApi = {
   list: () => $fetch<Genre[]>('/api/genres'),
-  create: (body: GenreCreate) => $fetch<Genre>('/api/genres', { method: 'POST', body }),
+  /** A custom subgenre under the genre (or its existing one with that name); 409 when incoherent with it. */
+  createSubgenre: (genreId: string, body: SubgenreCreate) =>
+    $fetch<Subgenre>(`/api/genres/${genreId}/subgenres`, { method: 'POST', body }),
 }

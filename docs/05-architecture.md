@@ -100,6 +100,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | Helper | File | What it does |
 |---|---|---|
 | `pluralize`, `capitalize`, `truncate`, `joinParts`, `foldCase`, `hasText` | `text.ts` | "3 tracks", "Version" from "version", cut texts with "…", "Album · 2026 · Genre" lines, case-insensitive keys (search, genre names, the metadata import's titles; accents compared in one Unicode form), blank-value checks (tag writers, download toast) |
+| `findGenreByName`, `findSubgenreByName`, `findBuiltinSubgenre`, `subgenreNameProblem`, `resolveGenreName` | `genres.ts` | Genres and subgenres by name, case aside: a custom subgenre's coherence with its genre (the server's create, the metadata import), what a file's genre tag stands for (the upload) |
 | `clamp` | `numbers.ts` | Volume, speed, seek position, crop geometry |
 | `moveItem` | `arrays.ts` | Move inside an ordered list without mutating it (play queue, playlist order) |
 | `syncRowsFromLines`, `roundToCentiseconds`, `hasLyrics` | `lyrics.ts` | Sync editor rows from stored or imported lines, LRC precision, "has lyrics to show" (public pages) |
