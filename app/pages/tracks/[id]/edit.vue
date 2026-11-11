@@ -376,7 +376,9 @@ const isCurrent = computed(() => player.current?.id === id)
 
               <!--
                 Suno prompt: a private note, never shared. What it is for says its placeholder, as
-                the description's does (a help line under it was the form's only one).
+                the description's does (a help line under it was the form's only one). Same font as
+                the description: it used to be monospace, which only made the comma-separated tags
+                wrap sooner (monospace stays where columns must line up, as in the LRC dialog).
               -->
               <UFormField
                 label="Suno prompt"
@@ -389,7 +391,7 @@ const isCurrent = computed(() => player.current?.id === id)
                   autoresize
                   :maxrows="24"
                   placeholder="The prompt used to generate the track (never shared)"
-                  class="w-full font-mono"
+                  class="w-full"
                   data-testid="field-suno-prompt"
                 />
               </UFormField>
