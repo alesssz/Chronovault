@@ -11,11 +11,14 @@
  * with "Save" and warns about unsaved changes, the Status switches too
  * (mastered, draft/final), which sit in the left column under the cover.
  *
- * Below `md` the page is one column: the cover as a compact row at the top,
- * then the form, then status, file details, sharing and deletion (the side column
- * first put about two screens of it before the Title field). There a Save
- * bar at the bottom of the screen (SaveBar) shows while there are unsaved
- * changes, the header's Save being out of reach once the form is scrolled.
+ * Below `lg` (1024px) the page is one column: the cover as a compact row at
+ * the top, then the form, then status, file details, sharing and deletion (on
+ * phones the side column first put about two screens of it before the Title
+ * field; on tablets, beside the form, it left the form about 400px). Below
+ * `md` a Save bar at the bottom of the screen (SaveBar) also shows while there
+ * are unsaved changes, the header's Save being out of reach once the form is
+ * scrolled; from `md` the header keeps Save, as the one-column tablet layout
+ * still has room for it there.
  */
 import type { FormSubmitEvent, TabsItem } from '@nuxt/ui'
 import type { TrackDetail } from '~~/shared/types/track'
@@ -263,17 +266,19 @@ const isCurrent = computed(() => player.current?.id === id)
     </div>
 
     <!--
-      From `md`, two columns: cover, then status and side column on the left, the form on the
+      From `lg`, two columns: cover, then status and side column on the left, the form on the
       right across both rows (the first row as tall as the cover, the second taking the rest).
-      Below `md`, in the order written: cover, form, status and side column.
+      Below `lg`, in the order written: cover (a small row, the buttons beside it), form, status
+      and side column. Not from `md`: on a tablet (820px) the 16rem column left the form about
+      400px, and the Sync tab's lines were cut (UI-27).
     -->
-    <div class="grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
+    <div class="grid gap-8 lg:grid-cols-[16rem_1fr] lg:grid-rows-[auto_1fr] lg:gap-y-6">
       <!-- Cover (saved at once) -->
       <TrackCoverPicker
         :url="track.coverUrl"
         :title="track.title"
         :busy="cover.busy"
-        class="md:col-start-1 md:row-start-1"
+        class="lg:col-start-1 lg:row-start-1"
         @select="cover.select"
         @remove="cover.remove"
       />
@@ -284,7 +289,7 @@ const isCurrent = computed(() => player.current?.id === id)
         ref="trackForm"
         :schema="trackMetadataSchema"
         :state="state"
-        class="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1"
+        class="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1"
         @submit="onSubmit"
         @error="onFormError"
       >
@@ -509,7 +514,7 @@ const isCurrent = computed(() => player.current?.id === id)
         </UTabs>
       </UForm>
 
-      <div class="space-y-6 md:col-start-1 md:row-start-2">
+      <div class="space-y-6 lg:col-start-1 lg:row-start-2">
         <!--
           Status: mastered or not, draft or final. Part of the form's state (Save saves them, an
           edit turns it gold) though outside its element: the switches are buttons, not inputs,

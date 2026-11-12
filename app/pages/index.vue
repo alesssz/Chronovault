@@ -163,8 +163,11 @@ const selecting = ref(false)
 const selectedIds = ref<string[]>([])
 /**
  * The selection bar's actions: on phones an icon over a short name, centred in a column of their
- * own. While selecting, the page leaves room at the bottom (`pb-32`) for the bar fixed there,
- * which would cover the last rows.
+ * own. From `sm` a row, each icon beside its name: the short one ("Final", "Playlist",
+ * "Feedback") up to `lg`, the full one ("Mark final"…) from `lg` (the `lg:hidden` and
+ * `hidden lg:inline` spans of each button). On a tablet (820px) the full names wrapped over two
+ * lines and squeezed the count to "2 sel…" (UI-28). While selecting, the page leaves room at the
+ * bottom (`pb-32`) for the bar fixed there on phones, which would cover the last rows.
  */
 const SELECTION_ACTION = 'max-sm:flex-col max-sm:justify-center max-sm:gap-0.5 max-sm:px-1 max-sm:text-xs'
 
@@ -488,7 +491,8 @@ async function confirmDelete() {
 
       <!--
         Selection bar: count, select all, and the actions on the ticked tracks. From `sm` it stays
-        under the header while scrolling, the actions named beside their icons. On phones it is
+        under the header while scrolling, the actions named beside their icons (short names up
+        to `lg`, see SELECTION_ACTION). On phones it is
         fixed at the bottom of the screen (above the player bar), within reach of the thumb, each
         action an icon over a short name: tooltips do not open on touch, and the bare icons left
         "Mark final" and "Share for feedback" to be guessed.
@@ -514,12 +518,20 @@ async function confirmDelete() {
             aria-label="Select all"
             @update:model-value="toggleAll"
           />
+          <!--
+            Never cut: it keeps its width (`shrink-0`, one line) and the actions give way, their
+            short names up to `lg` leaving it room. With `truncate` a tablet read "2 sel…" (UI-28).
+          -->
           <span
-            class="truncate text-sm"
+            class="shrink-0 whitespace-nowrap text-sm"
             data-testid="selection-count"
           >{{ selectedIds.length }} selected</span>
         </div>
-        <!-- Four equal columns on phones, a row of buttons from `sm` -->
+        <!--
+          Four equal columns on phones, a row of buttons from `sm`. Each button names itself twice:
+          the short name up to `lg`, the full one from `lg` (see SELECTION_ACTION); Delete is short
+          enough as it is. `aria-label` keeps the full name for screen readers at every width.
+        -->
         <div class="grid grid-cols-4 sm:flex sm:items-center sm:gap-1">
           <UButton
             icon="i-lucide-circle-check"
@@ -531,8 +543,8 @@ async function confirmDelete() {
             data-testid="bulk-final"
             @click="setStatus(selectedIds, 'final')"
           >
-            <span class="sm:hidden">Final</span>
-            <span class="hidden sm:inline">Mark final</span>
+            <span class="lg:hidden">Final</span>
+            <span class="hidden lg:inline">Mark final</span>
           </UButton>
           <UDropdownMenu
             :items="selectionPlaylistMenu"
@@ -547,8 +559,8 @@ async function confirmDelete() {
               :disabled="!selectedIds.length"
               aria-label="Add to playlist"
             >
-              <span class="sm:hidden">Playlist</span>
-              <span class="hidden sm:inline">Add to playlist</span>
+              <span class="lg:hidden">Playlist</span>
+              <span class="hidden lg:inline">Add to playlist</span>
             </UButton>
           </UDropdownMenu>
           <UButton
@@ -562,8 +574,8 @@ async function confirmDelete() {
             data-testid="bulk-feedback"
             @click="shareForFeedback"
           >
-            <span class="sm:hidden">Feedback</span>
-            <span class="hidden sm:inline">Share for feedback</span>
+            <span class="lg:hidden">Feedback</span>
+            <span class="hidden lg:inline">Share for feedback</span>
           </UButton>
           <UButton
             icon="i-lucide-trash-2"
