@@ -5,7 +5,8 @@
  * makes the custom subgenre under that genre and selects it). Disabled until
  * a genre is chosen. A name incoherent with the genre ("Thrash Metal" under
  * Pop) is refused by the server: its reason ("Thrash Metal belongs to Metal")
- * shows in the error toast.
+ * shows in the error toast. The user's own subgenres are renamed or deleted
+ * on the import page (OwnSubgenres), not here: this menu stays a plain choice.
  * Put it inside a UFormField (name="subgenreId"), which labels and validates it.
  */
 

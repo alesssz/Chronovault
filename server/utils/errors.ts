@@ -77,6 +77,14 @@ export function badRequest(message: string) {
   return createError({ statusCode: 400, message })
 }
 
+/**
+ * 403 for an item the user can see but not change (e.g. a built-in subgenre, shared by
+ * everyone); the message is shown to the user. Someone else's item is a 404 instead.
+ */
+export function forbidden(message: string) {
+  return createError({ statusCode: 403, statusMessage: 'Forbidden', message })
+}
+
 /** 409 for a request that clashes with what already exists (e.g. a track id already registered). */
 export function conflict(message: string) {
   return createError({ statusCode: 409, message })

@@ -20,6 +20,8 @@ All routes live in `server/api/`. **Auth:** every route requires a session cooki
 | `PUT` | `/api/tracks/:id/audio` | `{ audioPath, mimeType, sizeBytes, durationSeconds?, peaks? }` | `TrackDetail` on the new file, everything else unchanged (synced lyrics flagged `syncNeedsReview`); the old file is deleted. `400` when the path is not a replacement of this track, is the current one, or the file is missing or of another size (then deleted); `404`; `409` when another replace moved the track first (this file is deleted) |
 | `GET` | `/api/genres` | | `Genre[]`: the fixed list, each with its `subgenres` (`{ id, genreId, name, custom }`, built-in and the user's own), by name |
 | `POST` | `/api/genres/:id/subgenres` | `{ name }` | `Subgenre`: a custom subgenre under the genre (the genre's existing one, built-in or own, if the name is taken); `404` unknown genre; `409` a name incoherent with the genre, the reason as message ("Thrash Metal belongs to Metal", "Jazz is a genre, not a subgenre"). Genres themselves cannot be created |
+| `PATCH` | `/api/subgenres/:id` | `{ name }` | `Subgenre`: one of the user's own, renamed (it stays in its genre; its tracks show the new name); `403` a built-in subgenre; `404` unknown, or another user's; `409` a name its genre already has ("Metal already has Thrash Metal") or one incoherent with it, the reason as message |
+| `DELETE` | `/api/subgenres/:id` | | `204`: one of the user's own deleted, its tracks keeping their genre without a subgenre; `403` a built-in subgenre; `404` unknown, or another user's |
 | `GET` | `/api/storage` | | `StorageReport`: usage (audio, covers) and orphaned files |
 | `DELETE` | `/api/storage/orphans` | | `StorageCleanupResult`: deletes the orphans older than the minimum age |
 

@@ -109,19 +109,3 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 **Options.** The forms' title style for those headings; the address in a `whitespace-nowrap` (or `break-all`) span.
 
 **Recommended.** Both.
-
-## Features (FEAT)
-
-### FEAT-2 Custom subgenres cannot be renamed or deleted from the app
-
-**Priority:** low · **Kind:** missing feature · **Found:** 2026-11-09
-
-**What is wrong.** A subgenre typed in the editor's Subgenre field (or named by a metadata import) is created as the user's own, under its genre, and stays: there is no way in the app to fix its spelling or remove one no track uses any more. A typo ("Swmap Metal") then shows in the editor's list, the library's filter and the import page's reference for good. The database already allows both (the user's own rows, only the name can be updated, a deletion clears it from its tracks, `20261109000000_subgenres.sql`); only the API and the interface are missing.
-
-**Where.** [TrackSubgenreSelect.vue](../app/components/track/TrackSubgenreSelect.vue); [genres.service.ts](../server/services/genres.service.ts) and `server/api/genres/[id]/subgenres.post.ts` (no `PATCH` or `DELETE` beside it); [useGenres.ts](../app/composables/useGenres.ts) (the cached list).
-
-**Options.**
-- A) `PATCH` and `DELETE /api/subgenres/:id` (own only; a rename checked like a new name), and a small "Your subgenres" list on the import page's genre reference, with rename and delete.
-- B) The same routes, with rename and delete in the editor's Subgenre menu, beside each of the user's own.
-
-**Recommended.** A: the reference already lists every subgenre and marks the user's own, and the editor's menu stays a plain choice; check that a renamed subgenre shows its new name on its tracks, and that a deleted one leaves them with their genre only.

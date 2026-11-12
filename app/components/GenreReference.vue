@@ -9,7 +9,8 @@ import type { Genre } from '~~/shared/types/track'
  * default (over 400 names). The search box filters by name, case aside: a
  * genre that matches shows all its subgenres, otherwise only the subgenres
  * that match show, under their genre. The user's own subgenres are marked
- * "yours".
+ * "yours", and listed first on their own (OwnSubgenres) to rename or delete:
+ * this is where a user looks at every name they have.
  */
 const props = defineProps<{
   /** The genres with their subgenres (useGenres). */
@@ -38,6 +39,8 @@ const shown = computed(() => {
     data-testid="genre-reference"
   >
     <div class="space-y-3">
+      <!-- The user's own subgenres first, to rename or delete (none: nothing shows) -->
+      <OwnSubgenres :genres="genres" />
       <p class="text-muted">
         The <code>genre</code> column takes one of these genres; the <code>subgenre</code> column one of its subgenres,
         or a new name, created as yours.

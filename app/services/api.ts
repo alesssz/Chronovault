@@ -1,5 +1,5 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, Subgenre, SharedTrack, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
-import type { AudioReplaceInput, AudioReplaceUpload, AudioUploadRequest, SubgenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
+import type { AudioReplaceInput, AudioReplaceUpload, AudioUploadRequest, SubgenreCreate, SubgenreRename, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 import type {
   PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, UnseenFeedback, VersionFeedback, VersionVoteState,
 } from '~~/shared/types/playlist'
@@ -99,10 +99,18 @@ export const analyticsApi = {
   plays: (days: AnalyticsPeriod) => $fetch<PlaysReport>('/api/analytics/plays', { query: { days } }),
 }
 
-/** The genres with their subgenres, and the user's own subgenres (sign-in required). */
+/**
+ * The genres with their subgenres, and the user's own subgenres: created
+ * (editor, import), renamed and deleted (import page). Sign-in required.
+ */
 export const genresApi = {
   list: () => $fetch<Genre[]>('/api/genres'),
   /** A custom subgenre under the genre (or its existing one with that name); 409 when incoherent with it. */
   createSubgenre: (genreId: string, body: SubgenreCreate) =>
     $fetch<Subgenre>(`/api/genres/${genreId}/subgenres`, { method: 'POST', body }),
+  /** One of the user's own subgenres, renamed; 409 when its genre has the name already, or it is incoherent. */
+  renameSubgenre: (id: string, body: SubgenreRename) =>
+    $fetch<Subgenre>(`/api/subgenres/${id}`, { method: 'PATCH', body }),
+  /** Deletes one of the user's own subgenres; its tracks keep their genre. */
+  deleteSubgenre: (id: string) => $fetch<null>(`/api/subgenres/${id}`, { method: 'DELETE' }),
 }
