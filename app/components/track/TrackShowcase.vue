@@ -185,10 +185,14 @@ const coverOpen = ref(false)
     <!--
       The lyrics. From `md` the right column, as tall as the left one (cover and About): sized out
       of the row (`contain: size`) and stretched to it, the lines scrolling inside.
+      The panel draws the frame; the side padding is its child's (`*:px-…`, the LyricsView that
+      scrolls), so a scrollbar runs along the panel's right border. With the padding here, the
+      scrollbar sat 1.5rem (30px) inside it, a strip of empty panel beyond it. `overflow-hidden`
+      clips the scrollbar's ends to the rounded corners.
     -->
     <section
       v-if="hasLyrics"
-      class="order-4 h-[70dvh] min-w-0 rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 md:h-auto md:min-h-0 md:[contain:size]"
+      class="order-4 h-[70dvh] min-w-0 overflow-hidden rounded-xl border border-default bg-elevated/30 *:px-4 sm:*:px-6 md:h-auto md:min-h-0 md:[contain:size]"
       aria-label="Lyrics"
       :data-testid="`${testid}-lyrics`"
     >
