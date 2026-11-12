@@ -2,19 +2,15 @@ import type { Genre } from '~~/shared/types/track'
 import { MAX_AUDIO_BYTES, resolveAudioMimeType, storageExtension } from '~~/shared/utils/audio-files'
 import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { resolveGenreName } from '~~/shared/utils/genres'
-import { analyzeAudioFile } from '~/lib/audio-analysis'
-import { convertWavToFlac } from '~/lib/flac/convert'
-import { isWavFile } from '~/lib/flac/wav'
+import { prepareAudio, type UploadConversion } from '~/lib/prepare-audio'
 import { directUpload } from '~/lib/direct-upload'
 import { genresApi, tracksApi } from '~/services/api'
 
 /** Lifecycle of one file, in order; `error` can happen at any step. */
 export type UploadStatus = 'queued' | 'analyzing' | 'converting' | 'uploading' | 'saving' | 'done' | 'error'
 
-/** Outcome of the WAV → FLAC step (null for non-WAV files). */
-export type UploadConversion
-  = | { kind: 'flac', originalBytes: number, flacBytes: number }
-    | { kind: 'kept', reason: string }
+// The WAV → FLAC outcome lives with the step (lib/prepare-audio.ts), shared with Replace audio.
+export type { UploadConversion } from '~/lib/prepare-audio'
 
 /** One file in the upload list (reactive: the page renders these directly). */
 export interface UploadItem {
@@ -42,7 +38,8 @@ export interface UploadItem {
  * Track upload queue. For each file:
  *   1. in-browser analysis (tags, cover, duration, peaks)
  *   2. WAV only: lossless conversion to FLAC, verified bit for bit
- *      (when it cannot be verified, the original WAV is uploaded instead)
+ *      (when it cannot be verified, the original WAV is uploaded instead);
+ *      steps 1-2 are lib/prepare-audio.ts, shared with Replace audio
  *   3. upload of the audio straight to the audio storage (Cloudflare R2)
  *      through a presigned URL from POST /api/tracks/upload-url
  *   4. upload of the cover (resized to WebP) to Supabase Storage, when the tags contain one
@@ -155,29 +152,22 @@ export function useTrackUploader() {
       if (!userId) throw new Error('Session expired: please sign in again')
 
       item.status = 'analyzing'
-      // Tags, cover, duration and waveform, read in the browser.
-      const analysis = await analyzeAudioFile(item.file)
-      item.title = analysis.title
-
-      // Lossless WAV → FLAC: same audio, roughly half the size.
-      let audioFile = item.file
-      // What is uploaded: the original file, or the verified FLAC when a WAV converts.
-      let mimeType = analysis.mimeType
-      if (isWavFile(item.file)) {
-        item.status = 'converting'
-        // The verified FLAC, or the reason the WAV is kept.
-        const result = await convertWavToFlac(item.file, (fraction) => {
+      // Analysis, then for a WAV the verified lossless FLAC (lib/prepare-audio.ts):
+      // the same audio, roughly half the size.
+      const prepared = await prepareAudio(item.file, {
+        onAnalyzed: (analysis) => {
+          item.title = analysis.title
+        },
+        onConverting: () => {
+          item.status = 'converting'
+        },
+        onConversionProgress: (fraction) => {
           item.conversionProgress = fraction
-        })
-        if (result.status === 'converted') {
-          audioFile = result.file
-          mimeType = 'audio/flac'
-          item.conversion = { kind: 'flac', originalBytes: item.file.size, flacBytes: audioFile.size }
-        }
-        else {
-          item.conversion = { kind: 'kept', reason: result.reason }
-        }
-      }
+        },
+      })
+      // What was read from the file, and what is uploaded (the file, or the FLAC a WAV became).
+      const { analysis, file: audioFile, mimeType } = prepared
+      item.conversion = prepared.conversion
 
       // The client picks the track id: the storage path depends on it, and the
       // file must be uploaded before the track row exists.

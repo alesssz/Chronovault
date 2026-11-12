@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(36);
+select plan(38);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, so RLS does not apply)
@@ -88,6 +88,13 @@ select is(
   'has_lyrics / has_synced_lyrics update automatically'
 );
 
+-- The "check the sync" flag (…_replace_audio.sql): off until the app's server replaces the audio.
+select is(
+  (select sync_needs_review from public.tracks where id = 'a1111111-1111-4111-8111-111111111111'),
+  false,
+  'a track''s synced lyrics are not flagged for checking until its audio is replaced'
+);
+
 -- -----------------------------------------------------------------------------
 -- User B
 -- -----------------------------------------------------------------------------
@@ -127,6 +134,11 @@ select is_empty(
 select is_empty(
   $$ update public.tracks set title = 'hack' where id = 'a3333333-3333-4333-8333-333333333333' returning id $$,
   'B cannot update A''s tracks'
+);
+
+select is_empty(
+  $$ update public.tracks set sync_needs_review = false where id = 'a3333333-3333-4333-8333-333333333333' returning id $$,
+  'B cannot clear the "check the sync" flag of A''s tracks either'
 );
 
 select is_empty(

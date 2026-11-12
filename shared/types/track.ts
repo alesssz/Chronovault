@@ -98,6 +98,13 @@ export interface TrackSummary {
   /** Generated column: the lyrics are synced line by line (the "synced" badge). */
   hasSyncedLyrics: boolean
   /**
+   * The audio was replaced after the lyrics were synced, and the owner has not
+   * checked the sync since: the times may be off (a master can trim or shift
+   * the audio). The library's synced-lyrics icon turns to a warning colour and
+   * the editor's Sync tab says so (docs/07-data-flows.md 7.19).
+   */
+  syncNeedsReview: boolean
+  /**
    * Cover address, or null when the track has none: /api/covers/tracks/:id?v=…
    * (stable, cached by the browser for a year; `v` changes with the track).
    */
@@ -210,7 +217,7 @@ export interface PlaybackSource {
 export interface AudioUploadTarget {
   /** The presigned PUT address the browser uploads the file to, straight to storage. */
   uploadUrl: string
-  /** Storage key to send back to POST /api/tracks. */
+  /** Storage key to send back to POST /api/tracks (a new track) or PUT /api/tracks/:id/audio (a replace). */
   audioPath: string
   /** The upload must start before this time (1 hour). */
   expiresAt: string

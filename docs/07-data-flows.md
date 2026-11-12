@@ -275,6 +275,7 @@ The playback speed survives reloads (`defaultPlaybackRate`), and the waveform fo
 3. **Genre and subgenre:** the genre comes from the fixed list (`TrackGenreSelect`, no "Create"); choosing another one clears the subgenre, which belonged to the old genre. The subgenre (`TrackSubgenreSelect`) is disabled until a genre is chosen and lists that genre's subgenres; typing a new name and choosing "Create" calls `POST /api/genres/:id/subgenres`, which returns the genre's subgenre with the same name (built-in or the user's own, case-insensitive) instead of creating a duplicate, and refuses with `409` a name incoherent with the genre (a genre's name, or a built-in subgenre of another genre: "Thrash Metal belongs to Metal"), the reason shown in the error toast (`subgenreNameProblem`, `shared/utils/genres.ts`; the database's trigger is the safety net). A `PATCH` that changes the genre without a subgenre clears the old subgenre on the server too (`updateTrack`), so the import and other clients cannot leave a pair the database would refuse.
 4. **Cover:** a picked image opens the **crop editor** (`CoverCropDialog.vue`, see below); the browser then cuts the chosen square and converts it, uploads it to `covers/<userId>/<trackId>.webp` (overwriting the old one), then sends `PATCH { coverPath }` (`useCoverEditor`, shared with the playlist page). Removing it (`coverPath: null`) makes the server delete the file.
 5. The updated track is pushed to the player (`syncTrack`), so the bar, the queue and the full-screen view show the new title, cover, lyrics and description at once.
+6. **Replace audio** (the File section): a new audio file, everything else kept, see [7.19](#719-replacing-a-tracks-audio).
 
 **The crop editor** (`CoverCropDialog.vue`, used for track and playlist covers):
 
@@ -301,6 +302,7 @@ flowchart LR
   - speed 0.5× / 0.75× / 1× with the pitch preserved, reset to 1× when leaving the Sync tab (the player bar shows a speed badge meanwhile);
   - a **detailed waveform** (`LyricsSyncTimeline.vue`) that decodes the track itself (the stored 1000 peaks are too coarse to see where a phrase starts), built the first time the Sync tab is opened and kept after that (the editor is mounted hidden with the edit page, and the file is tens of MB: opening the page of the track playing no longer downloads it unless Sync is opened), follows playback, zooms from 20 to 400 px/s and shows a numbered, draggable marker per synced line;
   - a **selected line** (the last stamped, or one clicked in the list or on the waveform): <kbd>R</kbd> replays it from 1 s before, <kbd>←</kbd>/<kbd>→</kbd> move it by 0.05 s (the ±0.1 s buttons of each row do the same with the mouse); <kbd>↑</kbd> undoes the last stamp; <kbd>P</kbd> plays/pauses.
+- **After a replaced audio** ([7.19](#719-replacing-a-tracks-audio)) the synced lines are kept, flagged for checking: a **Check** badge on the Sync tab and a warning above the editor until **Sync checked**; the detailed waveform is built again from the new file.
 - **LRC** import/export (`shared/utils/lyrics.ts`) keeps sections (`[00:10.00] [Verse 1]`, or an untimed `[Verse 1]` attached to the next timed line), supports several timestamps per line and `[offset:]`. The LRC dialog (`LyricsLrcDialog.vue`) imports pasted text or an opened `.lrc` file (shown first, applied with *Apply*), and exports by **Copy** or **Download .lrc** (`Composers - Title.lrc`).
 - **Moving synced lyrics to another Chronovault** (e.g. from the local app to production), two ways:
   - one track at a time: *Download .lrc* here, *Open file* + *Apply* + *Save* there;
@@ -350,7 +352,7 @@ sequenceDiagram
 
 ## 7.12 Storage clean-up
 
-An **orphan** is a file in the user's storage folders that no track or playlist uses: an upload interrupted between the transfer and the registration, or a best-effort deletion that failed. The **Storage** dialog (account menu, `StorageDialog.vue`) finds and removes them.
+An **orphan** is a file in the user's storage folders that no track or playlist uses: an upload (or a Replace audio, [7.19](#719-replacing-a-tracks-audio)) interrupted between the transfer and the registration, or a best-effort deletion that failed (the old file of a replaced audio included). The **Storage** dialog (account menu, `StorageDialog.vue`) finds and removes them.
 
 ```mermaid
 sequenceDiagram
@@ -461,7 +463,7 @@ sequenceDiagram
 | Track metadata, lyrics, peaks, visibility | Postgres `tracks` | Owner (RLS); shareable fields via `get_shared_*` |
 | Genres and subgenres | Postgres `genres` (a fixed list), `subgenres` (built-in + custom) | Everyone (the genres, built-in subgenres), owner (custom subgenres) |
 | Playlists, groups of versions and their order | Postgres `playlists` (`purpose` tells them apart), `playlist_tracks` | Owner (RLS); shared ones via `get_shared_playlist*` |
-| Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`) | Anyone holding a streaming address or the presigned URL it redirects to, both issued by the server and expiring |
+| Audio files | Cloudflare R2 (`<userId>/<trackId>.<ext>`; `<userId>/<trackId>.<revision>.<ext>` after a Replace audio, 7.19) | Anyone holding a streaming address or the presigned URL it redirects to, both issued by the server and expiring |
 | Covers | Supabase Storage `covers` (private) | The owner, through `/api/covers/…` (and a copy in their browser cache); visitors of shared pages, through signed URLs issued under the storage policies |
 | Volume | Browser `localStorage` (`chronovault:volume`, like every key of the app: `lib/storage-keys.ts`; keys saved under the former `chronoplayer:` names are moved there on the first visit) | That browser only; used with a mouse or trackpad only (touch screens play at full level) |
 | Lyrics view on or off (phones' full-screen player) | Browser `localStorage` (`chronovault:lyrics-view`) | That browser only |
@@ -550,6 +552,59 @@ Every track's metadata is downloaded in one file, and many tracks uploaded at on
 3. **Rows to fields** (`shared/utils/metadata-import.ts`, `parseImportRows`): headers are matched case aside and without spaces, underscores or dashes ("Suno prompt" = `suno_prompt`), with a few other names (artist → composers, version → status); unknown columns are ignored and listed. **An empty cell sets nothing**: the field keeps its value. Texts follow the edit form's own rules (`trackMetadataSchema`); a year is a number from 1000 to 9999; mastered takes yes / no, true / false, 1 / 0, sì; status draft / final (wip as draft); visibility private / unlisted / public. A cell that cannot be read is named, with its row.
 4. **The plan** (`planImport`): each row finds its track by **title, trimmed, case aside, and accents compared in one Unicode form** (`foldCase`: a title read from macOS tags may write "ì" as "i" plus an accent, a typed one as one character). It is compared with every field of the track, the long texts too (line endings and outer spaces aside: Excel and CSV may write `\r\n`). Nothing is saved yet: the page lists, per track, each field before → after (long texts shortened, lyrics as a line count, "edited" when the count is the same), and every row it will **skip, with why**: no track has the title, several tracks share it, it is on more than one row of the file, or a value cannot be read, the genre is not one of the list, or the subgenre is incoherent with its genre. The subgenre is looked for under the row's genre cell, else (a built-in name) under its own genre, which the row then sets too, else under the track's genre; one the genre does not have yet is listed under **New subgenres**, to be created as the user's own; a subgenre with no genre anywhere skips the row. A new genre without a subgenre cell shows the old subgenre going. New lyrics on a track with synced lyrics leave those as they are, said under the track.
 5. **Apply**: the new subgenres are created (the user's own, under their genre, as in the editor), then the tracks are saved four at a time; the failures are listed, the rest stays saved, and the page's metadata and the library's list are read again (the next download, and the next file, see the new values).
+
+## 7.19 Replacing a track's audio
+
+A track uploaded before mastering gets its master without losing anything: **Replace audio**, in the editor's File section (`TrackEditSidebar` → `TrackReplaceAudioDialog`, the work in `useAudioReplace`), swaps only the audio file and what is measured from it: format, size, duration and waveform peaks. Title, composers, album, year, genre, subgenre, description, Suno prompt, lyrics, synced lyrics, cover, mastered, visibility, status, plays, votes, playlists and share links all stay. The new file's tags are ignored: the database is the truth.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant B as Browser
+  participant N as Nuxt API
+  participant R as Cloudflare R2
+  participant D as Postgres
+
+  U->>B: Replace audio → picks the new file
+  B->>B: prepareAudio(): duration and 1000 peaks,<br/>a WAV becomes its verified FLAC (7.4)
+  B->>N: POST /api/tracks/:id/audio/upload-url {extension, mimeType, sizeBytes}
+  N->>D: the track is the user's? (404 otherwise)
+  N->>N: key <userId>/<trackId>.<revision>.<ext>, 8 random hex (never the current key)
+  N-->>B: presigned PUT URL (size and type signed)
+  B->>R: PUT the new file (progress bar, up to 3 attempts)
+  B->>N: PUT /api/tracks/:id/audio {audioPath, mimeType, sizeBytes, durationSeconds, peaks}
+  N->>N: a replacement path of this very track? (400 otherwise)
+  N->>D: read the track: its current file, synced lyrics or not
+  N->>R: HEAD: new file there, with exactly the declared size?
+  N->>D: UPDATE … WHERE audio_path = <current>: file columns,<br/>sync_needs_review = true when synced lyrics
+  N->>R: DELETE the old file (best effort)
+  N-->>B: 200 TrackDetail
+  B->>B: player.audioReplaced(): new data, and the loaded track<br/>moves to the new file at the same second
+```
+
+- **Next to the old file, then the swap.** The new file never takes the current key: it is uploaded to `<userId>/<trackId>.<revision>.<ext>` while the track keeps playing the old one, and the row moves to it only once it is checked. Overwriting the key in place would lose the old file before the row changes (a failure in between would leave a track whose size, duration and waveform describe a file that is gone), and another format changes the key anyway. The revision is random rather than counted: nothing to read first, and no clash with the file of an earlier attempt that failed. The database accepts exactly these two shapes (`tracks_audio_path_exact`, `20261111000000_replace_audio.sql`; `isAudioPath` applies the same rule): still a file of this very track, in its owner's folder ([8.5](08-data-model-and-security.md#85-security-guarantees)). Downloads and share pages take the format from what follows the last dot, so they need nothing new.
+- **The synced lyrics are kept, flagged.** A master may trim or shift the audio, so lines timed against the old file may be off; a few nudges usually fix them, so nothing is deleted. The server sets `tracks.sync_needs_review` in the same update when the track has synced lyrics. Until the owner clears it:
+  - the Sync tab carries a **Check** badge and, above the editor, the warning "Audio file replaced: these lyrics were synced to the previous file…", with **Sync checked** (`PATCH { syncNeedsReview: false }`, saved at once, not through the form's Save);
+  - the library shows the synced-lyrics icon in the warning colour, its tooltip "Synced lyrics · audio replaced, check the sync".
+
+  Emptying the synced lyrics clears the flag too (`updateTrack`): nothing is left to check. The flag never reaches the share pages nor the metadata export.
+- **The player follows** (`audioReplaced` in the store, `reloadAudio` in `lib/player/playback.ts`): the queue and the bar get the new duration and waveform; the loaded track, playing or paused, takes a fresh address (the source now names the new file) at the same second, in the same state, since the old file is about to be deleted. A track asked for ahead (7.5) is forgotten, its address naming the old file. In the editor the sync editor is keyed by the audio path, so its detailed waveform is built again from the new file; the form's fields are untouched, and unsaved edits stay unsaved.
+- **The file picked** takes the drop zone's place in the dialog (name, format, size, and ✕ to choose another), so what Replace will send is on screen before anything is sent.
+- **While it runs** the dialog cannot be closed, and leaving the page asks first (the browser's question when closing the tab, the app's own dialog for another page): the file is on its way, and leaving means the track keeps its old audio.
+- **Failure handling:**
+
+| Failure | What happens |
+|---|---|
+| Unsupported format or > 500 MB | Shown in the dialog at once, nothing uploaded |
+| A track that is not the user's | `404` from the upload address, nothing uploaded |
+| A path other than a replacement of this track (`<userId>/<trackId>.<8 hex>.<ext>`) | `400` before anything is touched |
+| The path the track already names (the request sent twice after it went through) | `400`, nothing deleted |
+| New file missing, or of another size than declared | The server deletes it, `400`; the track keeps its old file |
+| Another tab replaced the track's audio first | The update matches no row (`WHERE audio_path = <current>`): this file is deleted, `409` "The audio was replaced meanwhile: reload the page"; the other replace stands |
+| The database refuses the update (`4xx`) | The new file is deleted; the track keeps its old file |
+| No answer to trust (`500`) | Both files are kept, as on upload (7.3): the row may name either; the unused one is an orphan for the Storage dialog (7.12) |
+| Deleting the old file fails | The replace stands; the old file is an orphan, shown in the Storage dialog (7.12) |
+| Browser closed between the upload and the swap | The new file stays in R2 unused: an orphan |
 
 ---
 

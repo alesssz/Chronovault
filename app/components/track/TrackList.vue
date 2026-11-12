@@ -8,8 +8,8 @@ import { HAPTIC, haptic } from '~/lib/haptics'
 /**
  * The library list: cover (play/pause on click), title (play, or open the
  * full-screen view for the current track), composers, a "Draft" badge,
- * genre, icons (mastered, synced lyrics, visibility), duration and the "⋮"
- * menu: Edit, Download, Add to playlist, Mark as final/draft, Copy share
+ * genre, icons (mastered; lyrics, synced, or synced but to check after a
+ * replaced audio; visibility), duration and the "⋮" menu: Edit, Download, Add to playlist, Mark as final/draft, Copy share
  * link / Open share page, Delete.
  * Playing, deleting and status changes are delegated to the page through events.
  *
@@ -190,6 +190,17 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
   if (el instanceof Element) virtualizer.value.measureElement(el)
 }
 
+/**
+ * The lyrics icon's tooltip and colour: plain lyrics muted, synced lyrics in
+ * the primary colour, and synced lyrics to check (the audio was replaced
+ * since they were synced, docs 7.19) in the warning colour.
+ */
+function lyricsIcon(track: TrackSummary): { text: string, color: string } {
+  if (!track.hasSyncedLyrics) return { text: 'Lyrics', color: 'text-muted' }
+  if (track.syncNeedsReview) return { text: 'Synced lyrics · audio replaced, check the sync', color: 'text-warning' }
+  return { text: 'Synced lyrics', color: 'text-primary' }
+}
+
 // --- Long press (touch screens) ---------------------------------------------------------
 // One listener set on the list serves every row drawn. Not from the checkbox or the "⋮" menu,
 // which keep their own taps.
@@ -339,12 +350,13 @@ useLongPress(listEl, {
           <span class="flex size-4">
             <UTooltip
               v-if="track.hasLyrics || track.hasSyncedLyrics"
-              :text="track.hasSyncedLyrics ? 'Synced lyrics' : 'Lyrics'"
+              :text="lyricsIcon(track).text"
             >
               <UIcon
                 name="i-lucide-mic-vocal"
                 class="size-4"
-                :class="track.hasSyncedLyrics ? 'text-primary' : 'text-muted'"
+                :class="lyricsIcon(track).color"
+                data-testid="track-lyrics-icon"
               />
             </UTooltip>
           </span>

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { MAX_DURATION_SECONDS, plausibleDuration, resolveAudioMimeType, storageExtension, titleFromFileName } from '~~/shared/utils/audio-files'
-import { buildAudioPath, buildCoverPath, buildPlaylistCoverPath, isAudioPath, isSafeStorageKey } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, buildCoverPath, buildPlaylistCoverPath, isAudioPath, isAudioRevisionPath, isSafeStorageKey, newAudioRevision } from '~~/shared/utils/storage-paths'
 import { computePeaks } from '~~/shared/utils/peaks'
 
 // Fixed ids and the storage paths they lead to (the format checks only care about the shape).
@@ -80,6 +80,26 @@ describe('storage paths', () => {
     for (const extension of ['mp\u00003', 'mp\u00013', 'MP3', 'mp3/..', 'abcdefghijk', '']) {
       expect(isAudioPath(`${USER}/${TRACK}.${extension}`, USER, TRACK), JSON.stringify(extension)).toBe(false)
     }
+  })
+
+  it('builds and accepts a replaced file\'s path, <trackId>.<revision>.<ext>, as the database does', () => {
+    expect(buildAudioPath(USER, TRACK, 'flac', '0a1b2c3d')).toBe(`${USER}/${TRACK}.0a1b2c3d.flac`)
+    expect(isAudioPath(`${USER}/${TRACK}.0a1b2c3d.flac`, USER, TRACK)).toBe(true)
+    // A revision is exactly 8 lower-case hex characters, and there is one at most.
+    for (const revision of ['0a1b2c', '0A1B2C3D', '0a1b2c3g', '0a1b2c3d.0a1b2c3d', '']) {
+      expect(isAudioPath(`${USER}/${TRACK}.${revision}.flac`, USER, TRACK), revision).toBe(false)
+    }
+    // Only a revision path counts as one.
+    expect(isAudioRevisionPath(`${USER}/${TRACK}.0a1b2c3d.flac`, USER, TRACK)).toBe(true)
+    expect(isAudioRevisionPath(`${USER}/${TRACK}.flac`, USER, TRACK)).toBe(false)
+    expect(isAudioRevisionPath(`${USER}/other-track.0a1b2c3d.flac`, USER, TRACK)).toBe(false)
+  })
+
+  it('draws revisions of 8 lower-case hex characters, a new one each time', () => {
+    // A few draws: each one valid, and (4 random bytes) never the same twice here.
+    const drawn = Array.from({ length: 20 }, newAudioRevision)
+    for (const revision of drawn) expect(revision).toMatch(/^[0-9a-f]{8}$/)
+    expect(new Set(drawn).size).toBe(drawn.length)
   })
 
   it('calls safe only the keys that name one file by a plain path', () => {

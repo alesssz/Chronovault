@@ -1,7 +1,7 @@
 import type { AudioUploadTarget, PlaybackSource, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
-import type { AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
+import type { AudioReplace, AudioReplaceUpload, AudioUploadRequest, TrackCreate, TrackUpdate } from '~~/shared/schemas/track'
 import { MAX_AUDIO_BYTES } from '~~/shared/utils/audio-files'
-import { buildAudioPath, buildCoverPath, isAudioPath } from '~~/shared/utils/storage-paths'
+import { buildAudioPath, buildCoverPath, isAudioPath, isAudioRevisionPath, newAudioRevision } from '~~/shared/utils/storage-paths'
 import type { DbClient } from '../utils/auth'
 import { badRequest, conflict, isConflict, notFound } from '../utils/errors'
 import { toTrackDetail, toTrackInsert, toTrackMetadata, toTrackSummary, toTrackUpdate } from '../mappers/track'
@@ -22,6 +22,12 @@ import { expiresIn, playbackSource, removeCoverFiles } from './playback'
  *   1. createUploadTarget → presigned PUT URL (never for an id already registered)
  *   2. the browser uploads the file straight to R2
  *   3. createTrack → checks the stored file, then inserts the row (safe to repeat)
+ *
+ * Replace sequence (7.19 Replacing a track's audio): the same three steps for
+ * a track already registered, its metadata untouched:
+ *   1. createReplaceTarget → presigned PUT URL for a new key next to the old file
+ *   2. the browser uploads the file straight to R2
+ *   3. replaceTrackAudio → checks the stored file, moves the row to it, deletes the old file
  */
 
 /** Lifetime of a presigned upload URL (the upload must start within it). */
@@ -139,8 +145,107 @@ export async function createTrack(
 }
 
 /**
+ * Presigned URL the browser uploads a track's new audio file to (Replace
+ * audio). The key is `<userId>/<trackId>.<revision>.<ext>`, the revision
+ * drawn here: never the key the track names, so the new file is stored next
+ * to the old one and the track keeps playing the old one until
+ * replaceTrackAudio moves it. Only for one of the user's own tracks (404).
+ */
+export async function createReplaceTarget(
+  db: DbClient,
+  audio: AudioStorage,
+  userId: string,
+  trackId: string,
+  request: AudioReplaceUpload,
+): Promise<AudioUploadTarget> {
+  if (!(await tracksRepo.findTrackAudioPath(db, userId, trackId))) throw notFound()
+  // The new file's key: built here, from the signed-in user's id, the track's and a fresh revision.
+  const audioPath = buildAudioPath(userId, trackId, request.extension, newAudioRevision())
+  return {
+    // For this file only: its declared size and type are part of the signature.
+    uploadUrl: await audio.presign('PUT', audioPath, UPLOAD_URL_TTL, { size: request.sizeBytes, contentType: request.mimeType }),
+    audioPath,
+    expiresAt: expiresIn(UPLOAD_URL_TTL),
+  }
+}
+
+/**
+ * Replaces one of the user's tracks' audio with the file uploaded to
+ * `input.audioPath` (createReplaceTarget's key), keeping everything else:
+ * metadata, lyrics, cover, plays, votes, playlists, share links. Only the
+ * file and what is measured from it change (format, size, duration, peaks).
+ *
+ * When the track has synced lyrics they stay, flagged `sync_needs_review`: a
+ * master may trim or shift the audio, so their times may be off until the
+ * owner checks them (the Sync tab's "Sync checked").
+ *
+ * In order, so that the track never names a missing or unchecked file:
+ *   1. the path must be a replacement path of this track (400 before anything is touched);
+ *   2. the track is read (404 when not the user's); its own current path is refused (400);
+ *   3. the stored file must be there with the declared size (else it is deleted, 400);
+ *   4. the row moves to the new file only if it still names the file read in 2:
+ *      a replace from another tab that got there first wins, and this one's
+ *      file is deleted (409);
+ *   5. the old file is deleted, best effort (a failure leaves an orphan for
+ *      the Storage dialog, docs 7.12).
+ * When the database refuses the update (4xx) the new file is deleted; with no
+ * answer to trust (500) it is kept, as in createTrack: it may be the file the
+ * committed row names.
+ */
+export async function replaceTrackAudio(
+  db: DbClient,
+  audio: AudioStorage,
+  userId: string,
+  trackId: string,
+  input: AudioReplace,
+): Promise<TrackDetail> {
+  if (!isAudioRevisionPath(input.audioPath, userId, trackId)) throw badRequest('Invalid audio path')
+
+  // The track as it is: its current file, and whether it has synced lyrics.
+  const current = await tracksRepo.findTrackRow(db, userId, trackId)
+  if (!current) throw notFound()
+  if (current.audio_path === input.audioPath) throw badRequest('This file is already the track\'s audio')
+
+  // The browser uploaded the file straight to storage: make sure it is the one declared.
+  const stored = await audio.head(input.audioPath)
+  if (!stored) throw badRequest('Audio file not found: finish the upload first')
+  if (stored.size !== input.sizeBytes || stored.size > MAX_AUDIO_BYTES) {
+    await audio.remove([input.audioPath])
+    throw badRequest('The uploaded file does not match the declared one')
+  }
+
+  // The row moved to the new file, or null when another replace moved it first.
+  let row: Awaited<ReturnType<typeof tracksRepo.swapTrackAudioRow>>
+  try {
+    row = await tracksRepo.swapTrackAudioRow(db, userId, trackId, current.audio_path, {
+      audio_path: input.audioPath,
+      mime_type: input.mimeType,
+      size_bytes: input.sizeBytes,
+      duration_seconds: input.durationSeconds ?? null,
+      peaks: input.peaks ?? null,
+      // Synced lyrics were timed against the old file: flag them for checking.
+      ...(current.has_synced_lyrics ? { sync_needs_review: true } : {}),
+    })
+  }
+  catch (error) {
+    // Refused (4xx): nothing was written, the new file is nobody's. Unknown (500): kept, see above.
+    if (refusedByDatabase(error)) await audio.remove([input.audioPath])
+    throw error
+  }
+  if (!row) {
+    await audio.remove([input.audioPath])
+    throw conflict('The audio was replaced meanwhile: reload the page')
+  }
+
+  // The old file is no track's any more.
+  await audio.remove([current.audio_path])
+  return toTrackDetail(row)
+}
+
+/**
  * Updates metadata and/or the cover. `coverPath: null` removes the cover
- * and deletes its file once the row is updated.
+ * and deletes its file once the row is updated. Emptying the synced lyrics
+ * also clears their "check the sync" flag (there is nothing left to check).
  */
 export async function updateTrack(db: DbClient, userId: string, id: string, input: TrackUpdate): Promise<TrackDetail> {
   if (input.coverPath) assertCoverPath(input.coverPath, userId, id)
@@ -158,6 +263,9 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
   // A new genre without a subgenre: the old subgenre (of the old genre) goes, or the
   // database would refuse the pair. The same genre sent again keeps it.
   if (genreWithoutSubgenre && current && current.genre_id !== input.genreId) input = { ...input, subgenreId: null }
+
+  // Synced lyrics emptied: nothing is left to check after a replaced audio.
+  if (input.lyricsSynced !== undefined && !input.lyricsSynced?.length) input = { ...input, syncNeedsReview: false }
 
   // The updated row (none when missing or not the user's).
   const row = await tracksRepo.updateTrackRow(db, userId, id, toTrackUpdate(input))

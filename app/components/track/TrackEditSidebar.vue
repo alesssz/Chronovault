@@ -7,7 +7,9 @@ import { tracksApi } from '~/services/api'
  * cover: what saves at once or needs no saving, apart from the form and its
  * "Save". The cover is the page's own (above this column from `md`, at the top
  * of the page below it, where this column comes after the form).
- *   File    duration, format, size and upload date of the stored audio.
+ *   File    duration, format, size and upload date of the stored audio, and
+ *           Replace audio (TrackReplaceAudioDialog): a new file, such as its master,
+ *           everything else kept; then `replaced`, and the page takes the track.
  *   Sharing the share link, based on the saved visibility (a change in the
  *           form only applies once saved).
  *   Delete  after a confirmation: the track and its files, stopped in the
@@ -21,7 +23,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** The track is gone: the page marks its form saved and goes back to the library. */
   deleted: []
+  /** The track's audio was replaced: the page takes the updated track (the player already has it). */
+  replaced: [track: TrackDetail]
 }>()
+
+/** The Replace audio dialog is open. */
+const replaceOpen = ref(false)
 
 // A deleted track leaves the player too.
 const player = usePlayerStore()
@@ -93,7 +100,26 @@ async function onDelete() {
           {{ new Date(track.createdAt).toLocaleDateString() }}
         </dd>
       </dl>
+      <!-- A new file for the track (e.g. its master), everything else kept: in the dialog below -->
+      <UButton
+        label="Replace audio"
+        icon="i-lucide-replace"
+        color="neutral"
+        variant="subtle"
+        size="sm"
+        block
+        class="mt-1"
+        data-testid="replace-audio"
+        @click="replaceOpen = true"
+      />
     </section>
+
+    <!-- Replace audio: pick the new file, upload it, swap it in -->
+    <TrackReplaceAudioDialog
+      v-model:open="replaceOpen"
+      :track="track"
+      @replaced="emit('replaced', $event)"
+    />
 
     <!-- Sharing: link of the public page, or how to get one -->
     <ShareLinkBox
