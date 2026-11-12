@@ -167,19 +167,3 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 - B) The same routes, with rename and delete in the editor's Subgenre menu, beside each of the user's own.
 
 **Recommended.** A: the reference already lists every subgenre and marks the user's own, and the editor's menu stays a plain choice; check that a renamed subgenre shows its new name on its tracks, and that a deleted one leaves them with their genre only.
-
-## Tooling (OPS)
-
-### OPS-1 The phone's lock-screen test reads the media card before it is set
-
-**Priority:** medium · **Kind:** flaky end-to-end test · **Found:** 2026-11-11
-
-**What is wrong.** `phone: the lock screen shows the track and the app; Cast reaches a TV` (`responsive.spec.ts`, `phone` project) fails about two runs in three, on `main` as well: `page.evaluate: TypeError: Cannot read properties of null (reading 'title')`. The test waits for the player bar's title, then reads `navigator.mediaSession.metadata` at once. The bar shows the queued track as soon as it is chosen (`displayTrack`), while the card follows `player.current` (`plugins/media-session.client.ts`), which is set only once the track's data and address are in: the read can come in between. A red run in CI makes every branch look broken for nothing.
-
-**Where.** [responsive.spec.ts](../test/e2e/responsive.spec.ts), the test at "the lock screen shows the track"; the card's watcher in [media-session.client.ts](../app/plugins/media-session.client.ts).
-
-**Options.**
-- A) Wait for the card itself: `expect.poll(() => page.evaluate(() => navigator.mediaSession.metadata?.title ?? null)).toBe('Touch screen song')`, then read the rest.
-- B) Wait for the track to be playing (the bar's button showing Pause) before reading.
-
-**Recommended.** A: it waits for exactly what is read next. Check with `--project phone -g "lock screen" --repeat-each 10`, all green.
