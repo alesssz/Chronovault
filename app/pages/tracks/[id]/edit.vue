@@ -3,7 +3,9 @@
  * Track editor (client-rendered), in three tabs:
  *   Details → metadata, description, Suno prompt, visibility
  *   Lyrics  → plain lyrics with [Section] headers
- *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor)
+ *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor); after
+ *             a Replace audio, a warning that the times may be off, until
+ *             "Sync checked" (docs/07-data-flows.md 7.19)
  * Cover and deletion live in the side column (the cover above
  * TrackEditSidebar) and save immediately; the form saves everything else
  * with "Save" and warns about unsaved changes, the Status switches too
@@ -90,12 +92,29 @@ const year = computed({
 
 /** Open tab: details, lyrics or sync. */
 const tab = ref('details')
-/** The three tabs; `slot` names the template block that renders each one. */
-const tabs: TabsItem[] = [
+/**
+ * The audio was replaced after the lyrics were synced, and the sync has not
+ * been checked since (the saved track's flag; the server clears it when the
+ * synced lyrics are emptied).
+ */
+const syncToCheck = computed(() => !!track.value?.syncNeedsReview && track.value.hasSyncedLyrics)
+
+/**
+ * The three tabs; `slot` names the template block that renders each one. The
+ * Sync tab carries a "Check" badge while its sync is to be checked: the
+ * warning inside it is out of sight from the other tabs.
+ */
+const tabs = computed<TabsItem[]>(() => [
   { label: 'Details', value: 'details', slot: 'details', icon: 'i-lucide-list' },
   { label: 'Lyrics', value: 'lyrics', slot: 'lyrics', icon: 'i-lucide-text' },
-  { label: 'Sync', value: 'sync', slot: 'sync', icon: 'i-lucide-timer' },
-]
+  {
+    label: 'Sync',
+    value: 'sync',
+    slot: 'sync',
+    icon: 'i-lucide-timer',
+    ...(syncToCheck.value ? { badge: { label: 'Check', color: 'warning' as const, variant: 'subtle' as const } } : {}),
+  },
+])
 
 /** Keeps the page and the player (title, cover, lyrics) in sync with the saved track (form or cover). */
 function applyServerTrack(updated: TrackDetail) {
@@ -148,6 +167,26 @@ function onFormError() {
   // Errors may sit in a hidden tab: go back to the details.
   tab.value = 'details'
   toast.add({ title: 'Check the highlighted fields', color: 'error' })
+}
+
+/**
+ * The side column replaced the track's audio (Replace audio): the page shows
+ * the new file's data and, with synced lyrics, the warning in the Sync tab.
+ * The player already has it (useAudioReplace), and the form's fields are
+ * untouched: unsaved edits stay unsaved.
+ */
+function onAudioReplaced(updated: TrackDetail) {
+  track.value = updated
+}
+
+/** "Sync checked": saving that flag alone (the form's Save is not needed). */
+const checkingSync = useAsyncTask()
+
+/** The owner checked the synced lyrics after a replaced audio: the warning goes, at once. */
+async function markSyncChecked() {
+  await checkingSync.run(async () => {
+    applyServerTrack(await tracksApi.update(id, { syncNeedsReview: false }))
+  }, 'Could not save')
 }
 
 /** The side column deleted the track: no "unsaved changes" warning, back to the library. */
@@ -433,10 +472,33 @@ const isCurrent = computed(() => player.current?.id === id)
             </div>
           </template>
 
-          <!-- Sync tab: tap-to-sync editor with the detailed waveform -->
+          <!--
+            Sync tab: tap-to-sync editor with the detailed waveform. After a Replace audio, a warning
+            above it until "Sync checked". The editor is keyed by the audio file: a new file builds
+            the detailed waveform again from it (the old one would show the old audio's shape).
+          -->
           <template #sync>
-            <div class="pt-4">
+            <div class="space-y-4 pt-4">
+              <UAlert
+                v-if="syncToCheck"
+                icon="i-lucide-triangle-alert"
+                color="warning"
+                variant="subtle"
+                title="Audio file replaced"
+                description="These lyrics were synced to the previous file, and the new one may not line up exactly (a master can trim or shift the audio). Play the track through and nudge any line that is off."
+                :actions="[{
+                  label: 'Sync checked',
+                  icon: 'i-lucide-check',
+                  color: 'warning',
+                  variant: 'solid',
+                  size: 'sm',
+                  loading: checkingSync.running,
+                  onClick: markSyncChecked,
+                }]"
+                data-testid="sync-check-alert"
+              />
               <LyricsSyncEditor
+                :key="track.audioPath"
                 v-model="state.lyricsSynced"
                 :track="track"
                 :lyrics="state.lyrics || null"
@@ -488,6 +550,7 @@ const isCurrent = computed(() => player.current?.id === id)
         <TrackEditSidebar
           :track="track"
           @deleted="onDeleted"
+          @replaced="onAudioReplaced"
         />
       </div>
     </div>

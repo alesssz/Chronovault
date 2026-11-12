@@ -2,6 +2,7 @@
  * Storage path conventions.
  *
  *   audio   (Cloudflare R2; locally Supabase Storage)  <userId>/<trackId>.<ext>
+ *                                                      <userId>/<trackId>.<revision>.<ext>  (a replaced file)
  *   covers  (Supabase Storage)                         <userId>/<trackId>.webp
  *                                                      <userId>/playlists/<playlistId>.webp
  *
@@ -31,9 +32,31 @@ export function isSafeStorageKey(key: string): boolean {
   return key.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..')
 }
 
-/** `<userId>/<trackId>.<ext>`; the extension is normalized (no dot, lower case). */
-export function buildAudioPath(userId: string, trackId: string, extension: string): string {
-  return `${userId}/${trackId}.${extension.replace(/^\./, '').toLowerCase()}`
+/**
+ * `<userId>/<trackId>.<ext>`, or `<userId>/<trackId>.<revision>.<ext>` for a
+ * file that replaces the track's audio (see newAudioRevision); the extension
+ * is normalized (no dot, lower case).
+ */
+export function buildAudioPath(userId: string, trackId: string, extension: string, revision?: string): string {
+  // `.<revision>` between the id and the extension, for a replacement only.
+  const middle = revision ? `.${revision}` : ''
+  return `${userId}/${trackId}${middle}.${extension.replace(/^\./, '').toLowerCase()}`
+}
+
+/** A replacement's revision: exactly 8 lower-case hex characters (the database's rule, tracks_audio_path_exact). */
+const AUDIO_REVISION = /^[0-9a-f]{8}$/
+
+/**
+ * A new revision for a replaced audio file: 8 random lower-case hex
+ * characters. The new file is stored next to the old one under a key of its
+ * own (never the key the track names, so a failed replace leaves the track
+ * on its old file), and random rather than counted: no need to read the
+ * current one, and no clash with the file of an earlier attempt that failed.
+ */
+export function newAudioRevision(): string {
+  // 4 random bytes, 2 hex characters each.
+  const bytes = crypto.getRandomValues(new Uint8Array(4))
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** `<userId>/<trackId>.webp`: covers are always converted to WebP in the browser. */
@@ -50,8 +73,9 @@ export function buildPlaylistCoverPath(userId: string, playlistId: string): stri
 const AUDIO_EXTENSION = /^[a-z0-9]{1,10}$/
 
 /**
- * True when the path is exactly the track's audio path, `<userId>/<trackId>.<ext>`,
- * with the extension the database accepts (tracks_audio_path_exact): the
+ * True when the path is exactly an audio path of the track: `<userId>/<trackId>.<ext>`,
+ * or a replacement's `<userId>/<trackId>.<revision>.<ext>`, with the
+ * revision and extension the database accepts (tracks_audio_path_exact): the
  * same rule, so a path the server lets through is never refused later. The
  * server uses it to reject paths a client could forge, e.g. pointing a track
  * at someone else's file. Any extension used to pass here, control
@@ -61,5 +85,15 @@ const AUDIO_EXTENSION = /^[a-z0-9]{1,10}$/
 export function isAudioPath(path: string, userId: string, trackId: string): boolean {
   // What must come before the extension: the user's folder and the track's id.
   const prefix = `${userId}/${trackId}.`
-  return path.startsWith(prefix) && AUDIO_EXTENSION.test(path.slice(prefix.length))
+  if (!path.startsWith(prefix)) return false
+  // What follows the id: `<ext>`, or `<revision>.<ext>`.
+  const parts = path.slice(prefix.length).split('.')
+  if (parts.length === 1) return AUDIO_EXTENSION.test(parts[0]!)
+  return parts.length === 2 && AUDIO_REVISION.test(parts[0]!) && AUDIO_EXTENSION.test(parts[1]!)
+}
+
+/** True when the path is a replacement's audio path of the track, `<userId>/<trackId>.<revision>.<ext>` (see isAudioPath). */
+export function isAudioRevisionPath(path: string, userId: string, trackId: string): boolean {
+  // A revision adds one dot-separated part after the id.
+  return isAudioPath(path, userId, trackId) && path.slice(`${userId}/${trackId}.`.length).includes('.')
 }

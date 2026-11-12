@@ -1,7 +1,8 @@
 /**
  * TrackList: clicking a title plays it, or opens the full-screen view for the
  * current track; drafts carry a badge; in selection mode a title click
- * selects instead of playing.
+ * selects instead of playing; synced lyrics to check after a replaced audio
+ * show their icon in the warning colour.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
@@ -14,7 +15,7 @@ import TrackList from '~/components/track/TrackList.vue'
 function summary(id: string, title: string, status: TrackSummary['status'] = 'final'): TrackSummary {
   return {
     id, title, composers: 'Chronovault', album: null, year: 2026, genreId: null, subgenreId: null, mastered: false,
-    visibility: 'private', status, durationSeconds: 200, hasLyrics: true, hasSyncedLyrics: true, coverUrl: null,
+    visibility: 'private', status, durationSeconds: 200, hasLyrics: true, hasSyncedLyrics: true, syncNeedsReview: false, coverUrl: null,
     createdAt: '', updatedAt: '',
   }
 }
@@ -93,5 +94,20 @@ describe('TrackList', () => {
 
     expect(list.emitted('update:selected')?.[0]?.[0]).toEqual(['b'])
     expect(list.emitted('play')).toBeUndefined()
+  })
+
+  it('shows synced lyrics to check (the audio was replaced since) in the warning colour', async () => {
+    // Two tracks with synced lyrics: one flagged after a replaced audio, one not.
+    const flagged = [{ ...summary('a', 'Artemisia'), syncNeedsReview: true }, summary('b', 'Caravaggio')]
+    // A host rendering the list, as the library page does.
+    const Host = defineComponent({
+      render: () => h(UApp, null, () => h(TrackList, { tracks: flagged, genreOf: () => null })),
+    })
+    // The list, mounted.
+    const wrapper = await mountSuspended(Host)
+    // Each row's lyrics icon.
+    const icons = wrapper.findAll('[data-testid="track-lyrics-icon"]')
+    expect(icons[0]!.classes()).toContain('text-warning')
+    expect(icons[1]!.classes()).toContain('text-primary')
   })
 })

@@ -2,7 +2,8 @@
 -- Storage paths (pgTAP, …_storage_path_rules.sql): a signed-in user writing
 -- their own rows straight through the Data API (no app server in between)
 -- can only name their own files, by the exact paths the app builds:
---   tracks.audio_path     <user_id>/<id>.<extension>
+--   tracks.audio_path     <user_id>/<id>.<extension>, or <user_id>/<id>.<revision>.<extension>
+--                         for a replaced file (8 lower-case hex, …_replace_audio.sql)
 --   tracks.cover_path     <user_id>/<id>.webp
 --   playlists.cover_path  <user_id>/playlists/<id>.webp
 -- A `..` reaching another user's file, another folder, another track's
@@ -13,7 +14,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(19);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (inserted as superuser): user A (the one writing), user B (whose
@@ -74,6 +75,42 @@ select throws_ok(
      where id = 'a1111111-1111-4111-8111-111111111111' $$,
   '23514', null,
   'an existing track cannot be pointed at another user''s file either'
+);
+
+-- Tracks: a replaced audio file (…_replace_audio.sql), <user_id>/<id>.<revision>.<extension>.
+select lives_ok(
+  $$ update public.tracks
+     set audio_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.0a1b2c3d.flac'
+     where id = 'a1111111-1111-4111-8111-111111111111' $$,
+  'a replaced audio file names its own track too: <user_id>/<id>.<8 hex>.<extension>'
+);
+select throws_ok(
+  $$ update public.tracks
+     set audio_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.0a1b2c.flac'
+     where id = 'a1111111-1111-4111-8111-111111111111' $$,
+  '23514', null,
+  'a revision is exactly 8 characters'
+);
+select throws_ok(
+  $$ update public.tracks
+     set audio_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.0A1B2C3D.flac'
+     where id = 'a1111111-1111-4111-8111-111111111111' $$,
+  '23514', null,
+  'a revision is lower-case hex, as the server draws it'
+);
+select throws_ok(
+  $$ update public.tracks
+     set audio_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/b1111111-1111-4111-8111-111111111111.0a1b2c3d.flac'
+     where id = 'a1111111-1111-4111-8111-111111111111' $$,
+  '23514', null,
+  'a revision of another track''s file is refused'
+);
+select throws_ok(
+  $$ update public.tracks
+     set audio_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a1111111-1111-4111-8111-111111111111.0a1b2c3d.0a1b2c3d.flac'
+     where id = 'a1111111-1111-4111-8111-111111111111' $$,
+  '23514', null,
+  'one revision at most'
 );
 
 -- Tracks: the cover path.

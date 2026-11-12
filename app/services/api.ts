@@ -1,5 +1,5 @@
 import type { AudioUploadTarget, Genre, PlaybackSource, Subgenre, SharedTrack, TrackDetail, TrackMetadata, TrackSummary } from '~~/shared/types/track'
-import type { AudioUploadRequest, SubgenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
+import type { AudioReplaceInput, AudioReplaceUpload, AudioUploadRequest, SubgenreCreate, TrackCreateInput, TrackUpdateInput } from '~~/shared/schemas/track'
 import type {
   PlaylistDetail, PlaylistPurpose, PlaylistSummary, SharedPlaylist, UnseenFeedback, VersionFeedback, VersionVoteState,
 } from '~~/shared/types/playlist'
@@ -28,6 +28,12 @@ export const tracksApi = {
   update: (id: string, body: TrackUpdateInput) => $fetch<TrackDetail>(`/api/tracks/${id}`, { method: 'PATCH', body }),
   remove: (id: string) => $fetch<null>(`/api/tracks/${id}`, { method: 'DELETE' }),
   playback: (id: string) => $fetch<PlaybackSource>(`/api/tracks/${id}/playback`),
+  /** Replace audio, step 1: where to upload the new file (a key next to the track's current one). */
+  replaceUploadUrl: (id: string, body: AudioReplaceUpload) =>
+    $fetch<AudioUploadTarget>(`/api/tracks/${id}/audio/upload-url`, { method: 'POST', body }),
+  /** Replace audio, step 3: moves the track to the uploaded file, its metadata untouched. */
+  replaceAudio: (id: string, body: AudioReplaceInput) =>
+    $fetch<TrackDetail>(`/api/tracks/${id}/audio`, { method: 'PUT', body }),
 }
 
 /** The user's playlists and groups of versions (sign-in required). */

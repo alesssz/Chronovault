@@ -29,9 +29,11 @@ Chronovault/
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
 │   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, TrackShowcase (the share page's and the
 │   │                                 #   full-screen view's body), the editor's TrackEditSidebar (file,
-│   │                                 #   sharing, deletion), TrackGenreSelect (genre field, the fixed list) and
+│   │                                 #   sharing, deletion) with TrackReplaceAudioDialog (Replace audio, 7.19),
+│   │                                 #   TrackGenreSelect (genre field, the fixed list) and
 │   │                                 #   TrackSubgenreSelect (subgenre field, custom subgenres created in it)
-│   ├── composables/                  # useTrackUploader (upload queue), useGenres, usePlaylists, useShareLink,
+│   ├── composables/                  # useTrackUploader (upload queue), useAudioReplace (Replace audio, 7.19),
+│   │                                 #   useGenres, usePlaylists, useShareLink,
 │   │                                 #   useQueueActions (Play next / Add to queue with toasts), useTrackDownload
 │   │                                 #   (and useSharedTrackDownload for the share pages),
 │   │                                 #   useAsyncTask, useEditForm, useLeaveConfirm (LeaveDialog: unsaved work, 7.8),
@@ -49,6 +51,7 @@ Chronovault/
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
 │   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks
+│   │   ├── prepare-audio.ts          #   analysis + WAV → FLAC before an upload or a replace (7.3, 7.19)
 │   │   ├── direct-upload.ts          #   PUT to a presigned URL with progress and retries
 │   │   ├── bytes.ts                  #   concatBytes, asciiAt (binary file code)
 │   │   ├── image.ts                  #   crop geometry, square WebP covers

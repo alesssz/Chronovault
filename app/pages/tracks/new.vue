@@ -6,7 +6,8 @@
  * and conversion outcome. Leaving while files are in progress asks first,
  * whether by closing the tab or by going to another page of the app.
  */
-import type { UploadConversion, UploadStatus } from '~/composables/useTrackUploader'
+import type { UploadStatus } from '~/composables/useTrackUploader'
+import { conversionLabel } from '~/lib/prepare-audio'
 import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 
 // Browser tab title: "Upload tracks · Chronovault".
@@ -33,14 +34,6 @@ const statusInfo: Record<UploadStatus, { label: string, color: 'neutral' | 'prim
   saving: { label: 'Saving', color: 'primary', icon: 'i-lucide-save' },
   done: { label: 'Done', color: 'success', icon: 'i-lucide-check' },
   error: { label: 'Error', color: 'error', icon: 'i-lucide-circle-alert' },
-}
-
-/** "FLAC · lossless … 70 MB → 35 MB (−50%)", or why the WAV was kept as is. */
-function conversionLabel(conversion: UploadConversion): string {
-  if (conversion.kind === 'kept') return `Kept as WAV: ${conversion.reason}`
-  // Space saved, as a whole percentage.
-  const saved = Math.round((1 - conversion.flacBytes / conversion.originalBytes) * 100)
-  return `FLAC · lossless, verified bit for bit · ${formatBytes(conversion.originalBytes)} → ${formatBytes(conversion.flacBytes)} (−${saved}%)`
 }
 
 // Warn before closing the page while uploads are in progress.

@@ -115,6 +115,33 @@ export async function updateTrackRow(
 }
 
 /**
+ * Moves one of the user's tracks to a new audio file (the editor's Replace
+ * audio), only if it still names `currentPath`: when another replace got
+ * there first, nothing is updated and null comes back, so the caller knows
+ * its new file is not the one in use. Null too when the track does not exist
+ * or is not the user's (the caller has read it just before).
+ */
+export async function swapTrackAudioRow(
+  db: DbClient,
+  userId: string,
+  id: string,
+  currentPath: string,
+  patch: TablesUpdate<'tracks'>,
+): Promise<TrackRow | null> {
+  // The updated row, or none when the path moved meanwhile (or the track is gone).
+  const { data, error } = await db
+    .from('tracks')
+    .update(patch)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .eq('audio_path', currentPath)
+    .select('*')
+    .maybeSingle()
+  if (error) throw toHttpError(error, 'tracks.swapAudio')
+  return data
+}
+
+/**
  * Deletes the track and returns the file paths to remove from storage
  * (null when nothing was deleted). Playlist entries go away with it
  * (`on delete cascade`).

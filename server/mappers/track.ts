@@ -21,13 +21,13 @@ export type TrackRow = Tables<'tracks'>
 /** Columns read for the library (no lyrics, peaks or descriptions). */
 export const TRACK_SUMMARY_COLUMNS = [
   'id', 'title', 'composers', 'album', 'year', 'genre_id', 'subgenre_id', 'mastered', 'visibility', 'status',
-  'duration_seconds', 'has_lyrics', 'has_synced_lyrics', 'cover_path', 'created_at', 'updated_at',
+  'duration_seconds', 'has_lyrics', 'has_synced_lyrics', 'sync_needs_review', 'cover_path', 'created_at', 'updated_at',
 ].join(',')
 
 /** The columns listed in TRACK_SUMMARY_COLUMNS (keep the two in sync). */
 export type TrackSummaryRow = Pick<TrackRow,
   | 'id' | 'title' | 'composers' | 'album' | 'year' | 'genre_id' | 'subgenre_id' | 'mastered' | 'visibility' | 'status'
-  | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'cover_path' | 'created_at' | 'updated_at'
+  | 'duration_seconds' | 'has_lyrics' | 'has_synced_lyrics' | 'sync_needs_review' | 'cover_path' | 'created_at' | 'updated_at'
 >
 
 /** Summary row → library item (camelCase); the cover URL is the cacheable app address. */
@@ -47,6 +47,7 @@ export function toTrackSummary(row: TrackSummaryRow): TrackSummary {
     // Generated columns are typed as nullable by the generator; they never are.
     hasLyrics: row.has_lyrics ?? false,
     hasSyncedLyrics: row.has_synced_lyrics ?? false,
+    syncNeedsReview: row.sync_needs_review,
     // Stable, cacheable address (see cover-urls.ts); null when the track has no cover.
     coverUrl: trackCoverUrlOf(row),
     createdAt: row.created_at,
@@ -207,6 +208,7 @@ export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
     status: 'status',
     lyrics: 'lyrics',
     lyricsSynced: 'lyrics_synced',
+    syncNeedsReview: 'sync_needs_review',
     coverPath: 'cover_path',
   }
   // Only fields actually sent (not undefined) are copied.

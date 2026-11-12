@@ -3,7 +3,9 @@
  * checks (paths, the audio's extension as the database accepts it, the cover's exact WebP path, stored size, the audio deleted when the database
  * refuses the track but kept when the outcome is unknown), repeated registrations (the same request
  * answered with the track, a registered track's file never deleted nor overwritten), updates,
- * deletion and playback URLs.
+ * deletion and playback URLs. Replacing a track's audio: the upload address next to the old file,
+ * then the swap (paths, the stored file, a replace from another tab winning, the new or the old file
+ * deleted as each outcome needs, the "check the sync" flag only with synced lyrics).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackRow } from '~~/server/mappers/track'
@@ -13,12 +15,14 @@ import * as tracksRepo from '~~/server/repositories/tracks.repository'
 import * as storageRepo from '~~/server/repositories/storage.repository'
 import {
   UPLOAD_URL_TTL,
+  createReplaceTarget,
   createTrack,
   createUploadTarget,
   deleteTrack,
   getPlaybackSource,
   listTrackMetadata,
   listTracks,
+  replaceTrackAudio,
   updateTrack,
 } from '~~/server/services/tracks.service'
 
@@ -60,7 +64,7 @@ function makeRow(overrides: Partial<TrackRow> = {}): TrackRow {
   return {
     id: TRACK, user_id: USER, title: 'Track', composers: null, genre_id: null, subgenre_id: null, year: null, album: null,
     description: null, suno_prompt: null, mastered: false, visibility: 'private', lyrics: null,
-    lyrics_synced: null, has_lyrics: false, has_synced_lyrics: false, audio_path: AUDIO, cover_path: null,
+    lyrics_synced: null, has_lyrics: false, has_synced_lyrics: false, sync_needs_review: false, audio_path: AUDIO, cover_path: null,
     mime_type: 'audio/flac', size_bytes: 10, duration_seconds: 60, peaks: null,
     created_at: '2026-10-18T10:00:00Z', updated_at: '2026-10-18T10:00:00Z',
     ...overrides,
@@ -250,6 +254,131 @@ describe('createTrack', () => {
   })
 })
 
+describe('createReplaceTarget', () => {
+  it('signs an upload URL for a new key next to the track\'s file: <trackId>.<revision>.<ext>', async () => {
+    vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(AUDIO)
+
+    // The address for the new file.
+    const target = await createReplaceTarget(db, storage(), USER, TRACK, { extension: 'mp3', mimeType: 'audio/mpeg', sizeBytes: 10 })
+
+    expect(target.audioPath).toMatch(new RegExp(`^${USER}/${TRACK}\\.[0-9a-f]{8}\\.mp3$`))
+    // Never the current file: the track keeps playing it until the swap.
+    expect(target.audioPath).not.toBe(AUDIO)
+    expect(audio.presign).toHaveBeenCalledWith('PUT', target.audioPath, UPLOAD_URL_TTL, { size: 10, contentType: 'audio/mpeg' })
+  })
+
+  it('gives no address for a track that is not the user\'s (404)', async () => {
+    vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(null)
+    await expect(createReplaceTarget(db, storage(), USER, TRACK, { extension: 'mp3', mimeType: 'audio/mpeg', sizeBytes: 10 }))
+      .rejects.toMatchObject({ statusCode: 404 })
+    expect(audio.presign).not.toHaveBeenCalled()
+  })
+})
+
+describe('replaceTrackAudio', () => {
+  /** The new file, as createReplaceTarget would have named it. */
+  const NEW_AUDIO = `${USER}/${TRACK}.0a1b2c3d.mp3`
+  /** A valid PUT /api/tracks/:id/audio body. */
+  const replaceInput = { audioPath: NEW_AUDIO, mimeType: 'audio/mpeg', sizeBytes: 10, durationSeconds: 58.5, peaks: [0.5] }
+
+  it('refuses a path that is not a replacement of this track, before touching anything', async () => {
+    for (const audioPath of [AUDIO, `${USER}/other.0a1b2c3d.mp3`, `other/${TRACK}.0a1b2c3d.mp3`, `${USER}/${TRACK}.0A1B2C3D.mp3`]) {
+      await expect(replaceTrackAudio(db, storage(), USER, TRACK, { ...replaceInput, audioPath }))
+        .rejects.toMatchObject({ statusCode: 400 })
+    }
+    expect(tracksRepo.findTrackRow).not.toHaveBeenCalled()
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
+  it('responds 404 for a track that is not the user\'s, leaving the file alone', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(null)
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 404 })
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
+  it('refuses the file the track already names (sent twice), deleting nothing', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ audio_path: NEW_AUDIO }))
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 400 })
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+
+  it('refuses a file that was never uploaded', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    audio.head.mockResolvedValue(null)
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 400 })
+    expect(tracksRepo.swapTrackAudioRow).not.toHaveBeenCalled()
+  })
+
+  it('deletes and refuses an uploaded file that differs from the declared one, the track untouched', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    audio.head.mockResolvedValue({ size: 999, contentType: 'audio/mpeg' })
+
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 400 })
+
+    expect(audio.remove).toHaveBeenCalledWith([NEW_AUDIO])
+    expect(audio.remove).not.toHaveBeenCalledWith([AUDIO])
+    expect(tracksRepo.swapTrackAudioRow).not.toHaveBeenCalled()
+  })
+
+  it('moves the track to the new file, then deletes the old one; nothing else changes', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    vi.mocked(tracksRepo.swapTrackAudioRow).mockResolvedValue(makeRow({ audio_path: NEW_AUDIO, mime_type: 'audio/mpeg', duration_seconds: 58.5 }))
+
+    // The track after the replace.
+    const track = await replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)
+
+    // Only the file's own columns, and only while the track still names the file read first.
+    expect(tracksRepo.swapTrackAudioRow).toHaveBeenCalledWith(db, USER, TRACK, AUDIO, {
+      audio_path: NEW_AUDIO, mime_type: 'audio/mpeg', size_bytes: 10, duration_seconds: 58.5, peaks: [0.5],
+    })
+    expect(audio.remove).toHaveBeenCalledTimes(1)
+    expect(audio.remove).toHaveBeenCalledWith([AUDIO])
+    expect(track.audioPath).toBe(NEW_AUDIO)
+    expect(track.durationSeconds).toBe(58.5)
+  })
+
+  it('flags synced lyrics for checking: they were timed against the old file', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ has_synced_lyrics: true }))
+    vi.mocked(tracksRepo.swapTrackAudioRow).mockResolvedValue(makeRow({ audio_path: NEW_AUDIO, sync_needs_review: true }))
+
+    // The track after the replace, its synced lyrics flagged.
+    const track = await replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)
+
+    expect(tracksRepo.swapTrackAudioRow).toHaveBeenCalledWith(db, USER, TRACK, AUDIO, expect.objectContaining({ sync_needs_review: true }))
+    expect(track.syncNeedsReview).toBe(true)
+  })
+
+  it('lets a replace from another tab win: 409, and this file deleted while theirs stays', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    // The track no longer names the file read first: nothing updated.
+    vi.mocked(tracksRepo.swapTrackAudioRow).mockResolvedValue(null)
+
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 409 })
+
+    expect(audio.remove).toHaveBeenCalledTimes(1)
+    expect(audio.remove).toHaveBeenCalledWith([NEW_AUDIO])
+  })
+
+  it('deletes the new file when the database refuses the update, keeping the old one', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    vi.mocked(tracksRepo.swapTrackAudioRow).mockRejectedValue(Object.assign(new Error('Invalid data'), { statusCode: 400 }))
+
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 400 })
+
+    expect(audio.remove).toHaveBeenCalledTimes(1)
+    expect(audio.remove).toHaveBeenCalledWith([NEW_AUDIO])
+  })
+
+  it('keeps both files when the update\'s outcome is unknown (the row may name either)', async () => {
+    vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
+    vi.mocked(tracksRepo.swapTrackAudioRow).mockRejectedValue(Object.assign(new Error('Internal error'), { statusCode: 500 }))
+
+    await expect(replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)).rejects.toMatchObject({ statusCode: 500 })
+
+    expect(audio.remove).not.toHaveBeenCalled()
+  })
+})
+
 describe('updateTrack', () => {
   it('rejects a cover that is not the track\'s exact WebP path', async () => {
     for (const coverPath of [`${USER}/${TRACK}.jpg`, `${USER}/other.webp`]) {
@@ -294,6 +423,20 @@ describe('updateTrack', () => {
     expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { genre_id: 'rock', subgenre_id: 'grunge' })
     // Only the first call needed the current row.
     expect(tracksRepo.findTrackRow).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the "check the sync" flag when the synced lyrics are emptied: nothing is left to check', async () => {
+    vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(makeRow())
+
+    for (const lyricsSynced of [null, []]) {
+      await updateTrack(db, USER, TRACK, { lyricsSynced })
+      expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { lyrics_synced: lyricsSynced, sync_needs_review: false })
+    }
+    // Synced lines sent, or the field left alone: the flag is the owner's to clear.
+    await updateTrack(db, USER, TRACK, { lyricsSynced: [{ time: 1, text: 'la' }] })
+    expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { lyrics_synced: [{ time: 1, text: 'la' }] })
+    await updateTrack(db, USER, TRACK, { syncNeedsReview: false })
+    expect(tracksRepo.updateTrackRow).toHaveBeenLastCalledWith(db, USER, TRACK, { sync_needs_review: false })
   })
 
   it('does not touch storage for metadata-only changes', async () => {

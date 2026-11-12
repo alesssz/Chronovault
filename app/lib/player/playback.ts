@@ -509,6 +509,23 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   }
 
   /**
+   * The track's audio file was replaced (the editor's Replace audio): the old
+   * file is about to be deleted, so the loaded track moves to the new one at
+   * the same second, playing if it was, paused if it was (a fresh address from
+   * the source, which now names the new file). A track asked for ahead is
+   * forgotten, its address naming the old file. A track that is not the loaded
+   * one needs nothing more: its next load asks for its address anyway.
+   */
+  async function reloadAudio(trackId: string): Promise<void> {
+    if (prepared?.key === preparedKey(trackId)) prepared = null
+    // Only the loaded track, once in: a load on its way asks for the address itself, an error reloads on Play.
+    if (current.value?.id !== trackId || (status.value !== 'playing' && status.value !== 'paused')) return
+    // Allowed even if this source already recovered once: this is a new file, not a retry.
+    sourceRecovered = false
+    if (!(await recoverSource(status.value === 'playing'))) fail('Could not load the new audio file')
+  }
+
+  /**
    * Drops the audio source and goes back to idle (player closed). Pending
    * loads are discarded; the volume and mute stay, the speed goes back to 1.
    */
@@ -535,6 +552,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     current, status, buffering, currentTime, duration, volume, muted, playbackRate, error,
     isActive, isPlaying, progress, listen,
     load, prefetch, play, pause, togglePlay, stop, replay, seek, setVolume, setMuted, toggleMute, setPlaybackRate, reset,
+    reloadAudio,
   }
 }
 

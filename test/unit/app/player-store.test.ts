@@ -5,7 +5,8 @@
  * next track asked for ahead (so it starts at once when the current one ends), commands given
  * while a track loads, where a queue was started from (a playlist's page or the library, kept
  * by a restored queue), a
- * listen starting over (for the play counter), and deleting many tracks at once.
+ * listen starting over (for the play counter), deleting many tracks at once, and a track's audio
+ * replaced (the loaded one moving to the new file at the same second).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
@@ -112,7 +113,7 @@ function loadSlowly(): () => void {
 function summary(id: string): TrackSummary {
   return {
     id, title: `Track ${id}`, composers: null, album: null, year: null, genreId: null, subgenreId: null, mastered: false,
-    visibility: 'private', durationSeconds: 120, hasLyrics: false, hasSyncedLyrics: false, coverUrl: null,
+    visibility: 'private', durationSeconds: 120, hasLyrics: false, hasSyncedLyrics: false, syncNeedsReview: false, coverUrl: null,
     createdAt: '', updatedAt: '',
   }
 }
@@ -391,6 +392,54 @@ describe('player store', () => {
     // The error belongs to b, and b is what the player shows with it.
     expect(player.status).toBe('error')
     expect(player.displayTrack?.id).toBe('b')
+  })
+})
+
+describe('a track\'s audio replaced', () => {
+  it('moves the loaded track to the new file at the same second, still playing', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    engine.currentTime = 42
+    // The server now signs the new file.
+    vi.mocked(tracksApi.playback).mockResolvedValueOnce({ url: 'https://audio/a-new', expiresAt: new Date(Date.now() + SIX_HOURS).toISOString() })
+
+    await player.audioReplaced({ ...detail('a'), durationSeconds: 118, audioPath: 'u/a.0a1b2c3d.flac' })
+
+    expect(engine.load).toHaveBeenLastCalledWith('https://audio/a-new')
+    expect(engine.seek).toHaveBeenLastCalledWith(42)
+    expect(engine.play).toHaveBeenCalledTimes(2)
+    expect(player.status).toBe('playing')
+    // The new data is the player's: the bar shows the new length.
+    expect(player.current?.durationSeconds).toBe(118)
+  })
+
+  it('keeps a paused track paused on the new file', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+    engine.currentTime = 10
+    player.pause()
+
+    await player.audioReplaced(detail('a'))
+
+    expect(engine.load).toHaveBeenCalledTimes(2)
+    expect(engine.seek).toHaveBeenLastCalledWith(10)
+    expect(engine.play).toHaveBeenCalledTimes(1)
+    expect(player.status).toBe('paused')
+  })
+
+  it('leaves the player alone when another track is the loaded one', async () => {
+    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
+    const player = usePlayerStore()
+    await player.playTrack(library[0]!, library)
+
+    await player.audioReplaced({ ...detail('b'), durationSeconds: 99 })
+
+    expect(engine.load).toHaveBeenCalledTimes(1)
+    expect(player.status).toBe('playing')
+    // The queued item has the new data for when it plays.
+    expect(player.queue[1]?.durationSeconds).toBe(99)
   })
 })
 

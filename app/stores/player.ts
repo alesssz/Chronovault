@@ -377,6 +377,17 @@ export const usePlayerStore = defineStore('player', () => {
     playQueue.refresh(detail)
   }
 
+  /**
+   * A track's audio was replaced (the editor's Replace audio, docs 7.19): its
+   * new data everywhere (duration, waveform peaks), and when it is the loaded
+   * track the player moves to the new file at the same second, since the old
+   * one is about to be deleted.
+   */
+  async function audioReplaced(detail: TrackDetail): Promise<void> {
+    syncTrack(detail)
+    await playback.reloadAudio(detail.id)
+  }
+
   /** Removes a deleted track from the queue (and closes the player if it was playing). */
   function removeTrack(id: string): void {
     removeTracks([id])
@@ -411,7 +422,7 @@ export const usePlayerStore = defineStore('player', () => {
     isPlaying: playback.isPlaying, progress: playback.progress, upcoming: playQueue.upcoming,
     // commands
     playTrack, playAll, cueShared, playSharedPlaylist, togglePlay, next, previous, restoreQueue,
-    playNext, addToQueue, playFromQueue, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, removeTrack, removeTracks,
+    playNext, addToQueue, playFromQueue, setShuffle, cycleRepeat, setExpanded, setQueueOpen, close, syncTrack, audioReplaced, removeTrack, removeTracks,
     play: playback.play, pause: playback.pause, stop: playback.stop, seek: playback.seek,
     setVolume: playback.setVolume, setMuted: playback.setMuted, toggleMute: playback.toggleMute, setPlaybackRate: playback.setPlaybackRate,
     moveInQueue: playQueue.move, removeFromQueue: playQueue.removeAt, clearUpcoming: playQueue.clearUpcoming,

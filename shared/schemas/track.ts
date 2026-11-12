@@ -88,6 +88,40 @@ export const audioUploadRequestSchema = z.object({
 export type AudioUploadRequest = z.output<typeof audioUploadRequestSchema>
 
 /**
+ * Body of POST /api/tracks/:id/audio/upload-url: the file about to replace a
+ * track's audio. The same as a new track's, without the id (it is the
+ * route's, and the server draws the file's revision).
+ */
+export const audioReplaceUploadSchema = audioUploadRequestSchema.omit({ trackId: true })
+
+/** Validated body of POST /api/tracks/:id/audio/upload-url. */
+export type AudioReplaceUpload = z.output<typeof audioReplaceUploadSchema>
+
+/** The technical data of an uploaded audio file, as measured in the browser (shared by a new track and a replace). */
+const audioFileFields = {
+  mimeType: audioMimeType,
+  sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES),
+  // Bounded below what the `real` column holds (MAX_DURATION_SECONDS): past it, 400 rather than the database's 500.
+  durationSeconds: z.number().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
+  peaks: z.array(z.number().min(0).max(1)).max(PEAKS_RESOLUTION).nullable().optional(),
+}
+
+/**
+ * Body of PUT /api/tracks/:id/audio: the uploaded file that replaces the
+ * track's audio (the key the upload address was made for) and what the
+ * browser measured from it. Nothing else of the track changes.
+ */
+export const audioReplaceSchema = z.object({
+  audioPath: storagePath,
+  ...audioFileFields,
+})
+
+/** Body the editor's Replace audio sends to PUT /api/tracks/:id/audio. */
+export type AudioReplaceInput = z.input<typeof audioReplaceSchema>
+/** Validated body of PUT /api/tracks/:id/audio. */
+export type AudioReplace = z.output<typeof audioReplaceSchema>
+
+/**
  * Body of POST /api/tracks: technical file data + initial metadata (from
  * the file's tags). Everything but the title is optional at creation.
  */
@@ -96,11 +130,7 @@ export const trackCreateSchema = trackMetadataSchema.partial().extend({
   title: trackMetadataSchema.shape.title,
   audioPath: storagePath,
   coverPath: storagePath.nullable().optional(),
-  mimeType: audioMimeType,
-  sizeBytes: z.number().int().positive().max(MAX_AUDIO_BYTES),
-  // Bounded below what the `real` column holds (MAX_DURATION_SECONDS): past it, 400 rather than the database's 500.
-  durationSeconds: z.number().min(0).max(MAX_DURATION_SECONDS).nullable().optional(),
-  peaks: z.array(z.number().min(0).max(1)).max(PEAKS_RESOLUTION).nullable().optional(),
+  ...audioFileFields,
 })
 
 /** Body the upload queue sends to POST /api/tracks. */
@@ -111,8 +141,13 @@ export type TrackCreate = z.output<typeof trackCreateSchema>
 /**
  * Body of PATCH /api/tracks/:id: any subset of the metadata, or the cover
  * (`coverPath: null` removes it). An empty body is rejected.
+ *
+ * `syncNeedsReview: false` is the Sync tab's "Sync checked": the owner checked
+ * the synced lyrics after the audio was replaced. Only `false`: the flag is
+ * raised by the server alone, when it replaces the audio. Not in the
+ * metadata schema: it is no field of the form, nor of the metadata import.
  */
-export const trackUpdateSchema = patchSchemaOf(trackMetadataSchema)
+export const trackUpdateSchema = patchSchemaOf(trackMetadataSchema.extend({ syncNeedsReview: z.literal(false) }))
 
 /** Body a client sends to PATCH /api/tracks/:id. */
 export type TrackUpdateInput = z.input<typeof trackUpdateSchema>
