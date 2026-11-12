@@ -2,9 +2,12 @@
 #   quality           lint, typecheck, Vitest with the coverage floors (no database needed)
 #   database-and-e2e  local Supabase in the runner, schema checks, pgTAP, Playwright
 #
-# Runs on every push to any branch, not only main: branches are merged into
-# main locally (pnpm merge:main) and main deploys to production on push, so
-# a branch's run is the only check that comes before production.
+# Runs on every push to any branch, not only main. A branch reaches main (which
+# deploys to production) only through a pull request GitHub merges once these
+# two jobs pass: main's ruleset requires them by name, so renaming a job means
+# updating the ruleset too (docs/13-deployment.md, 13.8). `pnpm merge:main`
+# opens the pull request and waits. The pull request reads this push's results:
+# no second run on pull_request.
 #
 # Third-party actions are pinned to a full commit hash, the release in the comment beside
 # it (a tag can be moved, a commit cannot); Dependabot updates both. The setup shared by

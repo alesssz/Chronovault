@@ -20,15 +20,16 @@ on:
     - cron: '0 6 * * 1'
   # Run by hand from the Actions tab.
   workflow_dispatch:
-  # A push to any branch that changes the dependencies: branches are merged locally
-  # (`make merge`), never through a pull request, and the push to main deploys. Audited
-  # on main only, a vulnerable version added on a branch was reported once already in
-  # production; now it fails the branch's run, next to its CI, before the merge.
+  # A push to any branch that changes the dependencies: it fails the branch's run, next
+  # to its CI, before the merge. The pull request `pnpm merge:main` opens reads this
+  # run, so a failed audit stops the script and nothing is merged (the audit is not a
+  # check main's ruleset requires: it does not run on every pull request).
   push:
     branches: ['**']
     paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
-  # A pull request that changes them: none is opened today (see above), but one opened on
-  # GitHub, from a fork or by a bot, is audited before it can be merged there.
+  # A pull request that changes them, from a fork: its branch is not in this repository,
+  # so no push run above covers it. A pull request from a branch here skips the job (see
+  # its `if`): the push run already audited the same commit.
   pull_request:
     paths: [package.json, pnpm-lock.yaml, pnpm-workspace.yaml]
 
@@ -39,6 +40,8 @@ permissions:
 jobs:
   audit:
     name: Dependency audit
+    # Push, schedule, by hand, or a pull request from a fork (one from a branch here was audited on push).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
     steps:
       # The pushed commit's code; it also holds the local setup action below, so it comes first.

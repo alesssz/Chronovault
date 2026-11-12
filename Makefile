@@ -152,7 +152,7 @@ ci: check db-lint db-advisors db-types-check db-test test-e2e ## Everything the 
 # Make treats anything starting with "--" as one of its own options, so the
 # script's --yes cannot be written after the target: it is a variable instead
 # (make merge yes=1 → pnpm merge:main --yes; make merge checks=0 → --no-checks).
-merge: ## Run pnpm check, merge the current branch into main (asks first; yes=1 skips the question, checks=0 the checks), delete it
+merge: ## Run pnpm check, open a pull request, have it merged into main once CI passes (asks first; yes=1 skips the question, checks=0 the checks), delete the branch
 	$(PNPM) merge:main $(if $(yes),--yes) $(if $(filter 0,$(checks)),--no-checks)
 
 # --- Cleanup ------------------------------------------------------------------

@@ -40,7 +40,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete |
 | `pnpm generate:brand` | Regenerate the brand images in `public/` (favicon, PWA icons, fallback cover) from `shared/brand.ts` and `brand/chronovault.jpg` ([5.6](05-architecture.md#56-brand-and-theme)) |
 | `pnpm doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs` |
-| `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, then merge it into `main`, push, delete the branch locally and on GitHub, end on an up-to-date `main` ([14.1](14-conventions.md#141-git-workflow)) |
+| `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, open its pull request, wait for CI and get it merged into `main` (auto-merge, or from the terminal), then delete the branch locally and on GitHub and end on an up-to-date `main`; needs `gh` signed in ([14.1](14-conventions.md#141-git-workflow)) |
 
 ## 3.3 Makefile
 
@@ -63,7 +63,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make check` | lint + typecheck + test-coverage: quick checks before a commit |
 | `make ci` | Everything the CI runs (adds `db-lint`, `db-advisors`, `db-types-check`, `db-test`, `test-e2e`) |
 | `make doctor` | `pnpm doctor` |
-| `make merge` · `make merge yes=1` · `make merge checks=0` | `pnpm merge:main`: run `pnpm check`, merge the current branch into `main` and clean up · without the confirmation question · without the checks (make cannot take `--yes`: it would read it as its own option) |
+| `make merge` · `make merge yes=1` · `make merge checks=0` | `pnpm merge:main`: run `pnpm check`, merge the current branch into `main` through a pull request once CI passes, and clean up · without the confirmation question · without the checks (make cannot take `--yes`: it would read it as its own option) |
 | `make clean` · `make clean-all` | Remove builds and reports · also `node_modules` |
 
 ---

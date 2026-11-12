@@ -109,3 +109,19 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 **Options.** The forms' title style for those headings; the address in a `whitespace-nowrap` (or `break-all`) span.
 
 **Recommended.** Both.
+
+## Tooling (OPS)
+
+### OPS-2 `pnpm doctor` does not check the GitHub CLI
+
+**Priority:** low · **Kind:** tooling · **Found:** 2026-11-12
+
+**What is wrong.** Merging a branch now needs `gh` installed and signed in (`pnpm merge:main` opens the pull request and waits for CI). On a new computer this shows only at the first merge, when the script stops with "gh, GitHub's command line, is missing or not signed in", while `pnpm doctor` is where every other prerequisite is checked.
+
+**Where.** [scripts/doctor.mjs](../scripts/doctor.mjs), [scripts/lib/doctor-checks.mjs](../scripts/lib/doctor-checks.mjs) and their tests.
+
+**Options.**
+- A) Check that `gh` runs (`gh --version`) and print the install command for the system (`brew install gh`, `winget install GitHub.cli`).
+- B) A) plus `gh auth status`, with the sign-in steps (answer No to "Authenticate Git").
+
+**Recommended.** B), as a warning rather than a failure: the app runs without gh, only merging needs it.

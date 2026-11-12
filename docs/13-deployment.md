@@ -56,8 +56,8 @@ Dashboard labels may change slightly over time.
 
 ## 13.5 Updating production
 
-- **Code only:** commit and push to `main`; Vercel deploys.
-- **With a new migration:** `make db-push` first (so the new code finds the new schema), then commit and push. Vercel never touches the database.
+- **Code only:** push the branch and run `pnpm merge:main`: once CI passes, GitHub merges it into `main` and Vercel deploys.
+- **With a new migration:** `make db-push` first (so the new code finds the new schema), then merge as above. Vercel never touches the database.
 - Writing a migration: `make db-migration name=<description>` → write the SQL → `make db-migrate` → `make db-test` → `make db-types`.
 - A new **SQL function**: decide who may call it ([8.3](08-data-model-and-security.md#83-database-functions)). Meant for the API: keep it in `public`, revoke it from `public` and grant it to the roles that need it. A helper of other functions: revoke it from `public`, `anon` and `authenticated` by name. A helper of policies: create it in `private`. Then add API functions to the lists in `function_privileges.test.sql`, or `make db-test` fails.
 
@@ -87,7 +87,8 @@ Nothing to set up: `vercel.json` declares a **Vercel Cron** job that calls `GET 
 The repository is **public**: the code, every commit and its author's email can be read by anyone. Nothing secret is in it (keys live in `.env*`, git-ignored, and in Vercel's settings), and the settings below keep it that way.
 
 - **Commit identity:** commits carry the GitHub *noreply* address (`<id>+<user>@users.noreply.github.com`), set per clone ([0.3](00-setup.md#03-getting-the-code)). A commit with another address is public as soon as it is pushed, and Vercel refuses to deploy it ([16](16-troubleshooting.md#16-troubleshooting)).
-- **`main` is protected by a ruleset** (*Settings → Rules → Rulesets*, target the default branch, *Active*): **Restrict deletions** and **Block force pushes**. Nothing else: branches are merged locally and `main` is pushed by `pnpm merge:main` ([14.1](14-conventions.md#141-git-workflow)), so rules requiring a pull request or passing checks before a push would refuse it. CI runs on the branch before the merge instead.
+- **`main` is protected by a ruleset** (*Settings → Rules → Rulesets*, target the default branch, *Active*, no bypass list): **Restrict deletions**, **Block force pushes**, **Require a pull request before merging** (0 approvals: one person works here) and **Require status checks to pass**, with the two CI jobs: *Lint, types and unit tests* and *Database and end-to-end tests* (the Audit job is left out: it runs only when the dependencies change, and a required check that never runs would block every other pull request). Nothing reaches `main`, the production branch, without a green CI: not a push, not a merge. `pnpm merge:main` works within it ([14.1](14-conventions.md#141-git-workflow)).
+- **Pull request settings** (*Settings → General → Pull Requests*): **Allow merge commits** (`pnpm merge:main` merges with one, `--no-ff`), **Allow auto-merge** (GitHub merges a pull request by itself once the required checks pass) and **Automatically delete head branches**.
 - **Secret scanning and push protection** (*Settings → Advanced Security*, free on public repositories): GitHub refuses a push that contains a known kind of key (Supabase, Cloudflare, Vercel tokens…), and alerts on any already in the history.
 - **Dependabot** opens one grouped pull request a week for the GitHub Actions of the workflows and of `.github/actions/setup`, pinned to commit hashes ([11.6](11-local-development.md#116-updating-dependencies)); CI checks it, and it is merged from GitHub. If `main` moved on meanwhile, a comment `@dependabot rebase` on the pull request brings it up to date.
 - **Vercel's Git fork protection** stays on (Vercel → the project → *Settings → Git*): a pull request from someone else's fork is not built with the project's environment variables until you approve it.

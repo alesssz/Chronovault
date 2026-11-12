@@ -132,8 +132,9 @@ Chronovault/
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check
 │   ├── doctor.mjs                    # pnpm doctor (prerequisites check) · lib/doctor-checks.mjs
-│   ├── merge-main.mjs                # pnpm merge:main
+│   ├── merge-main.mjs                # pnpm merge:main (pull request, CI, merge, clean-up)
 │   ├── lib/merge-message.mjs         # cumulative merge commit message
+│   ├── lib/pull-request.mjs          # the pull request's title, reading its checks
 │   └── generate-brand.mjs            # pnpm generate:brand (favicon, PWA icons, fallback cover)
 ├── brand/chronovault.jpg             # The Chronovault artwork: source of the fallback cover
 ├── docs/                             # This documentation: 00-setup.md … 16-troubleshooting.md, one file per section (index in README.md)

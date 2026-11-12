@@ -9,26 +9,30 @@ git switch main && git pull
 git switch -c feat/<name>
 # … work, commit, push …
 git push -u origin feat/<name>     # CI runs on the branch; Vercel builds a preview deployment
-pnpm merge:main                    # or: make merge (runs pnpm check first)
+pnpm merge:main                    # or: make merge: pull request, CI, merge, clean-up
 ```
 
-**CI runs on every pushed branch** (`.github/workflows/ci.yml`), not only on `main`: branches are merged locally and `main` deploys to production as soon as it is pushed, so the branch's run is the check that comes before production. Look at it on GitHub (the Actions tab, or the mark next to the branch's last commit) before merging; GitHub emails you when a run fails. The database and end-to-end tests run only there; `pnpm merge:main` runs the quick ones itself.
+**Nothing reaches `main` without a green CI.** `main` deploys to production as soon as it changes, and the database and end-to-end tests run only on GitHub (`.github/workflows/ci.yml`, on every pushed branch). So a branch goes in through a pull request that GitHub merges only once CI passes; `main`'s ruleset refuses a direct push and a merge with red or missing checks ([13.8](13-deployment.md#138-the-github-repository)). `pnpm merge:main` does it all from the terminal, with `gh` (GitHub's command line, signed in once: [0.3](00-setup.md#03-getting-the-code)). Follow CI at any time with `gh run watch`, or on GitHub (the Actions tab, the pull request's Checks); GitHub emails you when a run fails.
 
 `pnpm merge:main` (`scripts/merge-main.mjs`):
 
 | Situation | What happens |
 |---|---|
 | You are on `main` | "Already on main", nothing else |
+| `gh` missing or signed out, or this clone's commit email is not the GitHub noreply address | Stops before anything else (the merge commit carries that email into a public repository) |
 | Uncommitted changes | Stops: commit (and push) or stash them first |
 | The branch was never pushed, or has local commits not pushed | Stops: push first |
 | GitHub has commits on the branch you don't have | Stops: pull first |
 | Your local `main` has unpushed commits | Stops |
 | Nothing new compared to `main` | Stops |
-| `pnpm check` fails (lint, typecheck, tests with the coverage floors), run on the branch before anything else | Stops, nothing merged: fix, push, run again. `pnpm merge:main --no-checks` (or `make merge checks=0`) skips them, e.g. for a docs-only branch |
+| Conflicts with `main` (found with `git merge-tree`, without touching your files) | Stops before opening anything: merge `main` into the branch, fix, push, run again |
+| `pnpm check` fails (lint, typecheck, tests with the coverage floors), run on the branch | Stops, nothing opened: fix, push, run again. `pnpm merge:main --no-checks` (or `make merge checks=0`) skips them, e.g. for a docs-only branch; CI still runs them |
 | Ready | Shows the commits and the merge message, asks `[y/N]` (`pnpm merge:main --yes` or `make merge yes=1` skip the question) |
-| Confirmed | Updates `main`, merges with a merge commit (`--no-ff`), pushes `main` (production deploy on Vercel), deletes the branch on GitHub and locally, leaves you on `main` in sync |
-| Merge conflicts | The merge is aborted and you are back on your branch, unchanged: merge `main` into it, fix, push, run again |
-| Pushing `main` fails | The merge stays local and the branch is kept; run `git push` on `main` |
+| Confirmed | Opens the pull request (or reuses the one open for the branch) and waits for CI, printing where it stands. With the ruleset requiring the checks it turns on **auto-merge**: GitHub merges as soon as CI passes, even if the terminal is closed (Ctrl+C only stops the waiting). Without auto-merge it merges from the terminal once every check passed. Either way: a merge commit (`--no-ff`) with the message below, the clone's noreply email as its author, and only the commit checked here (`--match-head-commit`) |
+| CI fails | Auto-merge off again, nothing merged, the pull request left open: fix, push, run again (the same pull request is reused) |
+| Merged | Switches to `main`, pulls it (Vercel deploys it), deletes the branch on GitHub (unless GitHub already did) and locally |
+| Run again after a merge done meanwhile (after Ctrl+C) | Only the clean-up |
+| GitHub stops answering while waiting | Tries again for about two minutes, then stops; the pull request stays, and with auto-merge on it still merges. Run again to finish |
 
 The merge commit message sums up the branch: the commit subject when there is a single commit (`Merge feat/x: Add an editable play queue`), otherwise `Merge feat/x (N commits)` followed by one line per commit, oldest first, with repeated subjects grouped.
 

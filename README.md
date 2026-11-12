@@ -37,7 +37,7 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 
 | Section | What it covers |
 |---|---|
-| [0. Setup](docs/00-setup.md) | From a blank macOS or Windows computer to the app running: tools, getting the code (and who commits are from), first start, addresses, stopping and starting again, after a pull, starting over, checks |
+| [0. Setup](docs/00-setup.md) | From a blank macOS or Windows computer to the app running: tools (the GitHub CLI included), getting the code (who commits are from, signing gh in), first start, addresses, stopping and starting again, after a pull, starting over, checks |
 | [1. Features](docs/01-features.md) | What the app does, area by area: library, upload, player, queue, editor, replacing a track's audio, lyrics sync, draft versions, playlists, sharing, statistics, PWA |
 | [2. Quick start](docs/02-quick-start.md) | The everyday commands on a computer already set up: "I want to…" → the command |
 | [3. Commands](docs/03-commands.md) | Every command: the whole stack in one (`pnpm local` / `docker` / `stop`), the `package.json` scripts and the Makefile |
@@ -50,8 +50,8 @@ Everything else lives in [`docs/`](docs/), one file per section. Sections keep t
 | [10. Configuration](docs/10-configuration.md) | Environment variables, env files and the notable `nuxt.config.ts` settings |
 | [11. Local development in detail](docs/11-local-development.md) | Prerequisites, updating a computer set up before the port change, what `pnpm local` automates, Docker mode, local services and ports, local data, updating dependencies and the dependency audit (weekly, and on every branch that changes them) |
 | [12. Testing](docs/12-testing.md) | Unit, component, database and end-to-end tests, coverage floors, CI |
-| [13. Deployment (Supabase + Cloudflare R2 + Vercel)](docs/13-deployment.md) | Supabase Cloud, Cloudflare R2, Vercel, updating production, statistics, keeping Supabase awake |
-| [14. Development conventions](docs/14-conventions.md) | Git workflow and code conventions (comments, style, page layout, new endpoints and tables) |
+| [13. Deployment (Supabase + Cloudflare R2 + Vercel)](docs/13-deployment.md) | Supabase Cloud, Cloudflare R2, Vercel, updating production, statistics, keeping Supabase awake, the GitHub repository (`main`'s ruleset, pull request settings, secret scanning, Dependabot) |
+| [14. Development conventions](docs/14-conventions.md) | Git workflow (a branch per task, merged through a pull request once CI passes: `pnpm merge:main`) and code conventions (comments, style, page layout, new endpoints and tables) |
 | [15. Known limitations and next steps](docs/15-limitations-and-next-steps.md) | What the app does not do yet, and what could come next |
 | [16. Troubleshooting](docs/16-troubleshooting.md) | Known problems and their fixes |
 
