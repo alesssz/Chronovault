@@ -18,6 +18,12 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  * `size="compact"`: two steps smaller, for a narrow panel (the playlist share
  * page's, beside the list), where the default size wrapped nearly every line.
  *
+ * It has no side padding of its own: a framed panel around it gives it to
+ * the box itself (`*:px-…` on the panel, TrackShowcase and the playlist share
+ * page), so a scrollbar runs along the panel's border instead of sitting
+ * inside the panel's padding. Centred, it also keeps the scrollbar's room on
+ * both sides, so the lines stay on the panel's middle (see the template).
+ *
  * While there is more to scroll below, the box's bottom edge fades out: a
  * box ending on a cut line (or a lone section header) gave no hint that it
  * scrolled. Gone once the end is reached, so the last line reads whole.
@@ -33,7 +39,11 @@ const props = withDefaults(defineProps<{
   size?: 'default' | 'large' | 'compact'
   /** Shown to a share page's visitor: no hint to add lyrics, which only the owner can do. */
   shared?: boolean
-  /** Every line centred (the track page's wide panel, where left-aligned lines left its right half empty). */
+  /**
+   * Every line centred (the track page's wide panel, where left-aligned lines left its right
+   * half empty). The scrollbar's room is then kept on both sides, so the lines stay centred on
+   * the panel where a scrollbar takes room (see the template).
+   */
   centered?: boolean
   /**
    * Room after the last synced line (45vh), so the last lines also scroll up
@@ -132,10 +142,17 @@ watch(activeIndex, (index) => {
 </script>
 
 <template>
+  <!--
+    The scrolling box. Centred, it keeps the scrollbar's room on both sides
+    (`scrollbar-gutter: stable both-edges`): where the scrollbar takes room (Windows, macOS set
+    to always show it, Linux), it narrowed the box on the right only, and every centred line sat
+    half a scrollbar left of the panel's middle. Overlay scrollbars (phones, macOS by default)
+    take none, so nothing changes there. A box's side padding comes from its panel (`*:px-…`).
+  -->
   <div
     ref="container"
     class="h-full overflow-y-auto overscroll-contain"
-    :class="{ 'text-center': centered, '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]': moreBelow }"
+    :class="{ 'text-center [scrollbar-gutter:stable_both-edges]': centered, '[mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]': moreBelow }"
     :data-more-below="moreBelow || undefined"
     @wheel.passive="onUserScroll"
     @touchmove.passive="onUserScroll"

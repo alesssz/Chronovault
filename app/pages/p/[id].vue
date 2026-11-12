@@ -432,9 +432,15 @@ function isPicked(trackId: string) {
           </p>
         </div>
 
+        <!--
+          The panel draws the frame, its scrolling child (ShareLyrics → LyricsView) the side
+          padding (`*:px-…`), so a scrollbar runs along the right border, not 1.5rem (30px) inside
+          it; `overflow-hidden` clips the scrollbar's ends to the rounded corners. Built like the
+          track page's panel (TrackShowcase).
+        -->
         <div
           v-if="activeHasLyrics"
-          class="h-[60dvh] min-h-0 rounded-xl border border-default bg-elevated/30 px-4 sm:px-6 lg:h-auto lg:flex-1"
+          class="h-[60dvh] min-h-0 overflow-hidden rounded-xl border border-default bg-elevated/30 *:px-4 sm:*:px-6 lg:h-auto lg:flex-1"
           data-testid="shared-lyrics"
         >
           <!-- The position is read inside ShareLyrics: read here, it re-rendered the whole page every frame -->
