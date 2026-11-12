@@ -5,7 +5,7 @@ import { tracksApi } from '~/services/api'
 /**
  * Side column of the track editor (pages/tracks/[id]/edit.vue), under the
  * cover: what saves at once or needs no saving, apart from the form and its
- * "Save". The cover is the page's own (above this column from `md`, at the top
+ * "Save". The cover is the page's own (above this column from `lg`, at the top
  * of the page below it, where this column comes after the form).
  *   File    duration, format, size and upload date of the stored audio, and
  *           Replace audio (TrackReplaceAudioDialog): a new file, such as its master,

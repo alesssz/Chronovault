@@ -17,9 +17,10 @@ import { getErrorMessage } from '~/utils/errors'
  * the title, rather than a form about it, and the tracks start at the top
  * instead of below the bottom edge.
  *
- * Below `md` the page is one column: the cover as a compact row at the top,
- * then the tracks and the feedback, then count, sharing and deletion (the
- * side column first came before everything else).
+ * Below `lg` (1024px) the page is one column: the cover as a compact row at
+ * the top, then the tracks and the feedback, then count, sharing and deletion
+ * (on phones the side column first came before everything else; on tablets,
+ * beside the list, it left the titles about 400px).
  *
  * Both purposes work the same way; a group of versions only words things
  * differently ("versions", "group"), lets each version be marked final
@@ -316,17 +317,19 @@ async function onDelete() {
     </p>
 
     <!--
-      From `md`, two columns: cover and side column on the left, the main column on the right
+      From `lg`, two columns: cover and side column on the left, the main column on the right
       across both rows (the first row as tall as the cover, the second taking the rest). Below
-      `md`, in the order written: cover, main column, side column.
+      `lg`, in the order written: cover (a small row, the buttons beside it), main column, side
+      column. Not from `md`: on a tablet (820px) the 16rem column left the list about 400px, and
+      the titles broke mid-word beside the badges, so a group's versions looked alike (UI-27).
     -->
-    <div class="mt-6 grid gap-8 md:grid-cols-[16rem_1fr] md:grid-rows-[auto_1fr] md:gap-y-6">
+    <div class="mt-6 grid gap-8 lg:grid-cols-[16rem_1fr] lg:grid-rows-[auto_1fr] lg:gap-y-6">
       <!-- Cover (custom, or the mosaic of the first tracks), saved at once -->
       <TrackCoverPicker
         :url="playlist.coverUrl"
         :title="playlist.title"
         :busy="cover.busy"
-        class="md:col-start-1 md:row-start-1"
+        class="lg:col-start-1 lg:row-start-1"
         @select="cover.select"
         @remove="cover.remove"
       >
@@ -353,7 +356,7 @@ async function onDelete() {
       </TrackCoverPicker>
 
       <!-- Main column: the track list, then (groups) the feedback -->
-      <div class="min-w-0 space-y-8 md:col-start-2 md:row-span-2 md:row-start-1">
+      <div class="min-w-0 space-y-8 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <section>
           <!-- Track list: drag handle, cover, title (click to play), duration, menu -->
           <!-- Heading ("Tracks" / "Versions") and the spinner while a change saves -->
@@ -408,7 +411,7 @@ async function onDelete() {
       </div>
 
       <!-- Side column: track count and duration, sharing, deletion -->
-      <aside class="space-y-6 md:col-start-1 md:row-start-2">
+      <aside class="space-y-6 lg:col-start-1 lg:row-start-2">
         <!-- Track count and total duration -->
         <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
           <dt class="text-muted">

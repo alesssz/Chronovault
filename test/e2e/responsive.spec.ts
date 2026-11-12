@@ -24,7 +24,9 @@
  * Also on phones: the track editor starts with its form (the cover a small row above it) and
  * brings up a Save bar while there is something to save, a playlist's page with its tracks, and
  * the library's filters live in a panel. On both touch layouts a long press on a library row
- * starts selecting, and the selection bar's ✕ ends it.
+ * starts selecting, and the selection bar's ✕ ends it. On tablets the selection bar keeps its
+ * count whole and each action's short name on one line, and the editors (a group of versions,
+ * a track) put the cover in a row above the content, which gets the whole width.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { clickAndWaitForApi, signUp, uploadTrack, waitForHydration } from './helpers'
@@ -314,6 +316,67 @@ test.describe('touch screens', () => {
     await expect(page.getByRole('slider', { name: 'Volume' })).toHaveCount(0)
     await bar.getByRole('button', { name: 'Mute' }).tap()
     await expect(bar.getByRole('button', { name: 'Unmute' })).toBeVisible()
+  })
+
+  test('tablet: the selection bar fits one line; editors give their content the whole width', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'tablet', 'tablet layout only')
+    test.setTimeout(90_000)
+    await signUp(page)
+    // Two versions of a song: titles alike up to the part that tells them apart.
+    const versions = ['Teutoburg forest, first version with female vocals', 'Teutoburg forest, second version with male choir']
+    for (const title of versions) await uploadTrack(page, title)
+    await page.goto('/')
+    await expect(page.getByTestId('track-row')).toHaveCount(2)
+
+    // --- Selection bar (UI-28): the count whole, each action's short name on one line ---
+    await page.getByTestId('select-mode').tap()
+    for (const title of await page.getByTestId('track-title').all()) await title.tap()
+    const bar = page.getByTestId('selection-bar')
+    const count = page.getByTestId('selection-count')
+    await expect(count).toHaveText('2 selected')
+    // It used to read "2 sel…".
+    expect(await count.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    for (const name of ['Final', 'Playlist', 'Feedback', 'Delete']) {
+      const label = bar.getByText(name, { exact: true })
+      await expect(label).toBeVisible()
+      // One box per line: "Mark / final" over two lines gave two.
+      expect(await label.evaluate(el => el.getClientRects().length), `${name} wraps`).toBe(1)
+    }
+
+    // --- Group of versions (UI-27): the cover a row above, the list across the page ---
+    const ids = await page.evaluate(async () => {
+      // The two versions, oldest first.
+      const tracks = await (await fetch('/api/tracks')).json() as { id: string }[]
+      return tracks.map(track => track.id).reverse()
+    })
+    const groupId = await page.evaluate(async (trackIds) => {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Teutoburg forest', trackIds, purpose: 'versions' }),
+      })
+      return (await response.json() as { id: string }).id
+    }, ids)
+    await page.goto(`/versions/${groupId}`)
+    const rows = page.getByTestId('playlist-track')
+    await expect(rows).toHaveCount(2)
+    const width = page.viewportSize()!.width
+    const cover = (await page.getByRole('button', { name: 'Add cover' }).boundingBox())!
+    const row = (await rows.first().boundingBox())!
+    expect(row.y).toBeGreaterThan(cover.y + cover.height)
+    // Beside a 16rem column the list kept about 400px of the 820.
+    expect(row.width).toBeGreaterThan(width * 0.8)
+    // Each title whole: in 400px they broke mid-word ("Teutob / urg") and were cut at two lines.
+    for (const title of versions) {
+      const text = rows.getByText(title, { exact: true })
+      const cut = await text.evaluate(el => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+      expect(cut, `${title} is cut`).toBe(false)
+    }
+
+    // --- Track editor (UI-27): the form across the page too, under the cover row ---
+    await page.goto(`/tracks/${ids[0]}/edit`)
+    const form = (await page.locator('#track-form').boundingBox())!
+    expect(form.width).toBeGreaterThan(width * 0.8)
   })
 
   test('phone: Stamp line stays pinned above the player bar while syncing', async ({ page }, testInfo) => {

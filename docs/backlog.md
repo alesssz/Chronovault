@@ -46,34 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries from UI-25 come from a review of 2026-11-06, made like the first one (2026-11-04) by driving a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-27 On tablets the editors' content column is too narrow: titles break mid-word
-
-**Priority:** medium · **Kind:** tablet layout · **Found:** 2026-11-06
-
-**What is wrong.** From `md` (768px) the track editor and the playlist and group pages put a 16rem column (cover, details, sharing) beside the content. At 820px the content column keeps about 400px: on a group's page the version titles wrap mid-word ("Teutob / urg (v…") beside the lock and Draft badge, so the three versions look alike; a playlist's tracks are cut ("Carthago Del…"); the Sync rows are cut ("Under the as…").
-
-**Where.** [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue) and [pages/tracks/[id]/edit.vue](../app/pages/tracks/[id]/edit.vue) (`md:grid-cols-[16rem_1fr]`); the row of [PlaylistTrackRow.vue](../app/components/playlist/PlaylistTrackRow.vue).
-
-**Options.**
-- A) Two columns from `lg` (1024px); below it the cover as a small row above the content, as on phones.
-- B) Keep `md`, with a narrower side column and the badges under the title.
-
-**Recommended.** A: the content gets the whole width where it is short of it; check at 820px that no title breaks inside a word.
-
-### UI-28 The selection bar is cramped on tablets
-
-**Priority:** medium · **Kind:** tablet layout · **Found:** 2026-11-06
-
-**What is wrong.** At 820px the selection bar uses the desktop row: the count is cut ("2 sel…") and the actions wrap over two lines ("Mark / final", "Share for / feedback").
-
-**Where.** [pages/index.vue](../app/pages/index.vue), the selection bar and `SELECTION_ACTION`.
-
-**Options.**
-- A) The phone layout (icon over a short name, four columns) up to `lg`, the row from `lg`.
-- B) The row with the short names ("Final", "Playlist", "Feedback") between `sm` and `lg`.
-
-**Recommended.** B: the bar stays under the header as on desktop, with names that fit; the count never cut.
-
 ### UI-30 A visitor's vote page puts its instruction at the bottom and never says the pick is saved
 
 **Priority:** medium · **Kind:** share pages · **Found:** 2026-11-06

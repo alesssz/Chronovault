@@ -7,10 +7,12 @@
  * over the preview. The `preview` slot replaces the image (playlists show
  * their mosaic); the default slot adds a note under the buttons.
  *
- * From `md` it fills the editors' side column, the preview at full width. Below
- * `md` the editors are one column and it is a compact row at their top: a
+ * From `lg` it fills the editors' side column, the preview at full width. Below
+ * `lg` the editors are one column and it is a compact row at their top: a
  * small preview with the buttons beside it, so the form is not a whole screen
- * of cover away.
+ * of cover away. Its `lg:` classes follow the editors' grid (PlaylistEditor,
+ * pages/tracks/[id]/edit.vue): change the three together, or a tablet gets a
+ * full-width cover a screen tall, or a 96px one alone in the side column.
  */
 import type { CropRect } from '~/lib/image'
 
@@ -54,8 +56,10 @@ function onChange(event: Event) {
 </script>
 
 <template>
-  <div class="flex items-center gap-4 md:block md:space-y-3">
-    <div class="relative size-24 shrink-0 md:size-auto">
+  <!-- A row (small preview, buttons beside it) below `lg`; a column from `lg` (see above) -->
+  <div class="flex items-center gap-4 lg:block lg:space-y-3">
+    <!-- 96px beside the buttons; from `lg` the side column's whole width (16rem) -->
+    <div class="relative size-24 shrink-0 lg:size-auto">
       <!-- The preview can be replaced, e.g. by a playlist's mosaic. -->
       <slot name="preview">
         <TrackCover
@@ -85,8 +89,8 @@ function onChange(event: Event) {
       data-testid="cover-input"
       @change="onChange"
     >
-    <!-- Beside the preview below `md`, under it from `md` -->
-    <div class="min-w-0 flex-1 space-y-2 md:space-y-3">
+    <!-- Beside the preview below `lg`, under it from `lg` (the editors' two columns) -->
+    <div class="min-w-0 flex-1 space-y-2 lg:space-y-3">
       <!-- Add or change the cover; remove it -->
       <div class="flex gap-2">
         <UButton
