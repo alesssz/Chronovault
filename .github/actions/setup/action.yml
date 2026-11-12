@@ -1,0 +1,26 @@
+# The setup every job starts with, after the checkout: pnpm, Node and the project's
+# dependencies. One place for it, so the jobs of ci.yml and audit.yml cannot drift apart.
+#
+# Used as `- uses: ./.github/actions/setup` right after actions/checkout: a local action
+# is read from the checked-out code, so the checkout itself has to stay in each job.
+#
+# Third-party actions are pinned to a full commit hash, the release in the comment beside
+# it: a tag such as v7 can be moved by whoever controls that repository, a commit cannot.
+# Dependabot (.github/dependabot.yml) updates the hash and the comment together.
+name: Setup
+description: pnpm at the version in package.json, Node at the one in .nvmrc, dependencies from the lockfile
+
+runs:
+  using: composite
+  steps:
+    # pnpm at the version pinned in package.json (packageManager).
+    - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+    # Node at the version in .nvmrc.
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+        # The pnpm store is cached between runs, keyed on the lockfile.
+        cache: pnpm
+    # Exactly the lockfile's versions: a lockfile out of step with package.json fails here.
+    - run: pnpm install --frozen-lockfile
+      shell: bash

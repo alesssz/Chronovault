@@ -5,6 +5,10 @@
 # Runs on every push to any branch, not only main: branches are merged into
 # main locally (pnpm merge:main) and main deploys to production on push, so
 # a branch's run is the only check that comes before production.
+#
+# Third-party actions are pinned to a full commit hash, the release in the comment beside
+# it (a tag can be moved, a commit cannot); Dependabot updates both. The setup shared by
+# every job (pnpm, Node, dependencies) is .github/actions/setup.
 name: CI
 
 on:
@@ -26,16 +30,10 @@ jobs:
     name: Lint, types and unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      # pnpm at the version pinned in package.json (packageManager), Node at the one in .nvmrc.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          # The pnpm store is cached between runs, keyed on the lockfile.
-          cache: pnpm
-      # Exactly the lockfile's versions: a lockfile out of step with package.json fails here.
-      - run: pnpm install --frozen-lockfile
+      # The pushed commit's code; it also holds the local setup action below, so it comes first.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm, Node and the dependencies from the lockfile (.github/actions/setup).
+      - uses: ./.github/actions/setup
       # ESLint with the stylistic rules, then vue-tsc over app, server and shared code.
       - run: pnpm lint
       - run: pnpm typecheck
@@ -47,14 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: quality
     steps:
-      # Same setup as the quality job (each job runs on a fresh machine).
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # Same checkout and setup as the quality job (each job runs on a fresh machine).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
 
       # The whole local stack in Docker, every migration applied (supabase/migrations), the seed
       # loaded. Only the services the tests need (no Studio, analytics…): faster startup. The mail
@@ -83,7 +76,7 @@ jobs:
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       # The browsers of a previous run, when that run had the same Playwright: a new version needs
       # its own browser, so it misses the cache, downloads it once, and saves it for the next runs.
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
@@ -97,7 +90,7 @@ jobs:
           CI: true
 
       # On failure, keep the Playwright report, traces and screenshots for a week.
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-report
