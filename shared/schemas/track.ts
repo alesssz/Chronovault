@@ -164,3 +164,13 @@ export const subgenreCreateSchema = z.object({
 
 /** Validated body of POST /api/genres/:id/subgenres. */
 export type SubgenreCreate = z.output<typeof subgenreCreateSchema>
+
+/**
+ * Body of PATCH /api/subgenres/:id: one of the user's own subgenres, renamed.
+ * The same rules as a new name (the same schema); the service checks it
+ * against the genre's other subgenres.
+ */
+export const subgenreRenameSchema = subgenreCreateSchema
+
+/** Validated body of PATCH /api/subgenres/:id. */
+export type SubgenreRename = z.output<typeof subgenreRenameSchema>

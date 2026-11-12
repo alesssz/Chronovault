@@ -21,7 +21,10 @@
  *      at a time). Failures are listed; the rest stays saved.
  *
  * Step 1 also lists the genres and subgenres (GenreReference): the names the
- * file's genre columns take, for CSV and JSON, which have no Help sheet.
+ * file's genre columns take, for CSV and JSON, which have no Help sheet, and
+ * above them the user's own subgenres, to rename or delete (OwnSubgenres):
+ * where every name is listed, a typo made in the editor or by an import is
+ * found and fixed.
  *
  * An empty cell leaves its field as it is. Every user has it: it only ever
  * reaches the user's own tracks, like the rest of the app.

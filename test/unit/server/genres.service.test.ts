@@ -1,11 +1,13 @@
 /**
  * Genres service with a mocked repository: the genres with their subgenres,
- * and creating a custom subgenre that may exist already or be incoherent.
+ * creating a custom subgenre that may exist already or be incoherent, and
+ * renaming or deleting one of the user's own (never a built-in one, never
+ * another user's), a new name checked like a created one.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DbClient } from '~~/server/utils/auth'
 import * as genresRepo from '~~/server/repositories/genres.repository'
-import { createSubgenre, listGenres } from '~~/server/services/genres.service'
+import { createSubgenre, deleteSubgenre, listGenres, renameSubgenre } from '~~/server/services/genres.service'
 
 vi.mock('~~/server/repositories/genres.repository')
 
@@ -80,5 +82,78 @@ describe('createSubgenre', () => {
 
   it('responds 404 for a genre that does not exist', async () => {
     await expect(createSubgenre(db, USER, 'polka', 'Fast')).rejects.toMatchObject({ statusCode: 404 })
+  })
+})
+
+describe('renameSubgenre', () => {
+  // The user's own subgenre under Metal, as the repository finds it.
+  const BOG = { id: 'bog', genre_id: 'metal', name: 'Bog Metal', user_id: USER }
+
+  beforeEach(() => {
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValue(BOG)
+  })
+
+  it('renames one of the user\'s own, trimmed, and stays in its genre', async () => {
+    vi.mocked(genresRepo.updateSubgenreName).mockResolvedValue({ ...BOG, name: 'Swamp Metal' })
+
+    const subgenre = await renameSubgenre(db, USER, 'bog', '  Swamp Metal ')
+
+    expect(genresRepo.updateSubgenreName).toHaveBeenCalledWith(db, 'bog', 'Swamp Metal')
+    expect(subgenre).toEqual({ id: 'bog', genreId: 'metal', name: 'Swamp Metal', custom: true })
+  })
+
+  it('takes its own name in another case: a spelling fix, not a clash with itself', async () => {
+    vi.mocked(genresRepo.updateSubgenreName).mockResolvedValue({ ...BOG, name: 'BOG METAL' })
+    await renameSubgenre(db, USER, 'bog', 'BOG METAL')
+    expect(genresRepo.updateSubgenreName).toHaveBeenCalledWith(db, 'bog', 'BOG METAL')
+  })
+
+  it('refuses with 409 a name its genre already has, built-in or own', async () => {
+    await expect(renameSubgenre(db, USER, 'bog', 'thrash metal'))
+      .rejects.toMatchObject({ statusCode: 409, message: 'Metal already has Thrash Metal' })
+    expect(genresRepo.updateSubgenreName).not.toHaveBeenCalled()
+  })
+
+  it('refuses with 409 and the reason a name incoherent with its genre', async () => {
+    await expect(renameSubgenre(db, USER, 'bog', 'K-Pop'))
+      .rejects.toMatchObject({ statusCode: 409, message: 'K-Pop belongs to Pop' })
+    await expect(renameSubgenre(db, USER, 'bog', 'Rock'))
+      .rejects.toMatchObject({ statusCode: 409, message: 'Rock is a genre, not a subgenre' })
+    expect(genresRepo.updateSubgenreName).not.toHaveBeenCalled()
+  })
+
+  it('refuses with 403 a built-in subgenre, and 404 an unknown one or another user\'s', async () => {
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValueOnce({ id: 'thrash', genre_id: 'metal', name: 'Thrash Metal', user_id: null })
+    await expect(renameSubgenre(db, USER, 'thrash', 'Trash Metal'))
+      .rejects.toMatchObject({ statusCode: 403, message: 'Built-in subgenres cannot be renamed' })
+    // RLS hides another user's row: it reads as missing, like an unknown id.
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValueOnce(null)
+    await expect(renameSubgenre(db, USER, 'theirs', 'Mine now')).rejects.toMatchObject({ statusCode: 404 })
+    expect(genresRepo.updateSubgenreName).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteSubgenre', () => {
+  it('deletes one of the user\'s own', async () => {
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValue({ id: 'bog', genre_id: 'metal', name: 'Bog Metal', user_id: USER })
+    vi.mocked(genresRepo.deleteSubgenreRow).mockResolvedValue(true)
+    await deleteSubgenre(db, 'bog')
+    expect(genresRepo.deleteSubgenreRow).toHaveBeenCalledWith(db, 'bog')
+  })
+
+  it('refuses with 403 a built-in subgenre, and 404 an unknown one', async () => {
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValueOnce({ id: 'thrash', genre_id: 'metal', name: 'Thrash Metal', user_id: null })
+    await expect(deleteSubgenre(db, 'thrash'))
+      .rejects.toMatchObject({ statusCode: 403, message: 'Built-in subgenres cannot be deleted' })
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValueOnce(null)
+    await expect(deleteSubgenre(db, 'nope')).rejects.toMatchObject({ statusCode: 404 })
+    expect(genresRepo.deleteSubgenreRow).not.toHaveBeenCalled()
+  })
+
+  it('responds 404 when it went between the check and the deletion', async () => {
+    vi.mocked(genresRepo.findSubgenreRow).mockResolvedValue({ id: 'bog', genre_id: 'metal', name: 'Bog Metal', user_id: USER })
+    // Deleted meanwhile (another tab): nothing left to delete.
+    vi.mocked(genresRepo.deleteSubgenreRow).mockResolvedValue(false)
+    await expect(deleteSubgenre(db, 'bog')).rejects.toMatchObject({ statusCode: 404, message: 'Subgenre not found' })
   })
 })

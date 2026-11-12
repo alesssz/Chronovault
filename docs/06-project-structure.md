@@ -14,6 +14,7 @@ Chronovault/
 │   │   ├── SaveBar.vue · LibraryFilters.vue  # the editors' Save bar below 768px · the library's filters and sort
 │   │   ├── HelpAccordion.vue · GenreReference.vue  # a closed help panel (Nuxt UI accordion) · the genres and
 │   │   │                             #   subgenres in one, searchable (the metadata import page, 7.18)
+│   │   ├── OwnSubgenres.vue          # the user's own subgenres, to rename or delete (top of GenreReference)
 │   │   ├── player/                   # PlayerBar, PlayerExpanded, PlayerQueue + PlayerQueueList (Up next),
 │   │   │                             #   PlayerWaveform, PlayerControls, PlayerVolume, PlayerCastButton
 │   │   ├── lyrics/                   # LyricsView, LyricsSyncEditor (tap to sync: the screen around lib/lyrics-sync.ts),
