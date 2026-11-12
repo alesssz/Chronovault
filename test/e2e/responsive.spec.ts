@@ -660,6 +660,14 @@ test.describe('touch screens', () => {
     await page.getByTestId('track-title').tap()
     await expect(page.getByTestId('player-title')).toHaveText('Touch screen song')
 
+    // The bar's title does not mean the card is set. The bar shows the track as soon as it
+    // is chosen (`displayTrack`), while the card follows `player.current`
+    // (plugins/media-session.client.ts), set only once the track's data and streaming
+    // address are in: read at once, the card was still empty about two runs in three.
+    // Poll the card itself (`null` until set), so the read below finds it filled.
+    await expect.poll(() => page.evaluate(() => navigator.mediaSession.metadata?.title ?? null))
+      .toBe('Touch screen song')
+
     // The media card (lock screen, notification): the title, and the app's name and its
     // artwork where the track has no composers, album or cover.
     const card = await page.evaluate(() => {
