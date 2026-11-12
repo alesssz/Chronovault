@@ -2,7 +2,10 @@
  * End-to-end, the listeners' feedback on a group of versions: a friend opens the link, listens
  * to one version to the end (a play, completed) and picks another with a name and a note; the
  * owner sees it all on the Versions page, cannot vote on their own group, and closes the vote by
- * marking a version final; the friend then sees the chosen version and no more hearts. The
+ * marking a version final; the friend then sees the chosen version and no more hearts. While
+ * voting is open, how to vote is said under the title, above the list, and a pick reads
+ * "Saved" at once, its note having a "Save note" of its own; a vote state that fails to load
+ * leaves the page without hearts and without the line asking for one. The
  * Statistics page counts the friend's play, apart from the owner's own. The APIs refuse what
  * they must (plays of tracks the caller cannot hear, the owner's vote), and past the caps on
  * anonymous writes (100 visitors per track a day, 50 votes per group) answer 429. A note typed
@@ -39,6 +42,24 @@ test.describe('listeners\' feedback', () => {
       return (await response.json() as { id: string }).id
     }, [ids['Echo v1'], ids['Echo v2']])
 
+    // --- The vote state does not load: no hearts, so no line asking for one ---
+    // The line is in the server's page (voting read as open from the versions); the failed
+    // load must take it away, or it asks for hearts that never come.
+    const brokenContext = await browser.newContext()
+    try {
+      await brokenContext.route(/\/api\/shared\/playlists\/[^/]+\/vote/, route =>
+        route.request().method() === 'GET' ? route.fulfill({ status: 500 }) : route.continue())
+      const broken = await brokenContext.newPage()
+      await broken.goto(`/p/${group}`)
+      await waitForHydration(broken)
+      await expect(broken.getByTestId('version-vote-hint')).toHaveCount(0)
+      await expect(broken.getByTestId('version-pick')).toHaveCount(0)
+      await expect(broken.getByTestId('shared-playlist-track')).toHaveCount(2)
+    }
+    finally {
+      await brokenContext.close()
+    }
+
     // A friend without an account, in another browser context.
     const friendContext = await browser.newContext()
     try {
@@ -50,9 +71,17 @@ test.describe('listeners\' feedback', () => {
       /** A version's row on the public page. */
       const friendRow = (title: string) => friend.getByTestId('shared-playlist-track').filter({ hasText: title })
 
-      // --- Voting is open: a heart per version, and a hint ---
+      // --- Voting is open: a heart per version, and how to vote under the title ---
       await expect(friend.getByTestId('version-pick')).toHaveCount(2)
-      await expect(friend.getByTestId('version-vote-hint')).toBeVisible()
+      const hint = friend.getByTestId('version-vote-hint')
+      // Worded for any device ("tap" on a desktop), and above the list: under it, it sat at the
+      // bottom edge of a desktop screen.
+      await expect(hint).toHaveText('Listen to each version, then choose the heart next to your favourite.')
+      const hintBox = (await hint.boundingBox())!
+      const firstRow = (await friend.getByTestId('shared-playlist-track').first().boundingBox())!
+      expect(hintBox.y + hintBox.height).toBeLessThanOrEqual(firstRow.y)
+      // No pick yet: no panel under the list.
+      await expect(friend.getByTestId('version-vote-note')).toHaveCount(0)
 
       // --- The friend listens to v1 to the end: a play, then a completed one ---
       const completed = friend.waitForRequest(request => request.url().endsWith('/api/plays')
@@ -64,6 +93,11 @@ test.describe('listeners\' feedback', () => {
       await friendRow('Echo v2').getByRole('button', { name: 'Pick Echo v2' }).click()
       await expect(friendRow('Echo v2').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
       await expect(friend.getByTestId('version-vote-note')).toContainText('Your pick: Echo v2')
+      // Stored as soon as the heart is chosen, and the panel says so: the note's own button is
+      // "Save note", not a "Save" that read as the pick still to be sent.
+      await expect(friend.getByTestId('version-vote-saved')).toHaveText('Saved')
+      await expect(friend.getByTestId('version-vote-save')).toHaveText('Save note')
+      await expect(friend.getByTestId('version-vote-save')).toBeDisabled()
       await friend.getByTestId('version-vote-name').fill('Marco')
       await friend.getByTestId('version-vote-comment').fill('The chorus hits harder')
       await friend.getByTestId('version-vote-save').click()
@@ -78,6 +112,9 @@ test.describe('listeners\' feedback', () => {
       await page.goto(`/p/${group}`)
       await expect(page.getByTestId('version-vote-owner')).toBeVisible()
       await expect(page.getByTestId('version-pick')).toHaveCount(0)
+      // Nothing to choose: no "choose the heart" line (it is in the server's page, gone once
+      // the state says this is the owner).
+      await expect(page.getByTestId('version-vote-hint')).toHaveCount(0)
       // …and the API refuses an owner's vote.
       const ownerVote = await page.request.put(`/api/shared/playlists/${group}/vote`, {
         data: { voterId: crypto.randomUUID(), trackId: ids['Echo v1'] },
@@ -108,6 +145,7 @@ test.describe('listeners\' feedback', () => {
       await expect(friend.getByTestId('version-vote-closed')).toContainText('Echo v2')
       await expect(friend.getByTestId('version-pick')).toHaveCount(0)
       await expect(friendRow('Echo v2').getByTestId('shared-track-chosen')).toBeVisible()
+      await expect(friend.getByTestId('version-vote-hint')).toHaveCount(0)
 
       // --- Plays the caller cannot hear are refused ---
       // v1 is private: without the group, a visitor has nothing to count.
