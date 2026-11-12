@@ -2,7 +2,12 @@
 
 | Problem | Solution |
 |---|---|
-| `pnpm merge:main`: `The checks failed` | `pnpm check` failed on the branch (lint, typecheck, or a test or coverage floor): nothing was merged. Fix it, commit, push, run again. For a branch that cannot break the checks (docs only), `pnpm merge:main --no-checks` |
+| `pnpm merge:main`: `The checks failed` | `pnpm check` failed on the branch (lint, typecheck, or a test or coverage floor): nothing was opened or merged. Fix it, commit, push, run again. For a branch that cannot break the checks (docs only), `pnpm merge:main --no-checks` |
+| `pnpm merge:main`: `gh, GitHub's command line, is missing or not signed in` | Install it (`brew install gh` · `winget install GitHub.cli`) and run `gh auth login`, answering No to "Authenticate Git with your GitHub credentials?" ([0.3](00-setup.md#03-getting-the-code)) |
+| `pnpm merge:main`: `CI failed (…)` | A check failed on the pull request: nothing was merged and auto-merge is off. The pull request's Checks tab (or `gh run view --log-failed`) says which test; a Playwright failure leaves its report, traces and screenshots as the run's artifact (`gh run download <run-id> -n playwright-report`). Fix, push, run again: the same pull request is reused |
+| `pnpm merge:main`: `Auto-merge could not be turned on` | The repository does not allow auto-merge (*Settings → General → Pull Requests → Allow auto-merge*, [13.8](13-deployment.md#138-the-github-repository)). Nothing is lost: keep the terminal open and the script merges once CI passes |
+| `pnpm merge:main`: `GitHub stopped answering` / `gh run watch`: `connection reset by peer` | The connection to GitHub dropped (a company network or VPN may cut long connections). CI goes on on GitHub; run the command again. With auto-merge on, the pull request merges anyway, and a new `pnpm merge:main` only cleans up |
+| Push to `main` refused: `Changes must be made through a pull request` / `Required status checks` | `main`'s ruleset ([13.8](13-deployment.md#138-the-github-repository)): work on a branch and merge it with `pnpm merge:main` |
 | CI: `database.types.ts is out of date with the migrations` | A migration changed the schema but the generated types were not regenerated: `pnpm db:migrate`, then `pnpm db:types`, commit the file |
 | CI: `db:advisors` or `db:lint` fails | A migration added something Supabase flags (a table without RLS, a function with an unsafe `search_path`…) or a SQL function with a type error. Run `pnpm db:advisors` / `pnpm db:lint` locally to read the details and the remediation link |
 | `Current version of Node.js … is unsupported` | Upgrade Node to 24.11+ (`nvm install 24`) |

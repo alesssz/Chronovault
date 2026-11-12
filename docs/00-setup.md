@@ -12,6 +12,7 @@ Locally the whole app runs on your computer: Supabase (database, sign-in, files)
 | Node.js | **24** (24.11+, or 22.21+) | Through nvm: `.nvmrc` pins 24 |
 | pnpm | **12.14.0** | Pinned in `package.json` (`packageManager`) |
 | Docker Desktop | recent, **running** | Runs the local Supabase stack (and the app, in Docker mode) |
+| GitHub CLI (`gh`) | any recent | Merges a branch: `pnpm merge:main` opens its pull request and waits for CI ([14.1](14-conventions.md#141-git-workflow)). Signed in once, see 0.3 |
 | GNU Make | optional | Every `make` target has a `pnpm` equivalent |
 
 About 10 GB free: the Supabase Docker images take about 6 GB, the dependencies about 1.5 GB (`node_modules` holds hard links into the pnpm store, so the space is not used twice even if a file manager counts it twice), Playwright's Chromium (for the end-to-end tests only) about 150 MB.
@@ -55,6 +56,10 @@ Every tool, in order, for **macOS** and **Windows**. Each step says why: every o
    node -v && pnpm -v   # v24.x and 12.14.0
    ```
    Recent npm versions skip install scripts unless allowed. Without `--allow-scripts=pnpm` you only get a warning, and pnpm still works through Node instead of its native binary (marginally slower).
+4. **GitHub CLI**, to merge branches (signed in later, 0.3):
+   ```bash
+   brew install gh
+   ```
 
 ### Windows (10/11)
 
@@ -83,7 +88,11 @@ Use **PowerShell** for the installs and **Git Bash** for the project commands: t
    ```powershell
    winget install ezwinports.make           # then reopen Git Bash
    ```
-5. If `git commit` fails with "Permission denied", an antivirus is locking files in `.git`: add the project folder to its exclusions.
+5. **GitHub CLI**, to merge branches (signed in later, 0.3), from PowerShell:
+   ```powershell
+   winget install GitHub.cli                # then reopen Git Bash
+   ```
+6. If `git commit` fails with "Permission denied", an antivirus is locking files in `.git`: add the project folder to its exclusions.
 
 The Supabase CLI is a dev dependency: no global install, on either system.
 
@@ -102,7 +111,16 @@ git config user.email "<id>+<user>@users.noreply.github.com"
 git config user.email      # check: prints that address
 ```
 
-Without `--global` it is stored in `.git/config` and applies to this clone only. A new clone starts without it.
+Without `--global` it is stored in `.git/config` and applies to this clone only. A new clone starts without it. `pnpm merge:main` checks it too: GitHub's merge commit carries this address, and the script stops on any other.
+
+**Sign the GitHub CLI in**, once per computer (it keeps its token in the system's keychain):
+
+```bash
+gh auth login     # GitHub.com → HTTPS → Login with a web browser, with the account that owns the repository
+gh auth status    # check: "Logged in to github.com account <user>"
+```
+
+To *"Authenticate Git with your GitHub credentials?"* answer **No**: gh only needs GitHub's API (pull requests, checks), and git keeps the credentials it already uses for pushing. A yes makes gh the credential helper of every github.com repository on the computer, which a computer shared with other GitHub accounts (a work one) does not want.
 
 **A clone made before 3 November 2026** cannot be updated: the history was rewritten that day (the authors' email addresses) and published as a new repository under the same address, so `git pull` fails with `refusing to merge unrelated histories`. Copy anything not pushed out of it (and `.env.r2`, if you made one), delete the folder and clone again. Local accounts and tracks are not in the folder but in Docker volumes named after the Supabase project, so the new clone finds them.
 

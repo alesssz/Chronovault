@@ -26,7 +26,7 @@ Open **http://localhost:3100** and sign in with **`demo@chronovault.local` / `ch
 | Run all checks before a commit | `make check` (lint, types, unit tests with the coverage floors) |
 | Run the end-to-end tests | `make test-e2e` (Supabase running; builds the app and serves it on :3200) |
 | See whether CI passed on my branch | GitHub → *Actions*, or the mark next to the branch's last commit |
-| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`): runs `pnpm check` first, see [14.1](14-conventions.md#141-git-workflow). Pushing `main` deploys to production |
+| Merge the current branch into main and delete it | `pnpm merge:main` (or `make merge`): runs `pnpm check`, opens a pull request and has GitHub merge it once CI passes, see [14.1](14-conventions.md#141-git-workflow). The merge deploys to production |
 | Start the local data afresh | `pnpm db:reset` (**deletes every local account and track**; the demo account comes back) |
 | Check a computer's prerequisites | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`) |
 | Fix an error message | [16. Troubleshooting](16-troubleshooting.md#16-troubleshooting) |

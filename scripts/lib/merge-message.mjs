@@ -1,5 +1,6 @@
 /**
- * Builds the message of the merge commit created by `pnpm merge:main`:
+ * Builds the message of the merge commit `pnpm merge:main` has GitHub create
+ * when it merges the branch's pull request (gh pr merge --subject / --body):
  * a title, then one line per commit of the branch (oldest first).
  *
  *   one commit      Merge feat/x: <its subject>
