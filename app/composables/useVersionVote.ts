@@ -11,7 +11,9 @@ import { sharedApi } from '~/services/api'
  * The state is per browser (app/lib/listener-id.ts), so it loads in the
  * browser only, after the server-rendered page is on screen. Until then, and
  * on a playlist that is not a group, `state` is null and the page shows no
- * vote buttons.
+ * vote buttons. `unavailable` tells a state that failed to load from one not
+ * loaded yet: the page then drops its "choose the heart" line too, which it
+ * shows before the state comes in (pages/p/[id].vue, `showVoteHint`).
  *
  * Failures show a toast; "voting is closed" (409, the owner chose a final
  * version meanwhile) reloads the state, so the buttons go away; a full
@@ -24,6 +26,8 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
   const state = ref<VersionVoteState | null>(null)
   /** A request is running: the buttons wait. */
   const busy = ref(false)
+  /** The state could not be loaded: no hearts, so nothing may ask for one. */
+  const unavailable = ref(false)
 
   /** The visitor may vote here: a group, voting open, and not its owner. */
   const canVote = computed(() => !!state.value && state.value.open && !state.value.isOwner)
@@ -33,10 +37,12 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
     if (!isGroup()) return
     try {
       state.value = await sharedApi.voteState(playlistId, getListenerId())
+      unavailable.value = false
     }
     catch {
       // No vote buttons: listening still works.
       state.value = null
+      unavailable.value = true
     }
   }
 
@@ -100,5 +106,5 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
   // The state is read once the page is in the browser (the listener id lives there).
   onMounted(load)
 
-  return { state, busy, canVote, toggle, saveNote }
+  return { state, busy, unavailable, canVote, toggle, saveNote }
 }

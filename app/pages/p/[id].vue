@@ -8,9 +8,10 @@ import { sharedApi } from '~/services/api'
  * played; a second click on its row opens it full screen, description too. Server-rendered for link previews.
  * A group of versions (purpose 'versions', made by "Share for feedback") is the
  * same page, introduced as versions of one song to choose from: each version
- * gets a heart to pick it, and a panel under the list holds the pick's
- * optional name and comment, or says that voting is closed and which version
- * was chosen (useVersionVote, ShareVersionVote). Plays heard here are counted
+ * gets a heart to pick it, a line under the title says so while voting is
+ * open, and a panel under the list shows the pick, saved, with its optional
+ * name and comment, or says that voting is closed and which version was
+ * chosen (useVersionVote, ShareVersionVote). Plays heard here are counted
  * by the app-wide play counter (plugins/play-counter.client.ts). Tracks can
  * be downloaded, with their tags (useSharedTrackDownload), unless the track
  * itself is public: the track's visibility decides, not the playlist's.
@@ -161,6 +162,22 @@ const { download, isDownloading } = useSharedTrackDownload(trackId => sharedApi.
 /** This browser's pick, the heart next to each version and the vote panel (groups only). */
 const vote = useVersionVote(id, () => isVersions.value)
 
+/**
+ * The line under the title that asks the visitor to choose a heart: a group with versions,
+ * voting open, not its owner. It sat under the list, at the bottom edge of a desktop screen,
+ * far from the group's own question under the title (UI-30). The vote state is per browser and
+ * loads after mount, so until then (on the server and in the first client pass, which must
+ * match) "open" is read from the versions: closed once one is marked final. The line is then in
+ * the server-rendered page and the list does not move when the state comes in; once loaded the
+ * state decides (the owner, or a vote closed meanwhile, hide it). A state that failed to load
+ * brings no hearts, so the line goes too.
+ */
+const showVoteHint = computed(() => {
+  const p = playlist.value
+  if (!p || !isVersions.value || !p.tracks.length || vote.unavailable.value) return false
+  return vote.state.value ? vote.canVote.value : !p.tracks.some(track => track.status === 'final')
+})
+
 /** The version is this browser's pick (filled heart). */
 function isPicked(trackId: string) {
   return vote.state.value?.pick?.trackId === trackId
@@ -215,13 +232,31 @@ function isPicked(trackId: string) {
           >
             {{ playlist.description }}
           </p>
-          <!-- A group without a note of its own: what the listener is asked to do -->
+          <!--
+            A group without a note of its own: what it is. What to do is the next line's, which
+            goes once voting closes; this one stays true.
+          -->
           <p
             v-else-if="isVersions"
             class="leading-relaxed text-muted"
             data-testid="shared-versions-hint"
           >
-            Different versions of the same song: listen to each and pick your favourite.
+            Different versions of the same song.
+          </p>
+          <!--
+            Groups, voting open: how to vote, right under the question the group asks (its
+            description). "Choose", not "tap": the page is opened on desktops too.
+          -->
+          <p
+            v-if="showVoteHint"
+            class="flex items-center gap-2 text-sm text-muted"
+            data-testid="version-vote-hint"
+          >
+            <UIcon
+              name="i-lucide-heart"
+              class="size-4 shrink-0"
+            />
+            Listen to each version, then choose the heart next to your favourite.
           </p>
         </div>
 
@@ -341,7 +376,7 @@ function isPicked(trackId: string) {
           </li>
         </ol>
 
-        <!-- Groups: what to do, the pick and its note, or the outcome -->
+        <!-- Groups: the pick (saved) and its note, the owner's note, or the outcome -->
         <ShareVersionVote
           v-if="isVersions && playlist.tracks.length"
           :state="vote.state.value"

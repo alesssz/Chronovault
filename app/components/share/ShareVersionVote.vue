@@ -5,13 +5,18 @@ import { MAX_VOTE_COMMENT, MAX_VOTER_NAME } from '~~/shared/schemas/feedback'
 
 /**
  * The vote panel of a group's public page (/p/:id), under the list of
- * versions. The pick itself is made with the heart next to each version;
- * this panel says what to do, or what happened:
+ * versions. The pick itself is made with the heart next to each version, and
+ * how to vote is said under the page's title (`showVoteHint` there: here,
+ * under the list, it was at the bottom edge of a desktop screen); this panel
+ * says what happened:
  *
  * - the group's owner: a note pointing to the Versions page (owners don't vote);
  * - voting closed: which version was chosen;
- * - no pick yet: how to pick;
- * - a pick: which one, and an optional name and comment for the owner.
+ * - no pick yet: nothing;
+ * - a pick: which one, marked saved (it is stored as soon as the heart is
+ *   chosen), and an optional name and comment for the owner, with their own
+ *   "Save note". A bare "Your pick" above a disabled "Save" read as a pick
+ *   still to be sent (UI-30).
  *
  * Nothing shows until the vote state has loaded (it is per browser, so
  * after the server-rendered page).
@@ -21,7 +26,7 @@ const props = defineProps<{
   state: VersionVoteState | null
   /** The group's versions, to name the pick and the chosen one. */
   tracks: SharedTrackContent[]
-  /** A vote request is running (Save spins). */
+  /** A vote request is running (the pick reads "Saving…", Save note spins). */
   busy: boolean
 }>()
 
@@ -82,22 +87,9 @@ const noteChanged = computed(() =>
       data-testid="version-vote-closed"
     />
 
-    <!-- Open, nothing picked yet: how to vote -->
-    <p
-      v-else-if="!picked"
-      class="flex items-center gap-2 text-sm text-muted"
-      data-testid="version-vote-hint"
-    >
-      <UIcon
-        name="i-lucide-heart"
-        class="size-4 shrink-0"
-      />
-      Listen to the versions, then tap the heart next to your favourite.
-    </p>
-
-    <!-- Open, picked: which one, and an optional note for the owner -->
+    <!-- Open, picked: which one, saved, and an optional note for the owner (no pick: nothing) -->
     <form
-      v-else
+      v-else-if="picked"
       class="space-y-3 rounded-xl border border-default p-4"
       data-testid="version-vote-note"
       @submit.prevent="emit('save', name, comment)"
@@ -107,7 +99,25 @@ const noteChanged = computed(() =>
           name="i-lucide-heart"
           class="size-4 shrink-0 text-primary"
         />
-        <span class="min-w-0 truncate">Your pick: {{ picked.title }}</span>
+        <span class="min-w-0 flex-1 truncate">Your pick: {{ picked.title }}</span>
+        <!--
+          The pick is stored when the heart is chosen (`state.pick` is the server's answer, never
+          a guess), so it reads "Saved", or "Saving…" while a request runs: a new pick, or the
+          note, which is sent with it. `role="status"` has screen readers announce the change.
+        -->
+        <span
+          role="status"
+          class="flex shrink-0 items-center gap-1 text-xs font-normal"
+          :class="busy ? 'text-muted' : 'text-success'"
+          data-testid="version-vote-saved"
+        >
+          <UIcon
+            :name="busy ? 'i-lucide-loader-circle' : 'i-lucide-check'"
+            class="size-3.5"
+            :class="{ 'animate-spin': busy }"
+          />
+          {{ busy ? 'Saving…' : 'Saved' }}
+        </span>
       </p>
       <UInput
         v-model="name"
@@ -128,14 +138,14 @@ const noteChanged = computed(() =>
         class="w-full"
         data-testid="version-vote-comment"
       />
-      <!-- Who reads it, and Save -->
+      <!-- Who reads it, and Save note: named for what it saves, the pick being saved already -->
       <div class="flex items-center justify-between gap-3">
         <p class="text-xs text-muted">
           Only the owner of this group sees your pick and note.
         </p>
         <UButton
           type="submit"
-          label="Save"
+          label="Save note"
           size="sm"
           :loading="busy"
           :disabled="!noteChanged"

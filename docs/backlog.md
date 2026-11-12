@@ -46,20 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries from UI-25 come from a review of 2026-11-06, made like the first one (2026-11-04) by driving a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-30 A visitor's vote page puts its instruction at the bottom and never says the pick is saved
-
-**Priority:** medium · **Kind:** share pages · **Found:** 2026-11-06
-
-**What is wrong.** On a group's share page, "Listen to the versions, then tap the heart next to your favourite" comes after the list, at the bottom edge of a desktop screen, while the group's own question ("Which one do you prefer?") sits under the title. After a heart is chosen the pick is stored at once, but the panel only says "Your pick: …" above a pale, disabled Save that belongs to the optional name and note: it reads as if the pick still had to be sent. "Tap" on a desktop.
-
-**Where.** [ShareVersionVote.vue](../app/components/share/ShareVersionVote.vue); [pages/p/[id].vue](../app/pages/p/[id].vue) (where the panel sits).
-
-**Options.**
-- A) The instruction under the group's description, worded for any device ("choose the heart…"); "Saved" next to the pick once stored; the note's Save labelled "Save note".
-- B) Only the "Saved" mark.
-
-**Recommended.** A.
-
 ### UI-34 The upload drop zone shows no way to pick files
 
 **Priority:** low · **Kind:** polish, touch screens · **Found:** 2026-11-06
