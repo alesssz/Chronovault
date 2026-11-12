@@ -301,17 +301,26 @@ function isPicked(trackId: string) {
                 />
                 <template v-else>{{ index + 1 }}</template>
               </span>
+              <!--
+                In a group, phones drop the cover: versions of a song mostly share it, so it tells
+                them apart less than the title, which needs the room (see below). The full-screen
+                view still shows the playing version's cover.
+              -->
               <TrackCover
                 :url="track.coverUrl"
                 :title="track.title"
                 class="size-10"
+                :class="{ 'max-sm:hidden': isVersions }"
+                data-testid="shared-track-cover"
               />
               <span class="min-w-0 flex-1">
                 <!--
                   Title, "WIP" on drafts (versions to choose from). In a group the title takes up to
                   two lines: versions share the start of their title, and on phones the part that
                   tells them apart was cut off. There, phones also drop what every row repeats: the
-                  WIP badge (versions are drafts until one is chosen) and the duration.
+                  WIP badge (versions are drafts until one is chosen), the duration and the cover.
+                  The download button and a visitor's heart sit beside the row: with the cover
+                  there, a visitor's title kept about 180px of a 412px phone and lost its end.
                 -->
                 <span class="flex min-w-0 items-center gap-2">
                   <span

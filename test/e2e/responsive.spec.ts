@@ -514,7 +514,7 @@ test.describe('touch screens', () => {
     await expect(expanded.getByRole('button', { name: 'Close player' })).toHaveCount(0)
   })
 
-  test('phone: selecting acts from the bottom; versions and statistics keep their titles', async ({ page }, testInfo) => {
+  test('phone: selecting acts from the bottom; versions and statistics keep their titles', async ({ page, browser }, testInfo) => {
     test.skip(testInfo.project.name !== 'phone', 'phone layout only')
     test.setTimeout(90_000)
     await installDeviceProbes(page)
@@ -542,15 +542,39 @@ test.describe('touch screens', () => {
     await expect.poll(async () => (await deviceLog(page)).shared).toHaveLength(1)
     const groupUrl = (await deviceLog(page)).shared[0]!.url!
 
-    // The group's share page: each title whole, on two lines (cut at the end of one line, both
-    // read "Teutoburg forest, …"); the WIP badge and the duration, alike on every row, give way.
+    /**
+     * The group's share page: each title whole, on two lines (cut at the end of one line, both
+     * read "Teutoburg forest, …"); the WIP badge, the duration and the cover, alike on every row,
+     * give way. With the cover there the titles had a few pixels to spare: Chromium on Linux
+     * (CI) draws Inter a little wider than on a Mac and cut them, a visitor's heart cut them anywhere.
+     */
+    const expectWholeTitles = async (on: Page) => {
+      for (const title of versions) {
+        const row = on.getByTestId('shared-playlist-track').filter({ hasText: title })
+        const text = row.getByText(title, { exact: true })
+        const cut = await text.evaluate(el => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
+        expect(cut, `${title} is cut`).toBe(false)
+        await expect(row.getByTestId('shared-track-wip')).toBeHidden()
+        await expect(row.getByTestId('shared-track-cover')).toBeHidden()
+      }
+    }
+    // The owner: a download button beside each row.
     await page.goto(groupUrl)
-    for (const title of versions) {
-      const row = page.getByTestId('shared-playlist-track').filter({ hasText: title })
-      const text = row.getByText(title, { exact: true })
-      const cut = await text.evaluate(el => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
-      expect(cut, `${title} is cut`).toBe(false)
-      await expect(row.getByTestId('shared-track-wip')).toBeHidden()
+    await expect(page.getByTestId('shared-track-download')).toHaveCount(2)
+    await expectWholeTitles(page)
+    // A visitor (same phone, no account): the heart to vote too, the narrowest row.
+    const visitorContext = await browser.newContext()
+    try {
+      // The visitor's page.
+      const visitor = await visitorContext.newPage()
+      await visitor.goto(groupUrl)
+      await waitForHydration(visitor)
+      await expect(visitor.getByTestId('version-pick')).toHaveCount(2)
+      await expect(visitor.getByTestId('shared-track-download')).toHaveCount(2)
+      await expectWholeTitles(visitor)
+    }
+    finally {
+      await visitorContext.close()
     }
 
     // Statistics: the numbers go under the title, which keeps the row's width (beside them it
