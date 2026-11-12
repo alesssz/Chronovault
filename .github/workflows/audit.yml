@@ -10,6 +10,8 @@
 #
 # The job summary also lists the outdated packages, to plan updates
 # (docs/11-local-development.md, 11.6); that list never fails the run.
+#
+# The checkout is pinned to a commit hash and the setup is shared: see the top of ci.yml.
 name: Audit
 
 on:
@@ -39,16 +41,11 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      # pnpm at the version pinned in package.json (packageManager), Node at the one in .nvmrc.
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          # The pnpm store is cached between runs, keyed on the lockfile.
-          cache: pnpm
-      # Installed so that `pnpm outdated` compares what is really resolved.
-      - run: pnpm install --frozen-lockfile
+      # The pushed commit's code; it also holds the local setup action below, so it comes first.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm, Node and the dependencies from the lockfile (.github/actions/setup): installed
+      # so that `pnpm outdated` compares what is really resolved.
+      - uses: ./.github/actions/setup
 
       - name: Outdated packages (job summary)
         # `pnpm outdated` exits 1 when anything is outdated: informative only.
