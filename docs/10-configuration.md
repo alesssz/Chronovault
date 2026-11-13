@@ -19,6 +19,8 @@
 
 In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` / `NUXT_PUBLIC_SUPABASE_KEY` (runtime overrides of the build-time values). A missing audio storage variable makes audio routes answer `500 Audio storage is not configured` and logs which one is missing.
 
+**Outside the app:** CI's migrate job reads one secret, `SUPABASE_DB_URL` (the production database's Session pooler address, password included), from the GitHub environment `production` ([13.1](13-deployment.md#131-supabase-cloud)); it is no environment variable of the app and lives in no file.
+
 ## 10.2 Env files
 
 | File | Git | Written by | Used by |
