@@ -111,8 +111,8 @@ describe('merge-main script', () => {
 
   /** The fake GitHub's settings and CI for this test (see fake-gh.mjs), over the defaults. */
   function setGitHub(settings: Record<string, unknown>) {
-    // The defaults: auto-merge allowed, no ruleset, CI already green.
-    const defaults = { remote, scratch: root, authOk: true, autoAllowed: true, required: false, deleteBranch: false, checks: ['pass'], prs: [], calls: [] }
+    // The defaults: auto-merge allowed, no ruleset, CI already green, the account's emails kept private.
+    const defaults = { remote, scratch: root, authOk: true, autoAllowed: true, required: false, deleteBranch: false, accountEmail: NOREPLY, checks: ['pass'], prs: [], calls: [] }
     writeFileSync(ghState, JSON.stringify({ ...defaults, ...settings }))
   }
 
@@ -221,6 +221,8 @@ describe('merge-main script', () => {
     expect(merges).toHaveLength(1)
     expect(merges[0]).not.toContain('--auto')
     expect(merges[0]).toContain(git(work, 'rev-parse', 'origin/main^2'))
+    // From here the author is named explicitly: the clone's noreply address.
+    expect(merges[0]).toEqual(expect.arrayContaining(['--author-email', NOREPLY]))
     expectMergedAndCleanedUp()
   }, 30_000)
 
@@ -238,6 +240,10 @@ describe('merge-main script', () => {
     const merges = callsOf('pr', 'merge')
     expect(merges).toHaveLength(1)
     expect(merges[0]).toContain('--auto')
+    // No author email in the request (GitHub refuses a noreply one there): the account's own is used,
+    // the noreply address, as expectMergedAndCleanedUp checks on the merge commit.
+    expect(merges[0]).not.toContain('--author-email')
+    expect(output).not.toContain('Auto-merge could not be turned on')
     expectMergedAndCleanedUp()
   }, 30_000)
 

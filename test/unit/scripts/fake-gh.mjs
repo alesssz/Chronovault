@@ -8,6 +8,8 @@
  *   autoAllowed      false: the repository does not allow auto-merge
  *   required         true: main's ruleset requires the checks (BLOCKED until they pass)
  *   deleteBranch     true: the repository deletes a branch when its pull request is merged
+ *   accountEmail     the account's commit email for web operations, which a merge without
+ *                    --author-email (auto-merge) carries: the noreply one, emails kept private
  *   checks           CI over time: one entry ('pending' | 'pass' | 'fail') used up by each
  *                    `gh pr view`, the last one kept; auto-merge merges at the first 'pass'
  *   prs              the pull requests (an open one can be put here before the run)
@@ -81,7 +83,7 @@ function merge(pr, how) {
   const clone = join(state.scratch, `merge-${pr.number}-${state.calls.length}`)
   git(state.scratch, 'clone', '--quiet', state.remote, clone)
   git(clone, 'switch', '--quiet', 'main')
-  git(clone, '-c', 'user.name=GitHub', '-c', `user.email=${how.authorEmail}`, '-c', 'commit.gpgsign=false',
+  git(clone, '-c', 'user.name=GitHub', '-c', `user.email=${how.authorEmail ?? state.accountEmail}`, '-c', 'commit.gpgsign=false',
     'merge', '--no-ff', '-m', how.subject, ...(how.body ? ['-m', how.body] : []), `origin/${pr.headRefName}`)
   git(clone, 'push', '--quiet', 'origin', 'main')
   pr.state = 'MERGED'
@@ -161,6 +163,8 @@ if (group === 'pr' && command === 'merge') {
   if (how.matchHead !== headOf(pr.headRefName)) finish(1, 'Head branch was modified. Review and try the merge again.')
   if (args.includes('--auto')) {
     if (state.autoAllowed === false) finish(1, 'GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge)')
+    // As GitHub answers: an author email must be verified on the account, which a noreply address never is.
+    if (how.authorEmail) finish(1, 'GraphQL: test does not have a verified email, which is required to enable auto-merging. (enablePullRequestAutoMerge)')
     if (pr.mergeStateStatus === 'CLEAN') finish(1, 'GraphQL: Pull request is in clean status (enablePullRequestAutoMerge)')
     pr.autoMergeRequest = how
     finish(0)
