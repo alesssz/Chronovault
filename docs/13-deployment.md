@@ -13,6 +13,18 @@
    `seed.sql` (demo user) is **not** applied in production.
 3. Copy the *Project URL* and the *publishable key* (Project Settings → API).
 4. Storage needs no setup: the migrations create the `covers` bucket and its policies. Only small WebP covers are stored here, so the 50 MB per-file limit of the free plan does not matter.
+5. **Let CI apply the next migrations** (13.5). It needs only the database's address, password included:
+   - The address: the project's **Connect** button → the connection string, URI format, method **Session pooler** (`postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-0-<region>.pooler.supabase.com:5432/postgres`), with the database password (set when the project was made; *Project Settings → Database → Reset database password* makes a new one, letters and digits only) in place of `[YOUR-PASSWORD]`. The Session pooler, because the direct connection is IPv6 only on the Free plan and GitHub's runners have no IPv6; not the Transaction pooler (port 6543), unfit for migrations.
+   - Check it from a terminal, without it showing on screen or in the history:
+     ```bash
+     read -rs SUPABASE_DB_URL      # paste the address, Enter (nothing shows)
+     echo ${#SUPABASE_DB_URL}      # its length, about 110: not 0
+     pnpm exec supabase migration list --db-url "$SUPABASE_DB_URL"   # every migration Local = Remote
+     unset SUPABASE_DB_URL
+     ```
+   - GitHub → *Settings → Environments → New environment* **`production`**: *Deployment branches and tags* → *Selected branches and tags* → rule `main` (only `main`'s runs can read it; no required reviewers, no wait timer). Add the **environment secret `SUPABASE_DB_URL`** with the address.
+
+   No access token: without `supabase link`, `db push --db-url` needs nothing else, and a token able to link would also read the project's secret key. A new database password means updating the secret.
 
 ## 13.2 Cloudflare R2 (audio files)
 
@@ -43,7 +55,8 @@ Dashboard labels may change slightly over time.
 3. *Settings → Node.js Version* (under "Build and Deployment" or "General", depending on the dashboard version): 24.x.
 4. pnpm is pinned in `packageManager`; if Vercel does not pick it up, add `ENABLE_EXPERIMENTAL_COREPACK=1`.
 5. Deploy and open `https://<your-domain>/api/health`. Every push to `main` deploys again automatically.
-6. The functions run in **London (`lhr1`)**, set in `nuxt.config.ts` (`nitro.vercel.functions.regions`), next to the Supabase project (eu-west-2): every API call reaches the database several times. A Supabase project in another region needs the nearest [Vercel region](https://vercel.com/docs/regions) there instead. Check it: the deployment's *Functions* tab shows the region.
+6. **Deployment Checks** (the project's *Settings → Build and Deployment → Deployment Checks* → *Add Checks* → provider GitHub): require **Migrate production database**, the CI job that applies the migrations (13.5). Vercel then builds each production deployment as soon as `main` changes but puts it online (on the production domains) only once that job passed on the same commit, so the new code never meets the old schema; until then the previous deployment stays live. No change to the workflow is needed: Vercel reads the job's result from GitHub by its name (rename the job, update the check). Production's *automatic aliasing* must stay on. In an emergency a deployment's page offers *Force Promote*.
+7. The functions run in **London (`lhr1`)**, set in `nuxt.config.ts` (`nitro.vercel.functions.regions`), next to the Supabase project (eu-west-2): every API call reaches the database several times. A Supabase project in another region needs the nearest [Vercel region](https://vercel.com/docs/regions) there instead. Check it: the deployment's *Functions* tab shows the region.
 
 ## 13.4 After the first deploy
 
@@ -56,8 +69,14 @@ Dashboard labels may change slightly over time.
 
 ## 13.5 Updating production
 
-- **Code only:** push the branch and run `pnpm merge:main`: once CI passes, GitHub merges it into `main` and Vercel deploys.
-- **With a new migration:** `make db-push` first (so the new code finds the new schema), then merge as above. Vercel never touches the database.
+- **Code and migrations alike:** push the branch and run `pnpm merge:main`. Once CI passes, GitHub merges it into `main`, and then, in this order:
+  1. CI runs again on `main` (the merged code: lint, types, unit, database and end-to-end tests);
+  2. its **Migrate production database** job applies the migrations of `supabase/migrations` that production lacks (`supabase db push --db-url`, with the `production` environment's secret, 13.1), none most of the time; the seed is never applied;
+  3. Vercel, which built the deployment at the merge, puts it online once that job passed (Deployment Checks, 13.3).
+
+  About ten minutes from merge to live. Vercel never touches the database. A failed check or migration leaves the previous deployment live; after a failed migration, `migration list` shows which ones production has (16).
+- **Migrations suit the code already live**, which keeps running against the new schema for those minutes: add first (a new column, table or function), switch the code over, and drop what the old code used in a later merge (*expand and contract*). A rename is an add, then a drop.
+- **By hand** (`make db-link ref=<project-ref>` once, then `make db-push`) only to repair: the job would apply the same migrations at the next merge anyway, and `migration list` shows where production stands.
 - Writing a migration: `make db-migration name=<description>` → write the SQL → `make db-migrate` → `make db-test` → `make db-types`.
 - A new **SQL function**: decide who may call it ([8.3](08-data-model-and-security.md#83-database-functions)). Meant for the API: keep it in `public`, revoke it from `public` and grant it to the roles that need it. A helper of other functions: revoke it from `public`, `anon` and `authenticated` by name. A helper of policies: create it in `private`. Then add API functions to the lists in `function_privileges.test.sql`, or `make db-test` fails.
 
@@ -88,6 +107,7 @@ The repository is **public**: the code, every commit and its author's email can 
 
 - **Commit identity:** commits carry the GitHub *noreply* address (`<id>+<user>@users.noreply.github.com`), set per clone ([0.3](00-setup.md#03-getting-the-code)). A commit with another address is public as soon as it is pushed, and Vercel refuses to deploy it ([16](16-troubleshooting.md#16-troubleshooting)).
 - **`main` is protected by a ruleset** (*Settings → Rules → Rulesets*, target the default branch, *Active*, no bypass list): **Restrict deletions**, **Block force pushes**, **Require a pull request before merging** (0 approvals: one person works here) and **Require status checks to pass**, with the two CI jobs: *Lint, types and unit tests* and *Database and end-to-end tests* (the Audit job is left out: it runs only when the dependencies change, and a required check that never runs would block every other pull request). Nothing reaches `main`, the production branch, without a green CI: not a push, not a merge. `pnpm merge:main` works within it ([14.1](14-conventions.md#141-git-workflow)).
+- **Environment `production`** (*Settings → Environments*): the database's address as the secret `SUPABASE_DB_URL` (13.1), readable only by runs on `main`, through CI's migrate job. Nothing else of production lives on GitHub: the app's keys are in Vercel.
 - **Pull request settings** (*Settings → General → Pull Requests*): **Allow merge commits** (`pnpm merge:main` merges with one, `--no-ff`), **Allow auto-merge** (GitHub merges a pull request by itself once the required checks pass) and **Automatically delete head branches**.
 - **Secret scanning and push protection** (*Settings → Advanced Security*, free on public repositories): GitHub refuses a push that contains a known kind of key (Supabase, Cloudflare, Vercel tokens…), and alerts on any already in the history.
 - **Dependabot** opens one grouped pull request a week for the GitHub Actions of the workflows and of `.github/actions/setup`, pinned to commit hashes ([11.6](11-local-development.md#116-updating-dependencies)); CI checks it, and it is merged from GitHub. If `main` moved on meanwhile, a comment `@dependabot rebase` on the pull request brings it up to date.

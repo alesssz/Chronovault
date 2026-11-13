@@ -30,7 +30,7 @@ pnpm merge:main                    # or: make merge: pull request, CI, merge, cl
 | Ready | Shows the commits and the merge message, asks `[y/N]` (`pnpm merge:main --yes` or `make merge yes=1` skip the question) |
 | Confirmed | Opens the pull request (or reuses the one open for the branch) and waits for CI, printing where it stands. With the ruleset requiring the checks it turns on **auto-merge**: GitHub merges as soon as CI passes, even if the terminal is closed (Ctrl+C only stops the waiting). Without auto-merge it merges from the terminal once every check passed. Either way: a merge commit (`--no-ff`) with the message below, the clone's noreply email as its author, and only the commit checked here (`--match-head-commit`) |
 | CI fails | Auto-merge off again, nothing merged, the pull request left open: fix, push, run again (the same pull request is reused) |
-| Merged | Switches to `main`, pulls it (Vercel deploys it), deletes the branch on GitHub (unless GitHub already did) and locally |
+| Merged | Switches to `main`, pulls it, deletes the branch on GitHub (unless GitHub already did) and locally. Production follows by itself: CI on `main`, its migrations, then Vercel puts the new code online ([13.5](13-deployment.md#135-updating-production)) |
 | Run again after a merge done meanwhile (after Ctrl+C) | Only the clean-up |
 | GitHub stops answering while waiting | Tries again for about two minutes, then stops; the pull request stays, and with auto-merge on it still merges. Run again to finish |
 
