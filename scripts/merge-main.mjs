@@ -32,7 +32,8 @@
  *      itself when CI passes, even if this terminal is closed (Ctrl+C only stops
  *      the waiting). Otherwise it merges from here once every check passed.
  *      Either way the merge commit gets the usual message (--no-ff, every commit
- *      of the branch listed) and only the commit checked here can be merged.
+ *      of the branch listed), a noreply author, and only the commit checked here
+ *      can be merged.
  *   8. A failed check turns auto-merge off again and stops: nothing is merged.
  *      Fix, push, run it again; the same pull request is reused.
  *   9. Once merged: switches to main, pulls it, deletes the branch on GitHub and
@@ -166,8 +167,15 @@ function cleanUp(branch) {
  * Waits for CI on the pull request and gets it merged: by GitHub's auto-merge
  * when main's ruleset requires the checks, or from here once every check passed.
  * Returns once GitHub reports the pull request merged; throws Stop otherwise.
+ *
+ * The merge commit's author: a merge from here names `authorEmail` (the clone's
+ * noreply address) explicitly. A request for auto-merge cannot: GitHub accepts
+ * there only an email verified on the account, which the noreply address never
+ * is ("<user> does not have a verified email"), and the request fails. Without
+ * it GitHub uses the account's commit email for web operations, the noreply one
+ * when the account keeps its emails private (docs/13-deployment.md, 13.8).
  */
-async function waitAndMerge(pr, sha, mergeFlags) {
+async function waitAndMerge(pr, sha, mergeFlags, authorEmail) {
   // gh calls in a row that failed (a dropped connection), auto-merge already asked for, the last line printed.
   let failures = 0
   let autoTried = false
@@ -219,13 +227,14 @@ async function waitAndMerge(pr, sha, mergeFlags) {
     if (allPassed && MERGEABLE_NOW.has(now.mergeStateStatus)) {
       console.log(`▸ CI passed. Merging…`)
       try {
-        gh('pr', 'merge', String(pr.number), ...mergeFlags)
+        gh('pr', 'merge', String(pr.number), ...mergeFlags, '--author-email', authorEmail)
       }
       catch (error) {
         throw new Stop(`GitHub refused the merge: ${reason(error)}. The pull request is ${pr.url}.`)
       }
     }
-    // Blocked by the ruleset until CI passes: let GitHub merge as soon as it does.
+    // Blocked by the ruleset until CI passes: let GitHub merge as soon as it does
+    // (no --author-email here: see above).
     else if (now.mergeStateStatus === 'BLOCKED' && !now.autoMergeRequest && !autoTried) {
       autoTried = true
       try {
@@ -366,7 +375,8 @@ async function run() {
   }
 
   // How GitHub merges it, now or by auto-merge: a merge commit (--no-ff) with the usual message,
-  // this clone's noreply email as its author, and only if the branch is still the commit checked here.
+  // and only if the branch is still the commit checked here. The author's email is added for a
+  // merge from here only (see waitAndMerge).
   // The message's first line (the commit's subject) and the lines after it (its body).
   const [subject, ...rest] = message.split('\n')
   // gh pr merge's options, the same for a merge from here and for auto-merge.
@@ -374,10 +384,9 @@ async function run() {
     '--merge',
     '--subject', subject,
     '--body', rest.join('\n').trim(),
-    '--author-email', email,
     '--match-head-commit', sha,
   ]
-  await waitAndMerge(pr, sha, mergeFlags)
+  await waitAndMerge(pr, sha, mergeFlags, email)
 
   // --- Clean-up ------------------------------------------------------------------------
   cleanUp(branch)
