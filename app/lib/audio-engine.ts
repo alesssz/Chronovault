@@ -296,7 +296,7 @@ export function canSetVolume(probe?: HTMLAudioElement): boolean {
  * screen but used with its trackpad keeps the slider.
  *
  * Where it cannot be told (server rendering, unit tests: no window) the
- * answer is true, the behaviour the page had before this rule.
+ * answer is true: the slider is shown.
  *
  * @param settable injectable for tests; the browser's answer otherwise
  * @param finePointer injectable for tests; the `(pointer: fine)` media query otherwise

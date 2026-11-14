@@ -48,7 +48,7 @@ const name = ref('')
 const comment = ref('')
 // The fields follow the pick saved on the server (a reload shows what was sent), except
 // a field typed and not saved yet: picking another version sends the pick with the note
-// saved before, and its answer used to wipe what was being typed. A field still showing the
+// saved before, and its answer would wipe what is being typed. A field still showing the
 // previous saved value takes the new one; one that differs is the visitor's, and stays.
 watch(() => props.state?.pick, (pick, previous) => {
   if (name.value.trim() === (previous?.name ?? '')) name.value = pick?.name ?? ''

@@ -195,9 +195,8 @@ export function createPlayQueue() {
 
   /**
    * Removes deleted tracks wherever they are, keeping `index` on the current
-   * track. One pass over the queue however many there are: deleting a
-   * thousand selected tracks used to search and copy the whole queue once
-   * for each. (A deleted track that is playing closes the player: the store
+   * track. One pass over the queue however many there are, not a search
+   * and a copy per track: a thousand selected tracks are deleted at once. (A deleted track that is playing closes the player: the store
    * handles that case before calling this.)
    */
   function drop(ids: ReadonlySet<string>): void {

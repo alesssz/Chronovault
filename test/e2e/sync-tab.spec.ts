@@ -29,7 +29,7 @@ test.describe('Sync tab', () => {
     await row.getByRole('button', { name: 'Actions for Lazy waveform' }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page.getByTestId('field-title')).toBeVisible()
-    // A while on the Details tab: the hidden editor used to start the download at once.
+    // A while on the Details tab: the hidden editor must not start the download.
     await page.waitForTimeout(2_000)
     expect(downloads).toBe(0)
 

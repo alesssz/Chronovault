@@ -14,9 +14,9 @@
  * lines (Space). When the answer comes, the server's values go back only
  * into the fields left alone since the save was sent (snapshot(), then
  * reset(values, sent)); a field changed meanwhile keeps the newer value and
- * stays unsaved, so "Save" and the leave-page warning still see it. The
- * server's copy used to replace the whole form and mark it clean: such an
- * edit was lost without a word.
+ * stays unsaved, so "Save" and the leave-page warning still see it. Taking
+ * the server's copy whole and marking the form clean would lose such an edit
+ * without a word.
  */
 export function useEditForm<T extends object>(initial: T, options: {
   /**

@@ -78,9 +78,9 @@ const AUDIO_EXTENSION = /^[a-z0-9]{1,10}$/
  * revision and extension the database accepts (tracks_audio_path_exact): the
  * same rule, so a path the server lets through is never refused later. The
  * server uses it to reject paths a client could forge, e.g. pointing a track
- * at someone else's file. Any extension used to pass here, control
- * characters included, and such a key then made the storage client throw
- * (isSafeStorageKey): a 500 where a forged path deserves a 400.
+ * at someone else's file. Any other extension, control characters
+ * included, is refused here: such a key would make the storage client throw
+ * (isSafeStorageKey), a 500 where a forged path deserves a 400.
  */
 export function isAudioPath(path: string, userId: string, trackId: string): boolean {
   // What must come before the extension: the user's folder and the track's id.

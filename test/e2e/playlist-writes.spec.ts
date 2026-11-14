@@ -1,9 +1,9 @@
 /**
  * End-to-end, a playlist's track list under writes that overlap: two "Add to playlist" at once
- * both land (an append used to read the list and write it back, so one overwrote the other); two
- * replacements at once never clash (one used to fail with 409); and two reorders in quick
+ * both land (an append that read the list and wrote it back would let one overwrite the other);
+ * two replacements at once never clash (no 409); and two reorders in quick
  * succession on the playlist page are saved in the order they were made, so the order on screen
- * is the order a reload shows (the second used to reach the server first and be overwritten).
+ * is the order a reload shows, even when the second reaches the server first.
  * A track that is not the user's (missing, or someone else's) is "not found" (404), as for any
  * other item, and the list is left as it was.
  */

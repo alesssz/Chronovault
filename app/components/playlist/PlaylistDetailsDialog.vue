@@ -7,8 +7,8 @@ import { playlistsApi } from '~/services/api'
 /**
  * "Edit details" of a playlist or group of versions (PlaylistEditor): title,
  * description and visibility in a dialog, with Cancel and Save. The page
- * itself is the track list: the form used to open it, and pushed the tracks
- * below the bottom edge although they change far more often.
+ * itself is the track list: a form at its top would push the tracks below
+ * the bottom edge, although they change far more often.
  *
  * Every opening starts from the saved values, so Cancel (Esc, a click outside,
  * the Android back button) drops what was typed. Save sends the form; once it

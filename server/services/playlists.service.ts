@@ -45,8 +45,7 @@ export async function getPlaylist(db: DbClient, userId: string, id: string): Pro
  * from a track's menu). Two steps, the row then its tracks: when adding the
  * tracks fails (one is missing or not the user's, 404), the playlist just
  * created is deleted again and the error returned, so a failed request
- * leaves nothing behind. It used to leave an empty playlist, and each retry
- * one more.
+ * leaves nothing behind, not an empty playlist for every retry.
  */
 export async function createPlaylist(db: DbClient, userId: string, input: PlaylistCreate): Promise<PlaylistDetail> {
   // The new playlist, still empty.

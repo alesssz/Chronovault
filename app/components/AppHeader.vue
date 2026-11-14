@@ -7,7 +7,7 @@
  * Below `lg` (64rem = 1024px) the section links show only their icons, and on
  * phones the logo shows only its mark. The names come at `lg`, not `sm`: with
  * the logo's name, the names and the labelled "Add" from 640px, the left
- * group no longer fitted below about 890px and slid under the right one.
+ * group does not fit below about 890px and slides under the right one.
  *
  * A dot on "Versions" says that friends voted or commented on a group since
  * the owner's last visit to it (useUnseenFeedback). It is checked again
