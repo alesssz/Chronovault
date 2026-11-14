@@ -138,9 +138,9 @@ Chronovault/
 │   └── generate-brand.mjs            # pnpm generate:brand (favicon, PWA icons, fallback cover)
 ├── brand/chronovault.jpg             # The Chronovault artwork: source of the fallback cover
 ├── docs/                             # This documentation: 00-setup.md … 16-troubleshooting.md, one file per section (index in README.md)
-│   ├── backlog.md                    # Work known and waiting, one entry per point (UI-n, FEAT-n…); deleted when done
-│   └── superpowers/                  # Design specs and implementation plans of past features (kept as written then)
+│   └── backlog.md                    # Work known and waiting, one entry per point (UI-n, FEAT-n…); deleted when done
 ├── public/                           # Favicon, PWA icons, fallback cover (generated, see 5.6) · cast-test.wav (the /cast-test page's WAV)
+├── README.md · CLAUDE.md             # Introduction and index of these docs · guidance for Claude Code (a summary of 14)
 ├── Dockerfile · compose.yaml · .dockerignore
 ├── Makefile · package.json · pnpm-lock.yaml · pnpm-workspace.yaml
 ├── vercel.json                       # Vercel Cron: GET /api/keepalive every day at 06:00 UTC (13.7)
