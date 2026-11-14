@@ -26,6 +26,6 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 - **Layered backend:** a route only authenticates, validates and calls a service; rules live in services (unit-tested without Nuxt), queries in repositories, conversions in mappers.
 - **The server acts as the user**: never use the Supabase service key; Row Level Security decides what each request can reach.
 - **A new table or column:** migration with RLS policies and grants → `pnpm db:migrate` → pgTAP tests → `pnpm db:types` → mapper → repository → service → route. Applied migrations are never edited.
-- **Comments explain why** (a constraint, a trade-off, a platform quirk, an invariant), never what the code already says, how the framework works, or a line's history ([14.2](docs/14-conventions.md#142-code-conventions)).
+- **Comments explain why** (a constraint, a trade-off, a platform quirk, an invariant), never what the code already says, how the framework works, a line's history, or a pointer to the docs ([14.2](docs/14-conventions.md#142-code-conventions)).
 - **Docs follow the code:** a change updates the section of `docs/` it touches in the same commit, describing the current state.
 - **A new origin the browser must reach** goes into the Content Security Policy (`server/utils/content-security-policy.ts`).
