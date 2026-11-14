@@ -15,6 +15,16 @@
 
 Chronovault keeps the tracks of the music project of the same name and shares them with listeners. It works on desktop and phones, installs as a PWA, and runs entirely on free tiers: Supabase (Postgres, Auth, covers), Cloudflare R2 (audio) and Vercel (app). The deployed instance is personal (no public sign-up); shared track and playlist links open without an account.
 
+<p align="center">
+  <img src="docs/screenshots/phone-library.png" alt="The library on a phone: tracks with their covers, the current one playing, the player bar at the bottom" width="240">
+  <img src="docs/screenshots/phone-player.jpg" alt="The full-screen player on a phone: the cover, the waveform with the played part lit, the controls" width="240">
+  <img src="docs/screenshots/phone-sync.png" alt="The lyrics sync editor on a phone: each line waiting for its timestamp, with LRC import and export" width="240">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/desktop-player.jpg" alt="The full-screen player on a laptop: the cover and the track's story beside the lyrics, the waveform and controls below" width="760">
+</p>
+
 ## Features
 
 - **Library** of thousands of tracks with search, filters and a virtualised list; metadata, genres and subgenres, draft and final versions.
@@ -38,6 +48,14 @@ All of it, area by area: [1. Features](docs/01-features.md).
 ## Tech stack
 
 Nuxt 4 (Vue 3, TypeScript strict, Nitro) · Nuxt UI 4 and Tailwind CSS 4 · Pinia · Supabase (Postgres 17, Auth, Storage) · Cloudflare R2 · Zod · wavesurfer.js · libFLAC (WebAssembly) · Vitest, Playwright, pgTAP · GitHub Actions · Vercel. Why each one: [4. Tech stack](docs/04-tech-stack.md).
+
+```mermaid
+flowchart LR
+  Browser["Nuxt app in the browser<br/>one audio engine · WAV → FLAC in a worker"] -- "/api · session cookie" --> Vercel["Nitro on Vercel<br/>routes → services → repositories"]
+  Vercel -- "the user's JWT" --> Supabase[("Supabase<br/>Postgres + RLS · Auth · covers")]
+  Vercel -- "presigned URLs" --> R2[("Cloudflare R2<br/>audio")]
+  Browser -- "presigned PUT · range GET" --> R2
+```
 
 ## Quick start
 
@@ -73,3 +91,9 @@ Open http://localhost:3100 and sign in with `demo@chronovault.local` / `chronova
 | [16. Troubleshooting](docs/16-troubleshooting.md) | Known problems and their fixes |
 
 Work known and waiting is in the [backlog](docs/backlog.md).
+
+## Status
+
+Deployed at [chronovault-music.vercel.app](https://chronovault-music.vercel.app) and in use, as a personal instance with no public sign-up. What it does not do yet, and where it could go: [15. Limitations and next steps](docs/15-limitations-and-next-steps.md).
+
+A personal project, made public to be read. There is no licence: the code can be read and studied, but all rights are reserved.

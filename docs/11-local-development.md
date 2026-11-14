@@ -166,6 +166,15 @@ None of these packages reaches the production build (`.output`).
 | `typescript` | 6 (`~6.0.3`) | TypeScript 7, the native rewrite, drops the internal files tools load: `vue-tsc` (3.3) fails with `ERR_PACKAGE_PATH_NOT_EXPORTED` (`typescript/lib/tsc`), so `pnpm typecheck` cannot run. Move when `vue-tsc` supports it |
 | `h3` | 1 | Nitro, Nuxt 4's server, runs on h3 1 (`^1.15.11`) and the server code uses its helpers (`createError`, `H3Event`); an h3 2 copy next to it would make errors Nitro does not recognise (500s). Move with Nuxt |
 
+## 11.7 The README's screenshots
+
+The screenshots in `docs/screenshots/` are taken from the local stack, signed in as the seeded demo user with tracks of the project's own music uploaded to it; never from production, and never showing another account.
+
+1. `pnpm local`; `pnpm db:migrate` first if a pull brought new migrations.
+2. Playwright (a dev dependency) driving Chromium: phone screens at 390 × 844, desktop at 1440 × 900, `deviceScaleFactor: 2`, `colorScheme: 'dark'`, `locale: 'en-US'`; a track playing for a few seconds, so the waveform shows progress.
+3. Hide the Nuxt DevTools, which only development shows: a style `#nuxt-devtools-container, nuxt-devtools-inspect-panel, #vue-tracer-overlay { display: none }` added by `context.addInitScript()`.
+4. Screens dominated by cover art as JPEG (`type: 'jpeg', quality: 85`): a PNG of them weighs four times as much.
+
 ---
 
 ← [10. Configuration](10-configuration.md) · [Contents](../README.md#documentation) · [12. Testing](12-testing.md) →
