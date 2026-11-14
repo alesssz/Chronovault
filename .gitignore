@@ -38,6 +38,9 @@ test/e2e/.auth
 supabase/.branches
 supabase/.temp
 
+# Personal Claude Code instructions (each developer's own)
+CLAUDE.local.md
+
 # Editor / OS
 .idea
 .DS_Store
