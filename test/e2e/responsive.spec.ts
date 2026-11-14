@@ -334,7 +334,7 @@ test.describe('touch screens', () => {
     const bar = page.getByTestId('selection-bar')
     const count = page.getByTestId('selection-count')
     await expect(count).toHaveText('2 selected')
-    // It used to read "2 sel…".
+    // Not truncated to "2 sel…"
     expect(await count.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     for (const name of ['Final', 'Playlist', 'Feedback', 'Delete']) {
       const label = bar.getByText(name, { exact: true })
@@ -813,7 +813,7 @@ test.describe('touch screens', () => {
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     // On opening the view itself takes the focus, not its first button, whose tooltip
-    // ("Collapse player") used to open by itself over the cover.
+    // ("Collapse player") would open by itself over the cover.
     await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe('player-expanded')
     await expect(page.getByRole('tooltip')).toHaveCount(0)
     await expect(expanded.getByTestId('player-lyrics-toggle')).toHaveCount(0)

@@ -139,7 +139,7 @@ function onRowClick(index: number, trackId: string) {
 /**
  * Big play button: toggles the current track, or starts from the first. After
  * an error it tries the same track again (play reloads it), as Space and the
- * track page do: it used to start the playlist over from its first track.
+ * track page do, rather than starting the playlist over.
  */
 function togglePlay() {
   if (isHere.value) void player.togglePlay()

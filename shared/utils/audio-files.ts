@@ -51,9 +51,9 @@ export const MAX_AUDIO_BYTES = 500 * 1024 * 1024
  * Longest duration a track may declare: 30 days, beyond any real file (even
  * 500 MB at 2 kbps, a bitrate no encoder uses for music, lasts about 24
  * days; real tracks are minutes).
- * The column is a `real`, which refuses anything past about 3.4e38: a
- * duration such as 1e39 used to pass the schema and fail the insert with a
- * 500 (22003), so the bound is checked by the schema first.
+ * The column is a `real`, which refuses anything past about 3.4e38: the
+ * schema checks the bound first, so a duration such as 1e39 is a 400, not a
+ * 500 (22003) at the insert.
  */
 export const MAX_DURATION_SECONDS = 30 * 24 * 60 * 60
 

@@ -13,10 +13,10 @@ export function orphanMinAgeHours(): number {
 /**
  * The setting as Nitro hands it over: a number, or the variable's text
  * (Nitro parses it with `destr`). Only a number, or text holding one, is a
- * setting: a variable left empty used to become `Number('') = 0`, and the
- * same for `' '`, `'null'` (null) and `'false'`; `'true'` became 1. Any of
- * them made every orphan deletable at once, the file of an upload still
- * running in another tab included. Exported for the unit tests.
+ * setting: a variable left empty would become `Number('') = 0`, and the
+ * same for `' '`, `'null'` (null) and `'false'`; `'true'` would become 1.
+ * Any of them would make every orphan deletable at once, the file of an
+ * upload still running in another tab included. Exported for the unit tests.
  */
 export function parseMinAgeHours(raw: unknown): number {
   // The configured hours (NaN when the setting holds no number).

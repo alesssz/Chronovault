@@ -311,9 +311,9 @@ function assertAudioPath(path: string, userId: string, trackId: string): void {
 
 /**
  * 400 unless `path` is the track's cover path, `<userId>/<trackId>.webp`,
- * the only one the database accepts (tracks_cover_path_exact). Any other
- * extension used to pass here and fail at the insert, and createTrack then
- * deleted the audio just uploaded along with the refused row.
+ * the only one the database accepts (tracks_cover_path_exact). Checked here
+ * so another extension never reaches the insert: its failure there would make
+ * createTrack delete the audio just uploaded along with the refused row.
  */
 function assertCoverPath(path: string, userId: string, trackId: string): void {
   if (path !== buildCoverPath(userId, trackId)) throw badRequest('Invalid cover path')

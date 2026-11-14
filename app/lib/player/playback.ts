@@ -104,8 +104,9 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   /**
    * Incremented by every source reload: a reload answered after a newer one
    * started is stale and applies nothing. A seek and a Play on an expired
-   * track each start one; the seek's, answering last, used to put its
-   * address in the element after the Play's and leave the track paused.
+   * track each start one; without the round, the seek's, answering last,
+   * would put its address in the element after the Play's and leave the
+   * track paused.
    */
   let recoveryRound = 0
   /**
@@ -241,10 +242,10 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   }
 
   // --- The next track, asked for ahead ------------------------------------------------
-  // When a track ends by itself, loading the next one used to start with two requests
-  // (its data and its streaming address): a pause of a few hundred ms on the deployed
-  // app, and with the screen off a play() that came only after a network wait, which some
-  // browsers refuse in the background. The store asks for the next track a little before
+  // Loading the next track only when one ends would take two requests (its data and its
+  // streaming address): a pause of a few hundred ms on the deployed app, and with the
+  // screen off a play() that comes only after a network wait, which some browsers refuse
+  // in the background. The store asks for the next track a little before
   // the end (prefetch); load() then finds it ready and starts it in the same moment.
 
   /** A track's data and streaming address, as load() needs them. */
