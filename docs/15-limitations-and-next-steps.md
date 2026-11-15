@@ -2,7 +2,7 @@
 
 ## 15.1 Known limitations
 
-- **The queue is per device:** it is saved in the browser, not in the account.
+- **The queue is per device:** it is saved in the browser, not in the account. A choice: listening does not move between devices mid-queue.
 - **Not gapless:** the next track is ready before the end, but the new file still takes a few tens of ms to start ([7.5](07-data-flows.md#75-playback)).
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
 - **The Supabase project stays awake only through a daily job** on Vercel ([13.7](13-deployment.md#137-keeping-supabase-awake)): a deployment elsewhere (Docker on a server) has no cron, and needs its own daily call to `/api/keepalive`.
