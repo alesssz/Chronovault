@@ -22,7 +22,7 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 ## Conventions
 
 - **English** everywhere in the repository: code, comments, docs, UI text, commit messages. The name is written "Chronovault".
-- **A branch per task** from `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`); nothing reaches `main` without a green CI ([14.1](docs/14-conventions.md#141-git-workflow)).
+- **A branch per task** from `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`); commit messages follow Conventional Commits (`feat: …`, `fix: …`); nothing reaches `main` without a green CI ([14.1](docs/14-conventions.md#141-git-workflow)).
 - **Layered backend:** a route only authenticates, validates and calls a service; rules live in services (unit-tested without Nuxt), queries in repositories, conversions in mappers.
 - **The server acts as the user**: never use the Supabase service key; Row Level Security decides what each request can reach.
 - **A new table or column:** migration with RLS policies and grants → `pnpm db:migrate` → pgTAP tests → `pnpm db:types` → mapper → repository → service → route. Applied migrations are never edited.

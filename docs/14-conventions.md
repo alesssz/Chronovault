@@ -12,6 +12,8 @@ git push -u origin feat/<name>     # CI runs on the branch; Vercel builds a prev
 pnpm merge:main                    # or: make merge: pull request, CI, merge, clean-up
 ```
 
+**Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/): a type, then an imperative subject (`feat: add an editable play queue`; `fix:`, `docs:`, `refactor:`, `test:`, `ci:`, `chore:`), a body when the why is not obvious. The same in AtleoPlan and Flowboard.
+
 **Nothing reaches `main` without a green CI.** `main` deploys to production as soon as it changes, and the database and end-to-end tests run only on GitHub (`.github/workflows/ci.yml`, on every pushed branch). So a branch goes in through a pull request that GitHub merges only once CI passes; `main`'s ruleset refuses a direct push and a merge with red or missing checks ([13.8](13-deployment.md#138-the-github-repository)). `pnpm merge:main` does it all from the terminal, with `gh` (GitHub's command line, signed in once: [0.3](00-setup.md#03-getting-the-code)). Follow CI at any time with `gh run watch`, or on GitHub (the Actions tab, the pull request's Checks); GitHub emails you when a run fails.
 
 `pnpm merge:main` (`scripts/merge-main.mjs`):

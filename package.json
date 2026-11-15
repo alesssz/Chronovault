@@ -43,6 +43,7 @@
     "generate:brand": "node scripts/generate-brand.mjs",
     "r2:check": "node scripts/check-r2.mjs",
     "merge:main": "node scripts/merge-main.mjs",
+    "github:check": "node scripts/github-check.mjs",
     "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {

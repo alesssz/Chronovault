@@ -9,10 +9,9 @@
  *   make merge
  *
  * Why a pull request: main deploys to production as soon as it changes, and
- * the database and end-to-end tests run only on GitHub. Merged from this
- * computer, a branch reached production without waiting for them (it did,
- * with CI red for days). GitHub merges only once CI is green, and main's
- * ruleset refuses any other way in (docs/13-deployment.md, 13.8).
+ * the database and end-to-end tests run only on GitHub; a branch merged from
+ * this computer would reach production without waiting for them. GitHub
+ * merges only once CI is green, and main's ruleset refuses any other way in.
  *
  * What it does, in order:
  *   1. On main: prints "Already on main" and stops (nothing to do).
@@ -173,7 +172,7 @@ function cleanUp(branch) {
  * there only an email verified on the account, which the noreply address never
  * is ("<user> does not have a verified email"), and the request fails. Without
  * it GitHub uses the account's commit email for web operations, the noreply one
- * when the account keeps its emails private (docs/13-deployment.md, 13.8).
+ * when the account keeps its emails private.
  */
 async function waitAndMerge(pr, sha, mergeFlags, authorEmail) {
   // gh calls in a row that failed (a dropped connection), auto-merge already asked for, the last line printed.
@@ -267,7 +266,7 @@ async function run() {
   catch {
     throw new Stop('gh, GitHub\'s command line, is missing or not signed in: install it (brew install gh, or winget install GitHub.cli), then run "gh auth login" with your personal account, answering No to "Authenticate Git with your GitHub credentials?" (docs/00-setup.md).')
   }
-  // The email the merge commit will carry: the clone's own identity (docs/00-setup.md, 0.3).
+  // The email the merge commit will carry: the clone's own identity.
   const email = gitSucceeds('config', 'user.email') ? git('config', 'user.email') : ''
   if (!email.endsWith('@users.noreply.github.com')) {
     throw new Stop(`This clone's commit email (${email || 'none'}) is not your GitHub noreply address, and the merge commit would carry it into a public repository. Set it first: git config user.email "<id>+<user>@users.noreply.github.com"`)
