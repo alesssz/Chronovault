@@ -32,6 +32,7 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 
 ## Working with the maintainer
 
+- **Two computers, one set of rules:** the project is worked on from a Windows PC and a Mac. A new working preference or rule goes into this file (or the conventions it points to) in the same branch, never into Claude's memory, which stays on one computer.
 - **At the start of a task**, create its branch from an up-to-date `main` and say its name. If the working tree holds uncommitted changes from an earlier task, say so before branching.
 - **Never commit, push or merge unless asked**: the maintainer does it. Before a commit, this clone's `git config --local user.email` must be the GitHub noreply address; a computer's global address must never reach the public history.
 - **No AI attribution** anywhere: no `Co-Authored-By`, no "Generated with Claude Code", in commits, pull requests or commit message drafts.
