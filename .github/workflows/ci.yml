@@ -19,6 +19,7 @@ name: CI
 on:
   push:
     branches: ['**']
+  workflow_dispatch:
 
 # Read-only token: the jobs only check out the code and run checks. The migrate job reaches
 # the database with its own secret (the production environment), not with this token.
@@ -35,9 +36,12 @@ jobs:
   quality:
     name: Lint, types and unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # The pushed commit's code; it also holds the local setup action below, so it comes first.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # pnpm, Node and the dependencies from the lockfile (.github/actions/setup).
       - uses: ./.github/actions/setup
       # ESLint with the stylistic rules, then vue-tsc over app, server and shared code.
@@ -49,10 +53,13 @@ jobs:
   database-and-e2e:
     name: Database and end-to-end tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: quality
     steps:
       # Same checkout and setup as the quality job (each job runs on a fresh machine).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
 
       # The whole local stack in Docker, every migration applied (supabase/migrations), the seed
@@ -117,6 +124,7 @@ jobs:
   migrate:
     name: Migrate production database
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [quality, database-and-e2e]
     if: github.ref == 'refs/heads/main'
     # The environment holding the database's address (secret SUPABASE_DB_URL: the Session
@@ -125,6 +133,8 @@ jobs:
     steps:
       # The merged commit's code: its supabase/migrations is what production must have.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # pnpm, Node and the dependencies: the Supabase CLI is one (.github/actions/setup).
       - uses: ./.github/actions/setup
       # The Session pooler (port 5432) and not the direct connection, which the Free plan

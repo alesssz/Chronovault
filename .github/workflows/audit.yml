@@ -43,9 +43,12 @@ jobs:
     # Push, schedule, by hand, or a pull request from a fork (one from a branch here was audited on push).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # The pushed commit's code; it also holds the local setup action below, so it comes first.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # pnpm, Node and the dependencies from the lockfile (.github/actions/setup): installed
       # so that `pnpm outdated` compares what is really resolved.
       - uses: ./.github/actions/setup

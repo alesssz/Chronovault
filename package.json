@@ -43,6 +43,7 @@
     "generate:brand": "node scripts/generate-brand.mjs",
     "r2:check": "node scripts/check-r2.mjs",
     "merge:main": "node scripts/merge-main.mjs",
+    "github:check": "node scripts/github-check.mjs",
     "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
@@ -62,7 +63,7 @@
     "hash-wasm": "^4.12.0",
     "libflacjs": "^5.6.0",
     "music-metadata": "^12.2.3",
-    "nuxt": "^4.6.3",
+    "nuxt": "^4.6.4",
     "pinia": "^4.1.0",
     "read-excel-file": "9.3.12",
     "sortablejs": "^1.15.7",

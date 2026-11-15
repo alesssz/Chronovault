@@ -10,7 +10,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all merge doctor
+        check ci clean clean-all merge doctor audit github-check
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -146,6 +146,12 @@ test-coverage: ## Tests with a coverage report; fails below the floors in vitest
 check: lint typecheck test-coverage ## Quick checks before a commit (tests with the coverage floors)
 
 ci: check db-lint db-advisors db-types-check db-test test-e2e ## Everything the CI runs
+
+audit: ## Known vulnerabilities in the packages (report only, changes nothing)
+	$(PNPM) audit
+
+github-check: ## The repository's settings on GitHub and its last runs, against the ones decided (needs gh)
+	$(PNPM) github:check
 
 # --- Git ----------------------------------------------------------------------
 
