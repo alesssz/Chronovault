@@ -35,6 +35,7 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 ## 10.3 Notable `nuxt.config.ts` settings
 
 - `routeRules`: rendering modes ([5.4](05-architecture.md#54-rendering-modes)), `no-store` on `/api/**` (the cover routes override it with their own cache header) and the fixed security headers on `/**` ([8.5](08-data-model-and-security.md#85-security-guarantees)); the Content Security Policy needs a nonce per page, so a Nitro plugin sends it instead.
+- `devServer.host: 'localhost'`: the dev server's address, named explicitly. Left unset it resolves to an empty object, and `nuxt dev` (`@nuxt/cli` 4.0.1) stops on start-up with "options.hostname.toLowerCase is not a function".
 - `runtimeConfig.audioStorage`: server-only audio storage settings, filled from `NUXT_AUDIO_STORAGE_*`.
 - `runtimeConfig.storageCleanup.minAgeHours`: minimum age of a deletable orphan (24 h).
 - `runtimeConfig.analytics`: server-only Vercel Analytics token and project; `runtimeConfig.public.webAnalytics`: load the counting script (builds on Vercel only).
