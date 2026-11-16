@@ -8,9 +8,8 @@
 # pnpm reads its own lockfile. Advisories reviewed and left out, each with
 # its reason, are in pnpm-workspace.yaml (auditConfig.ignoreGhsas).
 #
-# The job summary also lists the outdated packages, to plan updates
-# (docs/11-local-development.md, 11.6); that list never fails the run.
-#
+# The job summary also lists the outdated packages, to plan updates; that
+# list never fails the run.
 # The checkout is pinned to a commit hash and the setup is shared: see the top of ci.yml.
 name: Audit
 
