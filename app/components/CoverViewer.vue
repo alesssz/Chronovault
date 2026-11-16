@@ -11,8 +11,8 @@
  * view shows only the image and the close button.
  *
  * On opening, the view itself takes the focus (`tabindex="-1"`, see
- * onOpenAutoFocus), not the close button: focused, the button showed its
- * tooltip, and the first Esc closed the tooltip instead of the view.
+ * onOpenAutoFocus), not the close button: a focused button shows its tooltip,
+ * and the first Esc would close the tooltip instead of the view.
  */
 import { COVER_SIZE } from '~/lib/image'
 

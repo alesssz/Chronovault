@@ -28,7 +28,6 @@ const KEY_STEP = 5
 
 /** Keyboard seeking (the waveform is a focusable slider for screen readers). */
 function onKeydown(event: KeyboardEvent) {
-  // Seconds to move: forward, back, or 0 for any other key.
   const step = event.key === 'ArrowRight' ? KEY_STEP : event.key === 'ArrowLeft' ? -KEY_STEP : 0
   if (!step) return
   event.preventDefault()
@@ -64,7 +63,7 @@ function create() {
   })
 }
 
-// Built once on screen (the width is known), destroyed with the component.
+// Built once mounted, when the container's width is known.
 onMounted(create)
 // The waveform is released with the component (the <audio> itself stays).
 onBeforeUnmount(() => {
@@ -77,7 +76,6 @@ watch(() => props.duration, (value, old) => {
   if (value > 0 && Math.abs(value - old) > 0.5) create()
 })
 
-// Colors depend on the light/dark theme.
 const colorMode = useColorMode()
 // Rebuild after the theme switch has applied (nextTick), to pick up the new colors.
 watch(() => colorMode.value, () => nextTick(create))

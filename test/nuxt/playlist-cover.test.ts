@@ -14,7 +14,6 @@ describe('PlaylistCover', () => {
   it('shows the custom cover when there is one', async () => {
     // A playlist with its own cover (and a mosaic it must ignore).
     const wrapper = await mountSuspended(PlaylistCover, { props: { url: '/custom.webp', mosaic: covers, title: 'Mix' } })
-    // The images drawn.
     const images = wrapper.findAll('img')
     expect(images).toHaveLength(1)
     expect(images[0]!.attributes('src')).toBe('/custom.webp')
@@ -28,15 +27,12 @@ describe('PlaylistCover', () => {
   })
 
   it('uses the first cover alone when there are fewer than four', async () => {
-    // A playlist with two track covers only.
     const wrapper = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: covers.slice(0, 2), title: 'Mix' } })
     expect(wrapper.findAll('img').map(img => img.attributes('src'))).toEqual(['/a.webp'])
   })
 
   it('shows the artwork for an empty playlist, with its initials over it', async () => {
-    // An empty playlist.
     const wrapper = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [], title: 'Road trip' } })
-    // The images drawn.
     const images = wrapper.findAll('img')
     expect(images.map(img => img.attributes('src'))).toEqual([FALLBACK_COVER.app])
     // Decorative: not the playlist's cover.
@@ -48,7 +44,6 @@ describe('PlaylistCover', () => {
   })
 
   it('shows no initials without a title, nor over a real cover', async () => {
-    // An untitled cover, and one with covers to show.
     const untitled = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: [] } })
     const covered = await mountSuspended(PlaylistCover, { props: { url: null, mosaic: covers, title: 'Mix' } })
     expect(untitled.find('[data-testid="playlist-initials"]').exists()).toBe(false)

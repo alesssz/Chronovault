@@ -4,7 +4,7 @@ import type { SyncedLyricLine } from '../types/track'
  * Synced lyrics: LRC parsing and serialization, active-line lookup and the
  * conversion between the sync editor's rows and the stored lines.
  *
- * LRC format reminder:
+ * LRC format:
  *
  *   [ar:Artist]           ← metadata tags (ignored, except [offset:])
  *   [offset:+250]         ← shifts every line (ms; positive = earlier)
@@ -70,13 +70,11 @@ export function parseLrc(input: string): SyncedLyricLine[] {
 
     // Consume every leading timestamp: `[00:45.10][01:30.00] text`.
     while ((match = LEADING_TIME_TAG.exec(rest))) {
-      // Minutes, seconds and the optional fraction, as written.
       const [, min, sec, frac] = match
       // `frac` is a decimal fraction whatever its length: "5" = 0.5 s, "05" = 0.05 s, "050" = 0.05 s.
       times.push(Number(min) * 60 + Number(sec) + (frac ? Number(`0.${frac}`) : 0))
       rest = rest.slice(match[0].length)
     }
-    // The line itself, once its timestamps are gone.
     const text = rest.trim()
 
     if (times.length === 0) {
@@ -118,7 +116,6 @@ export function parseLrc(input: string): SyncedLyricLine[] {
 export function formatLrcTimestamp(seconds: number): string {
   // Work in whole centiseconds so rounding never produces "60" seconds.
   const centis = Math.round(Math.max(0, seconds) * 100)
-  // Minutes, seconds and centiseconds of the timestamp.
   const m = Math.floor(centis / 6000)
   const s = Math.floor((centis % 6000) / 100)
   const c = centis % 100
@@ -145,13 +142,11 @@ export function serializeLrc(lines: SyncedLyricLine[]): string {
  * Called on every animation frame while playing, hence the O(log n) search.
  */
 export function findActiveLineIndex(lines: readonly SyncedLyricLine[], time: number): number {
-  // Classic binary search over the sorted times.
   // The search range, and the best match so far (-1: no line started yet).
   let lo = 0
   let hi = lines.length - 1
   let found = -1
   while (lo <= hi) {
-    // Unsigned shift: integer midpoint without overflow.
     const mid = (lo + hi) >>> 1
     if (lines[mid]!.time <= time) {
       found = mid

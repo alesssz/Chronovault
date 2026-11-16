@@ -1,6 +1,5 @@
 /**
- * Display formatting for times and sizes. Auto-imported in Vue templates
- * (Nuxt auto-imports `shared/utils`), so pages can call `formatTime(…)` directly.
+ * Display formatting for times and sizes.
  */
 
 /**
@@ -12,7 +11,6 @@ export function formatTime(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00'
   // Whole seconds (fractions dropped, see above).
   const total = Math.floor(seconds)
-  // Hours, minutes and seconds.
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
@@ -48,7 +46,6 @@ export function formatBytes(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB']
   // Largest unit that keeps the value ≥ 1, capped at GB.
   const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
-  // The size in that unit.
   const value = bytes / 1024 ** i
   return `${i === 0 ? value : value.toFixed(1)} ${units[i]}`
 }

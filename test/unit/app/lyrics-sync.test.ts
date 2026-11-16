@@ -27,7 +27,6 @@ function fakePlayback(state: Partial<Pick<SyncPlayback, 'loaded' | 'currentTime'
 
 /** A sync of LYRICS over a fake player. */
 function setup(state?: Parameters<typeof fakePlayback>[0]) {
-  // The player the sync reads and moves.
   const playback = fakePlayback(state)
   return { playback, sync: createLyricsSync(syncRowsFromLyrics(LYRICS), playback) }
 }

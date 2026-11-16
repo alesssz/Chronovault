@@ -1,7 +1,6 @@
 /**
  * Human-readable message from any error: API errors (`data.message`),
  * standard JS errors or unknown values. Used for toasts and inline errors.
- * Auto-imported (Nuxt scans app/utils).
  */
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (error && typeof error === 'object') {
@@ -17,8 +16,8 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
 }
 
 /**
- * HTTP status of a failed API call ($fetch errors carry it as `statusCode`
- * and `status`), or undefined for anything else (network, browser errors).
+ * HTTP status of a failed API call, or undefined for anything else
+ * (network, browser errors).
  * Lets a caller react to one status, e.g. 409 "voting is closed".
  */
 export function getErrorStatus(error: unknown): number | undefined {

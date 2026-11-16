@@ -36,7 +36,6 @@ describe('parseLrc', () => {
   })
 
   it('ignores metadata tags, empty lines and untimed text', () => {
-    // Metadata tags, a blank line and untimed free text must all be ignored.
     const lrc = '[ar:Artist]\n[ti:Title]\n[length: 03:20]\n\nfree text\n[00:01.00] ok'
     expect(parseLrc(lrc)).toEqual([{ time: 1, text: 'ok' }])
   })
@@ -96,7 +95,6 @@ describe('serializeLrc', () => {
   })
 
   it('round-trips section headers', () => {
-    // A header with its line, and another line.
     const lines = [
       { time: 5, text: '[Intro]', section: true },
       { time: 5, text: 'Hey' },

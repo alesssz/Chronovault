@@ -62,7 +62,7 @@ async function onDelete() {
   <aside class="space-y-6">
     <!--
       Technical data of the stored file, under a heading like Status's and Sharing's around it:
-      without one, it read as part of the block above.
+      without one, it reads as part of the block above.
     -->
     <section
       class="space-y-2"

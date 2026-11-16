@@ -1,27 +1,28 @@
 /**
- * End-to-end, layout on a 1440×900 desktop, measured on the pages (the touch layouts are
- * responsive.spec.ts). Regressions found by a review of the interface:
- * - the library rows' genre and icons stand in columns (a genre badge as wide as its name moved
- *   the icons from row to row);
- * - the visibility cards are three equal columns (as a row of cards as wide as their text,
- *   Public sat alone on a second line); the track editor's rows are full (album and year, genre
- *   and subgenre, in halves), its status switches in the left column under the cover (on a row of the form
- *   of their own, they left it looking empty);
- * - a playlist's page starts with its tracks, its details in a dialog (the form came first and
- *   pushed the tracks below the bottom edge);
+ * End-to-end, layout on a 1440×900 desktop, measured on the pages (the touch layouts are in
+ * responsive.spec.ts):
+ * - the library rows' genre and icons stand in columns (a genre badge as wide as its name would
+ *   shift the icons from row to row);
+ * - the visibility cards are three equal columns (cards as wide as their text leave Public alone
+ *   on a second line); the track editor's rows are full (album and year, genre and subgenre, in
+ *   halves), its status switches in the left column under the cover (on a form row of their own
+ *   they leave it looking empty);
+ * - a playlist's page starts with its tracks, its details in a dialog, so the form does not push
+ *   the tracks below the bottom edge;
  * - the share pages of a playlist and of a track keep Play, and the playlist its first track, in
- *   the first screen (a 26rem cover put them on or below the bottom edge); the playlist's, like the
+ *   the first screen (a large cover would push them to the bottom edge); the playlist's, like the
  *   track's, has its player as a bar at the bottom (previous / next and full screen in it), its
  *   list in the top half and its now-playing panel ending above the bar;
  * - the full-screen player (the share page's layout) of a track without lyrics shows its
- *   description beside the cover, and with neither a single centred column (half the screen held
- *   only "No lyrics"); its controls bar stays inside the window down to 1280×720 and 1024×640;
+ *   description beside the cover, and with neither a single centred column (not half a screen
+ *   holding only "No lyrics"); its controls bar stays inside the window down to 1280×720 and
+ *   1024×640;
  * - a shared track (TrackShowcase, the full-screen player's body too): the title, composers and
  *   album in a centred band over two columns; on the left a square cover as wide as the column
  *   and About under it; on the right the lyrics, exactly as tall, from the cover's top to About's
  *   end; the player bar at the bottom of the window, as wide as the content;
- * - Save is grey until something changed, then gold (disabled, it was the same gold, faded);
- * - the mastering filter's "no filter" reads as a choice ("Any mastering", it said "Mastering").
+ * - Save is grey until something changed, then gold (a faded gold does not read as disabled);
+ * - the mastering filter's "no filter" reads as a choice ("Any mastering", not "Mastering").
  */
 import { expect, test, type Locator, type Page } from './fixtures'
 import { signUp, uploadTrack, waitForHydration } from './helpers'
@@ -45,7 +46,6 @@ async function seed(page: Page): Promise<{ playlist: string, ids: Record<string,
     const short = genres.find(g => g.name === 'Pop')!
     // (the longest of the fixed list)
     const long = genres.find(g => g.name === 'Gospel & Religious')!
-    /** Saves fields of a track. */
     const patch = (id: string, body: object) => fetch(`/api/tracks/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -100,8 +100,8 @@ test.describe('desktop layout', () => {
     expect(columns[0]!.visibility).toBe(columns[1]!.visibility)
     // The mastering filter with nothing chosen.
     await expect(page.getByRole('combobox', { name: 'Filter by mastering' })).toHaveText('Any mastering')
-    // Keyboard focus on a row shows its play icon (the focus a tap gives, on phones, no longer
-    // does: responsive.spec). Tab from the search box to the first row's cover.
+    // Keyboard focus on a row shows its play icon (a tap's focus on phones does not:
+    // responsive.spec.ts). Tab from the search box to the first row's cover.
     await page.getByRole('textbox', { name: /Search/ }).click()
     for (let i = 0; i < 15; i++) {
       await page.keyboard.press('Tab')
@@ -148,8 +148,8 @@ test.describe('desktop layout', () => {
     await expect(page.getByPlaceholder('Search or type a new subgenre…')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByPlaceholder('Search or type a new subgenre…')).toBeHidden()
-    // Mastering and version in the left column, under the cover, before the file's data (as
-    // switches on a row of the form they left it looking empty).
+    // Mastering and version in the left column, under the cover, before the file's data (on a
+    // form row of their own they leave it looking empty).
     const status = (await page.getByTestId('track-status').boundingBox())!
     // The cover's button (the track has the Chronovault artwork, with no alt text).
     const coverBox = (await page.getByRole('button', { name: 'Add cover' }).boundingBox())!
@@ -198,7 +198,7 @@ test.describe('desktop layout', () => {
     expect(shared.y + shared.height).toBeLessThanOrEqual(height)
     // The playlist's page as the track's: the player a bar at the window's bottom, with previous /
     // next and full screen (the view shows the track playing, which this page does not); the list
-    // in the top half under a compact header (a large cover started it at the bottom edge); the
+    // in the top half under a compact header (a large cover would push it to the bottom edge); the
     // now-playing panel ending above the bar.
     const playlistBar = page.getByTestId('shared-bar')
     const barBox = (await playlistBar.boundingBox())!
@@ -209,8 +209,7 @@ test.describe('desktop layout', () => {
     expect(nowPlaying.y + nowPlaying.height).toBeLessThanOrEqual(barBox.y)
     await page.goto(`/t/${ids[TRACKS[0]!]}`)
     await waitForHydration(page)
-    // The track's page: its player bar at the window's bottom (Play sat on the bottom edge once,
-    // the row under the waveform under it).
+    // The track's page: Play inside the first screen, in the player bar at the window's bottom.
     const trackControls = (await page.getByTestId('shared-play').boundingBox())!
     expect(trackControls.y + trackControls.height).toBeLessThanOrEqual(height)
 
@@ -238,7 +237,6 @@ test.describe('desktop layout', () => {
     expect(Math.abs(column.x + column.width / 2 - 1440 / 2)).toBeLessThan(2)
 
     // --- Full-screen player on smaller windows: every control of its bar on screen ---
-    // (At 1280×720 the controls, in the cover's column then, once fell under the bottom edge.)
     const bar = expanded.getByTestId('player-expanded-bar')
     for (const [width, windowHeight] of [[1440, 900], [1366, 768], [1280, 720], [1024, 640]] as const) {
       await page.setViewportSize({ width, height: windowHeight })
@@ -263,11 +261,11 @@ test.describe('desktop layout', () => {
       })
       return track!.id
     })
-    // A visitor.
     const context = await browser.newContext()
     try {
       const visitor = await context.newPage()
-      // Laptop and desktop windows, the 1505×738 one included (there the cover was 207px, play under the edge).
+      // Laptop and desktop windows, including a short 1505×738 one, where a cover bound to the window's
+      // height would shrink to a thumbnail and push Play under the edge.
       for (const [width, height] of [[1440, 900], [1505, 738], [1920, 1080]] as const) {
         await visitor.setViewportSize({ width, height })
         await visitor.goto(`/t/${id}`)
@@ -299,11 +297,11 @@ test.describe('desktop layout', () => {
         expect(box.title.bottom, `${at}: the band over the cover`).toBeLessThan(box.cover.top)
         expect(box.title.bottom, `${at}: the band over the lyrics`).toBeLessThan(box.panel.top)
         expect(Math.abs((box.title.left + box.title.right) / 2 - (box.track.left + box.track.right) / 2), `${at}: the band centred`).toBeLessThan(1)
-        // Two lines: the title, then the byline under it, centred (on the title's line it read as data).
+        // Two lines: the title, then the byline under it, centred (on the title's line it reads as data).
         expect(box.byline.top, `${at}: the byline under the title`).toBeGreaterThanOrEqual(box.heading.bottom - 1)
         expect(Math.abs((box.byline.left + box.byline.right) / 2 - (box.track.left + box.track.right) / 2), `${at}: the byline centred`).toBeLessThan(1)
-        // Left: a square cover as wide as the column (at least 25rem: it was held to the screen's
-        // height, a thumbnail on short windows), then About.
+        // Left: a square cover as wide as the column (at least 25rem, not bound to the window's
+        // height, which makes it a thumbnail on short windows), then About.
         expect(Math.abs(box.cover.width - box.cover.height), at).toBeLessThan(1)
         expect(box.cover.width, at).toBeGreaterThanOrEqual(25 * box.rem)
         expect(box.about.top, `${at}: About under the cover`).toBeGreaterThan(box.cover.bottom)
@@ -320,7 +318,7 @@ test.describe('desktop layout', () => {
         await expect.poll(async () => (await measure()).panel.bottom, { message: `${at}: the end above the bar` }).toBeLessThanOrEqual(box.bar.top)
       }
       // No cover of its own: the Chronovault artwork it shows opens full screen all the same
-      // (it opened nothing at first, and a click on it seemed broken).
+      // (a cover that opens nothing on click looks broken).
       await visitor.getByRole('button', { name: 'Open the cover full screen' }).click()
       await expect(visitor.getByTestId('cover-viewer').locator('img')).toHaveAttribute('src', /cover-fallback/)
       await visitor.keyboard.press('Escape')

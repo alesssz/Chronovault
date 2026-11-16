@@ -2,7 +2,7 @@
  * End-to-end, registering a track twice (a retry after a lost response, a double submit): the
  * repeated POST /api/tracks answers with the track already there and its file stays in storage,
  * playable; and no upload address is handed out for an id already registered, so its file can
- * never be overwritten. Run against the real storage: the bug this guards against deleted it.
+ * never be overwritten. Run against the real storage: the failure guarded against deletes the file.
  * An upload address also takes only the file it was asked for: its size and type are signed.
  */
 import { expect, test } from './fixtures'
@@ -16,7 +16,6 @@ test.describe('registering a track twice', () => {
 
     // Upload, register twice, ask for an upload address again, then check the stored file.
     const result = await page.evaluate(async (wav) => {
-      // The file's bytes, decoded in the page.
       const bytes = Uint8Array.from(atob(wav), c => c.charCodeAt(0))
       // The new track's id, chosen by the client as the upload page does.
       const id = crypto.randomUUID()
@@ -30,7 +29,6 @@ test.describe('registering a track twice', () => {
       const request = { trackId: id, extension: 'wav', mimeType: 'audio/wav', sizeBytes: bytes.length }
       const target = await (await post('/api/tracks/upload-url', request)).json() as { uploadUrl: string, audioPath: string }
       await fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': 'audio/wav' }, body: bytes })
-      // The same registration, sent twice.
       const body = { id, title: 'Twice', audioPath: target.audioPath, mimeType: 'audio/wav', sizeBytes: bytes.length, durationSeconds: 0.1 }
       const first = await post('/api/tracks', body)
       const second = await post('/api/tracks', body)
@@ -70,7 +68,6 @@ test.describe('registering a track twice', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ trackId: crypto.randomUUID(), extension: 'flac', mimeType: 'audio/flac', sizeBytes: 1000 }),
       })).json() as { uploadUrl: string }
-      /** PUTs `size` bytes of type `type` to the address and answers the status. */
       const put = (size: number, type: string) =>
         fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': type }, body: new Uint8Array(size) }).then(r => r.status)
       return {

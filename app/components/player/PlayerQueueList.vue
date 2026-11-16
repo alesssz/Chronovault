@@ -10,8 +10,8 @@ import type { QueueItem } from '~/stores/player'
  *
  * Only the first upcoming tracks are drawn, a hundred more at each "Show
  * more": playing from the library queues the whole filtered list, thousands
- * of rows that took seconds to draw on a phone (and to redraw at every change
- * of the queue). Not a virtual list: SortableJS moves the rows' DOM nodes
+ * of rows that would take seconds to draw on a phone (and to redraw at every
+ * change of the queue). Not a virtual list: SortableJS moves the rows' DOM nodes
  * itself, which a virtual list redrawing them as it scrolls would undo.
  */
 const player = usePlayerStore()

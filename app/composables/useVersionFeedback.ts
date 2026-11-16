@@ -38,7 +38,6 @@ export function useVersionFeedback(playlistId: string, enabled: boolean) {
     return feedback.value?.versions.find(v => v.trackId === trackId) ?? null
   }
 
-  // The feedback, once the page is on screen.
   onMounted(load)
 
   // The unseen-feedback counts of the header's dot and the cards' badges (groups only).
@@ -50,7 +49,6 @@ export function useVersionFeedback(playlistId: string, enabled: boolean) {
     // No feedback on screen (not loaded, or failed): nothing was seen.
     if (feedback.value) void unseen?.markSeen(playlistId, feedback.value.asOf)
   }
-  // Leaving the page in the app records the visit.
   onBeforeUnmount(markSeen)
   // Hidden (another tab or app, the phone locked) or closed: the visit counts as done.
   useEventListener(document, 'visibilitychange', () => {

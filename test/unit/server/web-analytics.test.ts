@@ -25,7 +25,6 @@ describe('WebAnalyticsClient.aggregate', () => {
         { country: '', pageviews: '3', visitors: 2 },
       ],
     })
-    // The rows the client reads from it.
     const rows = await new WebAnalyticsClient(config, fetchImpl).aggregate(query)
 
     // The request sent: its address and its options (the token header).
@@ -47,7 +46,6 @@ describe('WebAnalyticsClient.aggregate', () => {
   it('reads day rows from their timestamp and omits teamId for personal projects', async () => {
     // A day row, which carries its date in `timestamp`.
     const fetchImpl = fakeFetch(200, { data: [{ timestamp: '2026-10-02T00:00:00.000Z', pageviews: 4, visitors: 3 }] })
-    // The rows of a personal project (no team id).
     const rows = await new WebAnalyticsClient({ ...config, teamId: '' }, fetchImpl).aggregate({ ...query, by: 'day' })
 
     expect(new URL(fetchImpl.mock.calls[0]![0] as unknown as string).searchParams.has('teamId')).toBe(false)

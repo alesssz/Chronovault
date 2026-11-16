@@ -41,7 +41,6 @@ export interface CropView {
 
 /** Centered square crop inside a w×h image (automatic cropping). */
 export function centerSquareCrop(width: number, height: number): CropRect {
-  // The shorter side: the largest square that fits.
   const size = Math.min(width, height)
   return {
     x: Math.round((width - size) / 2),
@@ -78,7 +77,6 @@ export function clampCropView(view: CropView, width: number, height: number): Cr
 
 /** The view as a crop rectangle in whole source pixels, always inside the image. */
 export function cropRectOf(view: CropView, width: number, height: number): CropRect {
-  // The view, made valid first.
   const valid = clampCropView(view, width, height)
   // The side in whole pixels, at least 1 and never larger than the image.
   const size = Math.max(1, Math.min(Math.round(cropSide(width, height, valid.zoom)), width, height))
@@ -91,11 +89,9 @@ export function cropRectOf(view: CropView, width: number, height: number): CropR
 
 /** A blank canvas of the given size and its 2D context (throws where canvas is unavailable). */
 function createCanvas(width: number, height: number): { canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D } {
-  // A canvas that never enters the page.
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
-  // Its 2D drawing context (null where canvas is not supported).
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas not available')
   return { canvas, ctx }
@@ -127,13 +123,11 @@ export async function toJpeg(source: Blob, quality = 0.9): Promise<JpegImage> {
   // The decoded image (EXIF orientation applied).
   const bitmap = await createImageBitmap(source)
   try {
-    // A canvas the size of the image.
     const { canvas, ctx } = createCanvas(bitmap.width, bitmap.height)
     // JPEG has no transparency: transparent pixels become white instead of black.
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(bitmap, 0, 0)
-    // The canvas as a JPEG file.
     const blob = await canvasToBlob(canvas, 'image/jpeg', quality)
     return { data: new Uint8Array(await blob.arrayBuffer()), width: bitmap.width, height: bitmap.height }
   }
@@ -158,9 +152,7 @@ export interface SquareWebpOptions {
  * storage receives a light file (~50-150 KB).
  */
 export async function toSquareWebp(source: Blob, options: SquareWebpOptions = {}): Promise<Blob> {
-  // Output side and quality, with their defaults.
   const { size = COVER_SIZE, quality = 0.85 } = options
-  // The decoded image (EXIF orientation applied).
   const bitmap = await createImageBitmap(source)
   try {
     // A crop computed on the <img> of the editor matches the bitmap: both apply
@@ -173,9 +165,7 @@ export async function toSquareWebp(source: Blob, options: SquareWebpOptions = {}
         )
       : centerSquareCrop(bitmap.width, bitmap.height)
     // Never upscale: a small image keeps its own size.
-    // Output side, never above the cropped area's own.
     const target = Math.min(size, crop.size)
-    // The output canvas.
     const { canvas, ctx } = createCanvas(target, target)
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(bitmap, crop.x, crop.y, crop.size, crop.size, 0, 0, target, target)

@@ -327,7 +327,6 @@ interface GenrePlan {
  * server does it; the preview says so).
  */
 function planGenre(fields: ImportFields, track: TrackMetadata, genres: Genre[], pending: Map<string, NewSubgenre>): GenrePlan {
-  // Nothing changes and nothing is wrong, until the cells say otherwise.
   const result: GenrePlan = { changes: [], errors: [] }
   // The track's genre as it is (undefined without one), for the preview's "before".
   const currentGenre = genres.find(g => g.id === track.genreId)
@@ -414,7 +413,6 @@ export function yesNo(value: boolean): string {
  * change, and every row that will not be applied, with why.
  */
 export function planImport(parsed: ParsedImport, library: TrackMetadata[], genres: Genre[]): ImportPlan {
-  // Every list empty, filled row by row.
   const plan: ImportPlan = { updates: [], unchanged: [], notFound: [], ambiguous: [], repeated: [], invalid: [], newSubgenres: [] }
 
   // The library's tracks by folded title (several when titles repeat).

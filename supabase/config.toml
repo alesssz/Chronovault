@@ -262,7 +262,7 @@ otp_expiry = 3600
 # Chronovault: the reset email links straight to the app's /reset-password with a one-time token,
 # verified there, so the link works in any browser; Supabase's default goes through its /verify and
 # only works in the browser that asked. Production needs the same template in the Supabase
-# dashboard (docs/13-deployment.md, 13.4).
+# dashboard.
 [auth.email.template.recovery]
 subject = "Reset your Chronovault password"
 content_path = "./supabase/templates/recovery.html"

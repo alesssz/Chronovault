@@ -10,11 +10,8 @@ import { renameSubgenre } from '../../services/genres.service'
  * genre already has, or one incoherent with it ("Thrash Metal belongs to Metal").
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
-  // The subgenre's id in the address (400 when it is not a UUID).
   const id = requireUuidParam(event)
-  // The new name, validated against the schema (400 otherwise).
   const { name } = await readValidated(event, subgenreRenameSchema)
   return renameSubgenre(db, userId, id, name)
 })

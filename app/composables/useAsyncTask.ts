@@ -11,7 +11,6 @@
  * alike): keep it whole, destructuring would lose the reactivity.
  */
 export function useAsyncTask() {
-  // Failure messages.
   const toast = useToast()
   /** The task is running (spinners, locked dialogs). */
   const running = ref(false)

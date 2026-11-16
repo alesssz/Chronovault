@@ -54,7 +54,6 @@ export function useLongPress(target: MaybeRefOrGetter<HTMLElement | null | undef
     fired = false
     cancel()
     if (event.pointerType !== 'touch' || !event.isPrimary) return
-    // Where the finger landed.
     const element = event.target as Element
     if (options.ignore && element.closest(options.ignore)) return
     touching = true
@@ -65,7 +64,6 @@ export function useLongPress(target: MaybeRefOrGetter<HTMLElement | null | undef
       fired = options.onLongPress(element) !== false
     }, LONG_PRESS_MS)
   })
-  // Moving is scrolling or swiping.
   useEventListener(target, 'pointermove', (event: PointerEvent) => {
     if (timer && Math.hypot(event.clientX - startX, event.clientY - startY) > MOVE_TOLERANCE) cancel()
   })

@@ -21,9 +21,7 @@ export interface WavOptions {
 
 /** PCM WAV with a sine wave: a valid audio file with no binary fixtures. */
 export function makeWav(options: WavOptions = {}): Buffer {
-  // The options with their defaults.
   const { seconds = 3, sampleRate = 8000, channels = 1, bitsPerSample = 16, float = false } = options
-  // Bytes per sample, the number of sample frames, and the PCM data they fill.
   const bytesPerSample = bitsPerSample / 8
   const frames = Math.floor(seconds * sampleRate)
   const data = Buffer.alloc(frames * channels * bytesPerSample)
@@ -31,7 +29,7 @@ export function makeWav(options: WavOptions = {}): Buffer {
     // A 440 Hz sine at half volume, the same on every channel.
     const value = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 0.5
     for (let ch = 0; ch < channels; ch++) {
-      // Interleaved layout: every channel gets the same sine sample.
+      // Interleaved layout: one sample per channel in each frame.
       const offset = (i * channels + ch) * bytesPerSample
       if (float) data.writeFloatLE(value, offset)
       else data.writeIntLE(Math.round(value * (2 ** (bitsPerSample - 1) - 1)), offset, bytesPerSample)
@@ -162,14 +160,11 @@ export async function seedLibrary(page: Page, count: number): Promise<void> {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       })
-      // A presigned PUT address for the file.
       const target = await (await post('/api/tracks/upload-url', {
         trackId: id, extension: 'wav', mimeType: 'audio/wav', sizeBytes: bytes.length,
       })).json() as { uploadUrl: string, audioPath: string }
-      // The file, straight to storage.
       const upload = await fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': 'audio/wav' }, body: bytes })
       if (!upload.ok) throw new Error(`Track ${n}: upload failed (${upload.status})`)
-      // The track itself.
       const response = await post('/api/tracks', {
         id, title: `Track ${String(n).padStart(3, '0')}`, audioPath: target.audioPath,
         mimeType: 'audio/wav', sizeBytes: bytes.length, durationSeconds: 0.1,

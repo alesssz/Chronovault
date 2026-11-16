@@ -1,5 +1,5 @@
 /**
- * End-to-end, the user's own subgenres (FEAT-2): a typo made in the editor or by an import can
+ * End-to-end, the user's own subgenres: a typo made in the editor or by an import can
  * be fixed, and a subgenre no longer needed removed, from "Your subgenres" at the top of the
  * import page's genre reference. A rename shows on the track at once (the library's row reads
  * the new name, from the same cached list); a name the genre already has is refused with the
@@ -16,7 +16,6 @@ test.describe('own subgenres', () => {
 
     // Through the API, as the editor does: a subgenre with a typo under Metal, set on the track.
     const { trackId, metalId, ownId, thrashId } = await page.evaluate(async () => {
-      // The track just uploaded (the only one), and the genres with their subgenres.
       const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
       const genres = await (await fetch('/api/genres')).json() as { id: string, name: string, subgenres: { id: string, name: string }[] }[]
       const metal = genres.find(g => g.name === 'Metal')!

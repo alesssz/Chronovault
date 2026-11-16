@@ -18,7 +18,6 @@ import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// Where the generated types go.
 const target = resolve(process.cwd(), 'shared/types/database.types.ts')
 
 // The generated TypeScript, kept in memory until we know it is valid.

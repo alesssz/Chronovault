@@ -54,7 +54,6 @@ describe('readLibrary after the first page', () => {
   it('gives callers asking at the same moment the same single read', async () => {
     list.mockResolvedValue([])
 
-    // Two callers asking together.
     const [first, second] = await Promise.all([lib.readLibrary(), lib.readLibrary()])
 
     expect(list).toHaveBeenCalledOnce()

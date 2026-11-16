@@ -25,9 +25,8 @@ const emit = defineEmits<{
   select: [index: number]
 }>()
 
-/** Zoom range of the slider, in pixels per second. */
+/** Zoom range of the slider, in pixels per second; at the top, one second spans most of a phone screen. */
 const MIN_ZOOM = 20
-// (400 px per second: one second spans most of a phone screen.)
 const MAX_ZOOM = 400
 
 /** Where wavesurfer draws. */
@@ -77,9 +76,10 @@ const LABEL_GAP = 6
 /**
  * Small label shown on a marker: number and the line, on a dark chip, cut with
  * an ellipsis to `maxWidth` (the room before the next marker). Its width is
- * its own (`max-content`): inside the marker's 2px-wide region it shrank to the
- * number, the rest of the text spilling out of the chip, white straight on the
- * waveform (invisible on the light theme's pale one) and over the next label.
+ * its own (`max-content`): inside the marker's 2px-wide region it would shrink
+ * to the number, the rest of the text spilling out of the chip, white straight
+ * on the waveform (invisible on the light theme's pale one) and over the next
+ * label.
  */
 function markerLabel(marker: Marker, maxWidth: number): HTMLElement {
   // Rendered inside wavesurfer's shadow DOM: inline styles, no Tailwind classes.
@@ -195,7 +195,6 @@ function destroy() {
   regions = null
 }
 
-// Built once on screen, destroyed when the editor goes.
 onMounted(create)
 // Nothing left behind on the shared <audio> when the editor goes.
 onBeforeUnmount(destroy)

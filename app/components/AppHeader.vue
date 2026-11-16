@@ -42,7 +42,6 @@ async function logout() {
 const { unseen, refresh: refreshUnseen } = useUnseenFeedback()
 // Back on screen (another app, another tab, the phone unlocked): friends may have voted meanwhile.
 const visibility = useDocumentVisibility()
-// Check the dot again whenever the app comes back on screen.
 watch(visibility, (state) => {
   if (state === 'visible') void refreshUnseen()
 })
@@ -68,8 +67,8 @@ const storageOpen = ref(false)
 const shortcutsOpen = useShortcutsHelp()
 /**
  * A mouse or trackpad is the primary pointer: only then does the menu offer
- * "Keyboard shortcuts". On phones and tablets there is usually no keyboard
- * (UI-42); one that has one still opens the list with "?". The pointer, not
+ * "Keyboard shortcuts". On phones and tablets there is usually no keyboard;
+ * one that has one still opens the list with "?". The pointer, not
  * the width, decides, as for the volume slider (pageControlsVolume).
  */
 const finePointer = useMediaQuery('(pointer: fine)')

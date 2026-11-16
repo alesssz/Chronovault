@@ -20,7 +20,6 @@ import { sharedApi } from '~/services/api'
  * group (429, MAX_GROUP_VOTES votes already) says so in plain words.
  */
 export function useVersionVote(playlistId: string, isGroup: () => boolean) {
-  // Failure messages.
   const toast = useToast()
   /** Vote state for this browser; null until loaded (or when not a group). */
   const state = ref<VersionVoteState | null>(null)
@@ -54,7 +53,6 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
       return true
     }
     catch (err) {
-      // The status tells the expected refusals apart from real failures.
       const status = getErrorStatus(err)
       if (status === 409) {
         toast.add({ title: 'Voting is closed', description: 'The final version has just been chosen.', color: 'neutral' })
@@ -78,7 +76,6 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
    * already given), or takes the pick back when it is the current one.
    */
   async function toggle(trackId: string) {
-    // This browser's current pick, if any.
     const pick = state.value?.pick
     if (pick?.trackId === trackId) {
       await send(() => sharedApi.withdrawVote(playlistId, getListenerId()), 'Pick not removed')
@@ -94,7 +91,6 @@ export function useVersionVote(playlistId: string, isGroup: () => boolean) {
 
   /** Saves a name and a comment with the current pick; true when saved. */
   async function saveNote(name: string, comment: string): Promise<boolean> {
-    // The pick the note goes with (none: nothing to save).
     const pick = state.value?.pick
     if (!pick) return false
     // The same pick sent again, now with the name and the comment.

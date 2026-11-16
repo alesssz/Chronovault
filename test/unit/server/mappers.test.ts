@@ -128,7 +128,6 @@ describe('cover addresses', () => {
 
 describe('toTrackInsert', () => {
   it('applies defaults for optional fields', () => {
-    // An insert built from the bare minimum of a new track.
     const insert = toTrackInsert(USER, {
       id: TRACK,
       title: 'New',
@@ -151,7 +150,6 @@ describe('toTrackInsert', () => {
   })
 
   it('keeps an explicit status', () => {
-    // An insert that asks for a status.
     const insert = toTrackInsert(USER, {
       id: TRACK, title: 'New', audioPath: `${USER}/${TRACK}.wav`, mimeType: 'audio/wav', sizeBytes: 42, status: 'final',
     })
@@ -161,7 +159,6 @@ describe('toTrackInsert', () => {
 
 describe('toTrackUpdate', () => {
   it('only includes present fields, mapping column names', () => {
-    // Only the three fields given, under their column names.
     expect(toTrackUpdate({ sunoPrompt: 'p', genreId: null, subgenreId: null, coverPath: null })).toEqual({
       suno_prompt: 'p',
       genre_id: null,

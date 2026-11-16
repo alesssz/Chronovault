@@ -11,8 +11,8 @@ export type ReplaceStatus = 'idle' | 'analyzing' | 'converting' | 'uploading' | 
 const RUNNING: ReplaceStatus[] = ['analyzing', 'converting', 'uploading', 'saving']
 
 /**
- * Replace audio (the track editor's TrackReplaceAudioDialog, docs/07-data-flows.md
- * 7.19): swaps a track's audio file for a new one, such as its master,
+ * Replace audio (the track editor's TrackReplaceAudioDialog): swaps a
+ * track's audio file for a new one, such as its master,
  * keeping everything else (metadata, lyrics, cover, plays, votes, playlists,
  * share links). The same path as a new track's upload, for a track that
  * already exists:
@@ -30,7 +30,6 @@ const RUNNING: ReplaceStatus[] = ['analyzing', 'converting', 'uploading', 'savin
  * Any failure leaves the track on its old file, with the reason in `error`.
  */
 export function useAudioReplace() {
-  // The new data and the new file go to the player at the end.
   const player = usePlayerStore()
 
   /** Where the replace has got to. */
@@ -69,7 +68,6 @@ export function useAudioReplace() {
 
     try {
       status.value = 'analyzing'
-      // Duration and peaks measured, a WAV turned into its verified FLAC.
       const prepared = await prepareAudio(file, {
         onConverting: () => {
           status.value = 'converting'
@@ -79,11 +77,9 @@ export function useAudioReplace() {
         },
       })
       conversion.value = prepared.conversion
-      // What is uploaded, and the type it is stored with.
       const { file: audioFile, mimeType, analysis } = prepared
 
       status.value = 'uploading'
-      // A presigned PUT address for a new key next to the track's current file.
       const target = await tracksApi.replaceUploadUrl(trackId, {
         extension: storageExtension(audioFile),
         mimeType,
@@ -99,7 +95,6 @@ export function useAudioReplace() {
       })
 
       status.value = 'saving'
-      // The track, now on the new file (its synced lyrics flagged for checking, if any).
       const updated = await tracksApi.replaceAudio(trackId, {
         audioPath: target.audioPath,
         mimeType,

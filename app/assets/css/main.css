@@ -81,8 +81,8 @@
  * - dark: the brand colours themselves (400), 8.6:1 and 11:1 on the night.
  * The status colours have the same problem in the light theme: at 500 they
  * read on white at 1.9:1 (warning, yellow), 2.2:1 (success, green), 3.8:1
- * (info, blue) and 3.8:1 (error, red), so warning alerts were yellow on pale
- * yellow, the "mastered" tick pale green, error lines faint. Each takes the
+ * (info, blue) and 3.8:1 (error, red): warning alerts yellow on pale yellow,
+ * the "mastered" tick pale green, error lines faint. Each takes the
  * first step whose text still reads above 4.5:1 on the 10% tint of a subtle
  * alert or badge, the palest background it sits on: warning and success 800
  * (5.9:1 and 6.1:1 there), info and error 700 (5.8:1 and 5.4:1; info 600
@@ -122,9 +122,9 @@ html {
 /*
  * Phones (below `sm`, 40rem = 640px: media queries ignore the base size
  * above) get a smaller base: 17px, the standard body size on iPhone. At 20px
- * a phone held barely 19 rem across, so filters truncated ("Most rece…")
- * and the header and lists took a lot of room; 17px fits about 15% more per
- * line and stays comfortable to read. Everything in rem shrinks with it
+ * a phone holds barely 19rem across: filters truncate ("Most rece…") and the
+ * header and lists take a lot of room; 17px fits about 15% more per line and
+ * stays comfortable to read. Everything in rem shrinks with it
  * (text, spacing, buttons, the player bar's height), so the proportions
  * stay those of the larger screens.
  *

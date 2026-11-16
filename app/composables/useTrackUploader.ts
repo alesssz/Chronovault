@@ -47,7 +47,6 @@ export interface UploadItem {
  * If step 5 fails, the server removes the uploaded audio and the client the cover.
  */
 export function useTrackUploader() {
-  // Covers go straight to Supabase Storage; the user id builds every storage path (`<userId>/…`).
   const covers = useCoverStorage()
 
   /** Every file of the session, in the order it was added (the page renders this list). */
@@ -78,7 +77,6 @@ export function useTrackUploader() {
    */
   function add(files: File[]): void {
     for (const file of files) {
-      // Why the file is refused at once, or null when it can go.
       const invalid = !resolveAudioMimeType(file)
         ? 'Unsupported format'
         : file.size > MAX_AUDIO_BYTES ? 'File too large (max 500 MB)' : null
@@ -152,8 +150,6 @@ export function useTrackUploader() {
       if (!userId) throw new Error('Session expired: please sign in again')
 
       item.status = 'analyzing'
-      // Analysis, then for a WAV the verified lossless FLAC (lib/prepare-audio.ts):
-      // the same audio, roughly half the size.
       const prepared = await prepareAudio(item.file, {
         onAnalyzed: (analysis) => {
           item.title = analysis.title
@@ -165,7 +161,6 @@ export function useTrackUploader() {
           item.conversionProgress = fraction
         },
       })
-      // What was read from the file, and what is uploaded (the file, or the FLAC a WAV became).
       const { analysis, file: audioFile, mimeType } = prepared
       item.conversion = prepared.conversion
 
@@ -174,7 +169,6 @@ export function useTrackUploader() {
       const trackId = crypto.randomUUID()
 
       item.status = 'uploading'
-      // A presigned PUT address in the user's folder.
       const target = await tracksApi.uploadUrl({
         trackId,
         extension: storageExtension(audioFile),
@@ -229,7 +223,6 @@ export function useTrackUploader() {
 
   /** The cover is optional (center-cropped from the tags): if it fails, the track is saved anyway. */
   async function uploadCover(userId: string, trackId: string, source: Blob): Promise<string | null> {
-    // The cover's place in the user's folder, named after the track.
     const path = buildCoverPath(userId, trackId)
     try {
       await covers.upload(path, source)

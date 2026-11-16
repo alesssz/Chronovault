@@ -57,7 +57,7 @@ async function onSubmit() {
     v-model:open="open"
     title="New playlist"
     :description="createDialog.trackIds.length
-      ? `It will start with the selected track${createDialog.trackIds.length > 1 ? 's' : ''}.`
+      ? `It will start with ${pluralize(createDialog.trackIds.length, 'selected track')}.`
       : 'You can add tracks from the library.'"
     :dismissible="!saving.running"
   >

@@ -32,7 +32,6 @@ export function sharedPlaylistSource(playlist: SharedPlaylist): TrackSource {
   return {
     key: `playlist:${playlist.id}`,
     get: async (id) => {
-      // The track, from the playlist already loaded on the page (no request).
       const track = playlist.tracks.find(t => t.id === id)
       if (!track) throw new Error('Track not found in the playlist')
       return track

@@ -12,7 +12,7 @@ import type { TrackSummary } from '~~/shared/types/track'
  * loaded, the version's votes and plays.
  *
  * The root is the `<li>` itself, so the list's drag and drop (SortableJS,
- * through the `[data-drag-handle]` of DragHandle) moves rows as before.
+ * through the `[data-drag-handle]` of DragHandle) moves whole rows.
  */
 defineProps<{
   track: TrackSummary
@@ -55,7 +55,7 @@ const emit = defineEmits<{
       <!--
         The title, cut at the end of the line; in a group of versions on up to two lines, since
         versions share the start of their title ("Teutoburg (v1, …", "Teutoburg (v2, …") and the
-        part that tells them apart is the part that was cut.
+        part that tells them apart is the part that would be cut.
       -->
       <span
         class="flex min-w-0 items-center gap-1.5 font-medium"

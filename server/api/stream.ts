@@ -9,10 +9,7 @@ import { badRequest, notFound } from '../utils/errors'
  * Why it exists: a cast device fetches the audio itself, with no session, so
  * it needs an address that carries its own permission and answers any check
  * a player makes. A presigned storage URL only answers the method it was
- * signed for (a HEAD gets 403). It was made when Chrome on Android closed its
- * device picker at once ("The prompt was dismissed"), on the guess that a
- * HEAD check caused it; that refusal remains, Chrome sends no HEAD (see
- * pages/cast-test.vue and docs/07-data-flows.md, 7.5). Here:
+ * signed for (a HEAD gets 403). Here:
  * - HEAD answers by itself: 200 with the file's type and size, read from the
  *   storage with a HEAD signed by the server; no body;
  * - GET redirects (302) to a presigned GET of the file, valid until this
@@ -36,7 +33,6 @@ export default defineEventHandler(async (event) => {
   if (typeof k !== 'string' || typeof e !== 'string' || typeof s !== 'string') {
     throw badRequest('Invalid audio address')
   }
-  // The audio storage client (R2, or the local S3 endpoint).
   const audio = useAudioStorage()
   if (!(await audio.verifyStream(k, e, s))) {
     throw createError({ statusCode: 403, message: 'Invalid or expired audio address' })

@@ -18,12 +18,12 @@ import { expiresIn, playbackSource, removeCoverFiles } from './playback'
  * Audio files live on the S3-compatible audio storage (Cloudflare R2);
  * covers live in Supabase Storage.
  *
- * Upload sequence (see docs/07-data-flows.md, 7.3 Uploading a track):
+ * Upload sequence:
  *   1. createUploadTarget → presigned PUT URL (never for an id already registered)
  *   2. the browser uploads the file straight to R2
  *   3. createTrack → checks the stored file, then inserts the row (safe to repeat)
  *
- * Replace sequence (7.19 Replacing a track's audio): the same three steps for
+ * Replace sequence: the same three steps for
  * a track already registered, its metadata untouched:
  *   1. createReplaceTarget → presigned PUT URL for a new key next to the old file
  *   2. the browser uploads the file straight to R2
@@ -38,7 +38,6 @@ export const UPLOAD_URL_TTL = 60 * 60
  * and served (with browser caching) by /api/covers (see mappers/cover-urls.ts).
  */
 export async function listTracks(db: DbClient, userId: string): Promise<TrackSummary[]> {
-  // Summary rows, newest first.
   const rows = await tracksRepo.listTrackRows(db, userId)
   return rows.map(toTrackSummary)
 }
@@ -55,7 +54,6 @@ export async function listTrackMetadata(db: DbClient, userId: string): Promise<T
 
 /** Full detail of one of the user's tracks (404 otherwise). */
 export async function getTrack(db: DbClient, userId: string, id: string): Promise<TrackDetail> {
-  // The full row (none when missing or not the user's).
   const row = await tracksRepo.findTrackRow(db, userId, id)
   if (!row) throw notFound()
   return toTrackDetail(row)
@@ -91,8 +89,7 @@ export async function createUploadTarget(
  * to this track id, exactly as the database requires (the audio
  * `<userId>/<trackId>.<ext>` with an extension of 1 to 10 lower-case letters
  * and digits, the cover `<userId>/<trackId>.webp`); the file must exist with
- * the declared size. A
- * mismatched file is deleted; so is the file when the database refuses the
+ * the declared size. A mismatched file is deleted; so is the file when the database refuses the
  * track (no orphans), but not when the insert's outcome is unknown.
  *
  * Safe to repeat (a retry after a lost response, a double submit): a track
@@ -128,7 +125,6 @@ export async function createTrack(
   }
 
   try {
-    // The stored row, with defaults and generated columns.
     const row = await tracksRepo.insertTrackRow(db, toTrackInsert(userId, input))
     return toTrackDetail(row)
   }
@@ -138,7 +134,7 @@ export async function createTrack(
     // registered it first, and the file is that track's now; and a 500 (a timeout, a
     // dropped connection) leaves the outcome unknown: the row may have been committed,
     // and deleting its file would leave a track that cannot play. Both keep the file; an
-    // orphan left that way shows in the storage clean-up (docs 7.12).
+    // orphan left that way shows in the storage clean-up.
     if (refusedByDatabase(error) && !isConflict(error)) await audio.remove([input.audioPath])
     throw error
   }
@@ -187,7 +183,7 @@ export async function createReplaceTarget(
  *      a replace from another tab that got there first wins, and this one's
  *      file is deleted (409);
  *   5. the old file is deleted, best effort (a failure leaves an orphan for
- *      the Storage dialog, docs 7.12).
+ *      the Storage dialog).
  * When the database refuses the update (4xx) the new file is deleted; with no
  * answer to trust (500) it is kept, as in createTrack: it may be the file the
  * committed row names.
@@ -267,7 +263,6 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
   // Synced lyrics emptied: nothing is left to check after a replaced audio.
   if (input.lyricsSynced !== undefined && !input.lyricsSynced?.length) input = { ...input, syncNeedsReview: false }
 
-  // The updated row (none when missing or not the user's).
   const row = await tracksRepo.updateTrackRow(db, userId, id, toTrackUpdate(input))
   if (!row) throw notFound()
 
@@ -281,7 +276,6 @@ export async function updateTrack(db: DbClient, userId: string, id: string, inpu
  * then its audio and cover files, best effort.
  */
 export async function deleteTrack(db: DbClient, audio: AudioStorage, userId: string, id: string): Promise<void> {
-  // The deleted row's file paths (none when nothing was deleted).
   const paths = await tracksRepo.deleteTrackRow(db, userId, id)
   if (!paths) throw notFound()
 
@@ -298,7 +292,6 @@ export async function getPlaybackSource(
   userId: string,
   id: string,
 ): Promise<PlaybackSource> {
-  // Only the audio path (none when missing or not the user's).
   const audioPath = await tracksRepo.findTrackAudioPath(db, userId, id)
   if (!audioPath) throw notFound()
   return playbackSource(audio, audioPath)

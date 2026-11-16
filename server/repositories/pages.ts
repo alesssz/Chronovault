@@ -26,7 +26,6 @@ export async function readAllPages<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null, error: PostgrestError | null }>,
   context: string,
 ): Promise<T[]> {
-  // Rows of the pages read so far.
   const rows: T[] = []
   for (let from = 0; ; from += PAGE_SIZE) {
     // One page: rows `from` to `from + PAGE_SIZE - 1` (both included, as PostgREST counts them).

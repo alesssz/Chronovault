@@ -1,6 +1,6 @@
 /**
  * Numeric helpers shared by the player, the audio engine and the cover
- * editor. Auto-imported (Nuxt scans `shared/utils`).
+ * editor.
  */
 
 /** `value` limited to [min, max]. */

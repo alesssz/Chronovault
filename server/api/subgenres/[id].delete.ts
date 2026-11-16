@@ -7,7 +7,6 @@ import { deleteSubgenre } from '../../services/genres.service'
  * 204; 400 invalid id; 403 a built-in subgenre; 404 unknown, or another user's.
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user's database client (RLS applies); 401 without a session.
   const { db } = await requireAuth(event)
   await deleteSubgenre(db, requireUuidParam(event))
   setResponseStatus(event, 204)

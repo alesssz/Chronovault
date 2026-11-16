@@ -18,7 +18,6 @@ function toSubgenre(row: genresRepo.SubgenreRow): Subgenre {
 
 /** The genres, sorted by name, each with its built-in and the user's own subgenres, sorted by name. */
 export async function listGenres(db: DbClient, userId: string): Promise<Genre[]> {
-  // The two lists, read at once: they do not depend on each other.
   const [genreRows, subgenreRows] = await Promise.all([
     genresRepo.listGenreRows(db),
     genresRepo.listSubgenreRows(db, userId),
@@ -26,7 +25,6 @@ export async function listGenres(db: DbClient, userId: string): Promise<Genre[]>
   // Each genre's subgenres, in the rows' order (by name).
   const byGenre = new Map<string, Subgenre[]>()
   for (const row of subgenreRows) {
-    // The genre's list so far (a new one for its first subgenre).
     const list = byGenre.get(row.genre_id) ?? []
     list.push(toSubgenre(row))
     byGenre.set(row.genre_id, list)
@@ -43,7 +41,6 @@ export async function listGenres(db: DbClient, userId: string): Promise<Genre[]>
 export async function createSubgenre(db: DbClient, userId: string, genreId: string, name: string): Promise<Subgenre> {
   // Every genre with its subgenres: the coherence check looks across all of them.
   const genres = await listGenres(db, userId)
-  // The genre asked for.
   const genre = genres.find(g => g.id === genreId)
   if (!genre) throw notFound('Genre not found')
 
@@ -64,7 +61,6 @@ export async function createSubgenre(db: DbClient, userId: string, genreId: stri
  * built-in one, which every user shares and none may change.
  */
 async function ownSubgenreRow(db: DbClient, id: string, action: 'renamed' | 'deleted'): Promise<genresRepo.SubgenreRow> {
-  // The row, if the user can see it (built-in or their own).
   const row = await genresRepo.findSubgenreRow(db, id)
   if (!row) throw notFound('Subgenre not found')
   if (row.user_id === null) throw forbidden(`Built-in subgenres cannot be ${action}`)

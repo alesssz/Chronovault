@@ -2,7 +2,7 @@
  * End-to-end, the edit page of the track playing does not download its audio file while the Sync
  * tab stays closed. The Sync tab's detailed waveform fetches and decodes the whole file (tens of
  * MB on a real track); its editor is mounted hidden with the page, so the waveform waits for the
- * tab to be opened. The player's own <audio> element streams the file as before: only the
+ * tab to be opened. The player's own <audio> element streams the file regardless: only the
  * waveform's download (a fetch of the streaming address) is counted.
  */
 import { expect, test } from './fixtures'

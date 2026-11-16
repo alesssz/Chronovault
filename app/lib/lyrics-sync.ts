@@ -50,14 +50,12 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
   const syncedCount = computed(() => lyricRows.value.filter(r => r.time != null).length)
   /** Next lyric line to sync (section headers are skipped); `rows.length` once all are synced. */
   const cursor = computed(() => {
-    // The first lyric line without a time.
     const i = rows.value.findIndex(r => !r.section && r.time == null)
     return i === -1 ? rows.value.length : i
   })
   /** Lyric line currently playing (last one with time ≤ current position); -1 when none. */
   const playingIndex = computed(() => {
     if (!playback.loaded) return -1
-    // Last stamped lyric line whose time has passed.
     let found = -1
     rows.value.forEach((r, i) => {
       if (!r.section && r.time != null && r.time <= playback.currentTime) found = i
@@ -68,7 +66,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
   /** Gives the next unsynced line the current playback time (Space / ↓ / Stamp line). */
   function stamp() {
     if (!playback.loaded || cursor.value >= rows.value.length) return
-    // The line being stamped.
     const index = cursor.value
     rows.value[index]!.time = roundToCentiseconds(playback.currentTime)
     selected.value = index
@@ -85,9 +82,7 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Plays the selected line (or the one playing) again from just before its start. */
   function replay() {
-    // The selected line, or else the one playing (none: nothing to replay).
     const index = selected.value ?? (playingIndex.value >= 0 ? playingIndex.value : null)
-    // That line's start, if it has one.
     const time = index == null ? null : rows.value[index]?.time
     if (!playback.loaded || time == null) return
     playback.seek(Math.max(0, time - REPLAY_PREROLL))
@@ -96,7 +91,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Moves the start of a line (after dragging its marker on the waveform). */
   function moveLine(i: number, time: number) {
-    // The dragged line (a section header has no time to move).
     const row = rows.value[i]
     if (!row || row.section) return
     row.time = Math.max(0, time)
@@ -105,7 +99,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Clears the last synced line and jumps back to just before the previous one (↑ / Undo). */
   function undo() {
-    // The last line stamped, the one to undo.
     const last = syncedBefore(cursor.value)
     if (last < 0) return
     rows.value[last]!.time = null
@@ -119,7 +112,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Index of the last synced lyric line before row `index` (section headers skipped), -1 when none. */
   function syncedBefore(index: number): number {
-    // Walks back from the row before `index`.
     let i = index - 1
     while (i >= 0 && (rows.value[i]!.section || rows.value[i]!.time == null)) i--
     return i
@@ -127,7 +119,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Shifts a line's start by `delta` seconds (←/→, ±0.1 buttons), never below 0. */
   function nudge(i: number, delta: number) {
-    // The line to shift (only a synced one has a start).
     const row = rows.value[i]
     if (row?.time == null) return
     row.time = Math.max(0, roundToCentiseconds(row.time + delta))
@@ -135,7 +126,6 @@ export function createLyricsSync(initial: SyncRow[], playback: SyncPlayback) {
 
   /** Moves playback to a synced line's start. */
   function seekTo(i: number) {
-    // The line's start (none: nothing to jump to).
     const time = rows.value[i]?.time
     if (playback.loaded && time != null) playback.seek(time)
   }

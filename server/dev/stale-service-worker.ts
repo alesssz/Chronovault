@@ -5,8 +5,9 @@
  * Why: a production build run on localhost (e.g. `make preview`) registers
  * the PWA service worker for http://localhost:3100. In development the PWA is
  * off and /sw.js does not exist, but the browser keeps fetching it to check
- * for updates: Nuxt rendered it as a page (router warning VUE_ROUTER_R0004)
- * and, as HTML, it could never replace the old worker, which kept running.
+ * for updates: left to Nuxt it is rendered as a page (router warning
+ * VUE_ROUTER_R0004) and, as HTML, it can never replace the old worker, which
+ * keeps running.
  *
  * Served here, this script is a valid update: the browser installs it, it
  * unregisters itself on activation and reloads the open tabs, so they run

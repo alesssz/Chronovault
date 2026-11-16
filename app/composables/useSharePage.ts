@@ -55,11 +55,8 @@ const SHARE_ROUTES: Record<ShareKind, { page: string, cover: string, ogType: 'mu
  * longer available, so every link shared in a chat shows whose music it is.
  */
 export function useShareMeta(options: ShareMetaOptions): void {
-  // The kind's page path, cover route and wording.
   const route = SHARE_ROUTES[options.kind]
-  // "Track not available" / "Playlist not available".
   const unavailable = `${route.noun} not available`
-  // Title, description, Open Graph tags and robots, kept up to date as the data changes.
   useSeoMeta({
     title: () => `${options.title() ?? unavailable} · ${APP_NAME}`,
     description: options.description,

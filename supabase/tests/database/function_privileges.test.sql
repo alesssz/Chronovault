@@ -49,9 +49,9 @@ select is(
 -- The policy helpers: in `private`, callable only by the roles whose policies use them
 -- -----------------------------------------------------------------------------
 select hasnt_function('public', 'is_shared_track_file', array['text', 'text'],
-  'is_shared_track_file is no longer in the API schema');
+  'is_shared_track_file is not in the API schema');
 select hasnt_function('public', 'owns_playlist', array['uuid'],
-  'owns_playlist is no longer in the API schema');
+  'owns_playlist is not in the API schema');
 select ok(
   has_function_privilege('anon', 'private.is_shared_track_file(text, text)', 'execute')
     and has_function_privilege('authenticated', 'private.is_shared_track_file(text, text)', 'execute'),
@@ -64,7 +64,7 @@ select ok(
 );
 
 -- -----------------------------------------------------------------------------
--- set_playlist_tracks still works from its new helper
+-- set_playlist_tracks and its policies work with the helper in `private`
 -- -----------------------------------------------------------------------------
 insert into auth.users (id, instance_id, aud, role, email) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@test.local');

@@ -39,7 +39,6 @@ export const test = base.extend<{ browserErrors: { csp: string[], hydration: str
     // Contexts the test opens (visitors) are watched too, for the length of the test.
     const newContext = browser.newContext.bind(browser)
     browser.newContext = async (...args) => {
-      // The visitor's context, as Playwright makes it.
       const opened = await newContext(...args)
       watch(opened)
       return opened

@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { MAX_SUBGENRE_NAME } from '~~/shared/schemas/track'
 import type { Genre, Subgenre } from '~~/shared/types/track'
 
 /**
  * The user's own subgenres (created in the editor's Subgenre field or by a
  * metadata import), each with its genre, to rename or delete: a typo ("Swmap
- * Metal") otherwise stayed for good in the editor's list, the library's filter
- * and this page's reference. Shown at the top of GenreReference, which lists
+ * Metal") would otherwise stay for good in the editor's list, the library's
+ * filter and this page's reference. Shown at the top of GenreReference, which lists
  * every subgenre and already marks these as "yours"; nothing when there are
  * none. Built-in subgenres are shared by everyone and never listed here.
  *
@@ -135,7 +136,7 @@ async function confirmDelete() {
           <span class="shrink-0 text-muted">{{ item.genre.name }} ›</span>
           <UInput
             v-model="draft"
-            :maxlength="60"
+            :maxlength="MAX_SUBGENRE_NAME"
             autofocus
             :aria-label="`New name for ${item.subgenre.name}`"
             :disabled="renaming.running"

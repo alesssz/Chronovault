@@ -57,8 +57,8 @@ select ok(
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "role": "authenticated"}', true);
 
--- Before: the update policy checked the playlist only, and this put A's track on B's share page
--- (B cannot read A's tracks, but an id is enough: the foreign key does not look at RLS).
+-- A policy checking the playlist only would let this put A's track on B's share page
+-- (B cannot read A's tracks, but an id is enough: the foreign key ignores RLS).
 select throws_ok(
   $$ update public.playlist_tracks set track_id = 'a0000000-0000-4000-8000-000000000001'
      where playlist_id = 'd1111111-1111-4111-8111-111111111111' $$,
@@ -87,7 +87,7 @@ select results_eq(
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "role": "authenticated"}', true);
 
--- Before: set_playlist_tracks had no limit of its own and stored all 1001.
+-- Through the function.
 select throws_ok(
   $$ select public.set_playlist_tracks('c1111111-1111-4111-8111-111111111111',
        array(select id from public.tracks order by title)) $$,
@@ -105,7 +105,7 @@ select lives_ok(
        array(select id from public.tracks where title <> 'Track 1001' order by title)) $$,
   'a list of exactly 1000 tracks is stored'
 );
--- Before: a row inserted straight into the table was not counted at all.
+-- Straight into the table: the row counts too.
 select throws_ok(
   $$ insert into public.playlist_tracks (playlist_id, track_id, position)
      select 'c1111111-1111-4111-8111-111111111111', id, 1000 from public.tracks where title = 'Track 1001' $$,

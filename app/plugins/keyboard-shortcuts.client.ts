@@ -14,22 +14,16 @@ import { SEEK_STEP_SECONDS, shortcutFor, targetKeepsKey, type ShortcutAction } f
  * usual. A key it acts on goes no further (no page scroll on Space).
  *
  * Held down, ← and → keep seeking; the other keys act once per press.
- * `.client`: browser only.
  */
 export default defineNuxtPlugin(() => {
-  // What the shortcuts drive.
   const player = usePlayerStore()
-  // Components that use the keys as a whole, for now.
   const claims = useKeyboardClaims()
-  // The list of shortcuts (the `?` key).
   const help = useShortcutsHelp()
 
   /** Actions that make sense held down (each repeat moves a little more). */
   const REPEATABLE: readonly ShortcutAction[] = ['seek-back', 'seek-forward']
 
-  // Every key press on the page, before anything handles it by default.
   useEventListener(window, 'keydown', (event: KeyboardEvent) => {
-    // The shortcut this key press means, if any.
     const action = shortcutFor(event)
     if (!action || event.defaultPrevented || claims.value > 0) return
     if (targetKeepsKey(event.target instanceof Element ? event.target : null, action)) return
@@ -53,7 +47,6 @@ export default defineNuxtPlugin(() => {
         break
       case 'seek-back':
       case 'seek-forward': {
-        // Five seconds back or forward.
         const step = action === 'seek-back' ? -SEEK_STEP_SECONDS : SEEK_STEP_SECONDS
         // Not beyond the end (the store already keeps it from going before the start).
         const end = player.duration > 0 ? player.duration : Number.POSITIVE_INFINITY

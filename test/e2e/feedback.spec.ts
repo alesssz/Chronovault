@@ -19,7 +19,6 @@ const VERSIONS = ['Echo v1', 'Echo v2']
 
 /** The owner's tracks, by title (read through the API from the signed-in page). */
 async function trackIds(page: Page): Promise<Record<string, string>> {
-  // The user's tracks, read through the page (its session goes along).
   const tracks = await page.evaluate(async () => (await (await fetch('/api/tracks')).json() as { id: string, title: string }[]))
   return Object.fromEntries(tracks.map(t => [t.title, t.id]))
 }
@@ -29,7 +28,6 @@ test.describe('listeners\' feedback', () => {
     test.setTimeout(120_000)
     await signUp(page)
     for (const title of VERSIONS) await uploadTrack(page, title)
-    // The versions' ids, by title.
     const ids = await trackIds(page)
 
     // An unlisted group of the two versions, as "Share for feedback" makes it.
@@ -63,7 +61,6 @@ test.describe('listeners\' feedback', () => {
     // A friend without an account, in another browser context.
     const friendContext = await browser.newContext()
     try {
-      // The friend's page.
       const friend = await friendContext.newPage()
       await friend.goto(`/p/${group}`)
       // A server-rendered page: clicks before hydration do nothing.
@@ -74,8 +71,8 @@ test.describe('listeners\' feedback', () => {
       // --- Voting is open: a heart per version, and how to vote under the title ---
       await expect(friend.getByTestId('version-pick')).toHaveCount(2)
       const hint = friend.getByTestId('version-vote-hint')
-      // Worded for any device ("tap" on a desktop), and above the list: under it, it sat at the
-      // bottom edge of a desktop screen.
+      // Worded for any device (no "tap" on a desktop), and above the list: under it, it would sit
+      // at the bottom edge of a desktop screen.
       await expect(hint).toHaveText('Listen to each version, then choose the heart next to your favourite.')
       const hintBox = (await hint.boundingBox())!
       const firstRow = (await friend.getByTestId('shared-playlist-track').first().boundingBox())!
@@ -94,7 +91,7 @@ test.describe('listeners\' feedback', () => {
       await expect(friendRow('Echo v2').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
       await expect(friend.getByTestId('version-vote-note')).toContainText('Your pick: Echo v2')
       // Stored as soon as the heart is chosen, and the panel says so: the note's own button is
-      // "Save note", not a "Save" that read as the pick still to be sent.
+      // "Save note", not a "Save" that reads as the pick still to be sent.
       await expect(friend.getByTestId('version-vote-saved')).toHaveText('Saved')
       await expect(friend.getByTestId('version-vote-save')).toHaveText('Save note')
       await expect(friend.getByTestId('version-vote-save')).toBeDisabled()
@@ -123,11 +120,9 @@ test.describe('listeners\' feedback', () => {
 
       // --- The Versions page: votes, plays and the note ---
       await page.goto(`/versions/${group}`)
-      // The group's feedback panel on the owner's page.
       const panel = page.getByTestId('version-feedback')
       await expect(panel.getByTestId('version-feedback-totals')).toHaveText('1 vote · 1 listener')
       await expect(panel.getByTestId('version-feedback-status')).toContainText('Voting is open')
-      // The owner's row of a version.
       const ownerRow = (title: string) => page.getByTestId('playlist-track').filter({ hasText: title })
       await expect(ownerRow('Echo v1').getByTestId('version-tally')).toContainText('0 votes')
       await expect(ownerRow('Echo v1').getByTestId('version-tally')).toContainText('1 play, 1 to the end')
@@ -165,7 +160,6 @@ test.describe('listeners\' feedback', () => {
     await expect(page.getByTestId('stats-listeners')).toHaveText('1')
     await expect(page.getByTestId('stats-own-plays')).toHaveText('0')
     await expect(page.getByTestId('stats-plays-chart').getByTestId('stats-day-bar')).toHaveCount(30)
-    // The group's row on the Statistics page.
     const groupRow = page.getByTestId('stats-item').filter({ hasText: 'Echo – versions' })
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 play')
     await expect(groupRow.getByTestId('stats-item-plays')).toContainText('1 to the end')
@@ -176,7 +170,6 @@ test.describe('listeners\' feedback', () => {
     await signUp(page)
     // Two drafts, straight through the API ("Track 001", "Track 002").
     await seedLibrary(page, 2)
-    // Their ids, by title.
     const ids = await trackIds(page)
     const [first, second] = [ids['Track 001']!, ids['Track 002']!]
 
@@ -208,7 +201,6 @@ test.describe('listeners\' feedback', () => {
 
       // --- Votes: 50 visitors vote, the group is full ---
       for (let i = 0; i < 50; i++) {
-        // Each vote a new voter id.
         const response = await api.put(`/api/shared/playlists/${group}/vote`, { data: { voterId: crypto.randomUUID(), trackId: first } })
         expect(response.status(), `vote ${i + 1}`).toBe(200)
       }
@@ -218,7 +210,6 @@ test.describe('listeners\' feedback', () => {
       await friend.goto(`/p/${group}`)
       // A server-rendered page: clicks before hydration do nothing.
       await waitForHydration(friend)
-      // The second version's row on the public page.
       const row = friend.getByTestId('shared-playlist-track').filter({ hasText: 'Track 002' })
       await row.getByRole('button', { name: 'Pick Track 002' }).click()
       await expect(friend.getByText('This group is full').first()).toBeVisible()
@@ -237,7 +228,6 @@ test.describe('listeners\' feedback', () => {
     await signUp(page)
     // Two drafts, straight through the API ("Track 001", "Track 002"), in an unlisted group.
     await seedLibrary(page, 2)
-    // Their ids, by title.
     const ids = await trackIds(page)
     const group = await page.evaluate(async (trackIds) => {
       const response = await fetch('/api/playlists', {
@@ -254,7 +244,6 @@ test.describe('listeners\' feedback', () => {
       const friend = await friendContext.newPage()
       await friend.goto(`/p/${group}`)
       await waitForHydration(friend)
-      // The two versions' rows.
       const row = (title: string) => friend.getByTestId('shared-playlist-track').filter({ hasText: title })
       await row('Track 001').getByRole('button', { name: 'Pick Track 001' }).click()
       await expect(row('Track 001').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
@@ -264,7 +253,7 @@ test.describe('listeners\' feedback', () => {
       // Then changes their mind before saving the note.
       await row('Track 002').getByRole('button', { name: 'Pick Track 002' }).click()
       await expect(row('Track 002').getByTestId('version-pick')).toHaveAttribute('aria-pressed', 'true')
-      // Before: the answer to the new pick reset both fields to the saved (empty) note.
+      // The answer to the new pick leaves both fields alone (not reset to the saved, empty note).
       await expect(friend.getByTestId('version-vote-name')).toHaveValue('Marco')
       await expect(friend.getByTestId('version-vote-comment')).toHaveValue('Still deciding')
       // Still to save: the note goes with the new pick.

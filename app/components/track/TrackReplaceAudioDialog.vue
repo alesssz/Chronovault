@@ -13,8 +13,8 @@ import type { ReplaceStatus } from '~/composables/useAudioReplace'
  * around it:
  *   - a file picked or dropped (the formats and size limit of the upload),
  *     then shown in its place: name, format and size, with a ✕ to choose
- *     another one (the drop zone listed nothing, so nothing said which file
- *     Replace would send);
+ *     another one (the drop zone alone does not say which file Replace will
+ *     send);
  *   - when the track has synced lyrics, a note that they are kept but marked
  *     for checking (a master may trim or shift the audio);
  *   - Replace, then the status line of the upload list (analyzing,
@@ -29,7 +29,6 @@ const props = defineProps<{
   track: TrackDetail
 }>()
 
-// Tells the editor the replace is done, with the updated track.
 const emit = defineEmits<{
   /** The track now plays the new file (the player already knows). */
   replaced: [track: TrackDetail]
@@ -43,7 +42,6 @@ const toast = useToast()
 
 // The replace itself: status, progress, outcome.
 const replacing = useAudioReplace()
-// Its state, under short names for the template.
 const { status, progress, conversionProgress, conversion, error, running } = replacing
 
 /** The file picked or dropped; null until then. */

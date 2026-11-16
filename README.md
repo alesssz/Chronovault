@@ -96,4 +96,4 @@ Work known and waiting is in the [backlog](docs/backlog.md).
 
 Deployed at [chronovault-music.vercel.app](https://chronovault-music.vercel.app) and in use, as a personal instance with no public sign-up. What it does not do yet, and where it could go: [15. Limitations and next steps](docs/15-limitations-and-next-steps.md).
 
-A personal project, made public to be read. There is no licence: the code can be read and studied, but all rights are reserved.
+**Licence:** none. The source is public for reference; all rights are reserved. **Security:** report a vulnerability privately through GitHub (*Security → Report a vulnerability* on this repository), not in a public issue.

@@ -1,6 +1,6 @@
 /**
- * Small text helpers for labels and comparisons. Auto-imported in Vue
- * templates and server code (Nuxt auto-imports `shared/utils`).
+ * Small text helpers for labels and comparisons, used by the app and the
+ * server alike.
  */
 
 /**

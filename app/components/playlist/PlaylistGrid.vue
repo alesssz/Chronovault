@@ -48,7 +48,6 @@ withDefaults(defineProps<{
             data-testid="playlist-card-new"
           />
         </div>
-        <!-- Title -->
         <p class="mt-2 truncate font-medium">
           {{ playlist.title }}
         </p>

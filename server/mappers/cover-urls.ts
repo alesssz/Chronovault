@@ -18,7 +18,6 @@
 
 /** Short cache-busting version from an ISO timestamp. */
 function version(updatedAt: string): string {
-  // Milliseconds since 1970: the version is that number in base 36.
   const ms = Date.parse(updatedAt)
   return Number.isFinite(ms) ? ms.toString(36) : '0'
 }

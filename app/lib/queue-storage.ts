@@ -35,9 +35,9 @@ export interface SavedQueue {
   originalTrackIds?: string[]
   /**
    * Where the queue was started from (the store's queueFrom: `playlist:<id>`),
-   * absent for the library. Without it a restored playlist queue was the
-   * library's to its page: "Play all" started it over instead of resuming.
-   * Optional, so queues saved before it are read as they are.
+   * absent for the library. It lets the playlist's page recognise a restored
+   * queue as its own, so "Play all" resumes it instead of starting over.
+   * Optional: older saved queues lack it.
    */
   from?: string
   /** ISO timestamp of the last save (informational). */
@@ -89,7 +89,6 @@ export function readSavedQueue(userId: string): SavedQueue | null {
   // Parsed JSON, validated field by field below (never trusted).
   let value: unknown
   try {
-    // The saved JSON text, if any.
     const raw = storage()?.getItem(KEY)
     if (!raw) return null
     value = JSON.parse(raw)
@@ -98,9 +97,7 @@ export function readSavedQueue(userId: string): SavedQueue | null {
     clearSavedQueue()
     return null
   }
-  // The parsed value, as it should look (checked just below).
   const saved = value as Partial<SavedQueue>
-  // A format this version reads, with every field of the right type.
   const valid = READABLE_VERSIONS.includes(saved?.version as number)
     && typeof saved.userId === 'string'
     && Array.isArray(saved.trackIds) && saved.trackIds.every(id => typeof id === 'string')
@@ -126,14 +123,12 @@ export function resolveSavedQueue<T extends { id: string }>(
   saved: Pick<SavedQueue, 'trackIds' | 'index' | 'position' | 'originalTrackIds'>,
   available: readonly T[],
 ): { items: T[], index: number, position: number, originalIds?: string[] } | null {
-  // Existing tracks by id, for O(1) lookups.
   const byId = new Map(available.map(t => [t.id, t]))
   const items = saved.trackIds.flatMap(id => byId.get(id) ?? [])
   if (items.length === 0) return null
   // Order to go back to when shuffle is turned off (undefined: not shuffled).
   const originalIds = saved.originalTrackIds?.filter(id => byId.has(id))
 
-  // The track that was playing when the queue was saved.
   const currentId = saved.trackIds[saved.index]!
   if (byId.has(currentId)) {
     return { items, index: items.findIndex(t => t.id === currentId), position: saved.position, originalIds }

@@ -8,7 +8,6 @@ import { PAGE_SIZE, readAllPages } from '~~/server/repositories/pages'
 
 /** A fake paged query over `total` numbered rows, recording the ranges it was asked for. */
 function fakeTable(total: number) {
-  // Every range asked for, in order.
   const ranges: [number, number][] = []
   // `.range(from, to)` is inclusive, like PostgREST's.
   const page = vi.fn(async (from: number, to: number) => {
@@ -22,7 +21,6 @@ describe('readAllPages', () => {
   it('reads every row of a table longer than one page, in order', async () => {
     // Two full pages and five rows more.
     const { page, ranges } = fakeTable(2 * PAGE_SIZE + 5)
-    // Every row, read through the pages.
     const rows = await readAllPages(page, 'test.list')
     expect(rows).toHaveLength(2 * PAGE_SIZE + 5)
     expect(rows[0]).toBe(0)

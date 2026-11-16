@@ -1,5 +1,5 @@
 /**
- * End-to-end, Replace audio (docs/07-data-flows.md 7.19): a track uploaded
+ * End-to-end, Replace audio: a track uploaded
  * before mastering gets a new file from its editor's File section. Its
  * metadata and lyrics stay, the duration is the new file's, the old file is
  * deleted (no orphan left in the Storage report), and the synced lyrics are
@@ -17,9 +17,7 @@ test.describe('Replace audio', () => {
 
     // Lyrics synced to it, saved straight through the API (the sync editor is tested elsewhere).
     const id = await page.evaluate(async () => {
-      // The library, to find the track's id.
       const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
-      // The track just uploaded.
       const track = tracks.find(t => t.title === 'Montgisard')!
       await fetch(`/api/tracks/${track.id}`, {
         method: 'PATCH',
@@ -39,7 +37,6 @@ test.describe('Replace audio', () => {
 
     // The "master": 5 seconds, picked in the dialog.
     await file.getByTestId('replace-audio').click()
-    // The dialog, open.
     const dialog = page.getByRole('dialog', { name: 'Replace audio' })
     await expect(dialog.getByTestId('replace-audio-sync-note')).toBeVisible()
     await dialog.locator('input[type="file"]').setInputFiles({ name: 'Montgisard (master).wav', mimeType: 'audio/wav', buffer: makeWav({ seconds: 5 }) })
@@ -57,13 +54,11 @@ test.describe('Replace audio', () => {
     const syncTab = page.getByRole('tab', { name: /Sync/ })
     await expect(syncTab).toContainText('Check')
     await syncTab.click()
-    // The warning above the sync editor.
     const alert = page.getByTestId('sync-check-alert')
     await expect(alert).toContainText('Audio file replaced')
 
     // The library shows the synced-lyrics icon in the warning colour meanwhile.
     await page.goto('/')
-    // The track's row in the library.
     const row = page.getByTestId('track-row').filter({ hasText: 'Montgisard' })
     await expect(row.getByTestId('track-lyrics-icon')).toHaveClass(/text-warning/)
 

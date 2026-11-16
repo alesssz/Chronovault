@@ -27,7 +27,7 @@ It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwrig
 
 ## 0.2 From a blank computer
 
-Every tool, in order, for **macOS** and **Windows**. Each step says why: every one of them is a problem that really happened.
+Every tool, in order, for **macOS** and **Windows**, each with the reason it is installed that way.
 
 ### macOS
 
@@ -47,9 +47,7 @@ Every tool, in order, for **macOS** and **Windows**. Each step says why: every o
    nvm install            # reads .nvmrc → Node 24
    nvm use
    ```
-   - The first Node installed with nvm becomes the default in every new terminal. To keep Homebrew's Node as the default for other projects: `nvm alias default system`, then `nvm use` inside this folder.
-   - Brew's notes also suggest a `bash_completion` line: leave it out, it is meant for bash.
-   - If `source ~/.zshrc` prints `command not found: compdef`, another tool's completion (e.g. Angular CLI's `source <(ng completion script)`) runs before zsh's completion system: put `autoload -Uz compinit && compinit` on the line before it.
+   The first Node installed with nvm becomes the default in every new terminal; `nvm alias default system` keeps an existing Node as the default elsewhere.
 3. **pnpm**, installed for that Node (with nvm, global packages belong to one Node version):
    ```bash
    npm i -g pnpm@12.14.0 --allow-scripts=pnpm
@@ -103,7 +101,7 @@ git clone https://github.com/alesssz/Chronovault.git
 cd Chronovault
 ```
 
-**Set who your commits are from, before the first one.** The repository is public, so every commit shows its author's email, and Vercel refuses to deploy a commit whose author is not on the GitHub account ([16](16-troubleshooting.md#16-troubleshooting)). On a computer whose global git identity is another one (a work laptop), give this repository its own, with the private address GitHub offers under *Settings → Emails* (`<id>+<user>@users.noreply.github.com`):
+**Set who your commits are from, before the first one.** The repository is public, so every commit shows its author's email, and Vercel refuses to deploy a commit whose author is not on the GitHub account ([16](16-troubleshooting.md#16-troubleshooting)). Give this clone its own identity, with the private address GitHub offers under *Settings → Emails* (`<id>+<user>@users.noreply.github.com`), whatever the computer's global one is:
 
 ```bash
 git config user.name "<your name>"
@@ -111,7 +109,7 @@ git config user.email "<id>+<user>@users.noreply.github.com"
 git config user.email      # check: prints that address
 ```
 
-Without `--global` it is stored in `.git/config` and applies to this clone only. A new clone starts without it. `pnpm merge:main` checks it too: GitHub's merge commit carries this address, and the script stops on any other.
+It applies to this clone only, so every new clone needs it again. `pnpm merge:main` checks it too: GitHub's merge commit carries this address, and the script stops on any other.
 
 **Sign the GitHub CLI in**, once per computer (it keeps its token in the system's keychain):
 
@@ -120,9 +118,7 @@ gh auth login     # GitHub.com → HTTPS → Login with a web browser, with the 
 gh auth status    # check: "Logged in to github.com account <user>"
 ```
 
-To *"Authenticate Git with your GitHub credentials?"* answer **No**: gh only needs GitHub's API (pull requests, checks), and git keeps the credentials it already uses for pushing. A yes makes gh the credential helper of every github.com repository on the computer, which a computer shared with other GitHub accounts (a work one) does not want.
-
-**A clone made before 3 November 2026** cannot be updated: the history was rewritten that day (the authors' email addresses) and published as a new repository under the same address, so `git pull` fails with `refusing to merge unrelated histories`. Copy anything not pushed out of it (and `.env.r2`, if you made one), delete the folder and clone again. Local accounts and tracks are not in the folder but in Docker volumes named after the Supabase project, so the new clone finds them.
+To *"Authenticate Git with your GitHub credentials?"* answer **No**: gh only needs GitHub's API (pull requests, checks), and git keeps the credentials it already uses for pushing. A yes makes gh the credential helper of every github.com repository on the computer, which is unwanted where other GitHub accounts are in use.
 
 ## 0.4 First start
 
@@ -227,7 +223,6 @@ Run `node scripts/doctor.mjs` first, then look up the message in [16. Troublesho
 - **"Docker is not running":** open Docker Desktop and wait for the engine.
 - **Always sent back to `/login`:** `.env` missing or stale: `make env`, then restart the dev server.
 - **Nuxt starts on a port other than 3100:** something else holds it ([16](16-troubleshooting.md#16-troubleshooting)).
-- **A computer that ran Chronovault on http://localhost:3000:** follow [Updating a computer set up before the port change](11-local-development.md#updating-a-computer-set-up-before-the-port-change) once.
 
 ---
 

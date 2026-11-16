@@ -20,7 +20,6 @@
 import { ANALYTICS_PERIODS, type AnalyticsItem, type AnalyticsPeriod, type PlaysItem } from '~~/shared/types/analytics'
 import { analyticsApi } from '~/services/api'
 
-// Browser tab title: "Statistics · Chronovault".
 usePageTitle('Statistics')
 
 /** Selected period; changing it reloads both reports. */
@@ -77,11 +76,9 @@ type PageRow = Omit<AnalyticsItem, 'pageviews' | 'visitors'>
  * then most played.
  */
 const pages = computed<PageRow[]>(() => {
-  // One row per page path, filled by both reports.
   const byPath = new Map<string, PageRow>()
   for (const item of hasViews.value ? report.value!.items : []) byPath.set(item.path, { ...item, plays: 0, completed: 0 })
   for (const item of plays.value?.items ?? []) {
-    // The page's row, when it has views too.
     const row = byPath.get(item.path)
     if (row) Object.assign(row, { plays: item.plays, completed: item.completed })
     else byPath.set(item.path, { ...pageOf(item), pageviews: null, visitors: null, plays: item.plays, completed: item.completed })
@@ -95,9 +92,9 @@ function pageOf({ kind, id, title, visibility, coverUrl, path }: PlaysItem) {
   return { kind, id, title, visibility, coverUrl, path }
 }
 
-/** "Oct 1 – Oct 30" for the period subtitle (UTC days, as the server counts them). */
 // UTC, like the server's days.
 const dateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+/** "Oct 1 – Oct 30" for the period subtitle. */
 const periodLabel = computed(() => {
   if (!report.value) return ''
   // `YYYY-MM-DD` → "Oct 21".
@@ -113,8 +110,7 @@ function referrerLabel(key: string | null): string {
   return key ?? 'Direct or unknown'
 }
 
-/** Country names in English, from ISO codes ("IT" → "Italy"). */
-// Built into the browser: no country list to maintain.
+/** Country names in English, from ISO codes ("IT" → "Italy"), built into the browser: no country list to maintain. */
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
 /** A country's name from its ISO code; "Unknown" when there is none. */
 function countryLabel(key: string | null): string {
@@ -188,7 +184,7 @@ function isPrivateNow(visibility: string): boolean {
       variant="subtle"
       icon="i-lucide-settings"
       title="Page views are not configured"
-      description="Enable Web Analytics on the Vercel project, then set NUXT_ANALYTICS_TOKEN and NUXT_ANALYTICS_PROJECT_ID (and NUXT_ANALYTICS_TEAM_ID for a team project) in its environment variables and redeploy. See docs/13-deployment.md, section 13.6."
+      description="Enable Web Analytics on the Vercel project, then set NUXT_ANALYTICS_TOKEN and NUXT_ANALYTICS_PROJECT_ID (and NUXT_ANALYTICS_TEAM_ID for a team project) in its environment variables and redeploy."
       class="mb-6"
       data-testid="stats-unconfigured"
     />
@@ -299,7 +295,7 @@ function isPrivateNow(visibility: string): boolean {
             />
             <!--
               Title and kind, then the numbers: beside them from `sm`, on a line of their own under
-              them on phones (beside them, at 390px the title kept about 8 characters).
+              them on phones (beside them, a 390px screen leaves the title about 8 characters).
             -->
             <div class="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
               <div class="min-w-0 sm:flex-1">

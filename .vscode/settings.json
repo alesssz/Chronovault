@@ -19,6 +19,5 @@
   },
   "files.exclude": {
     "**/.pnpm-store": true
-  },
-  "python.terminal.useEnvFile": true
+  }
 }

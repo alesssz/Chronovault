@@ -15,7 +15,6 @@ const props = withDefaults(defineProps<{
   loading: false,
 })
 
-/** `v-model:open`. */
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ confirm: [] }>()
 

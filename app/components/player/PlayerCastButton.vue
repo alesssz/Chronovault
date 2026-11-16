@@ -67,7 +67,7 @@ async function cast() {
   }
   else if (result === 'unsupported') {
     // Not "this browser cannot cast": Chrome itself may refuse a particular audio or
-    // context (seen in Chrome's installed app), so the wording stays to what is known.
+    // context (its installed app, for one), so the wording stays to what is known.
     toast.add({
       title: 'Casting is not available here',
       description: `The browser did not offer to cast this audio. Chrome (Android) and Safari (iPhone, iPad) usually can.${answer}`,

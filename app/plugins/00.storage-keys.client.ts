@@ -2,13 +2,11 @@ import { migrateLegacyKeys } from '~/lib/storage-keys'
 
 /**
  * Moves what this browser saved under the app's former name (`chronoplayer:`
- * keys) to the current names (`chronovault:`), see app/lib/storage-keys.ts.
+ * keys) to the current names (`chronovault:`).
  *
- * `00.`: Nuxt runs the app's plugins in file-name order and all of them
- * before the app is mounted, so this runs before anything reads a key (the
- * player store is first created by the layouts and the later plugins).
- * `.client`: browser only. With storage blocked (private browsing) there is
- * nothing to move.
+ * The `00.` prefix runs it before the other plugins, and every plugin runs
+ * before the app mounts, so the keys are moved before anything reads one
+ * (the player store is first created by the layouts and the later plugins).
  */
 export default defineNuxtPlugin(() => {
   try {

@@ -10,7 +10,6 @@
  */
 import { STORAGE_KEYS } from '~/lib/storage-keys'
 
-/** localStorage key of the id (an id saved under the former name is moved there: see storage-keys.ts). */
 const KEY = STORAGE_KEYS.listenerId
 /** The shape of a UUID, to drop a corrupted stored value. */
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
@@ -24,10 +23,8 @@ export function getListenerId(): string {
     // The browser's storage (absent on the server and in some tests).
     const storage = globalThis.localStorage
     if (storage) {
-      // The id saved by an earlier visit, if any.
       const stored = storage.getItem(KEY)
       if (stored && UUID.test(stored)) return stored
-      // A new random id, saved for the next visits.
       const id = crypto.randomUUID()
       storage.setItem(KEY, id)
       return id

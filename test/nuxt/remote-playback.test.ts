@@ -72,7 +72,6 @@ function setUp(remote: FakeRemote | undefined) {
   const element = ref({ remote } as unknown as HTMLMediaElement)
   // The scope the composable runs in, stopped to simulate the component going away.
   const scope = effectScope()
-  // The composable's result.
   const cast = scope.run(() => useRemotePlayback(element))!
   return { cast, element, stop: () => scope.stop() }
 }
@@ -88,7 +87,6 @@ describe('useRemotePlayback', () => {
   it('shows the button when the browser reports a device, and hides it when it goes away', async () => {
     // A browser that watches devices.
     const remote = new FakeRemote()
-    // The composable on it.
     const { cast } = setUp(remote)
     expect(cast.available.value).toBe(false)
 
@@ -118,7 +116,6 @@ describe('useRemotePlayback', () => {
   })
 
   it('follows the connection state', () => {
-    // A browser that watches devices, and the composable on it.
     const remote = new FakeRemote()
     const { cast } = setUp(remote)
 
@@ -131,15 +128,12 @@ describe('useRemotePlayback', () => {
   })
 
   it('reports how the device picker ended', async () => {
-    // The fake clock, read by the performance.now() spy.
     let clock = 0
     vi.spyOn(performance, 'now').mockImplementation(() => clock)
-    // The fake device API, moving the clock as the picker stays open.
     const remote = new FakeRemote()
     remote.advance = (ms) => {
       clock += ms
     }
-    // The composable on it.
     const { cast } = setUp(remote)
 
     expect((await cast.prompt()).result).toBe('done')
@@ -155,16 +149,13 @@ describe('useRemotePlayback', () => {
   })
 
   it('takes an instant refusal for a browser that cannot cast (no picker was shown)', async () => {
-    // The fake clock, read by the performance.now() spy.
     let clock = 0
     vi.spyOn(performance, 'now').mockImplementation(() => clock)
-    // The fake device API, moving the clock as the picker stays open.
     const remote = new FakeRemote()
     remote.advance = (ms) => {
       clock += ms
     }
     remote.promptTakes = 5
-    // The composable on it.
     const { cast } = setUp(remote)
 
     remote.promptError = 'NotAllowedError'
@@ -172,7 +163,6 @@ describe('useRemotePlayback', () => {
   })
 
   it('passes on the answer the browser gave when it refused, with how quickly it came', async () => {
-    // The fake clock, read by the performance.now() spy.
     let clock = 0
     vi.spyOn(performance, 'now').mockImplementation(() => clock)
     // The fake device API, its picker refusing with the browser's own message.
@@ -185,7 +175,6 @@ describe('useRemotePlayback', () => {
       this.advance(this.promptTakes)
       return Promise.reject(new DOMException('The currentSrc is not compatible with remote playback', 'NotSupportedError'))
     }
-    // The composable on it.
     const { cast } = setUp(remote)
 
     expect(await cast.prompt()).toEqual({
@@ -198,11 +187,9 @@ describe('useRemotePlayback', () => {
   })
 
   it('stops watching when the component goes away', async () => {
-    // A browser that watches devices, and the composable on it.
     const remote = new FakeRemote()
     const { stop } = setUp(remote)
     await settle()
-    // Spy on the listeners being removed.
     const listener = vi.spyOn(remote, 'removeEventListener')
 
     stop()
@@ -211,7 +198,6 @@ describe('useRemotePlayback', () => {
   })
 
   it('moves to a new element when it changes', async () => {
-    // Two elements, each with its own device API, and the composable on the first.
     const first = new FakeRemote()
     const second = new FakeRemote()
     const { cast, element } = setUp(first)
@@ -228,12 +214,12 @@ describe('useRemotePlayback', () => {
   })
 
   it('cancels a watch the browser confirms only after the component went away', async () => {
-    // A browser that watches devices, and the composable on it, gone before the watch id comes back.
+    // Stopped before the watch id comes back.
     const remote = new FakeRemote()
     const { cast, stop } = setUp(remote)
     stop()
     await settle()
-    // Before: the id arrived after the clean-up, nobody cancelled it, and the browser kept looking.
+    // An id that arrives after the clean-up is still cancelled, or the browser would keep looking.
     expect(remote.cancelled).toEqual([7])
     // A late report of a device does not bring the button back either.
     remote.report!(true)
@@ -241,7 +227,7 @@ describe('useRemotePlayback', () => {
   })
 
   it('moving on before the old element\'s watch is confirmed cancels it, and keeps the new one', async () => {
-    // Two elements, each with its own device API, the first slow to confirm its watch, and the composable on it.
+    // The first element is slow to confirm its watch.
     const first = new FakeRemote()
     first.slow = true
     const second = new FakeRemote()
@@ -252,7 +238,7 @@ describe('useRemotePlayback', () => {
     // The first element's watch is confirmed only now, after the move.
     first.confirm()
     await settle()
-    // Before: its id took the place of the second's as the current one, and its watch was never cancelled.
+    // Its late id is cancelled and does not replace the second's as the current one.
     expect(first.cancelled).toEqual([7])
     expect(second.cancelled).toEqual([])
     second.report!(true)

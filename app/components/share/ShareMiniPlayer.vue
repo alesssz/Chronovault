@@ -39,18 +39,12 @@ const track = computed(() => player.displayTrack)
 /** Cover and title: tap for the full-screen view, swipe to change track. */
 const trackArea = ref<HTMLElement | null>(null)
 /** Swipes on the cover and title, touch only; a single track has nowhere to go sideways but the start. */
-const swipe = useTrackSwipe(trackArea, {
+const { style: swipeStyle } = useTrackSwipe(trackArea, {
   canNext: () => props.navigation && player.hasNext,
   onNext: () => void player.next(),
   onPrevious: () => void player.previous(),
   onOpen: () => player.setExpanded(true),
 })
-/** Cover and title while swiped: they follow the finger and fade (the same feel as the app's bar). */
-const swipeStyle = computed(() => ({
-  transform: swipe.offset.value ? `translateX(${swipe.offset.value}px)` : undefined,
-  opacity: swipe.offset.value ? Math.max(0.3, 1 - Math.abs(swipe.offset.value) / 250) : undefined,
-  transition: swipe.dragging.value ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
-}))
 
 /** The play button spins while the track loads or buffers. */
 const waiting = computed(() => player.status === 'loading' || player.buffering)

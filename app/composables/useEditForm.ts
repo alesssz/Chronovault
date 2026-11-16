@@ -50,12 +50,10 @@ export function useEditForm<T extends object>(initial: T, options: {
    * it. Without `sent`, every field takes the server's value.
    */
   function reset(values: T, sent?: string): void {
-    // The fields as the save sent them (none: nothing to compare with, all are replaced).
     const before = sent ? JSON.parse(sent) as Record<string, unknown> : null
     // What is saved now, in the form's own key order (the baseline is compared as JSON).
     const saved: Record<string, unknown> = {}
     for (const key of Object.keys(state) as (keyof T & string)[]) {
-      // The server's value of this field (the form's own when the server has none).
       const fromServer = key in values ? values[key] : state[key]
       saved[key] = fromServer
       // Changed while the save was on its way: the newer value stays, unsaved.
@@ -65,7 +63,7 @@ export function useEditForm<T extends object>(initial: T, options: {
     baseline.value = JSON.stringify(saved)
   }
 
-  // Leaving with unsaved changes asks first; the router waits for the answer (false stays).
+  // Leaving with unsaved changes asks first.
   const confirmLeave = useLeaveConfirm()
   onBeforeRouteLeave(async () => {
     if (!dirty.value) return true

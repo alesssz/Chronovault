@@ -58,7 +58,6 @@ async function inventory(db: DbClient, audio: AudioStorage, userId: string) {
 
 /** File count and total size in one bucket. */
 function usageOf(files: StoredFile[], bucket: OrphanFile['bucket']): StorageUsage {
-  // The files of that storage.
   const inBucket = files.filter(f => f.bucket === bucket)
   return { files: inBucket.length, bytes: inBucket.reduce((sum, f) => sum + f.sizeBytes, 0) }
 }
@@ -71,9 +70,7 @@ export async function scanStorage(
   minAgeHours: number,
   now = Date.now(),
 ): Promise<StorageReport> {
-  // Every file, and every path in use.
   const { files, referenced } = await inventory(db, audio, userId)
-  // The minimum age as milliseconds.
   const minAgeMs = minAgeHours * 60 * 60 * 1000
   // Files nothing uses, oldest first, each marked deletable or too recent.
   const orphans = files
@@ -101,7 +98,6 @@ export async function cleanStorage(
 ): Promise<StorageCleanupResult> {
   // A fresh scan, made now (see above).
   const { orphans } = await scanStorage(db, audio, userId, minAgeHours, now)
-  // The orphans old enough to go.
   const doomed = orphans.filter(o => o.deletable)
   // Paths to delete in one storage.
   const paths = (bucket: OrphanFile['bucket']) => doomed.filter(o => o.bucket === bucket).map(o => o.path)

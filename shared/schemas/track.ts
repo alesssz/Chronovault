@@ -18,8 +18,8 @@ import { PEAKS_RESOLUTION } from '../utils/peaks'
 
 /**
  * Any text the API takes: a string without the NUL character (U+0000). Postgres
- * cannot store it in a text or jsonb column, so it used to reach the database
- * and come back as a 500; refused here, it is a plain 400 with a message.
+ * cannot store it in a text or jsonb column, and the write would fail as a 500;
+ * refused here, it is a plain 400 with a message.
  */
 export const safeText = () => z.string().refine(v => !v.includes('\u0000'), 'Text cannot contain a NUL character')
 
@@ -154,12 +154,15 @@ export type TrackUpdateInput = z.input<typeof trackUpdateSchema>
 /** Validated PATCH body (only the fields present are updated). */
 export type TrackUpdate = z.output<typeof trackUpdateSchema>
 
+/** Longest custom subgenre name; the rename field caps its input at the same length. */
+export const MAX_SUBGENRE_NAME = 60
+
 /**
  * Body of POST /api/genres/:id/subgenres: a custom subgenre's name (unique per
  * user and genre, case-insensitive; its coherence with the genre is the service's).
  */
 export const subgenreCreateSchema = z.object({
-  name: safeText().trim().min(1, 'Name is required').max(60, 'At most 60 characters'),
+  name: safeText().trim().min(1, 'Name is required').max(MAX_SUBGENRE_NAME, `At most ${MAX_SUBGENRE_NAME} characters`),
 })
 
 /** Validated body of POST /api/genres/:id/subgenres. */

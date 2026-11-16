@@ -56,21 +56,17 @@ export function useSwipeToDismiss(
   /** When the touch started (ms), for the flick speed. */
   let startedAt = 0
 
-  // How far the finger moved since the touch started (start minus current), from VueUse.
   const { lengthX, lengthY } = useSwipe(target, {
     threshold: START_THRESHOLD,
     // Passive: the gesture never needs to cancel the browser's scrolling, because it only
     // runs while the content is at its top, where there is nothing above to scroll to.
     passive: true,
-    // A new touch: decide whether it may become a pull.
     onSwipeStart(event) {
-      // Where the finger landed (a scrolling area marked data-swipe-ignore keeps its touches).
       const start = event.target as Element | null
       armed = (toValue(options.scroller)?.scrollTop ?? 0) <= 0
         && !start?.closest('[data-swipe-ignore]')
       startedAt = event.timeStamp
     },
-    // The finger moved.
     onSwipe() {
       if (!armed) return
       // useSwipe measures start minus current: a downward pull has a negative lengthY.
@@ -83,13 +79,11 @@ export function useSwipeToDismiss(
       dragging.value = true
       offset.value = Math.max(0, down)
     },
-    // The finger lifted: close, or spring back.
     onSwipeEnd(event) {
       if (!dragging.value) return
       dragging.value = false
       // How long the touch lasted (at least 1 ms, for the speed).
       const elapsed = Math.max(1, event.timeStamp - startedAt)
-      // How far the view was pulled down.
       const pulled = offset.value
       if (pulled >= DISMISS_DISTANCE || pulled / elapsed >= DISMISS_SPEED) {
         // The view closes from where it is (its offset is reset on the next opening, see reset).

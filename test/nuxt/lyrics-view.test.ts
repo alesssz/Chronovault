@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import LyricsView from '~/components/lyrics/LyricsView.vue'
 
-/** Three synced lines: at 1 s, 5 s and 9 s. */
+/** Three synced lines at 0, 5 and 10 s, the last an instrumental break (empty text). */
 const synced = [
   { time: 0, text: 'First line' },
   { time: 5, text: 'Second line' },
@@ -16,17 +16,14 @@ const synced = [
 
 describe('LyricsView', () => {
   it('highlights the line matching the playback time', async () => {
-    // The lyrics view at 12 s.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 6 },
     })
-    // The highlighted line.
     const active = wrapper.find('[aria-current="true"]')
     expect(active.text()).toBe('Second line')
   })
 
   it('moves the active line as time advances', async () => {
-    // The lyrics view at the start.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 1 },
     })
@@ -38,7 +35,6 @@ describe('LyricsView', () => {
   })
 
   it('emits seek with the time of the clicked line', async () => {
-    // The lyrics view.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced, plain: null, currentTime: 0 },
     })
@@ -56,7 +52,6 @@ describe('LyricsView', () => {
       { time: 8, text: '[Verse 1]', section: true },
       { time: 8, text: 'First line' },
     ]
-    // The lyrics view with section headers.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: structured, plain: null, currentTime: 9 },
     })
@@ -65,7 +60,6 @@ describe('LyricsView', () => {
   })
 
   it('without sync shows plain lyrics with section headers', async () => {
-    // The lyrics view with plain lyrics only.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: null, plain: '[Chorus]\nLa la la', currentTime: 0 },
     })
@@ -76,7 +70,6 @@ describe('LyricsView', () => {
   })
 
   it('shows an empty state when there are no lyrics', async () => {
-    // The lyrics view without any lyrics.
     const wrapper = await mountSuspended(LyricsView, {
       props: { synced: [], plain: null, currentTime: 0 },
     })
@@ -114,13 +107,12 @@ describe('LyricsView', () => {
       // One track's lyrics, then another track's in the same view (the full-screen player moving on).
       const first = [{ time: 0, text: 'A1' }, { time: 4, text: 'A2' }, { time: 8, text: 'A3' }, { time: 12, text: 'A4' }]
       const second = [{ time: 1, text: 'B1' }, { time: 6, text: 'B2' }, { time: 11, text: 'B3' }, { time: 16, text: 'B4' }]
-      // The view on the first track's lyrics, at their start.
       const wrapper = await mountSuspended(LyricsView, { props: { synced: first, plain: null, currentTime: 0 } })
       await wrapper.setProps({ synced: second, currentTime: 0 })
       // The second track reaches its second line: the box scrolls to it (100 px down), the line highlighted.
       await wrapper.setProps({ currentTime: 7 })
       expect(wrapper.find('[aria-current="true"]').text()).toBe('B2')
-      // Before: the line elements of the new lyrics were listed in reverse, and the box scrolled to B3.
+      // Guards against reading the new lyrics' line elements in reverse, which scrolls to B3.
       expect(scrolls.at(-1)).toBe(100)
     })
   })

@@ -15,7 +15,6 @@ import { listTargets, periodOf, type AnalyticsPeriodDays, type AnalyticsTarget }
 
 /** The plays report for the last `days` days (`today` injectable for tests). */
 export async function getPlaysReport(db: DbClient, userId: string, days: AnalyticsPeriod, today = new Date()): Promise<PlaysReport> {
-  // The period's days (UTC), today included.
   const period = periodOf(days, today)
   // The period's plays and every share page of the user, read together.
   const [rows, targets] = await Promise.all([listPlayRows(db, userId, period.since), listTargets(db, userId)])
@@ -66,7 +65,6 @@ export function summarizePlays(
   const perPage = new Map<string, PlayRow[]>()
   for (const row of visitors) {
     perDay.set(row.played_on, (perDay.get(row.played_on) ?? 0) + 1)
-    // The share page this play happened on.
     const path = pagePathOf(row)
     perPage.set(path, [...(perPage.get(path) ?? []), row])
   }

@@ -76,7 +76,7 @@ describe('storage paths', () => {
 
   it('accepts only the extensions the database does: 1 to 10 lower-case letters and digits', () => {
     expect(isAudioPath(`${USER}/${TRACK}.opus`, USER, TRACK)).toBe(true)
-    // Before: any extension passed, and these made the storage client throw (500) or the database refuse.
+    // Each of these would make the storage client throw (500) or the database refuse the row.
     for (const extension of ['mp\u00003', 'mp\u00013', 'MP3', 'mp3/..', 'abcdefghijk', '']) {
       expect(isAudioPath(`${USER}/${TRACK}.${extension}`, USER, TRACK), JSON.stringify(extension)).toBe(false)
     }

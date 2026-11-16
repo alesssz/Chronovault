@@ -70,7 +70,6 @@ export async function findPlaylistRow(db: DbClient, userId: string, id: string):
 
 /** Track ids of a playlist, in order (null when the playlist does not exist). */
 export async function findPlaylistTrackIds(db: DbClient, userId: string, id: string): Promise<string[] | null> {
-  // Just the playlist id and its entries' track ids: no track data needed.
   const { data, error } = await db
     .from('playlists')
     .select('id, playlist_tracks(position, track_id)')
@@ -97,7 +96,6 @@ export async function listPlaylistLabels(db: DbClient, userId: string): Promise<
 
 /** Custom cover path of one of the user's playlists (null: none, or not the user's playlist). */
 export async function findPlaylistCoverPath(db: DbClient, userId: string, id: string): Promise<string | null> {
-  // At most one row (the id is the key).
   const { data, error } = await db.from('playlists').select('cover_path').eq('id', id).eq('user_id', userId).maybeSingle()
   if (error) throw toHttpError(error, 'playlists.findCoverPath')
   return data?.cover_path ?? null
@@ -109,7 +107,6 @@ export async function findPlaylistCoverPath(db: DbClient, userId: string, id: st
  * orphaned, and the clean-up would delete it.
  */
 export async function listPlaylistCoverPaths(db: DbClient, userId: string): Promise<string[]> {
-  // Only rows that have a custom cover.
   const rows = await readAllPages((from, to) => db
     .from('playlists')
     .select('cover_path')
@@ -122,7 +119,6 @@ export async function listPlaylistCoverPaths(db: DbClient, userId: string): Prom
 
 /** Inserts a playlist (no tracks yet) and returns the stored row. */
 export async function insertPlaylistRow(db: DbClient, row: TablesInsert<'playlists'>): Promise<PlaylistRow> {
-  // The new row, read back with its defaults (id, timestamps).
   const { data, error } = await db.from('playlists').insert(row).select('*').single()
   if (error) throw toHttpError(error, 'playlists.insert')
   return data
@@ -175,8 +171,8 @@ export async function setPlaylistTrackIds(db: DbClient, id: string, trackIds: st
 /**
  * Appends tracks at the end of the list, in the given order, skipping those
  * already in it: one step in the database, the playlist locked meanwhile, so
- * appends at the same moment all land (a read here, then setPlaylistTrackIds,
- * lost one of two).
+ * appends at the same moment all land (a read here followed by
+ * setPlaylistTrackIds would lose one of two).
  */
 export async function appendPlaylistTrackIds(db: DbClient, id: string, trackIds: string[]): Promise<void> {
   const { error } = await db.rpc('append_playlist_tracks', { p_playlist_id: id, p_track_ids: trackIds })

@@ -17,14 +17,11 @@ import { isSharePagePath } from '~/lib/web-analytics'
  */
 export default defineNuxtPlugin(() => {
   if (!useRuntimeConfig().public.webAnalytics) return
-  // Signed-in user, if any (known once the session is restored).
   const user = useSupabaseUser()
 
-  // Loads Vercel's counting script, filtered by beforeSend below.
   injectAnalytics({
     // The deployed site is production by definition: no debug script, no console logs.
     mode: 'production',
-    // Called before every event is sent; null drops it.
     beforeSend: event => (isSharePagePath(new URL(event.url).pathname) && !user.value ? event : null),
   })
 })

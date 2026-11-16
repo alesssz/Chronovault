@@ -58,11 +58,8 @@ const showLyrics = computed(() => !!track.value && hasLyrics(track.value))
 /**
  * A tablet- or desktop-wide window (Tailwind's `md`, where TrackShowcase has
  * two columns): the player is the bar at the bottom of the screen instead of
- * a block in the page. false on the server, which cannot know, and while the
- * page hydrates, so the browser's first pass matches the server's HTML
- * (useMountedMediaQuery): the in-page player is rendered, and hidden from
- * `md` by CSS until the bar replaces it once mounted (the bar is fixed, so
- * nothing moves).
+ * a block in the page. Until mounted (useMountedMediaQuery) the in-page
+ * player is rendered, hidden from `md` by CSS until the bar replaces it.
  */
 const isWide = useMountedMediaQuery('(min-width: 768px)')
 
@@ -142,8 +139,9 @@ const { download, isDownloading } = useSharedTrackDownload(sharedApi.playback)
       </template>
       <template #lyrics>
         <!--
-          Centred: the panel is wide, and left-aligned lines left its right half empty. No room after
-          the last line (`end-room`): made for the phones' lyrics view, it was some 330px of nothing here.
+          Centred: the panel is wide, and left-aligned lines would leave its right half empty. No room
+          after the last line (`end-room`): made for the phones' lyrics view, it would be some 330px of
+          nothing here.
         -->
         <ShareLyrics
           :synced="track.lyricsSynced"

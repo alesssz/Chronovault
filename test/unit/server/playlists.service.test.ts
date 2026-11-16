@@ -92,7 +92,6 @@ describe('getPlaylist', () => {
       trackRow(T3),
     ]))
 
-    // The playlist as the page gets it.
     const playlist = await getPlaylist(db, USER, PLAYLIST)
 
     expect(playlist.tracks.map(t => t.id)).toEqual([T1, T2, T3])
@@ -117,7 +116,6 @@ describe('listPlaylists', () => {
       { ...playlistRow({ cover_path: `${USER}/playlists/${PLAYLIST}.webp` }), playlist_tracks: [{ position: 0, tracks: trackRow(T1) }] },
     ])
 
-    // The only playlist of the list.
     const [summary] = await listPlaylists(db, USER, 'playlist')
 
     expect(summary!.coverUrl).toBe(`/api/covers/playlists/${PLAYLIST}?v=${V}`)
@@ -129,7 +127,6 @@ describe('listPlaylists', () => {
       { ...playlistRow({ purpose: 'versions', visibility: 'unlisted' }), playlist_tracks: [{ position: 0, tracks: trackRow(T1) }] },
     ])
 
-    // The only group of the list.
     const [group] = await listPlaylists(db, USER, 'versions')
 
     // The purpose filter is the repository's query (one indexed column).
@@ -143,7 +140,6 @@ describe('createPlaylist', () => {
     vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow())
     vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([trackRow(T1)]))
 
-    // The new playlist, read back with its track.
     const playlist = await createPlaylist(db, USER, { title: 'Night drive', trackIds: [T1] })
 
     expect(playlistsRepo.insertPlaylistRow).toHaveBeenCalledWith(db, expect.objectContaining({
@@ -157,7 +153,6 @@ describe('createPlaylist', () => {
     vi.mocked(playlistsRepo.insertPlaylistRow).mockResolvedValue(playlistRow({ purpose: 'versions', visibility: 'unlisted' }))
     vi.mocked(playlistsRepo.findPlaylistRow).mockResolvedValue(detailRow([trackRow(T1), trackRow(T2)], { purpose: 'versions', visibility: 'unlisted' }))
 
-    // The new group, read back with its two versions.
     const group = await createPlaylist(db, USER, { title: 'Night drive – versions', purpose: 'versions', visibility: 'unlisted', trackIds: [T1, T2] })
 
     expect(playlistsRepo.insertPlaylistRow).toHaveBeenCalledWith(db, expect.objectContaining({
@@ -173,7 +168,7 @@ describe('createPlaylist', () => {
     vi.mocked(playlistsRepo.setPlaylistTrackIds).mockRejectedValue(refused)
 
     await expect(createPlaylist(db, USER, { title: 'Night drive', trackIds: [T1] })).rejects.toBe(refused)
-    // Before: the empty playlist stayed, and every retry made one more.
+    // Otherwise the empty playlist would stay, and every retry would add one more.
     expect(playlistsRepo.deletePlaylistRow).toHaveBeenCalledWith(db, USER, PLAYLIST)
   })
 

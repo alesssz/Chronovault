@@ -131,7 +131,7 @@ export function parseCsv(text: string): string[][] {
     row.push(cell)
     grid.push(row)
   }
-  // Inside a quoted cell, a line break is a line break: lyrics keep theirs.
+  // Blank lines are dropped; a line break inside a quoted cell stays in it (lyrics keep theirs).
   return grid.filter(cells => cells.some(c => c.trim() !== ''))
 }
 
@@ -351,7 +351,6 @@ function invalidValueRules(firstRow: number, genres: GenreListRange) {
     rule('year', cell => `AND(${cell}<>"",OR(NOT(ISNUMBER(${cell})),${cell}<1000,${cell}>9999,${cell}<>INT(${cell})))`),
     rule('genre', cell => `AND(${cell}<>"",COUNTIF(${helpGenres},${cell})=0)`),
     rule('subgenre', (cell) => {
-      // The row's genre cell.
       const genre = `${columnLetter('genre')}${firstRow}`
       return `AND(${cell}<>"",OR(COUNTIF(${helpGenres},${cell})>0,AND(${genre}<>"",`
         + `COUNTIFS(${helpRange('B')},${cell},${helpGenres},"<>"&${genre},${helpRange('C')},"")>0)))`
@@ -427,7 +426,6 @@ export async function templateXlsx(rows: TemplateRow[], genres: Genre[]): Promis
     // A row with lyrics or a long text keeps three lines' height: Excel would otherwise grow it
     // to the whole text (forty lines of lyrics), and the list would no longer read as a list.
     const height = LONG_TEXTS.some(text => row[text].length > 0) ? LONG_TEXT_ROW_HEIGHT : undefined
-    // Every cell of a row: a thin border, the row's tint, the text at the top.
     const style = {
       backgroundColor: column === 'title' ? COLOURS.gold50 : index % 2 ? COLOURS.night50 : COLOURS.white,
       borderStyle: 'thin' as const,
@@ -467,7 +465,6 @@ export async function templateXlsx(rows: TemplateRow[], genres: Genre[]): Promis
     null,
     null,
   ]
-  // The list's headers, like the column help's.
   const genreHeaders = ['Genre', 'Subgenre', 'Yours'].map(value => ({ value, type: String, fontWeight: 'bold' as const, backgroundColor: COLOURS.night800, textColor: COLOURS.white, bottomBorderStyle: 'medium' as const, bottomBorderColor: COLOURS.gold400, height: 24, alignVertical: 'center' as const }))
   // One row per subgenre: its genre, its name, and "yours" for the user's own (built-in ones have none, which the formulas test).
   const genreRows = genres.flatMap((genre, genreIndex) => genre.subgenres.map((subgenre) => {
@@ -481,7 +478,6 @@ export async function templateXlsx(rows: TemplateRow[], genres: Genre[]): Promis
   }))
   // The list's first data row (1-based): after the column help, a blank row, the title and the headers.
   const firstGenreRow = help.length + 4
-  // The list's rows, after a blank one under the column help.
   const genreList = [[null, null, null], genreTitle, genreHeaders, ...genreRows]
 
   const firstDataRow = ROWS_ABOVE_HEADERS + 2
@@ -491,7 +487,7 @@ export async function templateXlsx(rows: TemplateRow[], genres: Genre[]): Promis
       sheet: 'Tracks',
       columns: SHEET_COLUMNS.map(column => ({ width: COLUMN_WIDTHS[column] })),
       // The band, the groups and the headers stay in view. Not the title column: a frozen column
-      // splits the band's merged cells at its edge, and scrolling right cut the title and the note.
+      // splits the band's merged cells at its edge, and scrolling right would cut the title and the note.
       stickyRowsCount: ROWS_ABOVE_HEADERS + 1,
       showGridLines: false,
       conditionalFormatting: invalidValueRules(firstDataRow, { first: firstGenreRow, last: Math.max(firstGenreRow, firstGenreRow + genreRows.length - 1) }),

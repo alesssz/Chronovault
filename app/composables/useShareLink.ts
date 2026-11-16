@@ -8,8 +8,8 @@ const SHARE_PREFIX: Record<ShareKind, string> = { track: '/t/', playlist: '/p/' 
  * Whether links go through the device's share sheet: a touch screen whose
  * browser has the Web Share API (Android, iPhone, iPad). There the sheet
  * lists the apps to send the link with (WhatsApp, Telegram, mail…), which is
- * what people expect on a phone. With a mouse the link is copied instead,
- * as before: desktop share sheets are rarely what anyone wants to paste from.
+ * what people expect on a phone. With a mouse the link is copied instead:
+ * desktop share sheets are rarely what anyone wants to paste from.
  */
 function detectNativeShare(): boolean {
   return typeof navigator !== 'undefined'
@@ -29,14 +29,12 @@ function detectNativeShare(): boolean {
  * HTML and the first client render agree.
  */
 export function useShareLink() {
-  // Confirms the copy (or shows the link to copy by hand).
   const toast = useToast()
   // The site the app is served from (also correct on Vercel previews).
   const origin = useRequestURL().origin
 
   /** The share sheet is used instead of the clipboard (decided in the browser, after mount). */
   const nativeShare = ref(false)
-  // Decided in the browser only: the server cannot know.
   onMounted(() => {
     nativeShare.value = detectNativeShare()
   })
@@ -48,7 +46,6 @@ export function useShareLink() {
 
   /** Copies the link to the clipboard and confirms with a toast (showing the link). */
   async function copyShareLink(id: string, kind: ShareKind = 'track'): Promise<void> {
-    // The page's full address.
     const url = shareUrl(id, kind)
     if (await copyText(url)) {
       toast.add({ title: 'Share link copied', description: url, icon: 'i-lucide-link', color: 'success' })

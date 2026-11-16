@@ -4,7 +4,6 @@
  * title, visibility, track count) and "New playlist". Groups of versions
  * made by "Share for feedback" are not here: they have the Versions page.
  */
-// Browser tab title: "Playlists · Chronovault".
 usePageTitle('Playlists')
 
 // The cached list of curated playlists, and the "New playlist" dialog.

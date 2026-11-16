@@ -1,7 +1,7 @@
 /**
  * Tags written into downloaded files (app/lib/tags): FLAC, MP3 and WAV.
  * Every written file is read back with music-metadata (an independent
- * parser, the one players-like tools use) and the audio part is checked to
+ * parser, as used by other players and tools) and the audio part is checked to
  * be byte-identical to the original. Also file names and format detection.
  */
 import { parseBuffer, TimestampFormat, type ILyricsTag } from 'music-metadata'
@@ -53,7 +53,6 @@ beforeAll(async () => {
 
 /** A real, verified FLAC: one second of 16-bit stereo. */
 async function makeFlac(): Promise<Uint8Array> {
-  // One second of a test signal, as a WAV.
   const wav = buildWav({ samples: testSignal(44_100, 2, 16), channels: 2, bitsPerSample: 16 })
   return (await encodeWavToFlac(Flac, wav, parseWav(wav))).flac
 }
@@ -70,7 +69,6 @@ function makeMp3(): { file: Uint8Array, frames: Uint8Array } {
   const v1 = new Uint8Array(128)
   v1.set([0x54, 0x41, 0x47], 0) // "TAG"
   v1.set(new TextEncoder().encode('Old title'), 3)
-  // Frames first, ID3v1 tag at the very end.
   const file = new Uint8Array(frames.length + v1.length)
   file.set(frames)
   file.set(v1, frames.length)
@@ -96,7 +94,6 @@ describe('FLAC tags', () => {
   })
 
   it('keeps the audio frames and STREAMINFO byte for byte', async () => {
-    // The file before and after tagging, and their metadata blocks.
     const original = await makeFlac()
     const tagged = writeFlacTags(original, tags)
     const before = readFlacBlocks(original)
@@ -119,7 +116,6 @@ describe('FLAC tags', () => {
   })
 
   it('leaves out empty fields', async () => {
-    // Tagged with empty fields, read back.
     const tagged = writeFlacTags(await makeFlac(), { ...tags, album: null, genre: '  ', lyrics: null })
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/flac' })
     expect(common.album).toBeUndefined()
@@ -134,7 +130,6 @@ describe('FLAC tags', () => {
 
 describe('MP3 tags', () => {
   it('writes an ID3v2 tag readable by another parser, and drops the old ID3v1 tag', async () => {
-    // A tiny MP3 with an old ID3v1 tag, its audio frames, and the tagged result read back.
     const { file, frames } = makeMp3()
     const tagged = writeMp3Tags(file, tags)
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/mpeg' })
@@ -153,7 +148,6 @@ describe('MP3 tags', () => {
   })
 
   it('replaces an existing ID3v2 tag', async () => {
-    // A tiny MP3, tagged twice, read back.
     const { file } = makeMp3()
     const twice = writeMp3Tags(writeMp3Tags(file, tags), { ...tags, title: 'New title' })
     const { common } = await parseBuffer(twice, { mimeType: 'audio/mpeg' })
@@ -172,7 +166,6 @@ describe('WAV tags', () => {
   }
 
   it('writes the text fields as RIFF INFO, readable by another parser', async () => {
-    // A tagged float WAV, read back.
     const tagged = writeWavTags(makeFloatWav(), tags)
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/wav' })
 
@@ -184,7 +177,6 @@ describe('WAV tags', () => {
   })
 
   it('replaces the old INFO list, keeps the audio data and fixes the RIFF size', () => {
-    // The WAV before and after tagging, and the tagged file's chunks.
     const original = makeFloatWav()
     const tagged = writeWavTags(original, tags)
     const chunks = readWavChunks(tagged)
@@ -198,7 +190,6 @@ describe('WAV tags', () => {
   })
 
   it('turns characters outside Latin-1 into "?"', async () => {
-    // A title with characters Latin-1 cannot hold, read back.
     const tagged = writeWavTags(makeFloatWav(), { ...tags, title: 'Café 東京' })
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/wav' })
     expect(common.title).toBe('Café ??')
@@ -237,7 +228,6 @@ describe('downloadFileName', () => {
   })
 
   it('keeps names short', () => {
-    // The file name of a very long title.
     const name = downloadFileName({ title: 'x'.repeat(400), composers: null }, ext)
     expect(name).toBe(`${'x'.repeat(150)}.flac`)
   })
@@ -245,7 +235,6 @@ describe('downloadFileName', () => {
 
 describe('synced lyrics in downloaded files', () => {
   it('FLAC: LRC in LYRICS and the plain text in UNSYNCEDLYRICS, both read back on upload', async () => {
-    // A FLAC with plain and synced lyrics, read back as the upload reads it.
     const tagged = writeFlacTags(await makeFlac(), { ...tags, lyrics: PLAIN, lyricsSynced: SYNCED })
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/flac' })
 
@@ -253,7 +242,6 @@ describe('synced lyrics in downloaded files', () => {
   })
 
   it('MP3: an SYLT frame next to the plain USLT lyrics, both read back on upload', async () => {
-    // An MP3 with plain and synced lyrics, read back.
     const tagged = writeMp3Tags(makeMp3().file, { ...tags, lyrics: PLAIN, lyricsSynced: SYNCED })
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/mpeg' })
 
@@ -261,7 +249,6 @@ describe('synced lyrics in downloaded files', () => {
   })
 
   it('without synced lyrics, LYRICS is the plain text and nothing synced comes back', async () => {
-    // A FLAC with plain lyrics only, read back.
     const tagged = writeFlacTags(await makeFlac(), tags)
     const { common } = await parseBuffer(tagged, { mimeType: 'audio/flac' })
 

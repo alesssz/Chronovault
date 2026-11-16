@@ -41,14 +41,12 @@ mockNuxtImport('useGenres', () => () => ({
  * and dialogs need UApp's providers.
  */
 async function mountInApp(component: Component, props: Record<string, unknown>) {
-  // A host rendering the component inside UApp.
   const Host = defineComponent({ render: () => h(UApp, null, () => h(component, props)) })
   return mountSuspended(Host)
 }
 
 /** The subgenre select for a genre, inside UApp (as in the real app). */
 async function mountSelect(genreId: string | null) {
-  // A host rendering the select, as the editor does.
   const Host = defineComponent({
     render: () => h(UApp, null, () => h(TrackSubgenreSelect, { genreId, modelValue: null })),
   })
@@ -57,18 +55,14 @@ async function mountSelect(genreId: string | null) {
 
 describe('TrackSubgenreSelect', () => {
   it('is disabled until a genre is chosen, and says so', async () => {
-    // The select without a genre.
     const wrapper = await mountSelect(null)
-    // The select's trigger.
     const trigger = wrapper.find('[data-testid="subgenre-select"]')
     expect(trigger.attributes('disabled')).toBeDefined()
     expect(trigger.text()).toContain('Choose a genre first')
   })
 
   it('takes a subgenre once a genre is chosen', async () => {
-    // The select under Metal.
     const wrapper = await mountSelect('g-metal')
-    // The select's trigger.
     const trigger = wrapper.find('[data-testid="subgenre-select"]')
     expect(trigger.attributes('disabled')).toBeUndefined()
     expect(trigger.text()).toContain('Select a subgenre')
@@ -78,7 +72,7 @@ describe('TrackSubgenreSelect', () => {
 describe('GenreReference', () => {
   /** The reference, mounted, with what it shows. */
   async function mountReference() {
-    // The reference with the two genres (inside UApp: it holds the user's own, with tooltips).
+    // Inside UApp: the user's own subgenres carry tooltips.
     const wrapper = await mountInApp(GenreReference, { genres: GENRES })
     return {
       wrapper,

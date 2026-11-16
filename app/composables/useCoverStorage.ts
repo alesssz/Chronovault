@@ -11,9 +11,7 @@ import { toSquareWebp, type CropRect } from '~/lib/image'
  * pickers of the track and playlist pages (useCoverEditor).
  */
 export function useCoverStorage() {
-  // The browser's Supabase client: it carries the user's session.
   const supabase = useSupabaseClient()
-  // The signed-in user: their id is the first folder of every cover path.
   const user = useSupabaseUser()
 
   /** The signed-in user's id (`<userId>/…` paths), or null when the session is gone. */
@@ -25,9 +23,7 @@ export function useCoverStorage() {
    * when conversion or upload fails.
    */
   async function upload(path: string, image: Blob, crop?: CropRect): Promise<void> {
-    // The image cropped, resized and converted (at most 800×800 WebP).
     const webp = await toSquareWebp(image, { crop })
-    // Uploaded into the user's own folder (storage RLS checks it), replacing an older cover.
     const { error } = await supabase.storage.from(COVERS_BUCKET).upload(path, webp, {
       contentType: 'image/webp',
       upsert: true,

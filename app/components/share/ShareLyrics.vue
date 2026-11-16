@@ -6,11 +6,10 @@ import type { SyncedLyricLine } from '~~/shared/types/track'
  * player's position while the player holds this track, at 0:00 otherwise.
  *
  * Its own component for one reason: the position changes on every animation
- * frame while the music plays. Read in a page's template, it made the whole
- * page render again 60 times a second: on a playlist's page, every one of up
- * to 1000 track rows rebuilt and compared each time, a cost phones paid in
- * battery. Read here, only this component renders again, the same way
- * LyricsSyncClock keeps the sync editor out of the per-frame work.
+ * frame while the music plays. Read in a page's template, it would make the
+ * whole page render 60 times a second (on a playlist's page, up to 1000 track
+ * rows rebuilt and compared each time, a cost phones pay in battery). Read
+ * here, only this component renders again.
  */
 withDefaults(defineProps<{
   /** Synced lines, which win over the plain lyrics when there are some. */
@@ -30,7 +29,6 @@ withDefaults(defineProps<{
 /** A line was clicked: the page seeks there (only while it plays this track). */
 const emit = defineEmits<{ seek: [seconds: number] }>()
 
-// The app-wide player, for its position.
 const player = usePlayerStore()
 </script>
 

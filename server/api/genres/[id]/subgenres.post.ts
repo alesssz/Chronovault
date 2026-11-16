@@ -10,11 +10,8 @@ import { createSubgenre } from '../../../services/genres.service'
  * 404 unknown genre; 409 a name incoherent with the genre ("Thrash Metal belongs to Metal").
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
-  // The genre's id in the address (400 when it is not a UUID).
   const genreId = requireUuidParam(event)
-  // The fields of the request body, validated against the schema (400 otherwise).
   const { name } = await readValidated(event, subgenreCreateSchema)
   return createSubgenre(db, userId, genreId, name)
 })

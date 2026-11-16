@@ -58,13 +58,10 @@ export function createPlayTracker() {
 
   /** Takes a position update and says whether it made a play or a completed play. */
   function update({ time, duration, listening }: PlayTick): PlayEvent {
-    // How far the position moved since the last update (0 on the first one).
     const step = lastTime === null ? 0 : time - lastTime
     lastTime = time
-    // Forward, small and while playing: listening. Backwards, a jump or paused: not.
     if (listening && step > 0 && step <= MAX_STEP_SECONDS) listened += step
 
-    // Half the track when it is short, otherwise the fixed threshold.
     const threshold = duration > 0 ? Math.min(PLAY_THRESHOLD_SECONDS, duration / 2) : PLAY_THRESHOLD_SECONDS
     if (!completed && duration > 0 && listened >= duration * COMPLETED_SHARE) {
       // A completed play is a play too (the server counts it as one).

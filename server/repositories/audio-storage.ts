@@ -86,7 +86,6 @@ export class AudioStorage {
    */
   objectUrl(key: string): string {
     if (!isSafeStorageKey(key)) throw new Error(`Refused unsafe storage key: ${JSON.stringify(key)}`)
-    // Each segment encoded on its own, so the folder separators stay slashes.
     const encodedKey = key.split('/').map(encodeURIComponent).join('/')
     return `${this.bucketUrl()}/${encodedKey}`
   }
@@ -98,10 +97,10 @@ export class AudioStorage {
    * URL directly in `<audio src>` or an XHR PUT.
    *
    * `upload` (PUT): the file's exact size and type are signed too, so the
-   * storage accepts that file only: a PUT of any other size or type no longer
-   * matches the signature (403). Unsigned, the 500 MB limit held only when the
-   * track was registered, and anyone signed in could fill the storage with
-   * files never registered (clean-up is by hand).
+   * storage accepts that file only: a PUT of any other size or type does not
+   * match the signature (403). Unsigned, the 500 MB limit would hold only when
+   * the track is registered, and anyone signed in could fill the storage with
+   * files never registered.
    */
   async presign(method: 'GET' | 'PUT', key: string, expiresSeconds: number, upload?: SignedUpload): Promise<string> {
     // The lifetime goes in the query string, signed together with the rest.
@@ -119,11 +118,10 @@ export class AudioStorage {
 
   // --- The app's own streaming address (/api/stream) ------------------------------------
   //
-  // Why not hand out the presigned GET itself: before offering to cast, Chrome on
-  // Android checks the media address with a HEAD request, and a presigned URL only
-  // answers the method it was signed for, so the HEAD got a 403 and Chrome closed
-  // its device picker at once ("The prompt was dismissed"). The app's address
-  // answers HEAD itself and redirects GET to a presigned URL (server/api/stream.ts).
+  // Why not hand out the presigned GET itself: a cast device fetches the audio on
+  // its own and may check it with a HEAD request, while a presigned URL only answers
+  // the method it was signed for (a HEAD gets 403). The app's address answers HEAD
+  // itself and redirects GET to a presigned URL (server/api/stream.ts).
   // It carries its own signature: a cast device has no session, so the address
   // alone must say which file it may play, and until when.
 
@@ -180,7 +178,6 @@ export class AudioStorage {
    * declared size before the track is registered.
    */
   async head(key: string): Promise<StoredObject | null> {
-    // A signed HEAD: headers only, no body.
     const response = await this.request('HEAD', key)
     if (response.status === 404) return null
     if (!response.ok) throw new Error(`Audio storage HEAD failed (${response.status})`)
@@ -199,7 +196,6 @@ export class AudioStorage {
   async remove(keys: string[]): Promise<void> {
     await Promise.all(keys.map(async (key) => {
       try {
-        // A signed DELETE of this one object.
         const response = await this.request('DELETE', key)
         if (!response.ok && response.status !== 404) {
           console.error(`[audio-storage.remove] ${key}: HTTP ${response.status}`)
@@ -229,10 +225,8 @@ export class AudioStorage {
       if (token) url.searchParams.set('continuation-token', token)
       // Signed in the headers (a server-side request, not a URL to hand out).
       const signed = await this.client.sign(url.toString(), { method: 'GET' })
-      // One page of the listing, as XML.
       const response = await this.fetchImpl(signed)
       if (!response.ok) throw new Error(`Audio storage LIST failed (${response.status})`)
-      // The XML body: entries and, when truncated, the token of the next page.
       const xml = await response.text()
       objects.push(...parseListedObjects(xml))
       token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? xmlValue(xml, 'NextContinuationToken') : null
@@ -247,7 +241,6 @@ export class AudioStorage {
 
   /** Server-side signed request (headers signature) for HEAD and DELETE. */
   private async request(method: 'HEAD' | 'DELETE', key: string): Promise<Response> {
-    // Signed in the headers: the request runs here, on the server.
     const signed = await this.client.sign(this.objectUrl(key), { method })
     return this.fetchImpl(signed)
   }
@@ -287,7 +280,6 @@ function decodeXml(text: string): string {
 
 /** Text of the first `<tag>…</tag>` in `xml`, decoded, or null. */
 function xmlValue(xml: string, tag: string): string | null {
-  // Non-greedy, multi-line: the first <tag>…</tag> pair.
   const match = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(xml)
   return match ? decodeXml(match[1]!) : null
 }
@@ -297,7 +289,6 @@ export function parseListedObjects(xml: string): ListedObject[] {
   // One entry per <Contents> element; entries without a key are skipped.
   const objects: ListedObject[] = []
   for (const [, body] of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
-    // The object's key; an entry without one is skipped.
     const key = xmlValue(body!, 'Key')
     if (!key) continue
     objects.push({

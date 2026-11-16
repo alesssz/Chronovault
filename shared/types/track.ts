@@ -101,7 +101,7 @@ export interface TrackSummary {
    * The audio was replaced after the lyrics were synced, and the owner has not
    * checked the sync since: the times may be off (a master can trim or shift
    * the audio). The library's synced-lyrics icon turns to a warning colour and
-   * the editor's Sync tab says so (docs/07-data-flows.md 7.19).
+   * the editor's Sync tab says so.
    */
   syncNeedsReview: boolean
   /**

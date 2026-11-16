@@ -92,7 +92,6 @@ describe('listTracks', () => {
       makeRow({ id: 'other', cover_path: null }),
     ])
 
-    // The library as the service returns it.
     const result = await listTracks(db, USER)
 
     // The version is updated_at in base 36: a new cover (new updated_at) means a new address.
@@ -160,7 +159,7 @@ describe('createTrack', () => {
   })
 
   it('rejects an audio path whose extension the database would refuse, before touching storage', async () => {
-    // A control character in the extension: before, it passed here and the storage client threw (500).
+    // A control character in the extension: refused here, or the storage client would throw (500).
     await expect(createTrack(db, storage(), USER, { ...createInput, audioPath: `${USER}/${TRACK}.mp\u00013` }))
       .rejects.toMatchObject({ statusCode: 400 })
     expect(audio.head).not.toHaveBeenCalled()
@@ -172,7 +171,7 @@ describe('createTrack', () => {
   })
 
   it('rejects the track\'s own cover name with another extension, before touching storage', async () => {
-    // Before: any extension passed, the insert failed on the database's .webp rule, and the audio was deleted.
+    // Otherwise the insert would fail on the database's .webp rule, and the audio would be deleted.
     await expect(createTrack(db, storage(), USER, { ...createInput, coverPath: `${USER}/${TRACK}.jpg` }))
       .rejects.toMatchObject({ statusCode: 400 })
     expect(tracksRepo.insertTrackRow).not.toHaveBeenCalled()
@@ -197,7 +196,6 @@ describe('createTrack', () => {
   it('registers the track when the uploaded file matches', async () => {
     vi.mocked(tracksRepo.insertTrackRow).mockResolvedValue(makeRow())
 
-    // The registered track.
     const track = await createTrack(db, storage(), USER, createInput)
 
     expect(audio.head).toHaveBeenCalledWith(AUDIO)
@@ -221,14 +219,13 @@ describe('createTrack', () => {
       vi.mocked(tracksRepo.insertTrackRow).mockRejectedValueOnce(failure)
       await expect(createTrack(db, storage(), USER, createInput)).rejects.toBe(failure)
     }
-    // Before: deleted either way, leaving a committed track without its audio.
+    // Deleting it could leave a committed track without its audio.
     expect(audio.remove).not.toHaveBeenCalled()
   })
 
   it('answers a repeated registration with the track already there, touching nothing', async () => {
     vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
 
-    // The answer to the repeated request.
     const track = await createTrack(db, storage(), USER, createInput)
 
     expect(track.id).toBe(TRACK)
@@ -258,7 +255,6 @@ describe('createReplaceTarget', () => {
   it('signs an upload URL for a new key next to the track\'s file: <trackId>.<revision>.<ext>', async () => {
     vi.mocked(tracksRepo.findTrackAudioPath).mockResolvedValue(AUDIO)
 
-    // The address for the new file.
     const target = await createReplaceTarget(db, storage(), USER, TRACK, { extension: 'mp3', mimeType: 'audio/mpeg', sizeBytes: 10 })
 
     expect(target.audioPath).toMatch(new RegExp(`^${USER}/${TRACK}\\.[0-9a-f]{8}\\.mp3$`))
@@ -324,7 +320,6 @@ describe('replaceTrackAudio', () => {
     vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow())
     vi.mocked(tracksRepo.swapTrackAudioRow).mockResolvedValue(makeRow({ audio_path: NEW_AUDIO, mime_type: 'audio/mpeg', duration_seconds: 58.5 }))
 
-    // The track after the replace.
     const track = await replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)
 
     // Only the file's own columns, and only while the track still names the file read first.
@@ -341,7 +336,6 @@ describe('replaceTrackAudio', () => {
     vi.mocked(tracksRepo.findTrackRow).mockResolvedValue(makeRow({ has_synced_lyrics: true }))
     vi.mocked(tracksRepo.swapTrackAudioRow).mockResolvedValue(makeRow({ audio_path: NEW_AUDIO, sync_needs_review: true }))
 
-    // The track after the replace, its synced lyrics flagged.
     const track = await replaceTrackAudio(db, storage(), USER, TRACK, replaceInput)
 
     expect(tracksRepo.swapTrackAudioRow).toHaveBeenCalledWith(db, USER, TRACK, AUDIO, expect.objectContaining({ sync_needs_review: true }))
@@ -441,7 +435,6 @@ describe('updateTrack', () => {
 
   it('does not touch storage for metadata-only changes', async () => {
     vi.mocked(tracksRepo.updateTrackRow).mockResolvedValue(makeRow({ mastered: true }))
-    // The track after a metadata-only change.
     const track = await updateTrack(db, USER, TRACK, { mastered: true })
     expect(track.mastered).toBe(true)
     expect(tracksRepo.findTrackRow).not.toHaveBeenCalled()
@@ -472,7 +465,6 @@ describe('getPlaybackSource', () => {
     // Before the call: the expiry must be six hours after this, or later.
     const before = Date.now()
 
-    // The track's streaming address.
     const source = await getPlaybackSource(db, storage(), USER, TRACK)
 
     expect(audio.streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)

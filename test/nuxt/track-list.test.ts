@@ -25,11 +25,9 @@ const tracks = [summary('a', 'Artemisia'), summary('b', 'Caravaggio', 'draft')]
 
 /** TrackList inside UApp, which provides what Nuxt UI tooltips need (as in the real app). */
 async function mountList(props: { selectable?: boolean } = {}) {
-  // A host component holding the selection, like the library page.
   const Host = defineComponent({
     render: () => h(UApp, null, () => h(TrackList, { tracks, genreOf: () => null, ...props })),
   })
-  // The host, mounted.
   const wrapper = await mountSuspended(Host)
   return {
     titles: () => wrapper.findAll('[data-testid="track-title"]'),
@@ -48,7 +46,6 @@ describe('TrackList', () => {
   })
 
   it('clicking the name of a track plays it', async () => {
-    // The list, mounted.
     const list = await mountList()
     await list.titles()[1]!.trigger('click')
     expect(list.emitted('play')?.[0]?.[0]).toMatchObject({ id: 'b' })
@@ -58,7 +55,6 @@ describe('TrackList', () => {
   it('clicking the name of the track in the player opens the full-screen view', async () => {
     player.current = { ...tracks[0]!, description: null, sunoPrompt: null, lyrics: null, lyricsSynced: null, peaks: null, mimeType: 'audio/flac', sizeBytes: 1, audioPath: 'u/a.flac', coverPath: null } as TrackDetail
     player.status = 'paused'
-    // The list, with that track paused in the player.
     const list = await mountList()
 
     await list.titles()[0]!.trigger('click')
@@ -70,7 +66,6 @@ describe('TrackList', () => {
   it('a track that failed to play is started again instead', async () => {
     player.current = { ...tracks[0]!, description: null, sunoPrompt: null, lyrics: null, lyricsSynced: null, peaks: null, mimeType: 'audio/flac', sizeBytes: 1, audioPath: 'u/a.flac', coverPath: null } as TrackDetail
     player.status = 'error'
-    // The list, with that track failed in the player.
     const list = await mountList()
 
     await list.titles()[0]!.trigger('click')
@@ -80,14 +75,12 @@ describe('TrackList', () => {
   })
 
   it('marks drafts with a badge', async () => {
-    // The list, mounted.
     const list = await mountList()
     expect(list.rows()[0]!.find('[data-testid="draft-badge"]').exists()).toBe(false)
     expect(list.rows()[1]!.find('[data-testid="draft-badge"]').text()).toBe('Draft')
   })
 
   it('in selection mode, clicking a name selects the track instead of playing it', async () => {
-    // The list in selection mode.
     const list = await mountList({ selectable: true })
 
     await list.titles()[1]!.trigger('click')
@@ -99,13 +92,10 @@ describe('TrackList', () => {
   it('shows synced lyrics to check (the audio was replaced since) in the warning colour', async () => {
     // Two tracks with synced lyrics: one flagged after a replaced audio, one not.
     const flagged = [{ ...summary('a', 'Artemisia'), syncNeedsReview: true }, summary('b', 'Caravaggio')]
-    // A host rendering the list, as the library page does.
     const Host = defineComponent({
       render: () => h(UApp, null, () => h(TrackList, { tracks: flagged, genreOf: () => null })),
     })
-    // The list, mounted.
     const wrapper = await mountSuspended(Host)
-    // Each row's lyrics icon.
     const icons = wrapper.findAll('[data-testid="track-lyrics-icon"]')
     expect(icons[0]!.classes()).toContain('text-warning')
     expect(icons[1]!.classes()).toContain('text-primary')

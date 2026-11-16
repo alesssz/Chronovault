@@ -122,7 +122,6 @@ export class AudioEngine implements PlaybackEngine {
     element.addEventListener('waiting', () => this.emit('buffering', true))
     element.addEventListener('playing', () => this.emit('buffering', false))
     element.addEventListener('error', () => {
-      // MediaError code (1-4), 0 when the browser gives none.
       const code = element.error?.code ?? 0
       this.emit('error', MEDIA_ERRORS[code] ?? 'Playback error')
     })
@@ -179,7 +178,6 @@ export class AudioEngine implements PlaybackEngine {
 
   /** Moves to `seconds`, clamped to the track (no upper bound while the duration is unknown). */
   seek(seconds: number): void {
-    // The track's end, or no limit while its length is unknown.
     const max = this.duration || Number.POSITIVE_INFINITY
     this.element.currentTime = clamp(seconds, 0, max)
   }
@@ -212,7 +210,6 @@ export class AudioEngine implements PlaybackEngine {
 
   /** Emits the time only when it changed noticeably (≥ 50 ms). */
   private emitTime(force = false): void {
-    // The element's position right now.
     const t = this.element.currentTime
     if (force || Math.abs(t - this.lastEmittedTime) >= 0.05) {
       this.lastEmittedTime = t
@@ -224,7 +221,6 @@ export class AudioEngine implements PlaybackEngine {
   // only ~4 times per second: too coarse for smooth lyrics).
   private startClock(): void {
     if (this.frame !== null) return
-    // Reschedules itself on every frame until stopClock().
     const tick = () => {
       this.emitTime()
       this.frame = requestAnimationFrame(tick)

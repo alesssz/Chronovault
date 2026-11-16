@@ -15,7 +15,6 @@ export default defineNitroPlugin((nitroApp) => {
 
   // Registered after the modules' plugins, so their tags (the colour mode script) are already in the page.
   nitroApp.hooks.hook('render:html', (html, { event }) => {
-    // This response's nonce.
     const nonce = createNonce()
     // Nuxt's tags around the app; `html.body` (the app's markup) is left alone.
     html.head = addNonce(html.head, nonce)

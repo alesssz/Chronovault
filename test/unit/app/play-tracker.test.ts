@@ -14,10 +14,8 @@ function listen(
   tracker: ReturnType<typeof createPlayTracker>,
   { from, to, duration, step = 0.25, listening = true }: { from: number, to: number, duration: number, step?: number, listening?: boolean },
 ): PlayEvent[] {
-  // Events that are not null, in the order they happened.
   const events: PlayEvent[] = []
   for (let time = from; time <= to + 1e-9; time += step) {
-    // What this position update made: a play, a completed play, or nothing.
     const event = tracker.update({ time, duration, listening })
     if (event) events.push(event)
   }
@@ -26,7 +24,6 @@ function listen(
 
 describe('createPlayTracker', () => {
   it('counts a play after 30 seconds of a long track, and completes it at 90%', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     expect(listen(tracker, { from: 0, to: PLAY_THRESHOLD_SECONDS - 1, duration: 200 })).toEqual([])
     expect(listen(tracker, { from: PLAY_THRESHOLD_SECONDS - 0.75, to: PLAY_THRESHOLD_SECONDS + 1, duration: 200 })).toEqual(['play'])
@@ -34,7 +31,6 @@ describe('createPlayTracker', () => {
   })
 
   it('counts half of a short track as a play', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     // A 20-second track: a play at 10 s, completed at 18 s.
     expect(listen(tracker, { from: 0, to: 9.5, duration: 20 })).toEqual([])
@@ -43,7 +39,6 @@ describe('createPlayTracker', () => {
   })
 
   it('does not count a seek: dragging to the end is not listening', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     expect(listen(tracker, { from: 0, to: 5, duration: 200 })).toEqual([])
     // A jump to 3:00, then a few seconds: far from 30 s of listening.
@@ -51,7 +46,6 @@ describe('createPlayTracker', () => {
   })
 
   it('does not count time while paused or slowed down', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     expect(listen(tracker, { from: 0, to: 60, duration: 200, listening: false })).toEqual([])
   })
@@ -66,7 +60,6 @@ describe('createPlayTracker', () => {
   })
 
   it('reports once per track, and again after a reset', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     expect(listen(tracker, { from: 0, to: 40, duration: 200 })).toEqual(['play'])
     // Going back and listening again: already counted.
@@ -76,7 +69,6 @@ describe('createPlayTracker', () => {
   })
 
   it('waits for the duration before completing, and uses 30 s meanwhile', () => {
-    // A fresh tracker for this listen.
     const tracker = createPlayTracker()
     expect(listen(tracker, { from: 0, to: 31, duration: 0 })).toEqual(['play'])
   })

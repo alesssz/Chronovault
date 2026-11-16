@@ -69,7 +69,7 @@ test.describe('library with many tracks', () => {
     await expect(selectAll).toHaveAttribute('aria-checked', 'false')
     await rows.first().getByTestId('track-select').click()
     await expect(page.getByTestId('selection-count')).toHaveText('1 selected')
-    // The partial state (a dash): it stayed empty, the page passing a prop the checkbox no longer has.
+    // The partial state: a dash, not an empty box.
     await expect(selectAll).toHaveAttribute('aria-checked', 'mixed')
     // From there, a click ticks every track.
     await selectAll.click()
@@ -91,16 +91,13 @@ test.describe('library with many tracks', () => {
     // --- Back from a track's page, the list is where it was ---
     await page.evaluate(() => window.scrollTo(0, 9000))
     await expect.poll(() => firstTitleOnScreen(page)).not.toBeNull()
-    // The title at the top of the screen before leaving the list.
     const before = await firstTitleOnScreen(page)
-    // Its row.
     const row = rows.filter({ hasText: before! })
     await row.getByRole('button', { name: `Actions for ${before}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page).toHaveURL(/\/tracks\/[0-9a-f-]{36}\/edit$/)
-    // As a person would: the track's page on screen (with its title) before going back. Going
-    // back within milliseconds of the click, while that page is still loading, is not a case
-    // anyone meets, and the position can then be lost on the way.
+    // Back only once the track's page shows its title, as a person would: going back while it is
+    // still loading, a case nobody meets, can lose the position.
     await expect(page.getByLabel('Title')).toHaveValue(before!)
     await page.goBack()
     await expect(page).toHaveURL(/\/$/)

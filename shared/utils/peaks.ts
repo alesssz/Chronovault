@@ -30,11 +30,9 @@ export function computePeaks(channels: ArrayLike<number>[], buckets = PEAKS_RESO
   const count = Math.min(buckets, length)
   // Samples per bucket; fractional, so buckets differ by at most one sample.
   const size = length / count
-  // One peak per bucket, filled below.
   const peaks = Array.from<number>({ length: count }).fill(0)
 
   for (let b = 0; b < count; b++) {
-    // First sample of this bucket.
     const start = Math.floor(b * size)
     // One past its last sample (at least one sample per bucket).
     const end = Math.max(start + 1, Math.floor((b + 1) * size))
@@ -42,7 +40,6 @@ export function computePeaks(channels: ArrayLike<number>[], buckets = PEAKS_RESO
     let peak = 0
     for (const channel of channels) {
       for (let i = start; i < end && i < channel.length; i++) {
-        // This sample's amplitude, whatever its sign.
         const v = Math.abs(channel[i]!)
         if (v > peak) peak = v
       }

@@ -26,7 +26,6 @@ export const SIGNED_URL_TTL = 6 * 60 * 60
 /** Signs one file; throws (500) when the file is missing, not readable by this client, or its path unsafe. */
 export async function createSignedUrl(db: DbClient, bucket: string, path: string): Promise<string> {
   assertSafePath(path, `storage.sign:${bucket}`)
-  // One signed URL, valid SIGNED_URL_TTL seconds.
   const { data, error } = await db.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL)
   if (error) throw toHttpError({ message: error.message }, `storage.sign:${bucket}`)
   return data.signedUrl
@@ -37,9 +36,7 @@ export async function createSignedUrl(db: DbClient, bucket: string, path: string
  * or are unsafe, are simply left out, so a missing cover never breaks the list.
  */
 export async function createSignedUrls(db: DbClient, bucket: string, paths: string[]): Promise<Map<string, string>> {
-  // path → signed URL; a cover that fails is simply missing from the map.
   const result = new Map<string, string>()
-  // Unsafe paths are left out like failing ones (a missing cover, never a broken list).
   const safe = paths.filter(isSafeStorageKey)
   if (safe.length === 0) return result
   // One request for every path; each entry has its URL or its own error.
@@ -71,7 +68,6 @@ export interface FolderFile {
 export async function listFolderFiles(db: DbClient, bucket: string, folder: string): Promise<FolderFile[]> {
   // Storage list pages: keep asking until a short page comes back.
   const PAGE = 1000
-  // Files of every page, collected in order.
   const files: FolderFile[] = []
   for (let offset = 0; ; offset += PAGE) {
     // One page of the folder, sorted by name so the pages follow each other.
@@ -111,7 +107,6 @@ export async function downloadObject(db: DbClient, bucket: string, path: string)
 
 /** Best-effort removal: a failure here must not block the main operation; unsafe paths are skipped. */
 export async function removeObjects(db: DbClient, bucket: string, paths: string[]): Promise<void> {
-  // Unsafe paths are never sent (logged instead).
   const safe = paths.filter((path) => {
     if (isSafeStorageKey(path)) return true
     console.error(`[storage.remove:${bucket}] unsafe storage key ${JSON.stringify(path)}`)

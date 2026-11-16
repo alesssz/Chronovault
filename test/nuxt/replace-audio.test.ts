@@ -25,11 +25,9 @@ function track(hasSyncedLyrics: boolean): TrackDetail {
 
 /** The dialog, open, for `detail`, inside UApp (as in the real app). */
 async function mountDialog(detail: TrackDetail) {
-  // A host rendering the dialog open, as the editor's side column does.
   const Host = defineComponent({
     render: () => h(UApp, null, () => h(TrackReplaceAudioDialog, { track: detail, open: true })),
   })
-  // The host, mounted.
   const wrapper = await mountSuspended(Host)
   // The modal opens on the next ticks (teleported to the body).
   await nextTick()

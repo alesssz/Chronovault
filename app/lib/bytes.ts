@@ -6,7 +6,6 @@
 
 /** Joins byte arrays into one new buffer of their total length, in order. */
 export function concatBytes(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
-  // One buffer of the total size, filled part after part.
   const out = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0))
   let offset = 0
   for (const part of parts) {

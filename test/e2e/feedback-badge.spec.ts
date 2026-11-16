@@ -12,7 +12,6 @@ async function friendVotes(browser: Browser, group: string, version: string, not
   // A friend without an account, in another browser context.
   const context = await browser.newContext()
   try {
-    // The friend's page.
     const friend = await context.newPage()
     await friend.goto(`/p/${group}`)
     // A server-rendered page: clicks before hydration do nothing.
@@ -76,21 +75,20 @@ test.describe('new feedback signal', () => {
 
     // --- Inside the group: what is new is marked, and the dot goes at once ---
     await card(page).click()
-    // The group's feedback panel.
     const panel = page.getByTestId('version-feedback')
     await expect(panel.getByTestId('version-feedback-unseen')).toHaveText('1 new vote since your last visit')
     await expect(panel.getByTestId('version-feedback-comment-new')).toBeVisible()
     await expect(dot).toHaveCount(0)
 
     // --- Back to Versions: the visit was recorded, the card is quiet, even after a reload ---
-    // The page asks again once the visit is recorded: its answer is waited for here, or it could
-    // still be on its way at the reload below, be taken for the reloaded page's own and be gone
-    // (its body is dropped with the page it belonged to).
+    // The page asks again once the visit is recorded: that answer is awaited here, or it could still
+    // be in flight at the reload below and be taken for the reloaded page's own (its body is dropped
+    // with the page it belonged to).
     expect(await unseenAfter(page, () => page.getByRole('link', { name: 'Back to versions' }).click())).toBe(0)
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
-    // After a reload, once the page has the server's answer: the visit is stored there. Before, the
-    // badges were checked before that answer, when they show nothing anyway.
+    // After a reload, once the page has the server's answer (the visit is stored there): before
+    // that answer the badges show nothing anyway.
     expect(await unseenAfter(page, () => page.reload())).toBe(0)
     await expect(card(page)).toBeVisible()
     await expect(card(page).getByTestId('playlist-card-new')).toHaveCount(0)
