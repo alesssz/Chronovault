@@ -12,7 +12,6 @@ const LOCAL = { supabaseUrl: 'http://127.0.0.1:54321', audioEndpoint: 'http://12
 /** A policy split into its directives: `{ 'script-src': ['self', …] }`. */
 function directivesOf(policy: string): Record<string, string[]> {
   return Object.fromEntries(policy.split('; ').map((d) => {
-    // The directive's name, then its sources.
     const [name, ...sources] = d.split(' ')
     return [name, sources]
   }))
@@ -32,7 +31,6 @@ describe('originOf', () => {
 
 describe('createNonce', () => {
   it('draws 16 random bytes, different every time', () => {
-    // Two nonces in a row.
     const [a, b] = [createNonce(), createNonce()]
     expect(atob(a)).toHaveLength(16)
     expect(a).not.toBe(b)
@@ -41,7 +39,6 @@ describe('createNonce', () => {
 
 describe('contentSecurityPolicy', () => {
   it('allows scripts from the site and with the nonce only (and the temporary Cast SDK)', () => {
-    // The local stack's policy, split into directives.
     const d = directivesOf(contentSecurityPolicy('abc123', LOCAL))
     expect(d['script-src']).toEqual(['\'self\'', '\'nonce-abc123\'', 'https://www.gstatic.com'])
     expect(d['script-src']).not.toContain('\'unsafe-inline\'')
@@ -50,7 +47,6 @@ describe('contentSecurityPolicy', () => {
   })
 
   it('lets the page reach Supabase and the audio storage, listed once when they share an origin', () => {
-    // The local stack's policy, split into directives.
     const d = directivesOf(contentSecurityPolicy('n', LOCAL))
     expect(d['connect-src']).toEqual(['\'self\'', 'http://127.0.0.1:54321'])
     expect(d['media-src']).toEqual(['\'self\'', 'blob:', 'http://127.0.0.1:54321'])
@@ -58,7 +54,6 @@ describe('contentSecurityPolicy', () => {
   })
 
   it('lists each origin of a deployment with Supabase Cloud and R2', () => {
-    // A deployment's policy, split into directives.
     const d = directivesOf(contentSecurityPolicy('n', {
       supabaseUrl: 'https://xyz.supabase.co',
       audioEndpoint: 'https://abc.r2.cloudflarestorage.com',
@@ -70,7 +65,6 @@ describe('contentSecurityPolicy', () => {
   })
 
   it('leaves out a missing setting instead of writing an invalid source', () => {
-    // A policy without any configured backend, split into directives.
     const policy = contentSecurityPolicy('n', { supabaseUrl: '', audioEndpoint: '' })
     expect(directivesOf(policy)['connect-src']).toEqual(['\'self\''])
     expect(directivesOf(policy)['img-src']).toEqual(['\'self\'', 'data:', 'blob:'])
@@ -97,7 +91,7 @@ describe('addNonce', () => {
   it('never turns user text in an attribute into a script', () => {
     // A share page's link preview as unhead writes it: the title's `"` escaped, its `<` not.
     const head = ['<meta property="og:title" content="x<script a><script>alert(1)</script>"><script>boot()</script>']
-    // Before: `<script nonce="n1" a>` inside the value, whose `"` closed it, and a real script after it.
+    // A naive scan would write `<script nonce="n1" a>` inside the value: its `"` would close the attribute and turn the text after it into a real script.
     expect(addNonce(head, 'n1')).toEqual([
       '<meta property="og:title" content="x<script a><script>alert(1)</script>"><script nonce="n1">boot()</script>',
     ])

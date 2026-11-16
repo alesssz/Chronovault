@@ -10,7 +10,6 @@ import { signUp, uniqueId, uploadTrack } from './helpers'
 test.describe('saved queue', () => {
   test('a reload resumes the queue; closing the player forgets it', async ({ page }) => {
     await signUp(page)
-    // Two tracks named uniquely for this test.
     const id = uniqueId()
     const [first, second] = [`first-${id}`, `second-${id}`]
     // Long enough not to end during the test.
@@ -47,9 +46,8 @@ test.describe('saved queue', () => {
     await bar.getByTestId('player-queue').click()
     await expect(page.getByTestId('queue-item-title')).toHaveText([first])
     await page.keyboard.press('Escape')
-    // Counted only now, once the page and the restore are both done (track, position and queue
-    // shown): checked as soon as the rows appeared, a second read starting a moment later (the
-    // restore, after hydration) would not have been counted yet.
+    // Checked only once track, position and queue are all shown: the restore runs after
+    // hydration, so a second read could still start after the rows appear.
     expect(libraryReads).toBe(1)
 
     // It plays from there.

@@ -41,8 +41,8 @@ export interface TrackSwipeOptions {
 
 /**
  * Watches touches on `target` (the bar's track area). Returns `offset` (px,
- * how far the area follows the finger sideways) and `dragging` (a finger is
- * on it), for the template to move the area and drop its transition.
+ * how far the area follows the finger sideways), `dragging` (a finger is on
+ * it) and `style`, to bind on the area so it moves with the gesture.
  */
 export function useTrackSwipe(
   target: MaybeRefOrGetter<HTMLElement | null | undefined>,
@@ -58,17 +58,14 @@ export function useTrackSwipe(
   /** When the touch started (ms), for the flick speed. */
   let startedAt = 0
 
-  // How far the finger moved since the touch started (start minus current), from VueUse.
   const { lengthX, lengthY } = useSwipe(target, {
     threshold: START_THRESHOLD,
     // Passive: `touch-action: none` on the element already stops the browser's own handling.
     passive: true,
-    // A new touch: no direction yet.
     onSwipeStart(event) {
       axis = null
       startedAt = event.timeStamp
     },
-    // The finger moved.
     onSwipe() {
       // useSwipe measures start minus current: positive lengthX = moved left, positive lengthY = moved up.
       axis ??= Math.abs(lengthX.value) > Math.abs(lengthY.value) ? 'x' : 'y'
@@ -80,7 +77,6 @@ export function useTrackSwipe(
       const blocked = moved < 0 && !toValue(options.canNext)
       offset.value = blocked ? moved * STIFFNESS : moved
     },
-    // The finger lifted: trigger, or spring back.
     onSwipeEnd(event) {
       if (!dragging.value) return
       dragging.value = false
@@ -89,13 +85,11 @@ export function useTrackSwipe(
       if (axis === 'x') {
         // Sideways distance, positive to the right.
         const moved = -lengthX.value
-        // Far enough, or a quick flick.
         const far = Math.abs(moved) >= TRIGGER_DISTANCE || Math.abs(moved) / elapsed >= TRIGGER_SPEED
         if (far && moved < 0 && toValue(options.canNext)) options.onNext()
         else if (far && moved > 0) options.onPrevious()
       }
       else if (axis === 'y') {
-        // Upward distance.
         const up = lengthY.value
         if (up >= TRIGGER_DISTANCE || (up > 0 && up / elapsed >= TRIGGER_SPEED)) options.onOpen()
       }
@@ -105,5 +99,15 @@ export function useTrackSwipe(
     },
   })
 
-  return { offset, dragging }
+  /**
+   * The track area's style: it follows the finger and fades the further it goes, with
+   * no transition while dragging (it sticks to the finger) and a short one on release.
+   */
+  const style = computed(() => ({
+    transform: offset.value ? `translateX(${offset.value}px)` : undefined,
+    opacity: offset.value ? Math.max(0.3, 1 - Math.abs(offset.value) / 250) : undefined,
+    transition: dragging.value ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
+  }))
+
+  return { offset, dragging, style }
 }

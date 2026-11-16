@@ -1,12 +1,12 @@
 /**
- * Player store with a fake audio engine and a mocked API: queue, previous/next, toggling,
- * race conditions between loads, expired signed URLs (refresh before resume/seek, one retry
- * after a refusal, an older reload superseded by a newer one), playback rate, the shared sources (public track and playlist pages), the
- * next track asked for ahead (so it starts at once when the current one ends), commands given
- * while a track loads, where a queue was started from (a playlist's page or the library, kept
- * by a restored queue), a
- * listen starting over (for the play counter), deleting many tracks at once, and a track's audio
- * replaced (the loaded one moving to the new file at the same second).
+ * Player store with a fake audio engine and a mocked API: queue, previous/next, toggling, race
+ * conditions between loads, expired signed URLs (refresh before resume/seek, one retry after a
+ * refusal, an older reload superseded by a newer one), playback rate, the shared sources (public
+ * track and playlist pages), the next track asked for ahead (so it starts at once when the
+ * current one ends), commands given while a track loads, where a queue was started from (a
+ * playlist's page or the library, kept by a restored queue), a listen starting over (for the
+ * play counter), deleting many tracks at once, and a track's audio replaced (the loaded one
+ * moving to the new file at the same second).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
@@ -34,7 +34,6 @@ class FakeEngine implements PlaybackEngine {
 
   // Adds a listener; returns the function that removes it, like the real engine.
   on<K extends keyof AudioEngineEvents>(event: K, listener: AudioEngineEvents[K]) {
-    // This event's listeners (a new set on first use).
     const set = this.handlers.get(event) ?? new Set()
     set.add(listener as (...args: unknown[]) => void)
     this.handlers.set(event, set)
@@ -176,14 +175,12 @@ afterEach(() => {
 
 describe('player store', () => {
   it('starts idle', () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     expect(player.status).toBe('idle')
     expect(player.isActive).toBe(false)
   })
 
   it('plays a track using the library as the queue', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[1]!, library)
 
@@ -197,7 +194,6 @@ describe('player store', () => {
   })
 
   it('clicking the current track again pauses and resumes it', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     await player.playTrack(library[0]!, library)
@@ -209,7 +205,6 @@ describe('player store', () => {
   })
 
   it('moves to the next track when one ends and stops at the end of the queue', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[1]!, library)
 
@@ -222,7 +217,6 @@ describe('player store', () => {
   })
 
   it('"previous" restarts an advanced track, otherwise goes back', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[1]!, library)
 
@@ -237,7 +231,6 @@ describe('player store', () => {
   })
 
   it('ignores responses of a load superseded by a newer one', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     // Resolves the slow request by hand, after a newer load has started.
     let releaseSlow!: () => void
@@ -257,7 +250,6 @@ describe('player store', () => {
   })
 
   it('shows an error when the track fails to load', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     vi.mocked(tracksApi.playback).mockRejectedValueOnce({ data: { message: 'Track not found' } })
 
@@ -268,7 +260,6 @@ describe('player store', () => {
   })
 
   it('clamps the volume to 0..1 and raising it unmutes', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -281,7 +272,6 @@ describe('player store', () => {
   })
 
   it('stop rewinds to the start and pauses', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     engine.emit('time', 30)
@@ -294,7 +284,6 @@ describe('player store', () => {
   })
 
   it('changes the playback speed within limits', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -309,7 +298,6 @@ describe('player store', () => {
   })
 
   it('closing the player restores the normal speed', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.setPlaybackRate(0.5)
@@ -321,7 +309,6 @@ describe('player store', () => {
   })
 
   it('closing the player drops the audio source', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -332,7 +319,6 @@ describe('player store', () => {
   })
 
   it('deleting the playing track closes the player', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[1]!, library)
 
@@ -346,7 +332,6 @@ describe('player store', () => {
   })
 
   it('the expanded view only opens with an active track', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.setExpanded(true)
     expect(player.expanded).toBe(false)
@@ -357,7 +342,6 @@ describe('player store', () => {
   })
 
   it('refreshes title and details after an edit in the editor', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -369,7 +353,6 @@ describe('player store', () => {
   })
 
   it('shows the track being loaded, not the one before it, and keeps showing it when its load fails', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     expect(player.displayTrack?.id).toBe('a')
@@ -397,11 +380,10 @@ describe('player store', () => {
 
 describe('a track\'s audio replaced', () => {
   it('moves the loaded track to the new file at the same second, still playing', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     engine.currentTime = 42
-    // The server now signs the new file.
+    // The server signs the new file.
     vi.mocked(tracksApi.playback).mockResolvedValueOnce({ url: 'https://audio/a-new', expiresAt: new Date(Date.now() + SIX_HOURS).toISOString() })
 
     await player.audioReplaced({ ...detail('a'), durationSeconds: 118, audioPath: 'u/a.0a1b2c3d.flac' })
@@ -415,7 +397,6 @@ describe('a track\'s audio replaced', () => {
   })
 
   it('keeps a paused track paused on the new file', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     engine.currentTime = 10
@@ -430,7 +411,6 @@ describe('a track\'s audio replaced', () => {
   })
 
   it('leaves the player alone when another track is the loaded one', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -446,7 +426,6 @@ describe('a track\'s audio replaced', () => {
 describe('expired or refused audio sources', () => {
   it('resuming after the signed URL expired loads a fresh one at the same position', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     engine.emit('time', 42)
@@ -463,7 +442,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('resuming before expiry reuses the loaded source', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.pause()
@@ -476,7 +454,6 @@ describe('expired or refused audio sources', () => {
 
   it('seeking after expiry reloads the source at the new position and keeps playing', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -491,7 +468,6 @@ describe('expired or refused audio sources', () => {
 
   it('a seek then Play on a paused expired track: the track plays, from the position sought', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.pause()
@@ -508,13 +484,12 @@ describe('expired or refused audio sources', () => {
     await vi.waitFor(() => expect(tracksApi.playback).toHaveBeenCalledTimes(3))
     await new Promise(resolve => setTimeout(resolve))
 
-    // Before: the seek's late answer reloaded the element and left it paused after Play.
+    // Guards against the seek's late answer reloading the element and leaving it paused after Play.
     expect(player.status).toBe('playing')
     expect(engine.seek).toHaveBeenLastCalledWith(90)
   })
 
   it('a source refused during playback is reloaded once, then the error is shown', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     engine.currentTime = 10
@@ -532,7 +507,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('a source that recovers can be reloaded again later', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
 
@@ -546,7 +520,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('the first play of a track is retried once with a fresh URL', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     engine.play.mockRejectedValueOnce(new DOMException('Failed to load because no supported source was found.', 'NotSupportedError'))
 
@@ -557,7 +530,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('a pause before the audio starts is kept: the interrupted first play is not retried', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     startSlowly()
 
@@ -573,7 +545,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('a pause before a resumed track starts is kept too', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     await player.togglePlay()
@@ -592,7 +563,6 @@ describe('expired or refused audio sources', () => {
 
   it('a pause while an expired URL is being replaced shows no error', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.pause()
@@ -611,7 +581,6 @@ describe('expired or refused audio sources', () => {
   })
 
   it('shows the browser error when the retry fails too', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     // What Chrome throws when the audio URL is refused (e.g. expired).
     const refused = new DOMException('Failed to load because no supported source was found.', 'NotSupportedError')
@@ -632,7 +601,6 @@ describe('expired or refused audio sources', () => {
     }
 
     it('cues a shared track without playing it, using the public API only', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.cueShared(shared)
 
@@ -650,7 +618,6 @@ describe('expired or refused audio sources', () => {
 
     it('refreshes an expired URL of a shared track through the public API', async () => {
       vi.useFakeTimers({ toFake: ['Date'] })
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.cueShared(shared)
 
@@ -663,7 +630,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('playing from the library afterwards goes back to the library API', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.cueShared(shared)
       await player.playTrack(library[0]!, library)
@@ -678,7 +644,6 @@ describe('expired or refused audio sources', () => {
     const playlist = sharedPlaylist
 
     it('cues the first track through the playlist, without playing', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playSharedPlaylist(playlist, 0, false)
 
@@ -690,7 +655,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('plays a chosen track and moves on through the playlist', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playSharedPlaylist(playlist, 1)
       expect(player.current?.id).toBe('y')
@@ -702,7 +666,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('choosing the track already loaded toggles play/pause', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playSharedPlaylist(playlist, 0)
       await player.playSharedPlaylist(playlist, 0)
@@ -711,7 +674,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('closing the player goes back to the library source', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playSharedPlaylist(playlist, 0)
       player.close()
@@ -729,14 +691,12 @@ describe('expired or refused audio sources', () => {
 
     /** Playing "b" from the library a, b, c. */
     async function playingB() {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playTrack(library[1]!, library)
       return player
     }
 
     it('play next puts the track right after the current one', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       expect(await player.playNext(d)).toBe('queued')
       expect(ids(player)).toEqual(['a', 'b', 'd', 'c'])
@@ -745,7 +705,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('play next moves a track that is already queued, also one already played', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       await player.playNext(library[2]!)
       expect(ids(player)).toEqual(['a', 'b', 'c'])
@@ -757,7 +716,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('add to queue appends; tracks coming up or playing stay where they are', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       expect(await player.addToQueue(d)).toBe('queued')
       expect(ids(player)).toEqual(['a', 'b', 'c', 'd'])
@@ -769,7 +727,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('when nothing is playing, both start the track', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       expect(await player.addToQueue(d)).toBe('started')
       expect(player.current?.id).toBe('d')
@@ -777,7 +734,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('moves, removes and clears upcoming tracks only', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       await player.addToQueue(d)
       await player.addToQueue(e)
@@ -799,7 +755,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('"next" and the end of a track follow the edited order', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       await player.playNext(d)
       await player.next()
@@ -809,7 +764,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('plays a queued track right away', async () => {
-      // "b" playing from the library a, b, c (see playingB).
       const player = await playingB()
       await player.addToQueue(d)
       await player.playFromQueue(3)
@@ -818,7 +772,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('the queue cannot be edited while a public page plays', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.cueShared({
         id: 's', title: 'Shared', composers: null, album: null, year: null, genre: null, description: null,
@@ -833,7 +786,6 @@ describe('expired or refused audio sources', () => {
 
   describe('restoring a saved queue', () => {
     it('loads the saved track paused, at the saved position', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       expect(await player.restoreQueue(library, 1, 42)).toBe(true)
 
@@ -848,10 +800,9 @@ describe('expired or refused audio sources', () => {
     })
 
     it('remembers the page the restored queue was started from (a playlist\'s page resumes it)', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.restoreQueue(library, 1, 0, undefined, 'playlist:p')
-      // Before: forgotten, and "Play all" on that playlist's page started it over from its first track.
+      // Guards against "Play all" on that playlist's page starting the queue over from its first track.
       expect(player.queueFrom).toBe('playlist:p')
       // Without one (the library, or a queue saved before): none.
       player.close()
@@ -860,7 +811,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('does nothing when something is already playing', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       await player.playTrack(library[2]!, library)
       expect(await player.restoreQueue(library, 0, 10)).toBe(false)
@@ -868,7 +818,6 @@ describe('expired or refused audio sources', () => {
     })
 
     it('gives up and closes the player when the track cannot be loaded', async () => {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       vi.mocked(tracksApi.get).mockRejectedValueOnce(new Error('Track not found'))
       expect(await player.restoreQueue(library, 0, 10)).toBe(false)
@@ -880,7 +829,6 @@ describe('expired or refused audio sources', () => {
 
 describe('repeat', () => {
   it('starts off and cycles off → all → one → off', () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     expect(player.repeat).toBe('off')
     player.cycleRepeat()
@@ -892,7 +840,6 @@ describe('repeat', () => {
   })
 
   it('one: a track that ends starts again from 0:00, without a new URL', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.cycleRepeat()
@@ -908,7 +855,6 @@ describe('repeat', () => {
 
   it('one: an expired URL is replaced and the track starts again from 0:00', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.cycleRepeat()
@@ -925,7 +871,6 @@ describe('repeat', () => {
   })
 
   it('one: next and previous still change track, and next stops at the last one', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[1]!, library)
     player.cycleRepeat()
@@ -939,7 +884,6 @@ describe('repeat', () => {
   })
 
   it('all: after the last track the queue starts again from the first', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[2]!, library)
     player.cycleRepeat()
@@ -952,7 +896,6 @@ describe('repeat', () => {
   })
 
   it('all: previous on the first track goes to the last one', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     player.cycleRepeat()
@@ -962,7 +905,6 @@ describe('repeat', () => {
   })
 
   it('off: the end of the queue stops', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[2]!, library)
 
@@ -972,7 +914,6 @@ describe('repeat', () => {
   })
 
   it('all is ignored on public pages: a shared playlist stops at its end', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.cycleRepeat()
     await player.playSharedPlaylist(sharedPlaylist, 2)
@@ -983,7 +924,6 @@ describe('repeat', () => {
   })
 
   it('one is ignored on public pages: a shared track is not played again', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.cycleRepeat()
     player.cycleRepeat()
@@ -996,7 +936,6 @@ describe('repeat', () => {
   })
 
   it('all on a single track plays it again in place, without reloading it', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!)
     player.cycleRepeat()
@@ -1022,7 +961,6 @@ describe('shuffle', () => {
   const rotateOnShuffle = () => vi.spyOn(Math, 'random').mockReturnValue(0)
 
   it('turning it on shuffles the upcoming tracks only', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[1]!, six)
     rotateOnShuffle()
@@ -1034,7 +972,6 @@ describe('shuffle', () => {
   })
 
   it('turning it off carries on in the original order from the current track', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[1]!, six)
     player.setShuffle(true)
@@ -1046,7 +983,6 @@ describe('shuffle', () => {
   })
 
   it('turning it on again keeps the order the list had before the first shuffle', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
     rotateOnShuffle()
@@ -1062,7 +998,6 @@ describe('shuffle', () => {
   })
 
   it('repeat all with shuffle turned off: the new round plays the original order', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
     rotateOnShuffle()
@@ -1079,7 +1014,6 @@ describe('shuffle', () => {
   })
 
   it('play all starts from the first track, or from a random one while shuffled', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playAll(six)
     expect(player.current?.id).toBe('a')
@@ -1094,7 +1028,6 @@ describe('shuffle', () => {
   })
 
   it('starting from the library plays the chosen track first, then all the others shuffled', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.setShuffle(true)
     await player.playTrack(six[3]!, six)
@@ -1108,7 +1041,6 @@ describe('shuffle', () => {
   })
 
   it('add to queue puts the track at a random place among the upcoming ones', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six.slice(0, 3))
     player.setShuffle(true)
@@ -1121,7 +1053,6 @@ describe('shuffle', () => {
   })
 
   it('play next still goes right after the current track', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six.slice(0, 3))
     player.setShuffle(true)
@@ -1133,7 +1064,6 @@ describe('shuffle', () => {
   })
 
   it('repeat all reshuffles the whole queue for each new round', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
     await player.playFromQueue(5)
@@ -1149,7 +1079,6 @@ describe('shuffle', () => {
   })
 
   it('a new round never starts with the track that just ended', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six.slice(0, 2))
     await player.playFromQueue(1)
@@ -1165,7 +1094,6 @@ describe('shuffle', () => {
   })
 
   it('on public pages it only changes the setting', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playSharedPlaylist(sharedPlaylist, 0)
     // The shared list's order, which must not change.
@@ -1178,7 +1106,6 @@ describe('shuffle', () => {
   })
 
   it('a restored shuffled queue can still go back to its original order', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.setShuffle(true)
     await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
@@ -1190,7 +1117,6 @@ describe('shuffle', () => {
   })
 
   it('a queue saved without an original order keeps its order when shuffle is turned off', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.setShuffle(true)
     await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0)
@@ -1201,7 +1127,6 @@ describe('shuffle', () => {
   })
 
   it('a restored queue keeps its original order with shuffle off too (for repeat all)', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.restoreQueue(['c', 'b', 'a'].map(summary), 0, 0, ['a', 'b', 'c'])
 
@@ -1209,7 +1134,6 @@ describe('shuffle', () => {
   })
 
   it('closing the player forgets the original order but keeps the setting', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
     player.setShuffle(true)
@@ -1221,7 +1145,6 @@ describe('shuffle', () => {
   })
 
   it('a shared list never keeps the library\'s original order', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(six[0]!, six)
     player.setShuffle(true)
@@ -1258,7 +1181,6 @@ describe('shuffle', () => {
       pinia.state.value.player = { ...handedOver, volume: 1, shuffle: false, repeat: 'off' }
       setActivePinia(pinia)
 
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
 
       expect(player.volume).toBe(0.4)
@@ -1278,7 +1200,6 @@ describe('shuffle', () => {
       setItem: (key: string, value: string) => stored.set(key, value),
     })
     try {
-      // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
       const player = usePlayerStore()
       player.setShuffle(true)
       player.cycleRepeat()
@@ -1298,7 +1219,6 @@ describe('shuffle', () => {
 describe('the next track, asked for ahead', () => {
   /** Plays "a" from the library (a, b, c: 120 s each), so "b" comes next. */
   async function playFirst() {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     await vi.waitFor(() => expect(player.status).toBe('playing'))
@@ -1336,7 +1256,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('starts it at once when the track ends: no new request, loaded and played in the same moment', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     engine.emit('time', 101)
     await vi.waitFor(() => expect(asked('b')).toBe(1))
@@ -1353,7 +1272,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('the next track changed (Up next edited): the new one is asked for, and plays', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     engine.emit('time', 101)
     await vi.waitFor(() => expect(asked('b')).toBe(1))
@@ -1368,7 +1286,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('asks nothing while paused (the track may never end)', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     player.pause()
     engine.emit('time', 101)
@@ -1377,7 +1294,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('asks nothing with repeat one: the same track starts again', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     player.cycleRepeat()
     player.cycleRepeat()
@@ -1388,7 +1304,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('repeat all: at the last track, asks for the first of the new round, but not while shuffled', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     player.cycleRepeat()
     await player.playTrack(library[2]!, library)
@@ -1408,7 +1323,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('asks again at the end for an address about to expire', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     // The address asked for ahead has 30 s left: less than the safety margin.
     vi.mocked(tracksApi.playback).mockImplementationOnce(async id => ({
@@ -1425,7 +1339,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('asks again at the end when the request ahead failed', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     vi.mocked(tracksApi.playback).mockRejectedValueOnce(new Error('offline'))
     engine.emit('time', 101)
@@ -1439,7 +1352,6 @@ describe('the next track, asked for ahead', () => {
   })
 
   it('closing the player forgets what was asked for ahead', async () => {
-    // "a" playing from the library: "b" comes next (see playFirst).
     const player = await playFirst()
     engine.emit('time', 101)
     await vi.waitFor(() => expect(asked('b')).toBe(1))
@@ -1453,7 +1365,6 @@ describe('the next track, asked for ahead', () => {
 
 describe('commands while a track loads', () => {
   it('clicking the track still loaded goes back to it, instead of pausing the one loading', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     // B is clicked and loads slowly; A, still the loaded track, is clicked again meanwhile.
@@ -1464,14 +1375,13 @@ describe('commands while a track loads', () => {
     release()
     await loadingB
 
-    // Before: A counted as the current track, the click toggled a track still loading (nothing), and B played.
+    // Guards against A counting as the current track: the click would toggle B, still loading (a no-op), and B would play.
     expect(player.current?.id).toBe('a')
     expect(player.index).toBe(0)
     expect(player.status).toBe('playing')
   })
 
   it('play pressed while a cued track loads starts it once in (a share page on open)', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     // The page cues its playlist's first track, paused; its address is slow to come when Play is pressed.
     let release!: () => void
@@ -1485,13 +1395,12 @@ describe('commands while a track loads', () => {
     release()
     await cue
 
-    // Before: the press was dropped (nothing to play yet) and the track sat paused.
+    // Guards against the press being dropped (nothing to play yet), leaving the track paused.
     expect(player.status).toBe('playing')
     expect(engine.play).toHaveBeenCalledTimes(1)
   })
 
   it('pause pressed while a track loads keeps it paused once in', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     const release = loadSlowly()
     const loading = player.playTrack(library[2]!, library)
@@ -1510,26 +1419,24 @@ describe('where a queue was started from', () => {
   const playlist = [library[0]!, library[2]!]
 
   it('a playlist page starts its own list even when its track is playing from the library', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[0]!, library)
     expect(player.queueFrom).toBeNull()
 
     // "Play all" on the playlist's page, A playing from the library.
     await player.playAll(playlist, 'playlist:p')
-    // Before: A was taken for the playlist playing, and the library's A was paused instead.
+    // Guards against A being taken for the playlist playing, and the library's A being paused instead.
     expect(player.status).toBe('playing')
     expect(player.queueFrom).toBe('playlist:p')
     expect(player.queue.map(t => t.id)).toEqual(['a', 'c'])
     expect(engine.load).toHaveBeenCalledTimes(2)
 
-    // Now it is the playlist playing: its page toggles it.
+    // The playlist is playing: its page toggles it.
     await player.playTrack(library[0]!, playlist, 'playlist:p')
     expect(player.status).toBe('paused')
   })
 
   it('without a page name (the library, a track\'s editor) the track toggles wherever its queue came from', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playAll(playlist, 'playlist:p')
     await player.playTrack(library[0]!)
@@ -1540,7 +1447,6 @@ describe('where a queue was started from', () => {
   })
 
   it('a share page or closing the player forgets it', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playAll(playlist, 'playlist:p')
     await player.playSharedPlaylist(sharedPlaylist, 0)
@@ -1554,7 +1460,6 @@ describe('where a queue was started from', () => {
 
 describe('a listen starting over', () => {
   it('counts a replay and a play after the end, not a pause and resume', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(library[2]!, library)
     expect(player.listen).toBe(0)
@@ -1585,7 +1490,6 @@ describe('deleting many tracks at once', () => {
   const five = ['a', 'b', 'c', 'd', 'e'].map(summary)
 
   it('removes them all from the queue in one go, keeping the current track', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(five[2]!, five)
 
@@ -1597,7 +1501,6 @@ describe('deleting many tracks at once', () => {
   })
 
   it('closes the player when one of them is playing, or is the one loading', async () => {
-    // The store under test (a fresh one in every test: beforeEach installs a new Pinia).
     const player = usePlayerStore()
     await player.playTrack(five[0]!, five)
     player.removeTracks(['d', 'a'])
@@ -1610,7 +1513,7 @@ describe('deleting many tracks at once', () => {
     player.removeTracks(['b'])
     release()
     await loadingB
-    // Before: B left the queue, the next track took its place in the list, and B's audio went on.
+    // Guards against B leaving the queue while its audio goes on.
     expect(player.status).toBe('idle')
     expect(player.current).toBeNull()
   })

@@ -39,14 +39,12 @@ describe('buildMergeMessage', () => {
 
 describe('buildPullRequest', () => {
   it('titles a single commit with its subject', () => {
-    // The pull request of a one-commit branch.
     const pr = buildPullRequest('fix/x', ['Fix the thing'])
     expect(pr.title).toBe('Fix the thing')
     expect(pr.body).toContain('pnpm merge:main')
   })
 
   it('titles several commits with the branch and lists them', () => {
-    // The pull request of a two-commit branch.
     const pr = buildPullRequest('feat/x', ['Add a', 'Add b'])
     expect(pr.title).toBe('feat/x (2 commits)')
     expect(pr.body).toMatch(/^- Add a\n- Add b\n\n/)
@@ -55,7 +53,6 @@ describe('buildPullRequest', () => {
 
 describe('summarizeChecks and describeChecks', () => {
   it('sorts check runs and commit statuses into passed, running and failed', () => {
-    // A rollup mixing every kind of entry.
     const summary = summarizeChecks([
       { __typename: 'CheckRun', name: 'Lint', status: 'COMPLETED', conclusion: 'SUCCESS' },
       { __typename: 'CheckRun', name: 'Skipped job', status: 'COMPLETED', conclusion: 'SKIPPED' },
@@ -134,7 +131,6 @@ describe('merge-main script', () => {
 
   /** Runs the script with `checkCommand` as its checks, the fake gh and a short wait between looks. */
   function runScriptWithChecks(checkCommand: string, ...args: string[]) {
-    // The script run as the user would, its output and exit code collected.
     const result = spawnSync(process.execPath, [SCRIPT, ...args], {
       cwd: work,
       encoding: 'utf8',
@@ -197,7 +193,6 @@ describe('merge-main script', () => {
   })
 
   it('does nothing on main', () => {
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(0)
     expect(output).toContain('Already on main')
@@ -208,7 +203,6 @@ describe('merge-main script', () => {
     // No ruleset yet: GitHub would merge at once, so the script itself waits for green.
     setGitHub({ checks: ['pending', 'pending', 'pass'] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -231,7 +225,6 @@ describe('merge-main script', () => {
     // The ruleset blocks the merge until CI passes; GitHub then deletes the branch itself.
     setGitHub({ required: true, deleteBranch: true, checks: ['pending', 'pending', 'pass'] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -251,7 +244,6 @@ describe('merge-main script', () => {
     pushedBranch()
     setGitHub({ required: true, autoAllowed: false, checks: ['pending', 'pass'] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -263,7 +255,6 @@ describe('merge-main script', () => {
     pushedBranch()
     setGitHub({ required: true, checks: ['pending', 'pending', 'fail'] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code).toBe(1)
@@ -282,7 +273,6 @@ describe('merge-main script', () => {
     // A pull request left open by an earlier run (CI had failed, then a fix was pushed).
     setGitHub({ prs: [{ number: 1, state: 'OPEN', url: 'https://github.com/owner/repo/pull/1', headRefName: 'feat/thing', headRefOid: git(work, 'rev-parse', 'HEAD'), autoMergeRequest: null }] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -303,7 +293,6 @@ describe('merge-main script', () => {
     git(work, 'switch', 'feat/thing')
     setGitHub({ prs: [{ number: 1, state: 'MERGED', url: 'https://github.com/owner/repo/pull/1', headRefName: 'feat/thing', headRefOid: sha }] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -325,7 +314,6 @@ describe('merge-main script', () => {
     git(work, 'switch', 'feat/thing')
     setGitHub({ prs: [{ number: 1, state: 'MERGED', url: 'https://github.com/owner/repo/pull/1', headRefName: 'feat/thing', headRefOid: sha }] })
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code, output).toBe(0)
@@ -362,7 +350,6 @@ describe('merge-main script', () => {
   it('stops when gh is missing or signed out', () => {
     pushedBranch()
     setGitHub({ authOk: false })
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('gh auth login')
@@ -371,7 +358,6 @@ describe('merge-main script', () => {
   it('stops when the commit email is not the GitHub noreply address', () => {
     pushedBranch()
     git(work, 'config', 'user.email', 'someone@example.com')
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('noreply')
@@ -381,7 +367,6 @@ describe('merge-main script', () => {
   it('stops on uncommitted changes', () => {
     pushedBranch()
     writeFileSync(join(work, 'a.txt'), 'changed')
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('uncommitted changes')
@@ -390,7 +375,6 @@ describe('merge-main script', () => {
   it('stops when the branch has never been pushed', () => {
     git(work, 'switch', '-c', 'feat/local')
     commit(work, 'a.txt', 'a', 'Add a')
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('never been pushed')
@@ -399,7 +383,6 @@ describe('merge-main script', () => {
   it('stops when some commits are only local', () => {
     pushedBranch()
     commit(work, 'c.txt', 'c', 'Add c')
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('1 local commit(s) not pushed')
@@ -409,7 +392,6 @@ describe('merge-main script', () => {
   it('stops when the branch has nothing new', () => {
     git(work, 'switch', '-c', 'feat/empty')
     git(work, 'push', '-u', 'origin', 'feat/empty')
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
     expect(code).toBe(1)
     expect(output).toContain('nothing to merge')
@@ -433,7 +415,6 @@ describe('merge-main script', () => {
     git(work, 'push', 'origin', 'main')
     git(work, 'switch', 'feat/thing')
 
-    // The script run with --yes: exit code and output.
     const { code, output } = runScript('--yes')
 
     expect(code).toBe(1)

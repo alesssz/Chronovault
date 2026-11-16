@@ -1,7 +1,7 @@
 /**
  * End-to-end, the app's streaming address (/api/stream), against the real local storage: the
  * HEAD request Chrome sends before casting gets the file's type and size (a presigned storage
- * URL answered it 403, and Chrome closed its device picker), GET reaches the audio through a
+ * URL would answer it 403, and Chrome would close its device picker), GET reaches the audio through a
  * redirect, with range requests, and a forged or altered address is refused.
  */
 import { expect, test } from './fixtures'

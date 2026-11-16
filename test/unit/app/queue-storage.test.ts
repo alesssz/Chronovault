@@ -12,10 +12,8 @@ const KEY = 'chronovault:queue'
 
 /** In-memory localStorage (the unit tests run in Node). */
 function memoryStorage(): Storage {
-  // The stored values.
   const data = new Map<string, string>()
   return {
-    // How many keys are stored.
     get length() {
       return data.size
     },
@@ -79,7 +77,6 @@ describe('saving and reading', () => {
 
   it('still reads a queue saved in format 1 (no shuffle)', () => {
     localStorage.setItem(KEY, JSON.stringify({ version: 1, userId: 'u1', trackIds: ['a', 'b'], index: 1, position: 3 }))
-    // A version-1 queue, written before shuffle existed, read back.
     const saved = readSavedQueue('u1')
     expect(saved).toMatchObject({ trackIds: ['a', 'b'], index: 1, position: 3 })
     expect(saved?.originalTrackIds).toBeUndefined()
@@ -103,7 +100,6 @@ describe('resolveSavedQueue', () => {
   const tracks = (...ids: string[]) => ids.map(id => ({ id }))
 
   it('drops deleted tracks from the original order too', () => {
-    // A saved shuffled queue whose original order holds a deleted track.
     const resolved = resolveSavedQueue({ trackIds: ['b', 'a'], index: 0, position: 0, originalTrackIds: ['a', 'x', 'b'] }, tracks('a', 'b'))
     expect(resolved?.originalIds).toEqual(['a', 'b'])
   })

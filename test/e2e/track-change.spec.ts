@@ -15,7 +15,7 @@
 import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
-/** Simulated latency of the deployed API, per request (see the test). */
+/** Simulated latency of the deployed API, per request. */
 const API_LATENCY_MS = 500
 
 /** One thing that happened in the page, at `t` ms on the page's clock. */
@@ -37,7 +37,6 @@ async function recordPlayback(page: Page) {
     // The player creates its one element with `new Audio()` on first play.
     const NativeAudio = window.Audio
     window.Audio = function (src?: string) {
-      // The real element, with listeners recording when it starts and ends.
       const element = new NativeAudio(src)
       for (const kind of ['ended', 'playing'] as const) element.addEventListener(kind, () => marks.push({ kind, t: performance.now() }))
       return element
@@ -45,7 +44,6 @@ async function recordPlayback(page: Page) {
     // The API calls (the player's $fetch goes through fetch).
     const nativeFetch = window.fetch.bind(window)
     window.fetch = (input, init) => {
-      // The requested address, whatever form fetch was given it in.
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       marks.push({ kind: 'request', t: performance.now(), url })
       return nativeFetch(input, init)
@@ -81,23 +79,17 @@ test.describe('track change', () => {
 
     // Wait for the change: the first track's end, then the next one playing.
     await expect.poll(async () => {
-      // Everything recorded so far.
       const marks = await marksOf(page)
-      // The first track's end, once it came.
       const ended = marks.find(m => m.kind === 'ended')
       return !!ended && marks.some(m => m.kind === 'playing' && m.t > ended.t)
     }, { timeout: 30_000 }).toBe(true)
 
-    // The whole record, now that the change happened.
     const marks = await marksOf(page)
-    // The end of the first track…
     const ended = marks.find(m => m.kind === 'ended')!
-    // …the next track playing after it…
     const started = marks.find(m => m.kind === 'playing' && m.t > ended.t)!
-    // …and the request for the next track's address (ahead of the end, or after it).
+    // The request for the next track's address, ahead of the end or after it.
     const asked = marks.find(m => m.kind === 'request' && m.url?.includes(`/api/tracks/${ids['Step 2']}/playback`))
-    // The numbers, in the test's report only (with 500 ms of latency the gap was ~555 ms before
-    // the address was asked for ahead, ~40 ms after): what is asserted is the order below.
+    // The numbers go in the test's report only: what is asserted is the order below.
     test.info().annotations.push({
       type: 'track change',
       description: `gap ${Math.round(started.t - ended.t)} ms; next address asked ${asked ? Math.round(ended.t - asked.t) : '-'} ms before the end`,
@@ -106,12 +98,9 @@ test.describe('track change', () => {
     // The next track's address was asked for before the end, not after it...
     expect(asked, 'the address of the next track is asked for').toBeDefined()
     expect(asked!.t).toBeLessThan(ended.t)
-    // ...so nothing about it went to the network between the end and the start: it started without
+    // ...so nothing about it goes to the network between the end and the start: it starts without
     // waiting for any answer. Checked on the order of events, not on a duration: a slow runner can
-    // stretch the gap (the limit of 250 ms checked here before made the result depend on the
-    // machine's speed), never this order. Without the request ahead, both requests (data and
-    // address) came in there.
-    // The next track's requests that went out between the end and the start (none expected).
+    // stretch the gap, never this order.
     const between = marks.filter(m => m.kind === 'request' && m.t > ended.t && m.t < started.t && m.url?.includes(ids['Step 2']!))
     expect(between, 'requests for the next track between the end and the start').toEqual([])
   })

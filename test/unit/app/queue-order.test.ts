@@ -7,11 +7,9 @@ import { inOriginalOrder, randomUpcomingSlot, shuffled, shuffledRound, shuffleUp
 
 /** Deterministic random numbers in [0, 1) (mulberry32). */
 function seeded(seed: number): () => number {
-  // mulberry32's state.
   let a = seed
   return () => {
     a = (a + 0x6D2B79F5) | 0
-    // One step of mulberry32.
     let t = Math.imul(a ^ (a >>> 15), 1 | a)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
@@ -25,7 +23,6 @@ const ids = (queue: { id: string }[]) => queue.map(t => t.id)
 
 describe('shuffled', () => {
   it('returns a permutation and leaves the input untouched', () => {
-    // The list to shuffle.
     const input = ['a', 'b', 'c', 'd', 'e']
     // A shuffled copy (seeded: the same on every run).
     const result = shuffled(input, seeded(1))

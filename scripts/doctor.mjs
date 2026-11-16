@@ -11,8 +11,7 @@
  * Docker mode, Playwright's Chromium for e2e tests, GNU Make. Informative
  * (ℹ): the local Supabase stack and the .env file.
  *
- * It only reads: nothing is installed or changed. docs/00-setup.md (0.2) has the
- * full checklist for a new computer.
+ * It only reads: nothing is installed or changed.
  */
 import { lookup } from 'node:dns/promises'
 import { existsSync, readFileSync } from 'node:fs'

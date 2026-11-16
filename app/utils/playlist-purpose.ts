@@ -6,7 +6,6 @@ import type { PlaylistPurpose } from '~~/shared/types/playlist'
  * one of them and for the tracks in it.
  *   'playlist' → Playlists, "playlist", "track"
  *   'versions' → Versions, "group", "version"
- * Auto-imported (Nuxt scans app/utils).
  */
 export const PLAYLIST_PURPOSE_INFO: Record<PlaylistPurpose, {
   /** Section name: header link and list page title. */

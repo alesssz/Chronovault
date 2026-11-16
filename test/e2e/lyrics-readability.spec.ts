@@ -1,10 +1,10 @@
 /**
  * End-to-end, lyrics stay readable in the light theme:
  * - the Sync tab's markers carry their line on a chip as wide as the text, cut before the next
- *   marker (each label shrank to its number inside the marker's 2px region, the rest of the line
- *   spilling white onto the light theme's pale waveform);
+ *   marker (inside the marker's 2px region a label shrinks to its number, and the rest of the line
+ *   spills white onto the light theme's pale waveform);
  * - a shared track's lyrics read as text before Play, and the lines still to come stay readable
- *   while it plays (they were pale grey on near-white, 2.6:1).
+ *   while it plays (not pale grey on near-white).
  * Contrast is measured on the colours the browser resolves, the line over the backgrounds under it.
  */
 import { expect, test, type Locator, type Page } from './fixtures'
@@ -22,7 +22,6 @@ async function useLightTheme(page: Page): Promise<void> {
 /** Gives the only track of the library synced lyrics (and a visibility), through the API. */
 async function setLyrics(page: Page, lines: { time: number, text: string }[], visibility = 'private'): Promise<string> {
   return page.evaluate(async ({ lines, visibility }) => {
-    // The only track of the library.
     const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
     await fetch(`/api/tracks/${track!.id}`, {
       method: 'PATCH',
@@ -102,7 +101,7 @@ test.describe('lyrics readability', () => {
       marker: label.parentElement!.getBoundingClientRect().left,
     })).sort((a, b) => a.marker - b.marker))
     for (const [i, box] of boxes.entries()) {
-      // Wider than its number ("1. "): the old label shrank to the 2px region, about 12px.
+      // Wider than its number ("1. ", about 12px).
       expect(box.width, `label ${box.text}`).toBeGreaterThan(40)
       expect(box.clipped, `label ${box.text} keeps its text inside`).toBe(true)
       // Ends before the next marker.
@@ -129,7 +128,7 @@ test.describe('lyrics readability', () => {
     const lines = share.getByTestId('lyrics-synced').getByRole('button')
     await expect(lines).toHaveCount(3)
 
-    // Before Play: every line is text (all dimmed, they read at 2.6:1).
+    // Before Play: every line reads as text, none dimmed below 4.5:1.
     for (const line of await lines.all()) {
       expect((await contrastOf(line)).ratio, `${await line.textContent()} before Play`).toBeGreaterThanOrEqual(TEXT_CONTRAST)
     }

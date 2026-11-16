@@ -40,7 +40,7 @@ test('the scrollbar runs along the panel\'s border, and centred lines stay centr
   /**
    * The panel's frame against its scrolling box and first line: the box's right edge on the
    * panel's inner edge (with the padding on the panel, the scrollbar would sit 30px inside
-   * it), and the line's middle on the panel's (a scrollbar on the right alone pulled every
+   * it), and the line's middle on the panel's (a scrollbar on the right alone pulls every
    * centred line half its width to the left).
    */
   async function expectFramed(visitor: Page) {
@@ -52,7 +52,6 @@ test('the scrollbar runs along the panel\'s border, and centred lines stay centr
     const measured = await panel.evaluate((element) => {
       const frame = element.getBoundingClientRect()
       const scroller = element.querySelector('.overflow-y-auto')!
-      // The first line of the plain lyrics.
       const line = scroller.querySelector('p')!
       // The text itself, not its full-width paragraph.
       const range = document.createRange()

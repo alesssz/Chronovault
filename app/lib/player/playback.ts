@@ -30,7 +30,7 @@ import type { PlayerStatus, PlayerTrack, QueueItem } from './types'
 const SOURCE_EXPIRY_MARGIN_MS = 60_000
 /** Playback speed bounds (the sync editor uses 0.5 and 0.75). */
 const MIN_PLAYBACK_RATE = 0.25
-/** Upper speed bound (no UI uses more than 1× today; kept generous for the API). */
+/** Upper speed bound, above anything the UI offers. */
 const MAX_PLAYBACK_RATE = 2
 
 /** What playback needs from the store that owns it. */
@@ -113,8 +113,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * Whether the track being loaded starts once it is in: load()'s `autoplay`,
    * then whatever play, pause or play/pause pressed meanwhile asked for. The
    * play button is disabled while loading, but other controls are not (a
-   * share page's big Play button, the keyboard, the lock screen): before, a
-   * press there during the load did nothing, and the track then sat paused.
+   * share page's big Play button, the keyboard, the lock screen), and a press
+   * there during the load must not leave the track sitting paused.
    */
   let autoplayWanted = false
   /** The loaded track played to its end and stayed there (no next track): playing it again is a new listen. */
@@ -127,7 +127,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function engine(): PlaybackEngine {
     if (engineRef) return engineRef
-    // The app-wide engine, wired to this player below, once.
     const e = getAudioEngine()
     e.setVolume(volume.value)
     e.on('time', (t) => {
@@ -183,7 +182,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * `position` (applied by the element as soon as the metadata is in).
    */
   function applySource(playback: PlaybackSource, position: number): void {
-    // The engine the address goes into.
     const e = engine()
     e.load(playback.url)
     sourceExpiresAt = Date.parse(playback.expiresAt) || 0
@@ -196,9 +194,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * a newer reload (`round`, see recoveryRound) took over meanwhile.
    */
   async function loadSource(trackId: string, position: number, token: number, round?: number): Promise<boolean> {
-    // A fresh signed address, from the current source.
     const playback = await source().playback(trackId)
-    // A newer load, or (for a reload) a newer reload, took over meanwhile: this answer is stale.
     if (token !== loadToken || (round !== undefined && round !== recoveryRound)) return false
     applySource(playback, position)
     return true
@@ -216,7 +212,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     // only sets the shown position), so the position shown is the one to resume at.
     position = recovering ? currentTime.value : engine().currentTime || currentTime.value,
   ): Promise<boolean> {
-    // The loaded track: without one there is nothing to recover.
     const track = current.value
     if (!track || sourceRecovered) return false
     sourceRecovered = true
@@ -245,8 +240,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   // Loading the next track only when one ends would take two requests (its data and its
   // streaming address): a pause of a few hundred ms on the deployed app, and with the
   // screen off a play() that comes only after a network wait, which some browsers refuse
-  // in the background. The store asks for the next track a little before
-  // the end (prefetch); load() then finds it ready and starts it in the same moment.
+  // in the background. The store asks for the next track a little before the end
+  // (prefetch); load() then finds it ready and starts it in the same moment.
 
   /** A track's data and streaming address, as load() needs them. */
   interface TrackData {
@@ -277,7 +272,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
   async function fetchTrack(trackId: string): Promise<TrackData> {
     // The source now (a share page may take the player over while the requests are out).
     const from = source()
-    // Data and address, asked for in parallel.
     const [detail, playback] = await Promise.all([from.get(trackId), from.playback(trackId)])
     return { detail, playback }
   }
@@ -294,10 +288,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * failure is forgotten: load() then asks as usual.
    */
   function prefetch(item: QueueItem): void {
-    // Which track, from which source.
     const key = preparedKey(item.id)
     if (prepared?.key === key) return
-    // The request, started now; `ready` is set once it answers.
     const entry: Prepared = { key, promise: fetchTrack(item.id), ready: null }
     prepared = entry
     entry.promise.then(
@@ -313,7 +305,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   /** What was asked for ahead for `item`, if anything: handed over once (load() takes it). */
   function claimPrepared(item: QueueItem): Prepared | null {
-    // The one asked for ahead, if it is this very track.
     const entry = prepared?.key === preparedKey(item.id) ? prepared : null
     if (entry) prepared = null
     return entry
@@ -330,11 +321,8 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    * are ignored.
    */
   async function load(item: QueueItem, autoplay: boolean, position = 0): Promise<void> {
-    // This load's number: answers belonging to older loads are dropped.
     const token = ++loadToken
-    // The engine (created on first use).
     const e = engine()
-    // Asked for ahead (the store does it a little before a track ends).
     const ahead = claimPrepared(item)
 
     e.pause()
@@ -350,7 +338,7 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
     try {
       // Ready: no await at all here, so play() below runs in the same moment as the track
       // that just ended. Otherwise wait for it (asking again if it failed), or ask now (a
-      // failure then is the load's own, reported as before).
+      // failure then is the load's own, reported as usual).
       let { detail, playback } = ahead?.ready
         ?? await (ahead ? ahead.promise.catch(() => fetchTrack(item.id)) : fetchTrack(item.id))
       // Asked for long ago (a paused track): the address may be about to expire.
@@ -467,7 +455,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function seek(seconds: number): void {
     if (!isActive.value) return
-    // Never before the start.
     const position = Math.max(0, seconds)
     currentTime.value = position
     if (current.value && sourceExpired() && status.value !== 'loading') {
@@ -502,7 +489,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
 
   /** Changes the playback speed, keeping the pitch (e.g. 0.75 while syncing lyrics). */
   function setPlaybackRate(rate: number): void {
-    // Within the speeds the player supports.
     const value = clamp(rate, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE)
     if (value === playbackRate.value) return
     playbackRate.value = value
@@ -532,7 +518,6 @@ export function createPlayback({ source, reload, onEnded }: PlaybackOptions) {
    */
   function reset(): void {
     loadToken++
-    // Nothing comes next any more.
     prepared = null
     if (engineRef) engineRef.unload()
     current.value = null

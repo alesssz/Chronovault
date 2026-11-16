@@ -15,7 +15,6 @@ import { buildWav, testSignal } from './wav-fixtures'
 let Flac: FlacLib
 
 beforeAll(async () => {
-  // Node uses the asm.js build of libFLAC (same library, no separate .wasm file to fetch).
   const mod = await import('libflacjs/dist/libflac.js')
   Flac = ((mod as { default?: FlacLib }).default ?? mod) as FlacLib
   if (!Flac.isReady()) await new Promise<void>(resolve => Flac.on('ready', () => resolve()))
@@ -26,11 +25,9 @@ beforeAll(async () => {
  * and returns the samples as integers, interleaved like in the WAV.
  */
 async function decodeIndependently(flac: Uint8Array, bitsPerSample: number) {
-  // An independent decoder (@wasm-audio-decoders/flac), not the one the app uses.
   const decoder = new FLACDecoder()
   await decoder.ready
   try {
-    // The decoded samples, their count and depth, and any decoding error.
     const { channelData, samplesDecoded, bitDepth, errors } = await decoder.decodeFile(flac)
     // This decoder outputs floats as `sample / (2^(bits-1) - 1)`. Multiplying back
     // and rounding recovers the integer: the float32 error stays below half a step.
@@ -51,7 +48,6 @@ async function decodeIndependently(flac: Uint8Array, bitsPerSample: number) {
 
 describe('parseWav', () => {
   it('reads format and data block of a PCM WAV', () => {
-    // A small stereo 16-bit WAV at 48 kHz.
     const wav = buildWav({ samples: testSignal(100, 2, 16), channels: 2, bitsPerSample: 16, sampleRate: 48_000 })
     expect(parseWav(wav)).toEqual({
       encoding: 'pcm', channels: 2, sampleRate: 48_000, bitsPerSample: 16, blockAlign: 4,
@@ -60,7 +56,6 @@ describe('parseWav', () => {
   })
 
   it('understands WAVE_FORMAT_EXTENSIBLE and skips extra chunks (with odd-size padding)', () => {
-    // A WAVE_FORMAT_EXTENSIBLE WAV with an odd-sized LIST chunk before the data.
     const wav = buildWav({
       samples: testSignal(10, 2, 24),
       channels: 2,
@@ -68,7 +63,6 @@ describe('parseWav', () => {
       formatTag: 0xFFFE,
       extraChunk: { id: 'LIST', body: new Uint8Array(7) },
     })
-    // What the parser makes of it.
     const info = parseWav(wav)
     expect(info.encoding).toBe('pcm')
     expect(info.bitsPerSample).toBe(24)
@@ -103,7 +97,6 @@ describe('flacIncompatibility', () => {
   })
 
   it('keeps 32-bit integer WAVs (beyond the bundled libFLAC)', () => {
-    // A 32-bit integer WAV.
     const wav = buildWav({ samples: testSignal(10, 2, 24), channels: 2, bitsPerSample: 32 })
     expect(flacIncompatibility(parseWav(wav))).toMatch(/32-bit/)
   })
@@ -122,10 +115,8 @@ describe('encodeWavToFlac', () => {
     const wav = buildWav({ samples, channels, bitsPerSample })
     const info = parseWav(wav)
 
-    // The verified FLAC and the MD5 of its audio.
     const { flac, md5 } = await encodeWavToFlac(Flac, wav, info)
 
-    // A real FLAC stream.
     expect(new TextDecoder().decode(flac.subarray(0, 4))).toBe('fLaC')
 
     // The MD5 equals the hash of the WAV audio bytes as FLAC defines them.
@@ -151,7 +142,6 @@ describe('encodeWavToFlac', () => {
       samples[i * 2] = value
       samples[i * 2 + 1] = value
     }
-    // That signal as a WAV, encoded to FLAC.
     const wav = buildWav({ samples, channels: 2, bitsPerSample: 16 })
     const { flac } = await encodeWavToFlac(Flac, wav, parseWav(wav))
     expect(flac.byteLength).toBeLessThan(wav.byteLength / 2)
@@ -160,7 +150,6 @@ describe('encodeWavToFlac', () => {
   it('reports progress up to completion', async () => {
     // About two seconds of audio: enough for several progress reports.
     const wav = buildWav({ samples: testSignal(100_000, 2, 16), channels: 2, bitsPerSample: 16 })
-    // Every progress value reported, in order.
     const progress: number[] = []
     await encodeWavToFlac(Flac, wav, parseWav(wav), p => progress.push(p))
     expect(progress.at(-1)).toBe(1)
@@ -174,7 +163,6 @@ describe('encodeWavToFlac', () => {
   })
 
   it('detects a corrupted FLAC stream and never returns it', async () => {
-    // Flip one byte inside an audio frame written by the encoder.
     let writes = 0
     // libFLAC with a write callback that flips a byte: the verification must catch it.
     const corrupting: FlacLib = {
@@ -183,7 +171,6 @@ describe('encodeWavToFlac', () => {
         Flac.init_encoder_stream(encoder, (data, numberOfBytes, samples, frame) => {
           writes++
           if (writes === 10 && numberOfBytes > 20) {
-            // A copy of the chunk with one byte flipped in the middle.
             const copy = data.slice()
             copy[numberOfBytes >> 1]! ^= 0xFF
             return write(copy, numberOfBytes, samples, frame)

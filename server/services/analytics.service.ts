@@ -74,13 +74,11 @@ export async function getAnalyticsReport(
   source: WebAnalyticsSource,
   today = new Date(),
 ): Promise<AnalyticsReport> {
-  // The period's days (UTC), today included.
   const period = periodOf(days, today)
   // Fields every report has, whatever the source.
   const base = { days, since: period.since, until: period.until }
   if (source.kind === 'unconfigured') return { source: 'unconfigured', ...base, ...emptyNumbers(period) }
 
-  // Every track and playlist of the user, with its public page path.
   const targets = await listTargets(db, userId)
   if (source.kind === 'demo') return { source: 'demo', ...base, ...demoNumbers(targets, period) }
   return { source: 'vercel', ...base, ...await vercelNumbers(source.client, targets, period) }
@@ -88,7 +86,6 @@ export async function getAnalyticsReport(
 
 /** Every track and playlist of the user, with its public page path (also used by plays.service.ts). */
 export async function listTargets(db: DbClient, userId: string): Promise<AnalyticsTarget[]> {
-  // The labels of the user's tracks and playlists, read together.
   const [tracks, playlists] = await Promise.all([
     tracksRepo.listTrackLabels(db, userId),
     playlistsRepo.listPlaylistLabels(db, userId),
@@ -171,7 +168,6 @@ async function vercelNumbers(
   const totals = sumRows(results.get('environment')!)
   // Day rows carry an ISO timestamp: keep the date part.
   const byDay = groupSum(results.get('day')!, row => row.key?.slice(0, 10) ?? null)
-  // Visits per public page path.
   const byPath = groupSum(results.get('requestPath')!, row => row.key)
   return {
     totals,
@@ -193,7 +189,6 @@ function groupSum(rows: WebAnalyticsRow[], keyOf: (row: WebAnalyticsRow) => stri
   // Running totals per key (null is a valid key: unknown referrer).
   const sums = new Map<string | null, AnalyticsCount>()
   for (const row of rows) {
-    // The group this row adds to.
     const key = keyOf(row)
     sums.set(key, sumRows([sums.get(key) ?? zeroCount(), row]))
   }
@@ -227,7 +222,6 @@ export function breakdown(rows: WebAnalyticsRow[]): AnalyticsBreakdownRow[] {
   const sorted = [...sums].map(([key, c]) => ({ key, pageviews: c.pageviews })).filter(r => r.pageviews > 0)
     .sort((a, b) => b.pageviews - a.pageviews)
   for (const row of sorted.slice(BREAKDOWN_SIZE)) others += row.pageviews
-  // The values listed by name.
   const top = sorted.slice(0, BREAKDOWN_SIZE)
   return others > 0 ? [...top, { key: OTHERS, pageviews: others }] : top
 }

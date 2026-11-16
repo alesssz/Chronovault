@@ -1,7 +1,7 @@
 /**
  * End-to-end, a NUL character (U+0000) in any text the API takes is a client error (400), never
- * a server error: Postgres cannot store it in a text or jsonb column, and before the schemas
- * refused it, it reached the database and came back as a 500 (logged as an internal error).
+ * a server error: Postgres cannot store it in a text or jsonb column, so a NUL the schemas let
+ * through would reach the database and come back as a 500 (logged as an internal error).
  * An anonymous visitor could do that at will through a vote's comment: that vote is checked next
  * to the same vote with a plain comment, accepted, so the 400 can only come from the NUL.
  */
@@ -18,9 +18,7 @@ test.describe('text with a NUL character', () => {
 
     // Every place the owner sends text, each answered with its status.
     const owner = await page.evaluate(async (nul) => {
-      // The two seeded tracks.
       const [first, second] = await (await fetch('/api/tracks')).json() as { id: string }[]
-      /** Sends `body` as JSON with `method` to `url` and answers the status. */
       const send = (method: string, url: string, body: unknown) => fetch(url, {
         method,
         headers: { 'content-type': 'application/json' },
@@ -34,7 +32,6 @@ test.describe('text with a NUL character', () => {
         body: JSON.stringify({ title: 'Versions', purpose: 'versions', visibility: 'unlisted', trackIds: [first!.id, second!.id] }),
       })
       if (created.status !== 201) throw new Error(`Group not created: ${created.status}`)
-      // The new group, whose id the visitor votes through.
       const group = await created.json() as { id: string }
       return {
         group: group.id,

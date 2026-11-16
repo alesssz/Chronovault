@@ -49,7 +49,6 @@ describe('getTrackCover', () => {
     vi.mocked(tracksRepo.findTrackCoverPath).mockResolvedValue(COVER)
     vi.mocked(storageRepo.downloadObject).mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' }))
 
-    // The cover, read through the mocked repositories.
     const cover = await getTrackCover(db, USER, TRACK)
 
     expect(tracksRepo.findTrackCoverPath).toHaveBeenCalledWith(db, USER, TRACK)
@@ -79,7 +78,6 @@ describe('getTrackCover', () => {
 
 describe('getPlaylistCover', () => {
   it('reads the playlist\'s custom cover', async () => {
-    // The playlist's custom cover path.
     const path = `${USER}/playlists/${PLAYLIST}.webp`
     vi.mocked(playlistsRepo.findPlaylistCoverPath).mockResolvedValue(path)
     vi.mocked(storageRepo.downloadObject).mockResolvedValue(new Blob([new Uint8Array([9])], { type: 'image/webp' }))

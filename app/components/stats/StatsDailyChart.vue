@@ -22,7 +22,6 @@ interface ChartDay {
   detail?: string
 }
 
-// What to draw, and how to word it.
 const props = defineProps<{
   /** The days to draw, oldest first (every day of the period, zeros included). */
   daily: ChartDay[]

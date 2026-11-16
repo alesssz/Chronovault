@@ -32,13 +32,10 @@ export function readWavChunks(file: Uint8Array): Chunk[] {
   if (file.length < 12 || asciiAt(file, 0) !== 'RIFF' || asciiAt(file, 8) !== 'WAVE') {
     throw new Error('Not a WAV file')
   }
-  // Little-endian reads of the chunk sizes.
   const view = new DataView(file.buffer, file.byteOffset, file.byteLength)
-  // Chunks in file order, after the 12-byte RIFF header.
   const chunks: Chunk[] = []
   let offset = 12
   while (offset + 8 <= file.length) {
-    // This chunk's four-letter id.
     const id = asciiAt(file, offset)
     // Some writers put a too large size on the last chunk: never read past the end.
     const size = Math.min(view.getUint32(offset + 4, true), file.length - offset - 8)
@@ -74,7 +71,6 @@ function encodeChunk(id: string, body: Uint8Array): Uint8Array {
  * string (the terminator is part of the value, as the format expects).
  */
 function infoList(tags: TrackTags): Uint8Array {
-  // INFO id → value; empty values are dropped below.
   const fields: [string, string | number | null][] = [
     ['INAM', tags.title], // name (title)
     ['IART', tags.artist], // artist
@@ -83,7 +79,6 @@ function infoList(tags: TrackTags): Uint8Array {
     ['IGNR', tags.genre], // genre
     ['ICMT', tags.comment], // comment
   ]
-  // Each non-empty field as a sub-chunk: Latin-1 text ending with a zero byte.
   const subChunks = fields
     .filter(([, value]) => hasText(value))
     .map(([id, value]) => encodeChunk(id, Uint8Array.from([...latin1(String(value)), 0])))
@@ -96,11 +91,8 @@ function infoList(tags: TrackTags): Uint8Array {
  * it), replacing any previous one.
  */
 export function writeWavTags(file: Uint8Array, tags: TrackTags): Uint8Array {
-  // Every chunk but a previous INFO list (it is replaced).
   const chunks = readWavChunks(file).filter(chunk => !isInfoList(chunk))
-  // The new INFO list.
   const info = encodeChunk('LIST', infoList(tags))
-  // Every chunk re-encoded, with the INFO list slotted in before `data`.
   const encoded: Uint8Array[] = []
   for (const chunk of chunks) {
     if (chunk.id === 'data') encoded.push(info)
@@ -109,9 +101,7 @@ export function writeWavTags(file: Uint8Array, tags: TrackTags): Uint8Array {
   // No data chunk found (unusual): append the tags at the end.
   if (!chunks.some(chunk => chunk.id === 'data')) encoded.push(info)
 
-  // Everything after the RIFF header: the WAVE id and the chunks.
   const body = concatBytes([latin1('WAVE'), ...encoded])
-  // "RIFF" + total size of what follows.
   const header = new Uint8Array(8)
   header.set(latin1('RIFF'), 0)
   // RIFF size: everything after the 8-byte RIFF header.

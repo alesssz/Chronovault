@@ -3,8 +3,8 @@
  * titles) are filled in from one file. The account menu leads to the page; the CSV download holds
  * the library's titles; a filled-in CSV, as Excel in Italian saves it (semicolons, lyrics on several
  * lines in a quoted cell), shows what it changes and what it skips before anything is saved; Apply
- * creates the new subgenre (under its genre) and saves the tracks, as the API then reads them. The JSON export then
- * holds every field, lyrics included, and imported back as it is changes nothing.
+ * creates the new subgenre (under its genre) and saves the tracks, as the API then reads them.
+ * The JSON export holds every field, lyrics included, and imported back as it is changes nothing.
  */
 import { readFile } from 'node:fs/promises'
 import { expect, test } from './fixtures'
@@ -17,7 +17,6 @@ test.describe('metadata import', () => {
     await uploadTrack(page, 'Artemisia')
     await uploadTrack(page, 'Night drive')
 
-    // From the account menu.
     await page.goto('/')
     await page.getByRole('button', { name: 'User menu' }).click()
     await page.getByRole('menuitem', { name: 'Export & import metadata' }).click()

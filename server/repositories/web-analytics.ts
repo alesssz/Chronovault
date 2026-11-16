@@ -67,7 +67,6 @@ const responseSchema = z.object({
 
 /** A count from the response: a non-negative number, 0 when missing or malformed. */
 function count(value: unknown): number {
-  // Counts may come as numbers or strings.
   const n = Number(value)
   return Number.isFinite(n) && n > 0 ? n : 0
 }

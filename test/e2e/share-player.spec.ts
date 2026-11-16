@@ -18,7 +18,6 @@ import { seedLibrary, signUp, uploadTrack, waitForHydration } from './helpers'
  * 10.8 s).
  */
 const TRACKS = ['Tide 1', 'Tide 2', 'Tide 3']
-/** Length of each track, in seconds. */
 const SECONDS = 12
 
 /**
@@ -29,7 +28,6 @@ async function sharedPlaylist(page: Page): Promise<{ playlist: string, ids: Reco
   await signUp(page)
   for (const title of TRACKS) await uploadTrack(page, title, { seconds: SECONDS })
   return page.evaluate(async (titles) => {
-    // The tracks just uploaded, by title.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
     const ids = Object.fromEntries(tracks.map(t => [t.title, t.id]))
     // Forty lines of lyrics: enough to make the page long on a phone.
@@ -39,7 +37,6 @@ async function sharedPlaylist(page: Page): Promise<{ playlist: string, ids: Reco
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ lyrics }),
     })
-    // The shared playlist of the three tracks.
     const response = await fetch('/api/playlists', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -52,22 +49,18 @@ async function sharedPlaylist(page: Page): Promise<{ playlist: string, ids: Reco
 test.describe('share page player', () => {
   test('previous / next, volume, full screen, the phone\'s mini player, and the screen off', async ({ page, browser }) => {
     test.setTimeout(150_000)
-    // The playlist and its tracks' ids.
     const { playlist, ids } = await sharedPlaylist(page)
-    // Its share page.
     const url = `/p/${playlist}`
 
     // --- A visitor on a desktop ---
     const desktop = await browser.newContext()
     try {
-      // A visitor without an account, in another browser context.
       const visitor = await desktop.newPage()
       await visitor.goto(url)
       await waitForHydration(visitor)
-      // The title of what is playing, on the page.
       const nowPlaying = visitor.getByTestId('shared-now-playing-title')
       await expect(nowPlaying).toHaveText('Tide 1')
-      // A playlist with tracks is never called empty (the vote panel once stole its v-else).
+      // A playlist with tracks is never called empty.
       await expect(visitor.getByTestId('shared-playlist-track')).toHaveCount(3)
       await expect(visitor.getByTestId('shared-playlist-empty')).toHaveCount(0)
 
@@ -85,7 +78,6 @@ test.describe('share page player', () => {
 
       // The full-screen view, without the owner's tools.
       await visitor.getByTestId('shared-expand').click()
-      // The full-screen view.
       const expanded = visitor.getByTestId('player-expanded')
       await expect(expanded).toContainText('Tide 1')
       await expect(expanded.getByRole('button', { name: 'Edit track' })).toHaveCount(0)
@@ -122,22 +114,19 @@ test.describe('share page player', () => {
 
     // --- A visitor on a phone: the mini player once the page's player is scrolled away ---
     const phone = await browser.newContext({ viewport: { width: 412, height: 700 }, isMobile: true, hasTouch: true })
-    // A low volume saved on this phone by an older version of the app, and a recorder of every
+    // A low volume already saved on this phone, and a recorder of every
     // level the page gives an audio element: on a touch screen it must play at full volume.
     await phone.addInitScript(() => {
       localStorage.setItem('chronovault:volume', '0.3')
-      // Every volume the page sets on an audio element, recorded below.
       const recorder = window as unknown as { __volumes: number[] }
       recorder.__volumes = []
       // The browser's own volume property, wrapped to record the writes.
       const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume')!
       Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
         configurable: true,
-        // Reading is unchanged.
         get() {
           return volume.get!.call(this)
         },
-        // Writing is recorded, then done as usual.
         set(value: number) {
           recorder.__volumes.push(value)
           volume.set!.call(this, value)
@@ -145,11 +134,9 @@ test.describe('share page player', () => {
       })
     })
     try {
-      // A visitor on a phone.
       const visitor = await phone.newPage()
       await visitor.goto(url)
       await waitForHydration(visitor)
-      // The mini player at the bottom of the screen.
       const mini = visitor.getByTestId('shared-mini-player')
       // The page's own player is on screen: no mini player yet.
       await expect(visitor.getByTestId('shared-play')).toBeVisible()
@@ -165,7 +152,6 @@ test.describe('share page player', () => {
       await mini.getByTestId('shared-mini-toggle').click()
       await expect(mini.getByTestId('shared-mini-toggle')).toHaveAccessibleName('Pause')
       await mini.getByTestId('shared-mini-open').click()
-      // The full-screen view, opened from the mini player.
       const expanded = visitor.getByTestId('player-expanded')
       await expect(expanded).toBeVisible()
 
@@ -187,7 +173,6 @@ test.describe('share page player', () => {
     await seedLibrary(page, 1)
     // The seeded track, shared by link; its id.
     const id = await page.evaluate(async () => {
-      // The only track of the library.
       const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
       await fetch(`/api/tracks/${track!.id}`, {
         method: 'PATCH',
@@ -204,7 +189,7 @@ test.describe('share page player', () => {
       const visitor = await desktop.newPage()
       await visitor.goto(`/t/${id}`)
       await waitForHydration(visitor)
-      // Before: the page rendered by the server said 100%, and hydration kept it there.
+      // Not the server-rendered 100%, which hydration must not keep.
       await expect(visitor.getByRole('slider', { name: 'Volume' })).toHaveAttribute('aria-valuenow', '30')
       await expect(visitor.getByRole('button', { name: 'Mute' }).locator('.iconify')).toHaveClass(/volume-1/)
     }
@@ -215,7 +200,6 @@ test.describe('share page player', () => {
 
   test('a playlist page follows the track being moved to, and retries a failed one', async ({ page, browser }) => {
     test.setTimeout(150_000)
-    // The playlist and its tracks' ids.
     const { playlist, ids } = await sharedPlaylist(page)
     const desktop = await browser.newContext()
     try {
@@ -223,7 +207,6 @@ test.describe('share page player', () => {
       const visitor = await desktop.newPage()
       await visitor.goto(`/p/${playlist}`)
       await waitForHydration(visitor)
-      // The page's rows, the title of what it shows as playing, and its big play button.
       const rows = visitor.getByTestId('shared-playlist-track')
       const nowPlaying = visitor.getByTestId('shared-now-playing-title')
       const play = visitor.getByTestId('shared-play')
@@ -251,10 +234,10 @@ test.describe('share page player', () => {
         await route.continue()
       })
       await rows.nth(2).getByRole('button').first().click()
-      // Before: Tide 1, still the loaded track, stayed highlighted and in the panel.
+      // Tide 3 shows as playing although Tide 1 is still the loaded track.
       await expect(rows.nth(2).getByRole('button').first()).toHaveAttribute('aria-current', 'true')
       await expect(nowPlaying).toHaveText('Tide 3')
-      // A click back on Tide 1 meanwhile goes back to it (before: it paused the track loading).
+      // A click back on Tide 1 meanwhile goes back to it (instead of pausing the track loading).
       await rows.nth(0).getByRole('button').first().click()
       release()
       await expect(nowPlaying).toHaveText('Tide 1')
@@ -272,10 +255,9 @@ test.describe('share page player', () => {
       })
       await rows.nth(1).getByRole('button').first().click()
       await expect(nowPlaying).toHaveText('Tide 2')
-      // The player's error, under the controls.
       await expect(visitor.getByTestId('shared-error')).toBeVisible()
-      // Before: the big Play started the playlist over from Tide 1 (which, 12 s later, moved on to
-      // Tide 2 by itself: hence the request for Tide 2 expected at once, well within those 12 s).
+      // Expected well within 12 s: starting over from Tide 1 would also reach Tide 2, but only
+      // once Tide 1 ends.
       const retried = visitor.waitForRequest(tide2, { timeout: 5_000 })
       await play.click()
       await retried

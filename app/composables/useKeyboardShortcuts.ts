@@ -21,7 +21,6 @@ export function useKeyboardClaims() {
  * nudge it). Released when `active` turns false, or when the component goes.
  */
 export function useKeyboardClaim(active: MaybeRefOrGetter<boolean>): void {
-  // The shared count of claims.
   const claims = useKeyboardClaims()
   /** This component's own claim is counted. */
   let claimed = false
@@ -33,9 +32,7 @@ export function useKeyboardClaim(active: MaybeRefOrGetter<boolean>): void {
     claims.value += on ? 1 : -1
   }
 
-  // Claims or releases as `active` changes; `immediate`: active from the start.
   watch(() => toValue(active), set, { immediate: true })
-  // A component that goes away while claiming gives the keys back.
   onBeforeUnmount(() => set(false))
 }
 

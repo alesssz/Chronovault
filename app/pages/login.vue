@@ -11,14 +11,10 @@ import { z } from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 definePageMeta({ layout: 'auth' })
-// Browser tab title: "Sign in · Chronovault".
 usePageTitle('Sign in')
 
-// Supabase Auth runs in the browser: sign-in and sign-up set the session cookies.
 const supabase = useSupabaseClient()
-// As soon as a session exists, enter the app (also when landing here already signed in).
 useSignedInRedirect()
-// Sign-in/sign-up failures.
 const toast = useToast()
 
 /** Which form is shown: sign in, create an account, or ask for a reset link. */
@@ -28,7 +24,6 @@ const loading = ref(false)
 /** An email was sent (sign-up confirmation, or reset link to that address): "check your inbox" instead of the form. */
 const emailSent = ref<{ kind: 'confirm' } | { kind: 'reset', to: string } | null>(null)
 
-// The form's fields, checked before anything is sent.
 const email = z.email('Invalid email')
 const schema = z.object({
   email,
@@ -53,13 +48,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   loading.value = true
   try {
     if (mode.value === 'login') {
-      // Signs in; the session cookies are set by the Supabase client.
       const { error } = await supabase.auth.signInWithPassword(event.data)
       if (error) throw error
       return
     }
 
-    // Creates the account; `data.session` is null while the email still needs confirming.
     const { data, error } = await supabase.auth.signUp({
       ...event.data,
       options: { emailRedirectTo: `${window.location.origin}/confirm` },

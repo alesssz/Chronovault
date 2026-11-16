@@ -70,7 +70,6 @@ function absolute(src: string): string {
  */
 export function setMediaSessionTrack(track: MediaSessionTrack | null): void {
   if (!supported()) return
-  // The cover in the uploaded format, or the fallback artwork.
   const artwork = track?.artworkUrl
     ? [{ src: track.artworkUrl, sizes: '800x800', type: 'image/webp' }]
     : FALLBACK_ARTWORK

@@ -25,10 +25,9 @@ import type { MaybeRefOrGetter } from 'vue'
  *   reports it;
  * - `prompt()`: opens the browser's device picker (also the way to stop or
  *   change device while connected); must run from a click. Besides the
- *   outcome it returns the browser's own answer when it refused (`detail`):
- *   casting cannot be tried from a test browser, so on a real phone that
- *   text is what tells why it failed (shown in the message under the
- *   button).
+ *   outcome it returns the browser's own answer when it refused (`detail`),
+ *   shown under the button: casting cannot be tried from a test browser, so
+ *   on a real phone that text is what tells why it failed.
  */
 
 /**
@@ -77,9 +76,9 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
    * browser hands the availability watch id over later, in a promise: one
    * that settles after its element was dropped (the full-screen view opened
    * and closed at once) belongs to an older round, and its watch is
-   * cancelled there and then. Before, it was kept as the current id, or lost
-   * after the drop, and the browser went on looking for devices on the
-   * page's audio element in the background.
+   * cancelled there and then: kept as the current id, or lost, it would let
+   * the browser go on looking for devices on the page's audio element in the
+   * background.
    */
   let round = 0
 
@@ -90,7 +89,6 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
 
   /** Starts following an element's devices and connection; nothing where the API is missing. */
   function watchElement(el: HTMLMediaElement | null | undefined): void {
-    // The element's RemotePlayback object (absent where the API is missing).
     const remote = el?.remote
     if (!remote) return
     watched = remote
@@ -126,7 +124,6 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
     state.value = 'disconnected'
   }
 
-  // A new element (or none): drop the old one's listeners and follow the new one.
   watch(() => toValue(element), (el) => {
     unwatch()
     watchElement(el)
@@ -148,12 +145,9 @@ export function useRemotePlayback(element: MaybeRefOrGetter<HTMLMediaElement | n
       return { result: 'done', detail: null }
     }
     catch (error) {
-      // How long the browser took to refuse.
       const elapsed = performance.now() - startedAt
-      // The error's name (NotFoundError, NotAllowedError…) and message, as the browser gave them.
       const name = error instanceof DOMException ? error.name : ''
       const message = error instanceof Error ? error.message : String(error)
-      // "Name: message (N ms)": what the browser said, and whether it showed anything first.
       const detail = `${name || 'Error'}${message ? `: ${message}` : ''} (${Math.round(elapsed)} ms)`
       // No TV or speaker on this network (or none that can play this kind of audio).
       if (name === 'NotFoundError') return { result: 'no-devices', detail }

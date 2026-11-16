@@ -21,7 +21,6 @@ interface GenreFields {
  * where there is room for it, as a tooltip.
  */
 export function useGenres() {
-  // The genres with their subgenres (built-in and the user's own), cached app-wide under one key.
   const { data, refresh, status } = useAsyncData('genres', () => genresApi.list(), {
     default: () => [] as Genre[],
   })
@@ -48,7 +47,6 @@ export function useGenres() {
 
   /** A track's genre and subgenre, `Metal › Thrash Metal` (the genre alone without one; null for none). */
   function trackGenrePath(track: GenreFields): string | null {
-    // The two names that are set, the genre first.
     const parts = [genreName(track.genreId), subgenreName(track.subgenreId)].filter(Boolean)
     return parts.length ? parts.join(' › ') : null
   }
@@ -60,7 +58,7 @@ export function useGenres() {
 
   /** Creates (or finds) a custom subgenre under the genre and keeps the cached list sorted. */
   async function createSubgenre(genreId: string, name: string): Promise<Subgenre> {
-    // The subgenre as the server returns it (the existing one, for a name the genre has).
+    // The existing subgenre when the genre already has the name.
     const subgenre = await genresApi.createSubgenre(genreId, { name })
     if (!subgenreById.value.has(subgenre.id)) {
       data.value = data.value.map(genre => genre.id !== genreId
@@ -76,7 +74,6 @@ export function useGenres() {
    * player and the filters show the new name at once.
    */
   async function renameSubgenre(id: string, name: string): Promise<Subgenre> {
-    // The subgenre as the server stored it (the name trimmed).
     const renamed = await genresApi.renameSubgenre(id, { name })
     // Only its genre's list changes (a subgenre never moves): the row replaced, the list re-sorted.
     data.value = data.value.map(genre => genre.id !== renamed.genreId
@@ -92,7 +89,6 @@ export function useGenres() {
    */
   async function deleteSubgenre(id: string): Promise<void> {
     await genresApi.deleteSubgenre(id)
-    // Dropped from whichever genre holds it; the other genres keep their lists as they are.
     data.value = data.value.map(genre => genre.subgenres.some(s => s.id === id)
       ? { ...genre, subgenres: genre.subgenres.filter(s => s.id !== id) }
       : genre)

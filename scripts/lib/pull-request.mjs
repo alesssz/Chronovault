@@ -17,12 +17,10 @@
  * @returns {{ title: string, body: string }} the pull request's title and description
  */
 export function buildPullRequest(branch, subjects) {
-  // The subjects, trimmed, empty ones dropped.
   const cleaned = subjects.map(s => s.trim()).filter(Boolean)
   // How it gets merged, at the end of every description.
   const footer = 'Opened by `pnpm merge:main`: merged into `main` once CI passes.'
   if (cleaned.length === 1) return { title: cleaned[0], body: footer }
-  // One "- subject" line per commit, oldest first.
   const list = cleaned.map(subject => `- ${subject}`).join('\n')
   return { title: `${branch} (${cleaned.length} commits)`, body: `${list}\n\n${footer}` }
 }
@@ -43,7 +41,6 @@ const STATUS_PENDING = new Set(['PENDING', 'EXPECTED'])
  * @returns {{ passed: string[], pending: string[], failed: string[] }} the checks' names, by outcome
  */
 export function summarizeChecks(rollup) {
-  // The names, sorted into the three outcomes.
   const summary = { passed: [], pending: [], failed: [] }
   for (const check of rollup ?? []) {
     if (check.__typename === 'StatusContext') {
@@ -72,7 +69,6 @@ export function summarizeChecks(rollup) {
  * @returns {string} e.g. "1 of 2 checks passed, 1 running"
  */
 export function describeChecks(summary) {
-  // Every check reported so far.
   const total = summary.passed.length + summary.pending.length + summary.failed.length
   if (total === 0) return 'waiting for the checks to start'
   // The passed count, then what is still running or failed, when any.

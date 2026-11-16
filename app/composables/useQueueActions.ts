@@ -7,9 +7,7 @@ import type { QueueItem, QueueResult } from '~/stores/player'
  * playing, both simply start the track.
  */
 export function useQueueActions() {
-  // The queue commands live in the store.
   const player = usePlayerStore()
-  // One short toast per action.
   const toast = useToast()
 
   /** Toast text and icon for each outcome of the store's queue commands. */
@@ -22,7 +20,6 @@ export function useQueueActions() {
 
   /** Shows the toast for an outcome; `nextLabel` = it came from "Play next". */
   function notify(result: QueueResult, track: QueueItem, nextLabel: boolean) {
-    // The toast's text for this outcome.
     const message = messages[result](track.title)
     // "Play next" says where the track went.
     if (result === 'queued' && nextLabel) message.title = `${track.title} plays next`

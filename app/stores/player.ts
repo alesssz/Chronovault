@@ -36,8 +36,8 @@ const PREFETCH_LEAD_SECONDS = 20
  * What is left here are the rules that need several parts at once: which
  * track to load when (next, previous, repeat) and which one to ask for
  * ahead (comingNext), shuffle and repeat, the public pages' players, and the
- * full-screen and Up next flags. Components
- * see one store with one flat API, whatever part holds the state.
+ * full-screen and Up next flags. Components see one store with one flat API,
+ * whatever part holds the state.
  */
 export const usePlayerStore = defineStore('player', () => {
   /** Where the queued tracks come from: the library, or a shared link. */
@@ -70,7 +70,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** The play queue and its order. */
   const playQueue = createPlayQueue()
-  // The queue state the rules below read most, under short names (they are the same refs).
   const { queue, index, originalOrder } = playQueue
   /** The loaded track and the audio engine. */
   const playback = createPlayback({
@@ -81,9 +80,7 @@ export const usePlayerStore = defineStore('player', () => {
     // Repeat, next track or stop: the store's call (see onEnded below).
     onEnded,
   })
-  // Play/pause, which several commands below fall back to (the same function, under a short name).
   const { togglePlay } = playback
-  // The playback state the rules below read most, under short names (the same refs).
   const { current, status, currentTime, isActive } = playback
 
   // --- Derived state ------------------------------------------------------------------
@@ -135,12 +132,9 @@ export const usePlayerStore = defineStore('player', () => {
   // edited, shuffle): the position moving alone asks nothing. While paused, nothing is
   // asked: the track may never be finished.
   watch(() => {
-    // The track that would start by itself.
     const next = comingNext.value
-    // The current track's length (0 until known).
     const length = playback.duration.value
     if (!next || status.value !== 'playing' || length <= 0) return null
-    // 20 seconds before the end, or half-way through a track shorter than 40.
     return currentTime.value >= length - Math.min(PREFETCH_LEAD_SECONDS, length / 2) ? next : null
   }, (next) => {
     if (next) playback.prefetch(next)
@@ -150,7 +144,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   /** Makes queue item `i` the current track and loads it; `position` resumes inside the track. */
   async function loadIndex(i: number, autoplay: boolean, position = 0): Promise<void> {
-    // That track's queued summary (nothing to load past the end of the queue).
     const item = queue.value[i]
     if (!item) return
     index.value = i
@@ -203,7 +196,6 @@ export const usePlayerStore = defineStore('player', () => {
    * random one while shuffled; `from` names it (see queueFrom).
    */
   async function playAll(list: QueueItem[], from?: string): Promise<void> {
-    // Where the list starts: its first track, or a random one while shuffled.
     const start = shuffle.value ? list[Math.floor(Math.random() * list.length)] : list[0]
     if (start) await playTrack(start, list, from)
   }
@@ -222,9 +214,7 @@ export const usePlayerStore = defineStore('player', () => {
    * (the page cues its first track on open: a Play pressed meanwhile starts it).
    */
   async function playSharedPlaylist(playlist: SharedPlaylist, at = 0, autoplay = true): Promise<void> {
-    // The playlist's source key: is the player already on this playlist?
     const key = sharedPlaylistSource(playlist).key
-    // The track asked for (none past the end of the playlist).
     const track = playlist.tracks[at]
     if (!track) return
     if (sourceKey.value === key && queue.value[index.value]?.id === track.id && status.value !== 'error') {
@@ -378,7 +368,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   /**
-   * A track's audio was replaced (the editor's Replace audio, docs 7.19): its
+   * A track's audio was replaced (the editor's Replace audio): its
    * new data everywhere (duration, waveform peaks), and when it is the loaded
    * track the player moves to the new file at the same second, since the old
    * one is about to be deleted.
@@ -399,7 +389,6 @@ export const usePlayerStore = defineStore('player', () => {
    * one the queue is moving to while it loads.
    */
   function removeTracks(ids: Iterable<string>): void {
-    // Looked up once per queued track.
     const gone = new Set(ids)
     // The loaded track, and the queue's current one (they differ while a new track loads).
     const [loaded, queued] = [current.value?.id, queue.value[index.value]?.id]
@@ -408,8 +397,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // One flat API whatever part holds the state. The parts' refs are returned
-  // as they are (not copied), so Pinia sees them as the store's state and
-  // components read and watch them like before the split.
+  // as they are (not copied), so Pinia treats them as the store's own state.
   return {
     // state
     queue, index, current, status, currentTime, originalOrder, expanded, queueOpen, sourceKey, queueFrom,

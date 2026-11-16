@@ -2,9 +2,9 @@
  * End-to-end, synced lyrics follow playback inside their own box and never move the page: on a
  * phone the share page's lyrics sit in the page's flow, under the player, and a visitor who
  * scrolled back up (to the track list, the vote buttons…) must stay there while every new line
- * scrolls the lyrics box alone. scrollIntoView used to scroll the whole page down to each line.
+ * scrolls the lyrics box alone (scrollIntoView would scroll the whole page down to each line).
  * And the box says it scrolls: its bottom edge fades while there is more below (a box ending on a
- * cut line gave no hint), and no longer at the end.
+ * cut line gives no hint), and stops fading at the end.
  */
 import { expect, test } from './fixtures'
 import { signUp, uploadTrack, waitForHydration } from './helpers'
@@ -18,9 +18,7 @@ test.describe('synced lyrics scrolling', () => {
 
     // The track shared by link, with eighty synced lines, one every 0.4 s: far more than the box shows.
     const id = await page.evaluate(async () => {
-      // The track just uploaded (the only one).
       const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
-      // The synced lines, and the same text as plain lyrics.
       const lines = Array.from({ length: 80 }, (_, i) => ({ time: i * 0.4, text: `Line ${i + 1} of the song` }))
       const response = await fetch(`/api/tracks/${track!.id}`, {
         method: 'PATCH',
@@ -34,7 +32,6 @@ test.describe('synced lyrics scrolling', () => {
     // A visitor on a phone-sized screen.
     const visitorContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
     try {
-      // The visitor's page.
       const visitor = await visitorContext.newPage()
       await visitor.goto(`/t/${id}`)
       await waitForHydration(visitor)

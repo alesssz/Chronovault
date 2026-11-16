@@ -20,14 +20,12 @@ import { STORAGE_KEYS } from '~/lib/storage-keys'
  *   controls, the waveform and the volume: a centred band with the title,
  *   the cover and About on the left, the lyrics, centred, in a panel as tall
  *   beside them (the description there instead for a track without lyrics;
- *   with neither, one centred column). The same component on both, so they
- *   cannot drift apart: this view was a column of cover, info, waveform and
- *   controls beside the lyrics, and the same track looked one way here and
- *   another on its share page.
+ *   with neither, one centred column). The same component on both, so the
+ *   same track never looks one way here and another on its share page.
  * - phones, normal view: one scrolling column, cover, info, waveform and
  *   controls, then the track's description when it has one. The lyrics are
- *   not under the controls any more: there they could never fill the
- *   screen, and their auto-scroll moved the whole view;
+ *   not under the controls: there they could never fill the screen, and
+ *   their auto-scroll would move the whole view;
  * - phones, lyrics view: the "Lyrics" button of the top bar (shown when the
  *   track has lyrics) swaps the column for a small cover and title on top,
  *   the lyrics filling the screen in their own scrolling box and one size
@@ -46,8 +44,8 @@ import { STORAGE_KEYS } from '~/lib/storage-keys'
  * outside library playback (`queueEditable`).
  *
  * Focus on opening: the modal moves the focus into the view, and by default
- * onto its first button, "Collapse player", whose tooltip then opened by
- * itself (tooltips open on focus) and covered the cover. The view's own
+ * onto its first button, "Collapse player", whose tooltip would then open by
+ * itself (tooltips open on focus) and cover the cover. The view's own
  * root takes the focus instead (`tabindex="-1"`, see onOpenAutoFocus): it is
  * still inside the dialog for keyboards and screen readers, on no button.
  */
@@ -111,20 +109,9 @@ const lyricsView = computed(() => isPhone.value && hasLyrics.value && lyricsChos
 const description = computed(() => player.current?.description?.trim() ?? '')
 
 // --- Screen kept on in the lyrics view ------------------------------------------------
-// Reading along means not touching the phone, which would otherwise dim and lock after
-// its usual timeout. Only while the lyrics view is open and the music plays: paused, or
-// back on the cover, the screen behaves as usual again. VueUse's useWakeLock asks for it
-// again when the page returns to the foreground and lets it go when the view unmounts.
-const wakeLock = useWakeLock()
-/** The lyrics view is being read along with the music. */
-const readingAlong = computed(() => open.value && lyricsView.value && player.isPlaying)
-// The screen stays on while reading along, and may sleep again after.
-watch(readingAlong, (on) => {
-  if (!wakeLock.isSupported.value) return
-  // Refusals are fine (e.g. battery saver): the screen just behaves as usual.
-  if (on) wakeLock.request('screen').catch(() => {})
-  else wakeLock.release().catch(() => {})
-}, { immediate: true })
+// Reading along means not touching the phone: the screen stays on while the lyrics view
+// is open and the music plays; paused, or back on the cover, it behaves as usual again.
+useScreenWakeLock(() => open.value && lyricsView.value && player.isPlaying)
 
 /**
  * The modal is opening and is about to focus its first focusable element
@@ -225,8 +212,8 @@ const meta = computed(() => {
             />
             <!--
               Stops playback and puts the player away, as the ✕ of the player bar does: on phones
-              the bar has no room for one, and this was the only way to get rid of it. Not on
-              share pages, whose player belongs to the page.
+              the bar has no room for one, so this is the only way to put it away. Not on share
+              pages, whose player belongs to the page.
             -->
             <IconButton
               v-if="!shared"
@@ -323,8 +310,7 @@ const meta = computed(() => {
         >
           <!--
             The track: TrackShowcase, the share page's body too, so the two look the same (same side
-            padding as the share page's UContainer). It scrolls here, between the top bar and the
-            controls bar; nothing in it is a pull-down (a pull on the top bar still closes the view).
+            padding as the share page's UContainer).
           -->
           <div
             class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-4 sm:px-6 lg:px-8"
@@ -360,7 +346,7 @@ const meta = computed(() => {
           <!--
             The controls bar: controls, elapsed time, waveform, time left, volume (the share page's
             player bar). Below `lg` in two rows, the waveform and its times the whole width on top:
-            in one row, on a 820px tablet the six controls and the volume left it about 100px.
+            in one row, on a 820px tablet the six controls and the volume would leave it about 100px.
           -->
           <div
             class="border-t border-default"
@@ -408,8 +394,8 @@ const meta = computed(() => {
           (the pull-down starts only at its top). `overscroll-y-contain` keeps a pull at the top from
           reaching the browser (pull to refresh) instead of the view. `grid-cols-1` matters: without
           an explicit column, the column grows to the width of the longest unbroken text (a long
-          title, which only truncates inside a column of fixed width) and the whole view spilled off
-          the right edge.
+          title, which only truncates inside a column of fixed width) and the whole view would spill
+          off the right edge.
         -->
         <div
           v-else

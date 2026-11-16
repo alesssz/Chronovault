@@ -28,7 +28,6 @@ export type SignedUrls = (path: string | null) => string | null
  * in playlist order, without repeating a cover file.
  */
 export function mosaicTracks<T extends { cover_path: string | null }>(tracks: T[]): T[] {
-  // Collected in playlist order, at most MOSAIC_SIZE.
   const picked: T[] = []
   for (const track of tracks) {
     if (track.cover_path && !picked.some(p => p.cover_path === track.cover_path)) picked.push(track)
@@ -96,7 +95,6 @@ export function toPlaylistInsert(userId: string, input: PlaylistCreate): TablesI
 
 /** Only the fields present in the input end up in the UPDATE (`null` clears a field). */
 export function toPlaylistUpdate(input: PlaylistUpdate): TablesUpdate<'playlists'> {
-  // Only fields actually sent (not undefined) are copied.
   const patch: TablesUpdate<'playlists'> = {}
   if (input.title !== undefined) patch.title = input.title
   if (input.description !== undefined) patch.description = input.description

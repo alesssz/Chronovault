@@ -4,9 +4,9 @@
  * unsaved edits (beforeunload), and lets it go quietly once they are saved, or when nothing changed.
  * Leaving for another page of the app asks too, through the router (useEditForm), in the app's own
  * dialog: Stay, Leave without saving, Save and leave (which stays when the form is invalid); the
- * playlist's details dialog offers the same. A line stamped
- * in the Sync tab while a save is on its way (the form's fields are disabled then, the editor's
- * keys are not) survives the save's answer, and stays unsaved until saved in turn.
+ * playlist's details dialog offers the same. A line stamped in the Sync tab while a save is on
+ * its way (the form's fields are disabled then, the editor's keys are not) survives the save's
+ * answer, and stays unsaved until saved in turn.
  */
 import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
@@ -14,7 +14,6 @@ import { signUp, uploadTrack } from './helpers'
 /** Opens the edit page of the only track in the library. */
 async function openEditor(page: Page, title: string) {
   await page.getByRole('link', { name: 'Go to library' }).click()
-  // The library row of the track.
   const row = page.getByTestId('track-row').filter({ hasText: title })
   await row.getByRole('button', { name: `Actions for ${title}` }).click()
   await page.getByRole('menuitem', { name: 'Edit' }).click()
@@ -26,7 +25,6 @@ async function openEditor(page: Page, title: string) {
  * asked first. The question is answered "stay" (dismissed), as a user unsure would.
  */
 async function browserAsksBeforeClosing(page: Page): Promise<boolean> {
-  // Whether the beforeunload question was shown.
   let asked = false
   page.on('dialog', async (dialog) => {
     if (dialog.type() === 'beforeunload') asked = true
@@ -147,7 +145,6 @@ test.describe('unsaved changes', () => {
     await uploadTrack(page, 'Racing', { seconds: 60 })
     // Three lines of lyrics to sync, set through the API.
     await page.evaluate(async () => {
-      // The only track of the library.
       const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
       await fetch(`/api/tracks/${track!.id}`, {
         method: 'PATCH',
@@ -157,7 +154,6 @@ test.describe('unsaved changes', () => {
     })
     // The track playing (lines are stamped at the player's position), then its editor's Sync tab.
     await page.getByRole('link', { name: 'Go to library' }).click()
-    // The library row of the track.
     const row = page.getByTestId('track-row').filter({ hasText: 'Racing' })
     await row.getByTestId('track-title').click()
     await row.getByRole('button', { name: 'Actions for Racing' }).click()
@@ -191,8 +187,8 @@ test.describe('unsaved changes', () => {
     release()
     await expect(page.getByText('Changes saved').first()).toBeVisible()
 
-    // Before: the server's copy (one line) replaced the form and marked it clean: the second line
-    // was dropped without a word, Save off, no warning on leaving. Now it is still to save…
+    // The server's copy (one line) must not replace the form and mark it clean, silently dropping
+    // the second line: it is still to save…
     await expect(page.getByTestId('save-track')).toBeEnabled()
     await page.unroute(/\/api\/tracks\/[0-9a-f-]+$/)
     // The save's answer, waited for: the button is disabled while saving too, so its state alone
@@ -203,7 +199,6 @@ test.describe('unsaved changes', () => {
     await expect(page.getByTestId('save-track')).toBeDisabled()
     // …and, saved, the server has both lines.
     const saved = await page.evaluate(async (id) => {
-      // The track as the server keeps it.
       const track = await (await fetch(`/api/tracks/${id}`)).json() as { lyricsSynced: { text: string }[] | null }
       return track.lyricsSynced?.map(line => line.text)
     }, new URL(page.url()).pathname.split('/')[2])

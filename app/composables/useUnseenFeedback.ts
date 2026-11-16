@@ -46,7 +46,6 @@ export function useUnseenFeedback() {
 
   /** The owner opened the group: its badge and its share of the dot go at once, here only. */
   function clearLocally(id: string): void {
-    // The group's unseen votes (none: nothing to clear).
     const count = data.value.groups[id]
     if (!count) return
     const { [id]: _cleared, ...rest } = data.value.groups
@@ -61,7 +60,6 @@ export function useUnseenFeedback() {
    */
   async function markSeen(id: string, at: string): Promise<void> {
     clearLocally(id)
-    // The request, failures swallowed (the visit is recorded next time).
     const request = playlistsApi.markFeedbackSeen(id, at).then(() => {}, () => {
       // Offline or the page went away too fast: next time.
     })

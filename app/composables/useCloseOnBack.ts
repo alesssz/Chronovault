@@ -13,7 +13,7 @@ import type { MaybeRefOrGetter } from 'vue'
  *
  * Supported by Chromium browsers (Chrome, Opera, Edge, Samsung Internet).
  * Elsewhere `CloseWatcher` does not exist and nothing changes: Firefox for
- * Android keeps its old behaviour, and iPhone/iPad have no back button.
+ * Android keeps its default behaviour, and iPhone/iPad have no back button.
  *
  * Usage: `useCloseOnBack(() => open.value, () => { open.value = false })`.
  * Nested overlays stack naturally: they open one after the other, so their
@@ -42,8 +42,8 @@ function closeWatcherClass(): CloseWatcherConstructor | null {
 /**
  * Time of the last Esc keydown (performance.now()), shared by every watcher.
  *
- * Why it matters: on a desktop keyboard Esc is a close request too, so it
- * would reach the watcher of the topmost *watched* overlay. But Nuxt UI
+ * On a desktop keyboard Esc is a close request too, so it would reach the
+ * watcher of the topmost *watched* overlay. But Nuxt UI
  * (Reka UI) already closes its topmost layer on Esc, and that layer may be
  * something unwatched on top (a dropdown menu inside the Up next panel):
  * the watcher would then close the panel as well, one Esc closing two
@@ -73,9 +73,8 @@ function listenForEscape(): void {
  *   watcher is then armed again, so the next back press is caught too.
  */
 export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => void): void {
-  // The constructor, or null where there is none.
   const available = closeWatcherClass()
-  // Server, or a browser without the API: keep today's behaviour.
+  // Server, or a browser without the API: keep the default behaviour.
   if (!available) return
   // Narrowed once here, so the closures below see a constructor, never null.
   const CloseWatcherClass: CloseWatcherConstructor = available
@@ -87,7 +86,6 @@ export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => v
   /** Creates the watcher (once per opening). */
   function arm(): void {
     if (watcher) return
-    // One watcher per opening: it catches one back press, then is spent.
     const created = new CloseWatcherClass()
     created.onclose = () => {
       // A watcher fires once and is then spent: forget it.
@@ -109,7 +107,6 @@ export function useCloseOnBack(isOpen: MaybeRefOrGetter<boolean>, close: () => v
     watcher = null
   }
 
-  // Armed while open, disarmed when closed; `immediate`: already open on mount.
   watch(() => toValue(isOpen), open => (open ? arm() : disarm()), { immediate: true })
   // The component goes away while open (e.g. a page change): no stale watcher left behind.
   onScopeDispose(disarm)

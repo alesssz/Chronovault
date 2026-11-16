@@ -33,7 +33,6 @@ const config = {
   accessKeyId: process.env.NUXT_AUDIO_STORAGE_ACCESS_KEY_ID,
   secretAccessKey: process.env.NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY,
 }
-// Settings left empty in .env.r2.
 const missing = Object.entries(config).filter(([, v]) => !v).map(([k]) => k)
 if (missing.length) {
   console.error(`✖ Missing in ${envFile}: ${missing.join(', ')}`)

@@ -10,9 +10,7 @@ import { createUploadTarget } from '../../services/tracks.service'
  * 409 the track id is already registered (its file is never overwritten).
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user, and a database client acting as them (checks the id is not taken); 401 without a session.
   const { db, userId } = await requireAuth(event)
-  // The request body, validated against the schema (400 otherwise).
   const request = await readValidated(event, audioUploadRequestSchema)
   return createUploadTarget(db, useAudioStorage(), userId, request)
 })

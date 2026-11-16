@@ -63,7 +63,6 @@ export type TagFormat = 'flac' | 'mp3' | 'wav'
 
 /** Which tag system a stored file uses, from its MIME type; null = cannot be tagged. */
 export function tagFormatOf(mimeType: string): TagFormat | null {
-  // Compared in lower case: types may come capitalized.
   const type = mimeType.toLowerCase()
   if (type === 'audio/flac' || type === 'audio/x-flac') return 'flac'
   if (type === 'audio/mpeg' || type === 'audio/mp3') return 'mp3'
@@ -126,7 +125,6 @@ export function lrcFileName(track: Pick<TrackDetail, 'title' | 'composers'>): st
 
 /** "Composers - Title" (or "Title") made safe for every file system; "track" if nothing is left. */
 function safeBaseName(track: Pick<TrackDetail, 'title' | 'composers'>): string {
-  // "Composers - Title", or just the title.
   const base = [track.composers, track.title].filter(Boolean).join(' - ')
   const safe = base
     .replace(UNSAFE_FILE_CHARS, '_')

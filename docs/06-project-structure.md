@@ -41,7 +41,7 @@ Chronovault/
 │   │                                 #   useCoverEditor, useCoverStorage, useSortableList,
 │   │                                 #   useSharePage (useSharedItem, useShareMeta), useSignedInRedirect (see 5.5),
 │   │                                 #   useMountedMediaQuery (a width-chosen layout that hydrates as rendered, 5.5),
-│   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5),
+│   │                                 #   touch: useCloseOnBack (Android back), useSwipeToDismiss, useTrackSwipe (7.5), useScreenWakeLock,
 │   │                                 #   useLongPress (a long press on a library row starts selecting, 7.17),
 │   │                                 #   useRemotePlayback (Cast to a TV or speaker, 7.5), useVersionVote (a visitor's pick, 7.17),
 │   │                                 #   useUnseenFeedback (new votes: the dot on "Versions", 7.17),
@@ -66,7 +66,7 @@ Chronovault/
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
 │   │   ├── listener-id.ts            #   this browser's random id, for plays and votes
-│   │   ├── storage-keys.ts           #   every localStorage key, and the move from the former chronoplayer: names
+│   │   ├── storage-keys.ts           #   every localStorage key, and the move of keys under the legacy chronoplayer: prefix
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user
 │   │   ├── metadata-files.ts         #   metadata export and import: reads and writes Excel, CSV and JSON (7.18)
@@ -90,7 +90,7 @@ Chronovault/
 │   │   ├── cast-test.vue             # TEMPORARY Cast diagnostic page, signed in, linked from nowhere (16)
 │   │   ├── t/[id].vue                # Public track page (SSR)
 │   │   └── p/[id].vue                # Public playlist page (SSR)
-│   ├── plugins/                      # 00.storage-keys.client.ts (moves keys saved under the former name, first) · media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
+│   ├── plugins/                      # 00.storage-keys.client.ts (moves keys saved under the legacy prefix; runs first) · media-session.client.ts · queue-persistence.client.ts · web-analytics.client.ts
 │   │                                 #   · play-counter.client.ts (reports plays, 7.16) · keyboard-shortcuts.client.ts (7.5)
 │   ├── services/api.ts               # Typed API client (the only place that knows the URLs)
 │   ├── stores/player.ts              # Player store: puts together the parts in lib/player/ behind one API

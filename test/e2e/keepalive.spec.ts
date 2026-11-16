@@ -7,7 +7,6 @@ import { expect, test } from './fixtures'
 
 test.describe('keep-alive', () => {
   test('reaches the database without a session', async ({ request }) => {
-    // The bare request fixture: no page, no sign-in, no cookies, like Vercel Cron.
     const response = await request.get('/api/keepalive')
     // 200 only if the query went through: a database error would answer 500.
     expect(response.status()).toBe(200)

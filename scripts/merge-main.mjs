@@ -115,10 +115,8 @@ function reason(error) {
 async function confirm(question) {
   if (assumeYes) return true
   if (!process.stdin.isTTY) throw new Stop('No terminal to ask for confirmation: run it again with --yes.')
-  // A prompt on this terminal.
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
-    // What the user typed.
     const answer = await rl.question(question)
     return /^y(es)?$/i.test(answer.trim())
   }
@@ -264,7 +262,7 @@ async function run() {
     gh('auth', 'status')
   }
   catch {
-    throw new Stop('gh, GitHub\'s command line, is missing or not signed in: install it (brew install gh, or winget install GitHub.cli), then run "gh auth login" with your personal account, answering No to "Authenticate Git with your GitHub credentials?" (docs/00-setup.md).')
+    throw new Stop('gh, GitHub\'s command line, is missing or not signed in: install it (brew install gh, or winget install GitHub.cli), then run "gh auth login" with the GitHub account that pushes to this repository, answering No to "Authenticate Git with your GitHub credentials?" (docs/00-setup.md).')
   }
   // The email the merge commit will carry: the clone's own identity.
   const email = gitSucceeds('config', 'user.email') ? git('config', 'user.email') : ''
@@ -376,7 +374,6 @@ async function run() {
   // How GitHub merges it, now or by auto-merge: a merge commit (--no-ff) with the usual message,
   // and only if the branch is still the commit checked here. The author's email is added for a
   // merge from here only (see waitAndMerge).
-  // The message's first line (the commit's subject) and the lines after it (its body).
   const [subject, ...rest] = message.split('\n')
   // gh pr merge's options, the same for a merge from here and for auto-merge.
   const mergeFlags = [

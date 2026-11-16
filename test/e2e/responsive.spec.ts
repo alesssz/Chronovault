@@ -3,8 +3,8 @@
  * `tablet`, see playwright.config.ts; the desktop project skips this file). No page scrolls
  * sideways, track covers keep their play overlay for the current track only, the tablet player bar
  * keeps a readable title and offers mute alone for the volume (the hardware buttons own it on a
- * touch screen), and on phones the lyrics
- * sync editor keeps Stamp line pinned above the player bar, keeps the screen on and vibrates.
+ * touch screen), and on phones the lyrics sync editor keeps Stamp line pinned above the player
+ * bar, keeps the screen on and vibrates.
  *
  * Phone-only device features, checked in Chromium with real touch events and a real
  * CloseWatcher, and with recorders standing in for what a headless browser cannot do (see
@@ -15,9 +15,9 @@
  * device at all (always shown on touch screens), and the phones' full-screen view: the
  * description under the controls, the lyrics in a view of their own.
  *
- * Layout regressions found by measuring the pages: the header's section links never slide under
- * "Add" (they did from 640 to about 890px), the library's search box keeps a readable width (it
- * shrank to its icon), and on a short phone the full-screen view and a track's share page keep
+ * Layout checks measured on the pages: the header's section links never slide under "Add" (at
+ * risk from 640 to about 890px), the library's search box keeps a readable width (not just its
+ * icon), and on a short phone the full-screen view and a track's share page keep
  * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
  * only way to. On phones the library's selection bar sits at the bottom with each action named,
  * the versions of a song keep the end of their titles, and statistics keep their titles readable.
@@ -39,7 +39,6 @@ const PAGES = ['/', '/playlists', '/versions', '/stats', '/tracks/new']
 
 /** Fails when the page is wider than the screen (it would scroll sideways). */
 async function expectNoSidewaysScroll(page: Page, path: string): Promise<void> {
-  // The page's full width and the visible width, measured in the page.
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -50,7 +49,6 @@ async function expectNoSidewaysScroll(page: Page, path: string): Promise<void> {
 /** Id of the signed-in user's first track (newest first). */
 async function firstTrackId(page: Page): Promise<string> {
   return page.evaluate(async () => {
-    // The new account's tracks.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string }[]
     return tracks[0]!.id
   })
@@ -122,7 +120,6 @@ async function installDeviceProbes(page: Page): Promise<void> {
 
     // The real CloseWatcher, wrapped to know which watchers are still active.
     type Watcher = EventTarget & { requestClose: () => void, destroy: () => void, spent?: boolean }
-    // The browser's own CloseWatcher, if it has one.
     const Native = (window as unknown as { CloseWatcher?: new () => Watcher }).CloseWatcher
     if (Native) {
       // Every watcher made since the page loaded, spent ones marked.
@@ -130,7 +127,6 @@ async function installDeviceProbes(page: Page): Promise<void> {
       Object.assign(window, { __closeWatchers: watchers })
       // The real watcher, recorded as it is made.
       class TrackedCloseWatcher extends Native {
-        // Creates the real watcher and keeps track of it.
         constructor() {
           super()
           watchers.push(this)
@@ -166,7 +162,6 @@ async function installCastDevice(page: Page): Promise<void> {
       configurable: true,
       // The element's fake RemotePlayback, made on first use.
       get(this: HTMLMediaElement) {
-        // The one already made for this element, if any.
         let remote = remotes.get(this)
         if (!remote) {
           // A device is around and accepts the connection at once.
@@ -214,18 +209,14 @@ async function pressBack(page: Page): Promise<void> {
  * real touch events (Chrome DevTools Protocol): Playwright's touchscreen API only taps.
  */
 async function swipe(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
-  // Where the element is on screen.
   const box = (await locator.boundingBox())!
-  // Its center: where the finger lands.
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
-  // The DevTools protocol, to send real touch events.
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
   // The movement in ten steps, like a real finger.
   const steps = 10
   for (let i = 1; i <= steps; i++) {
-    // Where the finger is at this step.
     const point = { x: x + (dx * i) / steps, y: y + (dy * i) / steps }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] })
   }
@@ -239,12 +230,9 @@ async function swipe(page: Page, locator: Locator, dx: number, dy: number): Prom
  * scroll starts, then stays there for the rest of the time.
  */
 async function hold(page: Page, locator: Locator, ms: number, drift = 0): Promise<void> {
-  // Where the element is on screen.
   const box = (await locator.boundingBox())!
-  // Its center: where the finger lands.
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
-  // The DevTools protocol, to send real touch events.
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
   for (let i = 1; i <= 5 && drift; i++) {
@@ -270,19 +258,19 @@ test.describe('touch screens', () => {
     expect(baseSize).toBe(testInfo.project.name === 'phone' ? '17px' : '20px')
 
     await page.goto('/')
-    // The header's left group (logo, section links) ends before "Add" starts: from 640px the
-    // section names used to slide under it, up to about 890px (the tablet is 820px wide).
+    // The header's left group (logo, section links) ends before "Add" starts: from 640px up to
+    // about 890px the section names could slide under it (the tablet is 820px wide).
     const sections = (await page.getByRole('navigation', { name: 'Sections' }).boundingBox())!
     const add = (await page.locator('header a[href="/tracks/new"]').filter({ visible: true }).boundingBox())!
     expect(sections.x + sections.width).toBeLessThanOrEqual(add.x)
-    // The search box leaves room to read what is typed: beside the filters it shrank to its
-    // icon (58px) from 640px; it now has a row of its own below 1280px, shared on phones only
-    // with the Filters button.
+    // The search box leaves room to read what is typed: beside the filters it would shrink to its
+    // icon (58px) from 640px, so below 1280px it has a row of its own, shared on phones only with
+    // the Filters button.
     const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
     expect(search.width).toBeGreaterThan(testInfo.project.name === 'phone' ? 220 : 300)
 
     // A touch screen has no hover: a track that is not playing shows its cover, without the play
-    // overlay (on every cover it darkened the whole list; a tap on the row plays already).
+    // overlay (on every cover it would darken the whole list; a tap on the row plays already).
     await expect(page.getByTestId('track-cover-overlay')).toHaveCSS('opacity', '0')
 
     // The edit page (its tabs and lyrics tools) fits too.
@@ -290,7 +278,7 @@ test.describe('touch screens', () => {
     await expect(page.getByRole('tab', { name: 'Sync' })).toBeVisible()
     await expectNoSidewaysScroll(page, '/tracks/[id]/edit')
     // Its header keeps room for the title: on phones Play and Download are icons and Save is in
-    // the Save bar (with their text the title shrank to a few letters).
+    // the Save bar (with their text the title would shrink to a few letters).
     const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!
     expect(heading.width).toBeGreaterThan(150)
   })
@@ -300,13 +288,12 @@ test.describe('touch screens', () => {
     await signUpWithTrack(page)
 
     await page.getByTestId('track-title').tap()
-    // The player bar.
     const bar = page.getByTestId('player-bar')
     await expect(bar).toBeVisible()
     // The two-row bar of md+: waveform and the full controls.
     await expect(bar.getByTestId('player-waveform')).toBeVisible()
 
-    // The title column keeps a real width (it used to shrink to a few letters).
+    // The title column keeps a real width, not a few letters.
     const title = await bar.getByTestId('player-title').boundingBox()
     expect(title!.width).toBeGreaterThan(140)
 
@@ -328,7 +315,7 @@ test.describe('touch screens', () => {
     await page.goto('/')
     await expect(page.getByTestId('track-row')).toHaveCount(2)
 
-    // --- Selection bar (UI-28): the count whole, each action's short name on one line ---
+    // --- Selection bar: the count whole, each action's short name on one line ---
     await page.getByTestId('select-mode').tap()
     for (const title of await page.getByTestId('track-title').all()) await title.tap()
     const bar = page.getByTestId('selection-bar')
@@ -339,11 +326,11 @@ test.describe('touch screens', () => {
     for (const name of ['Final', 'Playlist', 'Feedback', 'Delete']) {
       const label = bar.getByText(name, { exact: true })
       await expect(label).toBeVisible()
-      // One box per line: "Mark / final" over two lines gave two.
+      // One box per line: a name wrapped over two lines ("Mark / final") gives two.
       expect(await label.evaluate(el => el.getClientRects().length), `${name} wraps`).toBe(1)
     }
 
-    // --- Group of versions (UI-27): the cover a row above, the list across the page ---
+    // --- Group of versions: the cover a row above, the list across the page ---
     const ids = await page.evaluate(async () => {
       // The two versions, oldest first.
       const tracks = await (await fetch('/api/tracks')).json() as { id: string }[]
@@ -364,16 +351,16 @@ test.describe('touch screens', () => {
     const cover = (await page.getByRole('button', { name: 'Add cover' }).boundingBox())!
     const row = (await rows.first().boundingBox())!
     expect(row.y).toBeGreaterThan(cover.y + cover.height)
-    // Beside a 16rem column the list kept about 400px of the 820.
+    // Not the ~400px of 820 a 16rem side column would leave the list.
     expect(row.width).toBeGreaterThan(width * 0.8)
-    // Each title whole: in 400px they broke mid-word ("Teutob / urg") and were cut at two lines.
+    // Each title whole: in 400px they would break mid-word ("Teutob / urg") and be cut at two lines.
     for (const title of versions) {
       const text = rows.getByText(title, { exact: true })
       const cut = await text.evaluate(el => el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight)
       expect(cut, `${title} is cut`).toBe(false)
     }
 
-    // --- Track editor (UI-27): the form across the page too, under the cover row ---
+    // --- Track editor: the form across the page too, under the cover row ---
     await page.goto(`/tracks/${ids[0]}/edit`)
     const form = (await page.locator('#track-form').boundingBox())!
     expect(form.width).toBeGreaterThan(width * 0.8)
@@ -404,7 +391,6 @@ test.describe('touch screens', () => {
     // and above the Save bar the typed lyrics brought up (it never covers Stamp line).
     await page.getByTestId('sync-row-text').nth(15).scrollIntoViewIfNeeded()
     await expect(stamp).toBeInViewport()
-    // Where the pinned bar, the Save bar and the player bar are on screen.
     const bar = await page.getByTestId('sync-stamp-bar').boundingBox()
     const saveBar = await page.getByTestId('save-bar').boundingBox()
     const player = await page.getByTestId('player-bar').boundingBox()
@@ -456,10 +442,9 @@ test.describe('touch screens', () => {
 
     // Swipe up: the full-screen view.
     await swipe(page, trackArea, 0, -150)
-    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
-    // It fits the screen even with the long title (its column once grew to the title's width).
+    // It fits the screen even with the long title (its column must not grow to the title's width).
     const heading = (await expanded.getByRole('heading', { name: newer }).boundingBox())!
     expect(heading.x + heading.width).toBeLessThanOrEqual(page.viewportSize()!.width)
 
@@ -479,11 +464,10 @@ test.describe('touch screens', () => {
 
     await page.getByTestId('track-title').tap()
     await page.getByTestId('player-track-area').tap()
-    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
-    // Play is in the first screen: the cover shrinks with the height (a full-width cover used
-    // to push the controls under the bottom edge).
+    // Play is in the first screen: the cover shrinks with the height (a full-width cover would
+    // push the controls under the bottom edge).
     const play = (await expanded.getByTestId('player-toggle').boundingBox())!
     expect(play.y + play.height).toBeLessThanOrEqual(height)
 
@@ -502,7 +486,6 @@ test.describe('touch screens', () => {
     }, id)
     await page.goto(`/t/${id}`)
     await waitForHydration(page)
-    // The page's big Play button.
     const sharedPlay = page.getByTestId('shared-play')
     const box = (await sharedPlay.boundingBox())!
     expect(box.y + box.height).toBeLessThanOrEqual(height)
@@ -526,7 +509,7 @@ test.describe('touch screens', () => {
     await expect(page.getByTestId('track-row')).toHaveCount(2)
 
     // Selection mode: the bar is at the bottom of the screen, every action named under its icon
-    // (tooltips do not open on touch, and the bare icons had to be guessed).
+    // (tooltips do not open on touch, so bare icons would have to be guessed).
     await page.getByTestId('select-mode').tap()
     const bar = page.getByTestId('selection-bar')
     const height = page.viewportSize()!.height
@@ -544,9 +527,10 @@ test.describe('touch screens', () => {
 
     /**
      * The group's share page: each title whole, on two lines (cut at the end of one line, both
-     * read "Teutoburg forest, …"); the WIP badge, the duration and the cover, alike on every row,
-     * give way. With the cover there the titles had a few pixels to spare: Chromium on Linux
-     * (CI) draws Inter a little wider than on a Mac and cut them, a visitor's heart cut them anywhere.
+     * would read "Teutoburg forest, …"); the WIP badge, the duration and the cover, alike on every
+     * row, give way. With the cover there the titles would have only a few pixels to spare:
+     * Chromium on Linux (CI) draws Inter a little wider than on a Mac, and a visitor's heart takes
+     * room on every row.
      */
     const expectWholeTitles = async (on: Page) => {
       for (const title of versions) {
@@ -565,7 +549,6 @@ test.describe('touch screens', () => {
     // A visitor (same phone, no account): the heart to vote too, the narrowest row.
     const visitorContext = await browser.newContext()
     try {
-      // The visitor's page.
       const visitor = await visitorContext.newPage()
       await visitor.goto(groupUrl)
       await waitForHydration(visitor)
@@ -578,7 +561,7 @@ test.describe('touch screens', () => {
     }
 
     // Statistics: the numbers go under the title, which keeps the row's width (beside them it
-    // kept about 8 characters).
+    // would keep about 8 characters).
     await page.goto('/stats')
     const item = page.getByTestId('stats-item').first()
     const link = (await item.getByRole('link').boundingBox())!
@@ -602,7 +585,7 @@ test.describe('touch screens', () => {
     await expect(bar).toBeHidden()
 
     // Held still: selection mode, that track ticked, a short vibration; the finger's release is
-    // not a tap (it would have played the track, or unticked it).
+    // not a tap (it would play the track, or untick it).
     await hold(page, rows.nth(0).getByTestId('track-title'), 700)
     await expect(bar).toBeVisible()
     await expect(page.getByTestId('selection-count')).toHaveText('1 selected')
@@ -610,9 +593,9 @@ test.describe('touch screens', () => {
     expect((await deviceLog(page)).vibrations).toEqual([15])
     await expect(page.getByTestId('player-bar')).toHaveCount(0)
     // Nothing plays: no play icon over its cover. On phones the press focuses the row's title, and
-    // focus showed one (for keyboard users; a touch is not the keyboard). The overlay fades in:
-    // its transition is finished at once, so the opacity read is where it is heading, not a
-    // frame of the fade (which read 0 at the start of a fade towards 1).
+    // the icon a focused row shows is for keyboard users (a touch is not the keyboard). The overlay
+    // fades in: its transition is finished at once, so the opacity read is where it is heading,
+    // not a frame of the fade (0 at the start of a fade towards 1).
     const overlay = await rows.nth(0).getByTestId('track-cover-overlay').evaluate((element) => {
       for (const animation of element.getAnimations()) animation.finish()
       return getComputedStyle(element).opacity
@@ -637,7 +620,7 @@ test.describe('touch screens', () => {
     // --- Library: search and a Filters button; the four choices in a panel ---
     await expect(page.getByRole('combobox', { name: 'Filter by genre' })).toBeHidden()
     const list = (await page.getByTestId('track-row').first().boundingBox())!
-    // The first track right under the search row (the 2×2 filters put it about 270px lower).
+    // The first track right under the search row (the 2×2 filters would put it about 270px lower).
     const search = (await page.getByRole('textbox', { name: 'Search the library' }).boundingBox())!
     expect(list.y - (search.y + search.height)).toBeLessThan(60)
     await page.getByTestId('filters-open').tap()
@@ -677,7 +660,7 @@ test.describe('touch screens', () => {
     const description = (await page.getByTestId('field-description').boundingBox())!
     const remove = (await page.getByRole('button', { name: 'Delete track' }).boundingBox())!
     expect(remove.y).toBeGreaterThan(description.y)
-    // Album and year share a row (a row each made the form a screen longer), each half of it.
+    // Album and year share a row (a row each would make the form a screen longer), each half of it.
     const [album, year] = await Promise.all(['Album', 'Year'].map(label => page.locator('form label', { hasText: new RegExp(`^${label}`) })
       .locator('xpath=ancestor::*[@data-slot="root"][1]').boundingBox()))
     expect(year!.y).toBe(album!.y)
@@ -723,7 +706,6 @@ test.describe('touch screens', () => {
     // The full-screen view, then Up next on top of it.
     await page.getByTestId('track-title').tap()
     await page.getByTestId('player-track-area').tap()
-    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     await expanded.getByRole('button', { name: 'Up next' }).tap()
@@ -747,11 +729,10 @@ test.describe('touch screens', () => {
     await page.getByTestId('track-title').tap()
     await expect(page.getByTestId('player-title')).toHaveText('Touch screen song')
 
-    // The bar's title does not mean the card is set. The bar shows the track as soon as it
-    // is chosen (`displayTrack`), while the card follows `player.current`
-    // (plugins/media-session.client.ts), set only once the track's data and streaming
-    // address are in: read at once, the card was still empty about two runs in three.
-    // Poll the card itself (`null` until set), so the read below finds it filled.
+    // The bar's title does not mean the card is set: the bar shows the track as soon as it is
+    // chosen (`displayTrack`), while the card follows `player.current`
+    // (plugins/media-session.client.ts), set only once the track's data and streaming address
+    // are in. Poll the card itself (`null` until set), so the read below finds it filled.
     await expect.poll(() => page.evaluate(() => navigator.mediaSession.metadata?.title ?? null))
       .toBe('Touch screen song')
 
@@ -769,7 +750,6 @@ test.describe('touch screens', () => {
     // Cast: on phones it is in the full-screen view; a tap opens the device picker, and the
     // button shows the connection.
     await page.getByTestId('player-track-area').tap()
-    // The Cast button of the full-screen view.
     const castButton = page.getByTestId('player-expanded').getByTestId('player-cast')
     await expect(castButton).toHaveAttribute('data-state', 'disconnected')
     await castButton.tap()
@@ -809,7 +789,6 @@ test.describe('touch screens', () => {
     // A track without lyrics or description: the view has neither, and no Lyrics button.
     await page.getByTestId('track-title').tap()
     await page.getByTestId('player-track-area').tap()
-    // The full-screen view.
     const expanded = page.getByTestId('player-expanded')
     await expect(expanded).toBeVisible()
     // On opening the view itself takes the focus, not its first button, whose tooltip
@@ -822,7 +801,6 @@ test.describe('touch screens', () => {
     // Description and 30 synced lines (enough to scroll), then a reload: the saved queue
     // brings the track back with its new data.
     await page.evaluate(async (trackId) => {
-      // Thirty synced lines: enough to scroll.
       const lyricsSynced = Array.from({ length: 30 }, (_, i) => ({ time: i * 2, text: `Sung line ${i + 1}` }))
       // The lyrics saved through the API, like the editor does.
       const response = await fetch(`/api/tracks/${trackId}`, {
@@ -848,7 +826,6 @@ test.describe('touch screens', () => {
     const toggle = expanded.getByTestId('player-lyrics-toggle')
     await toggle.tap()
     await expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    // The phones' lyrics view.
     const lyricsView = expanded.getByTestId('player-lyrics-view')
     await expect(lyricsView.getByTestId('lyrics-synced')).toBeVisible()
     await expect(lyricsView.getByRole('button', { name: /^(Play|Pause)$/ })).toBeVisible()
@@ -860,7 +837,6 @@ test.describe('touch screens', () => {
       return { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight }
     })
     expect(box.scrollHeight).toBeGreaterThan(box.clientHeight)
-    // Where the view is on screen: it must end within the screen.
     const viewBox = (await lyricsView.boundingBox())!
     expect(viewBox.y + viewBox.height).toBeLessThanOrEqual(page.viewportSize()!.height)
 

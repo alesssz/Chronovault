@@ -19,8 +19,8 @@ import { getErrorMessage } from '~/utils/errors'
  *
  * Below `lg` (1024px) the page is one column: the cover as a compact row at
  * the top, then the tracks and the feedback, then count, sharing and deletion
- * (on phones the side column first came before everything else; on tablets,
- * beside the list, it left the titles about 400px).
+ * (on a tablet, a side column beside the list would leave the titles about
+ * 400px).
  *
  * Both purposes work the same way; a group of versions only words things
  * differently ("versions", "group"), lets each version be marked final
@@ -320,8 +320,8 @@ async function onDelete() {
       From `lg`, two columns: cover and side column on the left, the main column on the right
       across both rows (the first row as tall as the cover, the second taking the rest). Below
       `lg`, in the order written: cover (a small row, the buttons beside it), main column, side
-      column. Not from `md`: on a tablet (820px) the 16rem column left the list about 400px, and
-      the titles broke mid-word beside the badges, so a group's versions looked alike (UI-27).
+      column. Not from `md`: on a tablet (820px) the 16rem column would leave the list about
+      400px, and the titles would break mid-word beside the badges.
     -->
     <div class="mt-6 grid gap-8 lg:grid-cols-[16rem_1fr] lg:grid-rows-[auto_1fr] lg:gap-y-6">
       <!-- Cover (custom, or the mosaic of the first tracks), saved at once -->
@@ -342,10 +342,7 @@ async function onDelete() {
             class="w-full"
           />
         </template>
-        <!--
-          No custom cover: explains what shows instead. The initials too (PlaylistCover): without
-          them the note promised track covers where a user saw letters (UI-36).
-        -->
+        <!-- No custom cover: explains what shows instead, the initials included (PlaylistCover) -->
         <p
           v-if="!playlist.coverUrl"
           class="text-xs text-muted"

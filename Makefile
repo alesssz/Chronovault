@@ -21,7 +21,7 @@ help: ## Show this list
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 # --- One-command start --------------------------------------------------------
-# The app is two pieces (docs/05-architecture.md, 5.3):
+# The app is two pieces:
 #   1. Supabase, always in Docker: database, sign-in, covers and audio;
 #   2. Nuxt: the pages AND the API (server/api) in one process, no separate API server.
 # `make local` runs piece 2 on this computer with hot reload: the way to develop.

@@ -45,7 +45,6 @@ export async function listSubgenreRows(db: DbClient, userId: string): Promise<Su
  * the service checks both first, with a friendlier answer.
  */
 export async function insertSubgenreRow(db: DbClient, userId: string, genreId: string, name: string): Promise<SubgenreRow> {
-  // The new row, read back in the same request.
   const { data, error } = await db
     .from('subgenres')
     .insert({ user_id: userId, genre_id: genreId, name })

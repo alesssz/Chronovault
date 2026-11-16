@@ -61,11 +61,11 @@ const isLoaded = computed(() => player.current?.id === props.track.id)
  * The detailed waveform is built from the first time the editor is shown, then
  * kept. It downloads and decodes the whole audio file (tens of MB), and the edit
  * page mounts this editor hidden with its Sync tab: without this, opening the
- * page of the track playing paid for it even when Sync was never opened. Kept
- * afterwards, so going back and forth between tabs decodes the file only once.
+ * page of the track playing would pay for it even when Sync is never opened.
+ * Kept afterwards, so going back and forth between tabs decodes the file only
+ * once.
  */
 const timelineShown = ref(props.active)
-// The first time the editor is shown, the waveform is built (and stays from then on).
 watch(() => props.active, (active) => {
   if (active) timelineShown.value = true
 })
@@ -103,20 +103,10 @@ watch(() => props.active, (active) => {
 onBeforeUnmount(() => player.setPlaybackRate(1))
 
 // --- Screen kept on while syncing ----------------------------------------------------
-// Without this the phone dims and locks after its usual timeout, since syncing
-// means listening rather than touching. VueUse's useWakeLock asks for it again
-// whenever the page comes back to the foreground (the browser drops it when
-// hidden) and lets it go when the component goes away.
-const wakeLock = useWakeLock()
 /** The editor is in use: its tab is shown and the track is in the player. */
 const syncing = computed(() => props.active && isLoaded.value)
-// The screen stays on while syncing (phones), and may sleep again after.
-watch(syncing, (on) => {
-  if (!wakeLock.isSupported.value) return
-  // Refusals are fine (e.g. battery saver): the screen just behaves as usual.
-  if (on) wakeLock.request('screen').catch(() => {})
-  else wakeLock.release().catch(() => {})
-}, { immediate: true })
+// Syncing means listening rather than touching.
+useScreenWakeLock(syncing)
 
 /** Loads (and starts) this track in the player, from the "Start the track to sync" notice. */
 function loadInPlayer() {
@@ -158,7 +148,6 @@ useEventListener('keydown', (event: KeyboardEvent) => {
   }
 })
 
-// Keep the line to sync always in view.
 const rowRefs = ref<HTMLElement[]>([])
 // The next line to stamp scrolls into view by itself.
 watch(cursor, (i) => {
@@ -307,7 +296,7 @@ const lrcOpen = ref(false)
       v-if="!rows.length"
       icon="i-lucide-text"
       title="No lines to sync"
-      description="Write the lyrics in the «Lyrics» tab first, then press «Reload from lyrics», or import an LRC file."
+      description="Write the lyrics in the “Lyrics” tab first, then press “Reload from lyrics”, or import an LRC file."
     />
 
     <!--

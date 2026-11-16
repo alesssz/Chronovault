@@ -69,7 +69,6 @@ const lrcFileInput = ref<HTMLInputElement | null>(null)
  * the user sees it and confirms with Apply, like pasted text.
  */
 async function openLrcFile(event: Event) {
-  // The hidden file input that was used.
   const input = event.target as HTMLInputElement
   // The chosen file (none: the choice was cancelled).
   const file = input.files?.[0]
@@ -81,7 +80,6 @@ async function openLrcFile(event: Event) {
 
 /** Hands the LRC's lines to the editor (import); invalid text leaves everything unchanged. */
 function applyLrc() {
-  // The lines the text holds.
   const parsed = parseLrc(lrcText.value)
   if (!parsed.length && lrcText.value.trim()) {
     toast.add({ title: 'No valid lines', description: 'Use the [mm:ss.xx] text format', color: 'error' })

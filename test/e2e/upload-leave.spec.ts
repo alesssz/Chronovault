@@ -1,8 +1,8 @@
 /**
  * End-to-end, leaving the upload page while files are in progress: going to another page of the
- * app asks first, in the app's own dialog (Stay or Leave), as closing the tab does. Staying keeps everything going; leaving lets the file
- * in progress finish, and the files not started yet are not uploaded. The queue used to carry on
- * in the background with nothing showing it, and coming back started a second queue beside it.
+ * app asks first, in the app's own dialog (Stay or Leave), as closing the tab does. Staying keeps
+ * everything going; leaving lets the file in progress finish, and the files not started yet are
+ * not uploaded, so no queue carries on in the background with nothing showing it.
  */
 import { expect, test, type Page } from './fixtures'
 import { makeWav, signUp } from './helpers'
@@ -70,11 +70,10 @@ test.describe('leaving the upload page', () => {
 
     // The file in progress finishes and is registered…
     await expect.poll(() => trackCount(page), { timeout: 20_000 }).toBe(1)
-    // …and the two waiting files never start. A file starting shows first as its upload address
-    // asked for, once it is analyzed and converted: as long as the first one took for that, so
-    // the test waits three times that long (at least a second) and checks that no second address
-    // was asked. The window follows the machine's speed: a fixed 4 s, counting registered tracks
-    // (which come later still), could pass on a slow runner with the queue carrying on.
+    // …and the two waiting files never start. A file that starts asks for its upload address once
+    // analyzed and converted, so the test waits three times as long as the first file took for
+    // that (at least a second): a window that follows the machine's speed, where a fixed delay
+    // could pass on a slow runner with the queue carrying on.
     const preparation = uploadUrlRequests[0]! - pickedAt
     await page.waitForTimeout(Math.max(1_000, 3 * preparation))
     expect(uploadUrlRequests, 'upload addresses asked (the first file only)').toHaveLength(1)

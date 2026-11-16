@@ -25,7 +25,7 @@ describe('parseVersion', () => {
 
 describe('satisfiesEngines', () => {
   it.each([
-    ['22.9.0', false], // Homebrew's Node on the machine that inspired this check
+    ['22.9.0', false],
     ['22.21.0', true],
     ['23.5.0', false],
     ['24.10.0', false],

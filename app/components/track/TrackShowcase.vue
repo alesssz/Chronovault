@@ -4,8 +4,8 @@ import { FALLBACK_COVER } from '~~/shared/brand'
 /**
  * A track laid out for listening: the share page's body (pages/t/[id].vue)
  * and the full-screen player's from `md` (PlayerExpanded). One component, so
- * the two never drift apart: the same track looked one way in the library's
- * full-screen view and another on its link.
+ * the same track never looks one way in the library's full-screen view and
+ * another on its link.
  *
  * From `md`:
  *   - a band on top, centred, in two lines: the title with "WIP" beside it
@@ -74,9 +74,9 @@ const coverOpen = ref(false)
       The title's block. Below `md`: a draft's "Work in progress" badge, the title, composers, then
       album · year · genre, under the cover. From `md` the band over both columns, centred, in two
       lines: the title with a draft's "WIP" beside it, then a quieter byline, composers · album ·
-      year · genre. (On one line with the byline, the title read as one more piece of data.)
-      `col-span-full`, not `col-span-2`: over a single column, a span of two added an empty
-      implicit column and pushed the column 30px off centre.
+      year · genre. (On one line with the byline, the title would read as one more piece of data.)
+      `col-span-full`, not `col-span-2`: over a single column, a span of two adds an empty
+      implicit column and pushes the column 30px off centre.
     -->
     <div class="order-2 min-w-0 md:order-first md:col-span-full md:flex md:flex-wrap md:items-center md:justify-center md:gap-x-3 md:gap-y-1">
       <!-- A draft is one version among others: friends know it is not the final cut -->
@@ -186,9 +186,8 @@ const coverOpen = ref(false)
       The lyrics. From `md` the right column, as tall as the left one (cover and About): sized out
       of the row (`contain: size`) and stretched to it, the lines scrolling inside.
       The panel draws the frame; the side padding is its child's (`*:px-…`, the LyricsView that
-      scrolls), so a scrollbar runs along the panel's right border. With the padding here, the
-      scrollbar sat 1.5rem (30px) inside it, a strip of empty panel beyond it. `overflow-hidden`
-      clips the scrollbar's ends to the rounded corners.
+      scrolls), so a scrollbar runs along the panel's right border instead of 1.5rem inside it.
+      `overflow-hidden` clips the scrollbar's ends to the rounded corners.
     -->
     <section
       v-if="hasLyrics"

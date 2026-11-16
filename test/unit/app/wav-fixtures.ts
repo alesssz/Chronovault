@@ -20,7 +20,6 @@ export interface WavFixtureOptions {
 
 /** One RIFF chunk: 4-char id, little-endian size, body, padding byte when the size is odd. */
 function chunk(id: string, body: Uint8Array): Uint8Array {
-  // 8-byte chunk header + body + 1 padding byte when the body length is odd.
   const out = new Uint8Array(8 + body.length + (body.length % 2))
   const view = new DataView(out.buffer)
   for (let i = 0; i < 4; i++) out[i] = id.charCodeAt(i)
@@ -61,7 +60,6 @@ export function buildWav(options: WavFixtureOptions): Uint8Array {
   // 8-bit WAV is unsigned (offset 128); 16/24/32-bit are signed; float is scaled to ±1.
   const d = new DataView(data.buffer)
   samples.forEach((value, i) => {
-    // Where this sample starts in the data.
     const offset = i * bytesPerSample
     if (bitsPerSample === 8) d.setUint8(offset, value + 128)
     else if (bitsPerSample === 16) d.setInt16(offset, value, true)
@@ -114,7 +112,6 @@ export function testSignal(frames: number, channels: number, bitsPerSample: numb
       samples[i] = extremes[i]!
       continue
     }
-    // This frame's time in seconds.
     const t = Math.floor(i / channels) / 44_100
     // A 440 Hz sine with noise, within -0.9..0.9.
     const value = Math.sin(2 * Math.PI * 440 * t) * 0.6 + (random() * 2 - 1) * 0.3

@@ -22,7 +22,6 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Where the state lives, and the state itself.
 const statePath = process.env.FAKE_GH_STATE
 const state = JSON.parse(readFileSync(statePath, 'utf8'))
 // This call's arguments (after "node fake-gh.mjs").
@@ -38,7 +37,6 @@ function finish(code, output = '') {
 
 /** The value after `--flag` in this call, or undefined. */
 function flag(name) {
-  // Where the flag sits, if anywhere.
   const at = args.indexOf(name)
   return at === -1 ? undefined : args[at + 1]
 }
@@ -65,7 +63,6 @@ function prByNumber() {
 
 /** Where CI stands now: the next entry of `checks`, the last one kept once they run out. */
 function nextCheck() {
-  // The entry for this look, then the cursor moved on.
   const check = state.checks[Math.min(state.checkIndex ?? 0, state.checks.length - 1)]
   state.checkIndex = (state.checkIndex ?? 0) + 1
   return check
@@ -79,7 +76,6 @@ function mergeState(check) {
 
 /** Merges the pull request as GitHub would: a merge commit on main, with the message and author asked for. */
 function merge(pr, how) {
-  // A fresh clone of "GitHub", to merge in.
   const clone = join(state.scratch, `merge-${pr.number}-${state.calls.length}`)
   git(state.scratch, 'clone', '--quiet', state.remote, clone)
   git(clone, 'switch', '--quiet', 'main')
@@ -114,7 +110,6 @@ if (group === 'pr' && command === 'list') {
 }
 
 if (group === 'pr' && command === 'create') {
-  // The new pull request, numbered after the others.
   const number = state.prs.length + 1
   // The pull request as GitHub records it: open, on the branch's current commit, no auto-merge.
   const pr = {
@@ -132,7 +127,6 @@ if (group === 'pr' && command === 'create') {
 }
 
 if (group === 'pr' && command === 'view') {
-  // The pull request looked at.
   const pr = prByNumber()
   if (pr.state === 'OPEN') {
     // The branch as "GitHub" has it now, and CI at this moment.
@@ -152,13 +146,11 @@ if (group === 'pr' && command === 'view') {
 }
 
 if (group === 'pr' && command === 'merge') {
-  // The pull request to merge, or whose auto-merge changes.
   const pr = prByNumber()
   if (args.includes('--disable-auto')) {
     pr.autoMergeRequest = null
     finish(0)
   }
-  // The merge commit asked for: message, author, and the head commit it must be.
   const how = mergeOptions()
   if (how.matchHead !== headOf(pr.headRefName)) finish(1, 'Head branch was modified. Review and try the merge again.')
   if (args.includes('--auto')) {

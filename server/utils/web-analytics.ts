@@ -18,7 +18,6 @@ export type WebAnalyticsSource = { kind: 'vercel', client: WebAnalyticsClient } 
 
 /** The source for this deployment (a new client per request: it holds no state). */
 export function useWebAnalyticsSource(): WebAnalyticsSource {
-  // runtimeConfig.analytics, filled from NUXT_ANALYTICS_* at startup.
   const config = useRuntimeConfig().analytics as WebAnalyticsConfig
   if (config.token && config.projectId) return { kind: 'vercel', client: new WebAnalyticsClient(config) }
   return process.env.VERCEL ? { kind: 'unconfigured' } : { kind: 'demo' }

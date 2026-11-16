@@ -248,7 +248,7 @@ select results_eq(
             ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/playlists/c2222222-2222-4222-8222-222222222222.webp') $$,
   'visitors read the covers of shared playlists and of the tracks in them, nothing else, to sign them'
 );
--- Before: the list endpoint returned the same names, the playlist's id among them.
+-- The list endpoint must not return the same names, which carry the playlist's id.
 select set_config('storage.operation', 'storage.object.list', true);
 select is_empty(
   $$ select 1 from storage.objects where bucket_id = 'covers' and name like 'aaaaaaaa%' $$,
@@ -285,8 +285,8 @@ select is(
 );
 
 -- Without a cover of its own, the first track's that has one, in playlist order. The track
--- without a cover goes first, so the check really skips it: in the order A left above, the first
--- track had a cover, and a lookup that never skipped anything passed all the same.
+-- without a cover is moved first, so the check proves the lookup skips it (in the order A left
+-- above, the first track has a cover).
 reset role;
 update public.playlists set cover_path = null where id = 'c2222222-2222-4222-8222-222222222222';
 update public.playlist_tracks

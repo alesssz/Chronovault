@@ -53,13 +53,11 @@ interface DownloadSource {
 export function useTrackDownload() {
   // Genre names: the owner's track only carries the genre and subgenre ids.
   const { trackGenreLabel } = useGenres()
-  // The steps after the first, and the spinner state.
   const { run, isDownloading } = useDownloadSteps()
 
   /** Downloads one of the owner's tracks with its tags; feedback through toasts. */
   function download(trackId: string): Promise<void> {
     return run(trackId, async () => {
-      // The track's full data and a fresh streaming address, together.
       const [track, source] = await Promise.all([tracksApi.get(trackId), tracksApi.playback(trackId)])
       return {
         track,
@@ -85,7 +83,6 @@ export function useTrackDownload() {
  * calls the owner's API (genres, tracks), which a visitor cannot use.
  */
 export function useSharedTrackDownload(playback: (trackId: string) => Promise<PlaybackSource>) {
-  // The steps after the first, and the spinner state.
   const { run, isDownloading } = useDownloadSteps()
 
   /** Downloads a shared track with its tags; feedback through toasts. */
@@ -112,7 +109,6 @@ export function useSharedTrackDownload(playback: (trackId: string) => Promise<Pl
  * entry points.
  */
 function useDownloadSteps() {
-  // Progress and outcome of each download.
   const toast = useToast()
   /** Tracks being prepared right now (shared: a second click anywhere is ignored). */
   const active = useState<string[]>('track-downloads', () => [])
@@ -128,27 +124,22 @@ function useDownloadSteps() {
    * used for the percentage, never trusted for the result.
    */
   async function fetchBytes(url: string, onProgress: (fraction: number) => void): Promise<Uint8Array> {
-    // The stored file, streamed.
     const response = await fetch(url)
     if (!response.ok) throw new Error(`The file could not be downloaded (HTTP ${response.status})`)
     // The file size the storage announces (0 when it gives none: no percentage).
     const total = Number(response.headers.get('content-length')) || 0
     if (!response.body) return new Uint8Array(await response.arrayBuffer())
 
-    // Reads the body piece by piece, to report progress.
     const reader = response.body.getReader()
-    // Pieces as they arrive, and how many bytes so far.
     const chunks: Uint8Array[] = []
     let received = 0
     for (;;) {
-      // The next piece, or the end.
       const { done, value } = await reader.read()
       if (done) break
       chunks.push(value)
       received += value.length
       if (total) onProgress(Math.min(1, received / total))
     }
-    // Join the pieces into one buffer of the real size.
     return concatBytes(chunks)
   }
 
@@ -156,10 +147,8 @@ function useDownloadSteps() {
   async function coverForTags(coverUrl: string | null): Promise<CoverImage | null> {
     if (!coverUrl) return null
     try {
-      // The cover image from its address.
       const response = await fetch(coverUrl)
       if (!response.ok) return null
-      // The cover re-encoded as JPEG, the format every player shows inside tags.
       const jpeg = await toJpeg(await response.blob())
       return { ...jpeg, mimeType: 'image/jpeg' }
     }
@@ -173,7 +162,6 @@ function useDownloadSteps() {
    * not written), and what WAV cannot hold when the track has it.
    */
   function describeTags(tags: TrackTags, format: TagFormat, hasCover: boolean): string {
-    // Field label (as shown in the toast) → value.
     const fields: [string, unknown][] = [
       ['title', tags.title], ['artist', tags.artist], ['album', tags.album], ['year', tags.year],
       ['genre', tags.genre], ['comment', tags.comment],
@@ -217,18 +205,14 @@ function useDownloadSteps() {
     }
 
     try {
-      // The track's data, its file's type and a fresh streaming address.
       const { track, genre, coverUrl, mimeType, extension, url } = await prepare()
       const audio = await fetchBytes(url, (fraction) => {
         progressText = `${track.title} · ${Math.round(fraction * 100)}%`
         if (progressShown) toast.update(progressToast, { description: progressText })
       })
 
-      // The tag system for this file's format, or null (saved untagged).
       const format = tagFormatOf(mimeType)
-      // What gets saved: the tagged copy, or the file as stored.
       let file = audio
-      // Second line of the success toast.
       let note: string
       if (format) {
         // WAV cannot embed a cover: skip fetching and converting it.

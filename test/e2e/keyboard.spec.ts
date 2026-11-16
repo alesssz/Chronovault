@@ -10,7 +10,6 @@ import { signUp, uploadTrack } from './helpers'
 
 /** "1:05" → 65: the times the player bar shows. */
 function seconds(text: string): number {
-  // Minutes and seconds, as written.
   const [minutes, rest] = text.trim().split(':')
   return Number(minutes) * 60 + Number(rest)
 }
@@ -28,9 +27,7 @@ test.describe('keyboard shortcuts', () => {
     for (const title of ['Key A', 'Key B']) await uploadTrack(page, title, { seconds: 20 })
     // Plain lyrics on "Key B", for the sync editor at the end.
     await page.evaluate(async () => {
-      // The new account's tracks.
       const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
-      // "Key B", the one that gets lyrics.
       const id = tracks.find(t => t.title === 'Key B')!.id
       await fetch(`/api/tracks/${id}`, {
         method: 'PATCH',
@@ -39,7 +36,6 @@ test.describe('keyboard shortcuts', () => {
       })
     })
     await page.goto('/')
-    // The player bar and, in it, the play button and the elapsed time.
     const bar = page.getByTestId('player-bar')
     // The bar has a phone and a desktop set of controls: the one on screen.
     const toggle = bar.getByTestId('player-toggle').filter({ visible: true })
@@ -69,7 +65,6 @@ test.describe('keyboard shortcuts', () => {
     // ← / →: five seconds, checked while paused (the time stands still).
     await page.keyboard.press('Space')
     await expect(toggle).toHaveAccessibleName('Play')
-    // Where the five-second steps start from.
     const start = seconds(await elapsed.innerText())
     await page.keyboard.press('ArrowRight')
     await expect.poll(async () => seconds(await elapsed.innerText())).toBe(start + 5)

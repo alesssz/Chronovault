@@ -2,7 +2,7 @@
 /**
  * One command to run the whole stack. Docker Desktop must already be running.
  *
- * The app is two pieces (docs/05-architecture.md, 5.3):
+ * The app is two pieces:
  *   1. Supabase, in Docker: database, sign-in, storage (covers, and the audio
  *      through its S3 endpoint). Containers managed by the Supabase CLI.
  *   2. Nuxt: the pages AND the API (server/api) in one process. There is no
@@ -38,7 +38,6 @@ const DOCKER_APP_URL = 'http://localhost:8180'
  * the host, so the browser and the server use the very same URL.
  */
 function dockerSupabaseUrl(apiUrl) {
-  // Same port and scheme, only the host changes.
   const url = new URL(apiUrl)
   url.hostname = 'host.docker.internal'
   return url.origin
@@ -56,7 +55,6 @@ async function local() {
   console.log('  2. Nuxt       on this computer  the pages and the API (server/api), one process, hot reload\n')
 
   console.log('▸ 1/2 Supabase (Docker)')
-  // The running stack's URLs and keys (started when needed).
   const status = await ensureSupabase()
   writeEnvFile(resolve('.env'), {
     SUPABASE_URL: status.API_URL,
@@ -83,7 +81,6 @@ async function local() {
  */
 async function docker() {
   await ensureDocker()
-  // The running stack's URLs and keys (started when needed).
   const status = await ensureSupabase()
 
   writeEnvFile(resolve('.env.docker'), {
@@ -95,7 +92,6 @@ async function docker() {
   console.log('✔ .env.docker updated')
 
   console.log('▸ Building and starting the app container (the first build takes a few minutes)…')
-  // Its exit code (0: built and started).
   const code = await runInherited('docker compose up --build --detach')
   if (code !== 0) return code
 

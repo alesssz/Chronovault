@@ -44,7 +44,7 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 ## Interface (UI)
 
-The entries from UI-25 come from a review of 2026-11-06, made like the first one (2026-11-04) by driving a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
+The entries below come from a review on 2026-11-06 that drove a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
 ### UI-34 The upload drop zone shows no way to pick files
 
@@ -76,7 +76,7 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Priority:** low · **Kind:** phones · **Found:** 2026-11-06
 
-**What is wrong.** At 375px a playlist's and a group's page put "Play all" (with its text) and the pencil beside the title, which keeps a few letters ("Punic Wa…", "Teutobur…"). The track editor had the same problem and shows its buttons as icons on phones.
+**What is wrong.** At 375px a playlist's and a group's page put "Play all" (with its text) and the pencil beside the title, which keeps a few letters ("Punic Wa…", "Teutobur…"). The track editor avoids this by showing its buttons as icons on phones.
 
 **Where.** [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue), the header.
 
@@ -116,7 +116,7 @@ The entries from UI-25 come from a review of 2026-11-06, made like the first one
 
 **Priority:** low · **Kind:** tooling · **Found:** 2026-11-12
 
-**What is wrong.** Merging a branch now needs `gh` installed and signed in (`pnpm merge:main` opens the pull request and waits for CI). On a new computer this shows only at the first merge, when the script stops with "gh, GitHub's command line, is missing or not signed in", while `pnpm doctor` is where every other prerequisite is checked.
+**What is wrong.** Merging a branch needs `gh` installed and signed in (`pnpm merge:main` opens the pull request and waits for CI). On a new computer this shows only at the first merge, when the script stops with "gh, GitHub's command line, is missing or not signed in", while `pnpm doctor` is where every other prerequisite is checked.
 
 **Where.** [scripts/doctor.mjs](../scripts/doctor.mjs), [scripts/lib/doctor-checks.mjs](../scripts/lib/doctor-checks.mjs) and their tests.
 

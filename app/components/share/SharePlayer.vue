@@ -31,7 +31,7 @@ import { ariaShortcut } from '~/lib/keyboard-shortcuts'
  * full-screen button when asked for). Both share pages use it from `md`,
  * where it is always in view, so it brings no mini player. The track page
  * asks for no full-screen button: the full-screen view has that page's own
- * layout there, so it only opened the same thing again (the F key still
+ * layout there, so it would only open the same thing again (the F key still
  * opens it). The playlist page does: there the view shows the track playing
  * large, which the page itself does not.
  */
@@ -75,7 +75,7 @@ onBeforeUnmount(() => {
     class="fixed inset-x-0 bottom-0 z-40 border-t border-default bg-default/95 backdrop-blur"
     data-testid="shared-bar"
   >
-    <!-- The bar: one row at the bottom of the screen, always in view (no mini player). Comments stay inside the roots (see PlaylistCover). -->
+    <!-- The bar: one row at the bottom of the screen, always in view (no mini player). Comments stay inside the roots: at the root, the server renderer counts them as extra root nodes. -->
     <!-- As wide as the track page's content (max-w-6xl), so play sits under the cover's edge and the last control under the panel's -->
     <UContainer>
       <div class="mx-auto flex h-18 max-w-6xl items-center gap-4">
@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
         <!--
           Mute and slider; below `lg` the speaker button with its popover, so the waveform keeps a
           real width between previous / play / next and the end of the bar (on a tablet-wide
-          window the slider left it about 200px).
+          window the slider would leave it about 200px).
         -->
         <PlayerVolume class="shrink-0 max-lg:hidden" />
         <PlayerVolume
@@ -202,8 +202,7 @@ onBeforeUnmount(() => {
       Under it, one symmetric row, as in the app's full-screen view: the volume on the left, play
       (with previous / next on playlists) exactly in the middle (two equal side columns), full
       screen on the right. The outer icons sit on the waveform's edges (-ml/-mr-1.5: a ghost
-      button's padding). Before, play sat beside the waveform and a second row ran under both,
-      which left a single track's volume and full screen floating on the right.
+      button's padding).
     -->
     <div class="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
       <div class="-ml-1.5 flex min-w-0 items-center justify-self-start">

@@ -1,10 +1,10 @@
 /**
  * The Google Cast Web Sender SDK ("CAF sender"), loaded on demand.
  *
- * Why it may be needed: Chrome on Android lists a Chromecast built-in TV in
- * its own "Cast…" menu, but the Remote Playback API (the standard way pages
- * cast an <audio> or <video>) found no device for it (see /cast-test). The
- * Cast SDK goes through the same Google Cast route as that menu. It works
+ * Chrome on Android lists a Chromecast built-in TV in its own "Cast…" menu,
+ * but the Remote Playback API (the standard way pages cast an <audio> or
+ * <video>) finds no device for it. The Cast SDK goes through the same
+ * Google Cast route as that menu; the /cast-test page tries it. It works
  * in browsers with Google Cast built in (Chrome on desktop and Android,
  * Edge), not in Opera, Firefox or on iOS.
  *

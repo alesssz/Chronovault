@@ -41,9 +41,9 @@ const adjustable = ref(true)
  * volume. The level saved on this device (kept out of server-rendered state,
  * see the player store) is not known on the server, and a first client
  * render showing it would not match the server's HTML: Vue does not fix such
- * a difference in attributes and styles, so on a share page the slider and
- * the icon went on showing 100% while the audio played at the saved level.
- * Switching once mounted is an ordinary update, which Vue applies.
+ * a difference in attributes and styles, so the slider and the icon would
+ * keep showing 100% while the audio plays at the saved level. Switching once
+ * mounted is an ordinary update, which Vue applies.
  */
 const mounted = ref(false)
 // Decided in the browser: touch screens leave the volume to the hardware buttons.
@@ -74,8 +74,7 @@ const level = computed({
       Compact (narrow player bar) with a slider (a mouse or trackpad): speaker button opening a
       popover. The wrapper gives the parent's classes (e.g. `lg:hidden`) an element to land on:
       the popover itself renders none. The comments of both branches stay inside them: at the
-      root, the server renderer counted them as root nodes and dropped the parent's classes
-      (see PlaylistCover).
+      root, the server renderer counts them as root nodes and drops the parent's classes.
     -->
     <UPopover :content="{ side: 'top', align: 'center' }">
       <IconButton

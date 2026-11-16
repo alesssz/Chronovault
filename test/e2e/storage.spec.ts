@@ -2,7 +2,8 @@
  * End-to-end, storage clean-up: an interrupted upload (file stored, track
  * never registered) shows up as an orphan in the Storage dialog and is
  * deleted, while the files of real tracks are left untouched.
- * The e2e server runs with NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS=0 (see playwright.config.ts).
+ * The e2e server sets NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS=0 (playwright.config.ts), so a file
+ * uploaded a moment ago already counts as an orphan.
  */
 import { expect, test } from './fixtures'
 import { signUp, uniqueId, uploadTrack } from './helpers'
@@ -10,7 +11,6 @@ import { signUp, uniqueId, uploadTrack } from './helpers'
 test.describe('storage clean-up', () => {
   test('finds and deletes the file of an interrupted upload, and only that', async ({ page }) => {
     await signUp(page)
-    // A title unique to this test.
     const title = `kept-${uniqueId()}`
     await uploadTrack(page, title)
     await page.goto('/')
@@ -24,14 +24,12 @@ test.describe('storage clean-up', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ trackId: crypto.randomUUID(), extension: 'mp3', mimeType: 'audio/mpeg', sizeBytes: body.length }),
       })).json() as { uploadUrl: string }
-      // The file uploaded without registering a track: an orphan.
       const put = await fetch(target.uploadUrl, { method: 'PUT', body, headers: { 'content-type': 'audio/mpeg' } })
       if (!put.ok) throw new Error(`upload failed: ${put.status}`)
     })
 
     await page.getByRole('button', { name: 'User menu' }).click()
     await page.getByRole('menuitem', { name: 'Storage' }).click()
-    // The Storage dialog's report.
     const report = page.getByTestId('storage-report')
     await expect(report).toBeVisible()
     await expect(report.getByTestId('storage-orphan')).toHaveCount(1)
@@ -41,7 +39,7 @@ test.describe('storage clean-up', () => {
     await page.getByTestId('storage-delete').click()
     await expect(page.getByText('Deleted 1 file').first()).toBeVisible()
     await expect(page.getByTestId('storage-clean')).toBeVisible()
-    // Nothing left to delete: no delete button at all (disabled, it was still red).
+    // Nothing left to delete: the button is removed, not disabled (a disabled one still shows red).
     await expect(page.getByTestId('storage-delete')).toHaveCount(0)
 
     // The real track still has its file and plays.

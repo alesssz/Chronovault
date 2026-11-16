@@ -22,7 +22,6 @@ test.describe('draft versions', () => {
     const rows = page.getByTestId('track-row')
     await expect(rows).toHaveCount(3)
     await expect(page.getByTestId('draft-badge')).toHaveCount(3)
-    /** The library row of a version. */
     const row = (title: string) => rows.filter({ hasText: title })
 
     // --- Select two versions and share them for feedback ---
@@ -32,7 +31,6 @@ test.describe('draft versions', () => {
     await expect(page.getByTestId('selection-count')).toHaveText('2 selected')
     await page.getByTestId('bulk-feedback').click()
     await expect(page.getByText('Share link copied').first()).toBeVisible()
-    // The copied link of the group.
     const shareUrl = await page.evaluate(() => navigator.clipboard.readText())
     expect(shareUrl).toMatch(/\/p\/[0-9a-f-]{36}$/)
     // Sharing ends selection mode.
@@ -41,7 +39,6 @@ test.describe('draft versions', () => {
     // A friend opens one link: both versions, marked as work in progress.
     const friendContext = await browser.newContext()
     try {
-      // The friend's page.
       const friend = await friendContext.newPage()
       await friend.goto(shareUrl)
       await expect(friend.getByTestId('shared-playlist-title')).toHaveText('Night drive – versions')
@@ -61,7 +58,6 @@ test.describe('draft versions', () => {
     await expect(page.getByTestId('playlist-card')).toHaveCount(0)
     await page.getByRole('link', { name: 'Versions', exact: true }).click()
     await expect(page).toHaveURL(/\/versions$/)
-    // The group's card on the Versions page.
     const card = page.getByTestId('playlist-card')
     await expect(card).toHaveCount(1)
     await expect(card).toContainText('Night drive – versions')
@@ -71,9 +67,8 @@ test.describe('draft versions', () => {
     await card.click()
     await expect(page).toHaveURL(/\/versions\/[0-9a-f-]{36}$/)
     await expect(page.getByTestId('playlist-title')).toHaveText('Night drive – versions')
-    // The sharing box in a group's words (it spoke of "every track in this playlist").
+    // The sharing box in a group's words, not a playlist's.
     await expect(page.getByTestId('share-box')).toContainText('every version in this group')
-    // The group page's row of a version.
     const versionRow = (title: string) => page.getByTestId('playlist-track').filter({ hasText: title })
     await versionRow('Night drive v2').getByRole('button', { name: 'Actions for Night drive v2' }).click()
     await page.getByRole('menuitem', { name: 'Mark as final' }).click()
@@ -100,7 +95,6 @@ test.describe('draft versions', () => {
     await page.getByRole('checkbox', { name: 'Select all' }).click()
     await expect(page.getByTestId('selection-count')).toHaveText('2 selected')
     await page.getByTestId('bulk-delete').click()
-    // The delete confirmation.
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('Delete 2 tracks?')
     await dialog.getByRole('button', { name: 'Delete' }).click()
@@ -110,7 +104,6 @@ test.describe('draft versions', () => {
     await filter.click()
     await page.getByRole('option', { name: 'All versions' }).click()
     await expect(rows).toHaveText([/Night drive v2/])
-    // The tracks left, as the API lists them.
     const left = await page.evaluate(async () => (await (await fetch('/api/tracks')).json() as { title: string, status: string }[]))
     expect(left).toEqual([expect.objectContaining({ title: 'Night drive v2', status: 'final' })])
   })

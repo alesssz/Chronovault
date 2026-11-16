@@ -10,10 +10,8 @@ import type { UploadStatus } from '~/composables/useTrackUploader'
 import { conversionLabel } from '~/lib/prepare-audio'
 import { AUDIO_ACCEPT } from '~~/shared/utils/audio-files'
 
-// Browser tab title: "Upload tracks · Chronovault".
 usePageTitle('Upload tracks')
 
-// The upload queue and its actions.
 const { items, pending, completed, add, remove, clearFinished } = useTrackUploader()
 /** Files chosen in the drop zone (moved to the queue right away). */
 const picked = ref<File[] | null>(null)

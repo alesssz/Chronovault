@@ -41,7 +41,6 @@ describe('text with a NUL character (U+0000)', () => {
 
 describe('trackMetadataSchema', () => {
   it('trims whitespace and turns empty texts into null', () => {
-    // The metadata as the schema outputs it.
     const data = trackMetadataSchema.parse(validMetadata)
     expect(data.title).toBe('Night')
     expect(data.composers).toBeNull()
@@ -51,7 +50,6 @@ describe('trackMetadataSchema', () => {
   })
 
   it('requires a title', () => {
-    // A blank title, checked.
     const result = trackMetadataSchema.safeParse({ ...validMetadata, title: '   ' })
     expect(result.success).toBe(false)
   })
@@ -94,7 +92,7 @@ describe('trackCreateSchema', () => {
 
   it('bounds the duration below what its column holds (a 400, not the database\'s 500)', () => {
     expect(trackCreateSchema.safeParse({ ...base, durationSeconds: 183.4 }).success).toBe(true)
-    // Before: accepted here, then refused by the `real` column (22003), answered 500.
+    // Past what the `real` column holds: the database would refuse it (22003) with a 500.
     expect(trackCreateSchema.safeParse({ ...base, durationSeconds: 1e39 }).success).toBe(false)
   })
 })
@@ -114,7 +112,6 @@ describe('trackUpdateSchema', () => {
 })
 
 describe('playlist schemas', () => {
-  // Two track ids.
   const A = 'a1111111-1111-4111-8111-111111111111'
   const B = 'a2222222-2222-4222-8222-222222222222'
 

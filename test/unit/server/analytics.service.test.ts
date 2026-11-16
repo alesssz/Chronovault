@@ -29,7 +29,6 @@ function track(id: string, overrides: Partial<tracksRepo.TrackLabelRow> = {}): t
 
 /** A fake Vercel client answering each query kind with the given rows. */
 function fakeClient(rowsBy: Partial<Record<WebAnalyticsQuery['by'], WebAnalyticsRow[]>>) {
-  // Answers each query with the rows given for its kind, and records the calls.
   const aggregate = vi.fn(async (q: WebAnalyticsQuery) => rowsBy[q.by] ?? [])
   return { client: { aggregate } as unknown as WebAnalyticsClient, aggregate }
 }
@@ -42,7 +41,6 @@ beforeEach(() => {
 
 describe('periodOf', () => {
   it('lists the days ending today (UTC), both ends included', () => {
-    // The 7 days ending on TODAY.
     const period = periodOf(7, TODAY)
     expect(period.since).toBe('2026-10-15')
     expect(period.until).toBe('2026-10-21')
@@ -56,7 +54,6 @@ describe('periodOf', () => {
 
 describe('getAnalyticsReport', () => {
   it('returns an empty report without touching the database when not configured', async () => {
-    // The report, with no Vercel configuration.
     const report = await getAnalyticsReport(db, USER, 7, { kind: 'unconfigured' }, TODAY)
     expect(report).toMatchObject({ source: 'unconfigured', totals: { pageviews: 0, visitors: 0 }, items: [] })
     expect(report.daily).toHaveLength(7)
@@ -72,7 +69,6 @@ describe('getAnalyticsReport', () => {
     vi.mocked(playlistsRepo.listPlaylistLabels).mockResolvedValue([
       { id: 'p', title: 'Mix', visibility: 'public', cover_path: null, updated_at: UPDATED_AT },
     ])
-    // Vercel's answers per query kind, and the spy on the queries.
     const { client, aggregate } = fakeClient({
       environment: [{ key: 'production', pageviews: 10, visitors: 6 }],
       day: [{ key: '2026-10-20T00:00:00.000Z', pageviews: 10, visitors: 6 }],
@@ -80,7 +76,6 @@ describe('getAnalyticsReport', () => {
       referrerHostname: [{ key: null, pageviews: 6, visitors: 4 }, { key: 'whatsapp.com', pageviews: 4, visitors: 2 }],
     })
 
-    // The report built from those answers.
     const report = await getAnalyticsReport(db, USER, 7, { kind: 'vercel', client }, TODAY)
 
     // One group of six queries, all on the same filter.
@@ -108,7 +103,6 @@ describe('getAnalyticsReport', () => {
     // Every group answers the same total: the report must add them up.
     const { client, aggregate } = fakeClient({ environment: [{ key: 'production', pageviews: 5, visitors: 4 }] })
 
-    // The report over 30 days.
     const report = await getAnalyticsReport(db, USER, 30, { kind: 'vercel', client }, TODAY)
 
     expect(aggregate).toHaveBeenCalledTimes(12)
@@ -120,7 +114,6 @@ describe('getAnalyticsReport', () => {
   it('makes no queries for a user with nothing to count', async () => {
     // A client that answers nothing (it must not even be asked).
     const { client, aggregate } = fakeClient({})
-    // The report of a user with no tracks or playlists.
     const report = await getAnalyticsReport(db, USER, 7, { kind: 'vercel', client }, TODAY)
     expect(aggregate).not.toHaveBeenCalled()
     expect(report.totals.pageviews).toBe(0)
@@ -131,7 +124,6 @@ describe('breakdown', () => {
   it('keeps the top values and folds the rest, with the API\'s "Others", into one row', () => {
     // Two values more than the breakdown lists, most viewed first.
     const rows = Array.from({ length: BREAKDOWN_SIZE + 2 }, (_, i) => ({ key: `site${i}.com`, pageviews: 100 - i, visitors: 1 }))
-    // Those values plus the API's own "Others" row.
     const result = breakdown([...rows, { key: 'Others', pageviews: 5, visitors: 1 }])
     expect(result).toHaveLength(BREAKDOWN_SIZE + 1)
     expect(result[0]).toEqual({ key: 'site0.com', pageviews: 100 })
@@ -151,7 +143,6 @@ describe('demo numbers', () => {
     expect(report.source).toBe('demo')
     expect(again).toEqual(report)
     expect(report.items.map(i => i.id).sort()).toEqual(['a', 'b'])
-    // Total page views of a list of rows.
     const sum = (rows: { pageviews: number }[]) => rows.reduce((n, r) => n + r.pageviews, 0)
     // Every view is in exactly one day, one item, one referrer, country and device.
     expect(report.totals.pageviews).toBeGreaterThan(0)
@@ -164,7 +155,6 @@ describe('demo numbers', () => {
 
   it('use a few items when nothing is shared, so the page is not empty', async () => {
     vi.mocked(tracksRepo.listTrackLabels).mockResolvedValue([track('x', { visibility: 'private' })])
-    // The demo report for a user who shared nothing.
     const report = await getAnalyticsReport(db, USER, 30, { kind: 'demo' }, TODAY)
     expect(report.items.map(i => i.id)).toEqual(['x'])
   })

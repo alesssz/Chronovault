@@ -15,13 +15,11 @@ import { z } from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 
 definePageMeta({ layout: 'auth' })
-// Browser tab title: "New password · Chronovault".
 usePageTitle('New password')
 
 const supabase = useSupabaseClient()
 const route = useRoute()
 const router = useRouter()
-// Saved, or why not.
 const toast = useToast()
 
 /** checking: verifying the link; ready: the form; invalid: the link was used, expired, or is missing. */

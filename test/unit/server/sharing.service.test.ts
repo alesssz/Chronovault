@@ -63,7 +63,6 @@ describe('getSharedTrack', () => {
   it('returns the shareable fields and a signed cover', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(makeRow())
 
-    // The track as its share page gets it.
     const track = await getSharedTrack(db, TRACK)
 
     expect(track).toMatchObject({ id: TRACK, title: 'Artemisia', genre: 'Ambient', coverUrl: 'https://signed/cover' })
@@ -86,7 +85,6 @@ describe('getSharedPlaybackSource', () => {
   it('hands out a streaming address of the audio file for six hours', async () => {
     vi.mocked(findSharedTrackRow).mockResolvedValue(makeRow())
 
-    // The streaming address of the shared track.
     const source = await getSharedPlaybackSource(db, audio, TRACK)
 
     expect(streamUrl).toHaveBeenCalledWith(AUDIO, storageRepo.SIGNED_URL_TTL)
@@ -136,7 +134,6 @@ describe('shared playlists', () => {
     vi.mocked(findSharedPlaylistRow).mockResolvedValue(playlistRow)
     vi.mocked(listSharedPlaylistTrackRows).mockResolvedValue(tracks)
 
-    // The playlist as its share page gets it.
     const playlist = await getSharedPlaylist(db, PLAYLIST)
 
     expect(playlist.tracks.map(t => t.id)).toEqual([TRACK, PRIVATE])
@@ -163,7 +160,6 @@ describe('shared playlists', () => {
     vi.mocked(findSharedPlaylistTrackAudio).mockImplementation(async (_db, _playlist, trackId) =>
       (trackId === PRIVATE ? `${USER}/${PRIVATE}.flac` : null))
 
-    // The private track's address, asked for through the shared playlist.
     const source = await getSharedPlaylistPlaybackSource(db, audio, PLAYLIST, PRIVATE)
     expect(source.url).toBe(`/api/stream?k=${USER}/${PRIVATE}.flac`)
 

@@ -5,7 +5,8 @@ import { sharedApi } from '~/services/api'
  * Public page of a playlist shared by link ('unlisted' or 'public'): no
  * account needed. Lists every track (private ones included: sharing a
  * playlist shares its content) and shows the lyrics of the track being
- * played; a second click on its row opens it full screen, description too. Server-rendered for link previews.
+ * played; a second click on its row opens it full screen, description too.
+ * Server-rendered for link previews.
  * A group of versions (purpose 'versions', made by "Share for feedback") is the
  * same page, introduced as versions of one song to choose from: each version
  * gets a heart to pick it, a line under the title says so while voting is
@@ -92,11 +93,8 @@ const activeHasLyrics = computed(() => !!activeTrack.value && hasLyrics(activeTr
 /**
  * A tablet- or desktop-wide window (Tailwind's `md`): the player is the bar at
  * the bottom of the screen, as on the track page, instead of a block between
- * the title and the list. false on the server, which cannot know, and while
- * the page hydrates, so the browser's first pass matches the server's HTML
- * (useMountedMediaQuery): the in-page player is rendered, and hidden from
- * `md` by CSS until the bar replaces it once mounted (the bar is fixed, so
- * nothing moves).
+ * the title and the list. Until mounted (useMountedMediaQuery) the in-page
+ * player is rendered, hidden from `md` by CSS until the bar replaces it.
  */
 const isWide = useMountedMediaQuery('(min-width: 768px)')
 
@@ -164,13 +162,12 @@ const vote = useVersionVote(id, () => isVersions.value)
 
 /**
  * The line under the title that asks the visitor to choose a heart: a group with versions,
- * voting open, not its owner. It sat under the list, at the bottom edge of a desktop screen,
- * far from the group's own question under the title (UI-30). The vote state is per browser and
- * loads after mount, so until then (on the server and in the first client pass, which must
- * match) "open" is read from the versions: closed once one is marked final. The line is then in
- * the server-rendered page and the list does not move when the state comes in; once loaded the
- * state decides (the owner, or a vote closed meanwhile, hide it). A state that failed to load
- * brings no hearts, so the line goes too.
+ * voting open, not its owner. The vote state is per browser and loads after mount, so until
+ * then (on the server and in the first client pass, which must match) "open" is read from the
+ * versions: closed once one is marked final. The line is then in the server-rendered page and
+ * the list does not move when the state comes in; once loaded the state decides (the owner, or
+ * a vote closed meanwhile, hide it). A state that failed to load brings no hearts, so the line
+ * goes too.
  */
 const showVoteHint = computed(() => {
   const p = playlist.value
@@ -197,11 +194,10 @@ function isPicked(trackId: string) {
     >
       <!--
         Left: a compact header (a small cover beside the title and summary, the description under
-        them), then the track list, which is what a friend opens the link for. The cover was a
-        large square: on a 1505×738 window the list started at the bottom edge, and on phones,
-        as wide as the screen, it pushed the list (and a group's hearts) below the first screen
-        (UI-29). Below `md` the player sits between the header and the list; from `md` it is the
-        bar at the bottom of the screen, as on the track page.
+        them), then the track list, which is what a friend opens the link for: a large cover would
+        push the list (and a group's hearts) to the bottom edge of a laptop screen, and below the
+        first screen on phones. Below `md` the player sits between the header and the list; from
+        `md` it is the bar at the bottom of the screen, as on the track page.
       -->
       <section class="flex min-w-0 flex-col gap-6">
         <div class="space-y-3">
@@ -317,10 +313,10 @@ function isPicked(trackId: string) {
                 <!--
                   Title, "WIP" on drafts (versions to choose from). In a group the title takes up to
                   two lines: versions share the start of their title, and on phones the part that
-                  tells them apart was cut off. There, phones also drop what every row repeats: the
-                  WIP badge (versions are drafts until one is chosen), the duration and the cover.
-                  The download button and a visitor's heart sit beside the row: with the cover
-                  there, a visitor's title kept about 180px of a 412px phone and lost its end.
+                  tells them apart would be cut off. There, phones also drop what every row repeats:
+                  the WIP badge (versions are drafts until one is chosen), the duration and the
+                  cover. The download button and a visitor's heart sit beside the row: with the cover
+                  there, a visitor's title would keep about 180px of a 412px phone and lose its end.
                 -->
                 <span class="flex min-w-0 items-center gap-2">
                   <span
@@ -408,11 +404,10 @@ function isPicked(trackId: string) {
 
       <!--
         Now playing: the active track's title and lyrics, nothing else. Its description (About) is
-        in the full-screen view, a second click on the row away: here, a long one squeezed the
-        lyrics to two lines. From `lg` the right column, from
-        the header's top edge down to the player bar (100dvh less the page's header and top
-        padding, 4.5rem and 1px, and the bar with its 1rem of air, 5.5rem and 1px), staying in
-        view while the list scrolls.
+        in the full-screen view, a second click on the row away: here, a long one would squeeze
+        the lyrics to two lines. From `lg` the right column, from the header's top edge down to
+        the player bar (100dvh less the page's header and top padding, 4.5rem and 1px, and the bar
+        with its 1rem of air, 5.5rem and 1px), staying in view while the list scrolls.
       -->
       <section
         v-if="activeTrack"
@@ -452,11 +447,11 @@ function isPicked(trackId: string) {
           class="h-[60dvh] min-h-0 overflow-hidden rounded-xl border border-default bg-elevated/30 *:px-4 sm:*:px-6 lg:h-auto lg:flex-1"
           data-testid="shared-lyrics"
         >
-          <!-- The position is read inside ShareLyrics: read here, it re-rendered the whole page every frame -->
+          <!-- The position is read inside ShareLyrics: read here, it would re-render the whole page every frame -->
           <!--
             Centred and two sizes smaller than the track page's (`compact`): at that size, in this
-            narrower panel, nearly every line wrapped (UI-32). No room after the last line, as on
-            the track page: the panel is not as tall as the screen.
+            narrower panel, nearly every line would wrap. No room after the last line, as on the
+            track page: the panel is not as tall as the screen.
           -->
           <ShareLyrics
             :key="activeTrack.id"

@@ -1,7 +1,7 @@
 /**
  * End-to-end, track sharing: an unlisted track opens without an account, plays and downloads with
  * its tags (a public one plays but never downloads), never exposes the Suno prompt or mastering
- * status, and answers 404 once private again. Its cover opens full screen. Its cover is signed for the
+ * status, and answers 404 once private again. Its cover opens full screen and is signed for the
  * share page, but Storage's list endpoint, called with the public key every page ships, names no
  * shared cover and no user's folder (the ids an "unlisted" item is meant to keep to its link).
  */
@@ -17,19 +17,16 @@ test.describe('public sharing', () => {
   test('an unlisted track opens without an account; a private one does not', async ({ page, browser, context, baseURL }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await signUp(page)
-    // A title unique to this test.
     const title = `share-${uniqueId()}`
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
 
-    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     // A private track has no public page.
     await expect(page.getByRole('menuitem', { name: 'Copy share link' })).toHaveCount(0)
     await page.getByRole('menuitem', { name: 'Edit' }).click()
 
-    // The editor's sharing box.
     const shareBox = page.getByTestId('share-box')
     await expect(shareBox).toContainText('Private: only you can listen')
 
@@ -45,7 +42,6 @@ test.describe('public sharing', () => {
     // --- The share link ---
     await shareBox.getByTestId('copy-share-link').click()
     await expect(page.getByText('Share link copied').first()).toBeVisible()
-    // The copied link.
     const shareUrl = await page.evaluate(() => navigator.clipboard.readText())
     expect(shareUrl).toMatch(new RegExp(`^${baseURL}/t/[0-9a-f-]{36}$`))
 
@@ -65,12 +61,9 @@ test.describe('public sharing', () => {
     const html = await visitor.content()
     expect(html).not.toContain(secretPrompt)
     expect(html.toLowerCase()).not.toContain('mastered')
-    // The track's id, from the link.
     const trackId = shareUrl.split('/t/')[1]!
-    // The track as the API gives it to a visitor, and its fields.
     const api = await visitor.request.get(`/api/shared/${trackId}`)
     expect(api.ok()).toBe(true)
-    // Its fields, to check that nothing private is among them.
     const body = await api.json() as Record<string, unknown>
     expect(body).not.toHaveProperty('sunoPrompt')
     expect(body).not.toHaveProperty('mastered')
@@ -84,7 +77,6 @@ test.describe('public sharing', () => {
 
     // The visitor can play the track (once the page is interactive).
     await waitForHydration(visitor)
-    // The share page's play button.
     const play = visitor.getByTestId('shared-play')
     await play.click()
     await expect(play).toHaveAttribute('aria-label', 'Pause')
@@ -92,11 +84,9 @@ test.describe('public sharing', () => {
     // …and download it: the stored FLAC with the shared fields written in, never the Suno prompt.
     const downloadEvent = visitor.waitForEvent('download')
     await visitor.getByTestId('shared-download').click()
-    // The file saved.
     const download = await downloadEvent
     expect(download.suggestedFilename()).toBe(`${title}.flac`)
     await expect(visitor.getByText(`Downloaded ${title}`).first()).toBeVisible()
-    // Its bytes, and the tags music-metadata reads back.
     const file = await readFile((await download.path())!)
     const { common } = await parseBuffer(file, { mimeType: 'audio/flac' })
     expect(common.title).toBe(title)
@@ -118,7 +108,6 @@ test.describe('public sharing', () => {
     // on screen, and the visitor must only try once the track is private.
     await clickAndWaitForApi(page, page.getByTestId('save-track'), SAVE_TRACK)
 
-    // The share page once the track is private again.
     const closed = await visitor.goto(shareUrl)
     expect(closed?.status()).toBe(404)
     await expect(visitor.getByTestId('shared-not-found')).toContainText('Track not available')
@@ -169,7 +158,7 @@ test.describe('public sharing', () => {
         }
         return { folder: await list(owner), root: await list('') }
       }, owner)
-      // Before: the folder named the track (`<id>.webp`), and the root every user with a shared cover.
+      // An open listing would name the track (`<id>.webp`) in the folder, and every user with a shared cover at the root.
       expect(listed).toEqual({ folder: [], root: [] })
     }
     finally {

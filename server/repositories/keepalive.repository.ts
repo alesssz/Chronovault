@@ -15,7 +15,6 @@ import { toHttpError } from '../utils/errors'
  * session. Only an error matters; the row itself is thrown away.
  */
 export async function pingDatabase(db: DbClient): Promise<void> {
-  // One row is enough.
   const { error } = await db.from('genres').select('id').limit(1)
   // An unreachable or refusing database becomes a 500, logged with its context: the cron logs show the failure.
   if (error) throw toHttpError(error, 'keepalive.ping')

@@ -7,13 +7,11 @@ import {
 
 /**
  * Connects the player store to the operating system's Media Session
- * (lock screen, notifications, keyboard media keys). `.client`: browser only.
+ * (lock screen, notifications, keyboard media keys).
  */
 export default defineNuxtPlugin(() => {
-  // Lock-screen controls drive the store; its state feeds the OS.
   const player = usePlayerStore()
 
-  // The lock screen's and the media keys' buttons, routed to the store.
   setMediaSessionHandlers({
     play: () => void player.play(),
     pause: () => player.pause(),
@@ -23,14 +21,12 @@ export default defineNuxtPlugin(() => {
     seekTo: seconds => player.seek(seconds),
   })
 
-  // Track metadata and artwork follow the loaded track.
   watch(() => player.current, (track) => {
     setMediaSessionTrack(track
       ? { title: track.title, artist: track.composers, album: track.album, artworkUrl: track.coverUrl }
       : null)
   })
 
-  // Play/pause state (and a fresh position) on every status change.
   watch(() => player.status, (status) => {
     setMediaSessionPlaybackState(status === 'playing' ? 'playing' : status === 'idle' ? 'none' : 'paused')
     setMediaSessionPosition(player.duration, player.currentTime, player.playbackRate)

@@ -45,7 +45,6 @@ function sourceFiles(folder: string): string[] {
  * imports, which TypeScript removes.
  */
 function runtimeImports(source: string): string[] {
-  // Specifiers found, before filtering.
   const found: string[] = []
   // Static imports and re-exports; the clause may span lines (`import {\n a,\n b\n} from 'x'`).
   for (const [, typeOnly, clause, specifier] of source.matchAll(/(?:^|[\n;])\s*(?:import|export)\s+(type\s+)?([^'";]*?)\s*from\s*['"]([^'"]+)['"]/g)) {
@@ -63,14 +62,12 @@ function runtimeImports(source: string): string[] {
 /** The list in nuxt.config.ts, read from the config itself (`defineNuxtConfig` is a global there). */
 async function optimizeDepsInclude(): Promise<string[]> {
   vi.stubGlobal('defineNuxtConfig', (config: unknown) => config)
-  // The config object nuxt.config.ts exports.
   const { default: config } = await import('~~/nuxt.config') as { default: { vite?: { optimizeDeps?: { include?: string[] } } } }
   return config.vite?.optimizeDeps?.include ?? []
 }
 
 /** Each package the browser code imports, with the files that import it. */
 function browserImports(): Map<string, string[]> {
-  // Package → importing files, filled below.
   const imports = new Map<string, string[]>()
   for (const file of BROWSER_SOURCES.flatMap(sourceFiles)) {
     for (const specifier of runtimeImports(readFileSync(join(ROOT, file), 'utf8'))) {
@@ -82,9 +79,7 @@ function browserImports(): Map<string, string[]> {
 
 describe('vite.optimizeDeps.include', () => {
   it('lists every package the browser imports (otherwise the dev server reloads the page that first imports it)', async () => {
-    // The packages listed.
     const include = new Set(await optimizeDepsInclude())
-    // Packages the browser imports that the list forgets, with the files importing them.
     const missing = [...browserImports()]
       .filter(([specifier]) => !include.has(specifier) && !EXCLUDED_ELSEWHERE.has(specifier))
       .map(([specifier, files]) => `'${specifier}' (imported by ${files.join(', ')})`)
@@ -93,9 +88,7 @@ describe('vite.optimizeDeps.include', () => {
   })
 
   it('lists nothing the browser no longer imports', async () => {
-    // Every package the browser imports.
     const imported = browserImports()
-    // Listed packages nothing imports any more.
     const stale = (await optimizeDepsInclude()).filter(specifier => !imported.has(specifier))
     // An empty list, or the entries to remove from optimizeDeps.include in nuxt.config.ts.
     expect(stale).toEqual([])
@@ -104,7 +97,6 @@ describe('vite.optimizeDeps.include', () => {
 
 describe('runtimeImports', () => {
   it('finds static, multi-line, side-effect and dynamic imports, as written', () => {
-    // One source with each kind of import.
     const source = [
       `import WaveSurfer from 'wavesurfer.js'`,
       `import {\n  a,\n  b,\n} from 'pkg-a'`,
@@ -116,7 +108,6 @@ describe('runtimeImports', () => {
   })
 
   it('leaves out type-only imports, local and aliased paths, and asset queries', () => {
-    // One source with each kind of import that must be left out.
     const source = [
       `import type { A } from 'types-only'`,
       `import { type B, type C } from 'types-inline'`,

@@ -5,7 +5,7 @@
  * all applied in the browser (the whole library is loaded at once).
  * Playing a track uses the filtered list as the queue. On phones the five
  * choices sit in a Filters panel opened from beside the search box (in the
- * page they took about a third of the screen), the button counting the
+ * page they would take about a third of the screen), the button counting the
  * active ones; while anything filters the list, the subtitle says how much
  * it shows ("12 of 24 tracks").
  *
@@ -22,14 +22,10 @@ import { playlistsApi, tracksApi } from '~/services/api'
 import { feedbackPlaylistTitle } from '~/lib/feedback-playlist'
 import { readLibrary } from '~/lib/library-request'
 
-// Browser tab title: "Library · Chronovault".
 usePageTitle('Library')
 
-// Playing, and dropping deleted tracks from the queue.
 const player = usePlayerStore()
-// Delete confirmations and failures.
 const toast = useToast()
-// The genres with their subgenres, and a track's genre names (filters and rows).
 const { genres, trackGenreLabel, trackGenrePath } = useGenres()
 
 // The library (newest first); empty while it loads. Shared with the saved-queue restore when both ask at once.
@@ -72,7 +68,6 @@ const subgenreOptions = computed(() => [
 
 /** A track's genre for its row: the most specific name, and the path on hover. */
 function genreOf(track: TrackSummary) {
-  // The subgenre's name, else the genre's.
   const label = trackGenreLabel(track)
   return label ? { label, path: trackGenrePath(track) ?? label } : null
 }
@@ -134,7 +129,6 @@ function onPlay(track: TrackSummary) {
 
 /** Puts updated tracks in place in the list (same order). */
 function replaceTracks(updated: TrackSummary[]) {
-  // The updated tracks by id.
   const byId = new Map(updated.map(t => [t.id, t]))
   tracks.value = tracks.value.map(t => byId.get(t.id) ?? t)
 }
@@ -147,10 +141,8 @@ async function setStatus(ids: string[], status: TrackStatus) {
   // Each update on its own: one failure does not stop the others.
   const results = await Promise.allSettled(ids.map(id => tracksApi.update(id, { status })))
   replaceTracks(results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : [])))
-  // How many failed and how many went through.
   const failed = results.filter(r => r.status === 'rejected').length
   const done = ids.length - failed
-  // The word for the toasts.
   const what = status === 'final' ? 'final' : 'draft'
   if (done) toast.add({ title: done === 1 ? `Marked as ${what}` : `${pluralize(done, 'track')} marked as ${what}`, icon: 'i-lucide-check', color: 'success' })
   if (failed) toast.add({ title: `${failed} not updated`, description: 'Try again', color: 'error' })
@@ -165,22 +157,21 @@ const selectedIds = ref<string[]>([])
  * The selection bar's actions: on phones an icon over a short name, centred in a column of their
  * own. From `sm` a row, each icon beside its name: the short one ("Final", "Playlist",
  * "Feedback") up to `lg`, the full one ("Mark final"…) from `lg` (the `lg:hidden` and
- * `hidden lg:inline` spans of each button). On a tablet (820px) the full names wrapped over two
- * lines and squeezed the count to "2 sel…" (UI-28). While selecting, the page leaves room at the
- * bottom (`pb-32`) for the bar fixed there on phones, which would cover the last rows.
+ * `hidden lg:inline` spans of each button): on a tablet (820px) the full names would wrap over two
+ * lines and squeeze the count to "2 sel…". While selecting, the page leaves room at the bottom
+ * (`pb-32`) for the bar fixed there on phones, which would cover the last rows.
  */
 const SELECTION_ACTION = 'max-sm:flex-col max-sm:justify-center max-sm:gap-0.5 max-sm:px-1 max-sm:text-xs'
 
 // Only visible tracks stay selected: actions never touch tracks hidden by a filter.
 watch(filtered, (list) => {
-  // The ids of the tracks the filters show.
   const visible = new Set(list.map(t => t.id))
   selectedIds.value = selectedIds.value.filter(id => visible.has(id))
 })
 
 /**
- * The ticked ids as a set: looking each track up in the array (`includes`) cost
- * millions of comparisons after "Select all" on a few thousand tracks, again
+ * The ticked ids as a set: looking each track up in the array (`includes`) would
+ * cost millions of comparisons after "Select all" on a few thousand tracks, again
  * at every tick.
  */
 const selectedSet = computed(() => new Set(selectedIds.value))
@@ -191,12 +182,10 @@ const selectedTracks = computed(() => filtered.value.filter(t => selectedSet.val
 const DELETE_NAMED = 3
 /**
  * The bulk delete question: the first few titles, then how many more (all of
- * them made an unreadable wall of text after "Select all", rebuilt at every tick).
+ * them would make an unreadable wall of text after "Select all", rebuilt at every tick).
  */
 const deleteDescription = computed(() => {
-  // The titles named, quoted.
   const named = selectedTracks.value.slice(0, DELETE_NAMED).map(t => `“${t.title}”`).join(', ')
-  // How many are left unnamed.
   const rest = selectedTracks.value.length - DELETE_NAMED
   return `${named}${rest > 0 ? ` and ${pluralize(rest, 'other track')}` : ''} will be permanently deleted, with their files.`
 })
@@ -206,9 +195,8 @@ const allSelected = computed(() => filtered.value.length > 0 && selectedIds.valu
 
 /**
  * The "select all" checkbox's state: ticked, empty, or partly ticked (a dash)
- * when some tracks are. Nuxt UI 4's checkbox takes the partial state as its
- * value, 'indeterminate': it no longer has the `indeterminate` prop the page
- * passed, so with 2 of 24 tracks ticked the box stayed empty (UI-35).
+ * when some tracks are. Nuxt UI's checkbox takes the partial state as its
+ * value, 'indeterminate' (it has no `indeterminate` prop).
  */
 const selectAllState = computed<boolean | 'indeterminate'>(() => {
   if (allSelected.value) return true
@@ -232,11 +220,9 @@ function selectByLongPress(track: TrackSummary) {
   if (!selectedSet.value.has(track.id)) selectedIds.value = [...selectedIds.value, track.id]
 }
 
-// "Add to playlist" of the selection.
 const { addToPlaylistMenu } = usePlaylists()
 // The Versions page's list, which "Share for feedback" adds to.
 const versionGroups = usePlaylistList('versions')
-// Shares the group's link: the device's share sheet on touch screens, the clipboard elsewhere.
 const { shareLink } = useShareLink()
 
 /** "Add to playlist" menu of the selection: a new playlist, or an existing one. */
@@ -255,11 +241,9 @@ const sharing = useAsyncTask()
  * "Work in progress".
  */
 async function shareForFeedback() {
-  // The selected tracks, in library order.
   const chosen = selectedTracks.value
   if (!chosen.length) return
   await sharing.run(async () => {
-    // The new group, unlisted, with the selected tracks.
     const playlist = await playlistsApi.create({
       title: feedbackPlaylistTitle(chosen.map(t => t.title)),
       purpose: 'versions',
@@ -284,19 +268,17 @@ const bulkDeleting = ref(false)
  * they can be retried.
  */
 async function confirmBulkDelete() {
-  // The selected tracks, in library order.
   const chosen = selectedTracks.value
   bulkDeleting.value = true
   // Each deletion on its own: one failure does not stop the others.
   const results = await Promise.allSettled(chosen.map(t => tracksApi.remove(t.id)))
   // The ids that were deleted, as a set: the library and the queue are each filtered in one pass
-  // (looking each track up in a list cost millions of comparisons for a few thousand tracks).
+  // (looking each track up in a list would cost millions of comparisons for a few thousand tracks).
   const deleted = new Set(chosen.filter((_, i) => results[i]!.status === 'fulfilled').map(t => t.id))
   player.removeTracks(deleted)
   tracks.value = tracks.value.filter(t => !deleted.has(t.id))
   bulkDeleting.value = false
   bulkDeleteOpen.value = false
-  // How many could not be deleted.
   const failed = chosen.length - deleted.size
   if (deleted.size) toast.add({ title: deleted.size === 1 ? 'Track deleted' : `${pluralize(deleted.size, 'track')} deleted`, icon: 'i-lucide-trash-2' })
   if (failed) toast.add({ title: `${failed} not deleted`, description: 'They are still selected: try again', color: 'error' })
@@ -317,7 +299,6 @@ const deleteOpen = computed({
 
 /** Deletes the track, drops it from the player queue and from the list. */
 async function confirmDelete() {
-  // The track the confirmation dialog is about.
   const track = toDelete.value
   if (!track) return
   await deleting.run(async () => {
@@ -401,9 +382,10 @@ async function confirmDelete() {
     <template v-else>
       <!--
         Search, genre, subgenre, mastering and version filters, sort order. One row only from `xl`:
-        the filters have fixed widths, and below that the search box got what they left, down to
-        its icon alone (58px) at 640px. Below `xl` the search box has a row of its own, the filters
-        under it, three across from `md` (five did not fit their names at 768px), five from `lg`. On phones, where they took about a third of the screen, they move into the
+        the filters have fixed widths, and below that the search box would get what they leave,
+        down to its icon alone (58px) at 640px. Below `xl` the search box has a row of its own, the
+        filters under it, three across from `md` (five do not fit their names at 768px), five from
+        `lg`. On phones, where they would take about a third of the screen, they move into the
         Filters panel (below), opened by a button beside the search box.
       -->
       <div class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center">
@@ -492,10 +474,10 @@ async function confirmDelete() {
       <!--
         Selection bar: count, select all, and the actions on the ticked tracks. From `sm` it stays
         under the header while scrolling, the actions named beside their icons (short names up
-        to `lg`, see SELECTION_ACTION). On phones it is
-        fixed at the bottom of the screen (above the player bar), within reach of the thumb, each
-        action an icon over a short name: tooltips do not open on touch, and the bare icons left
-        "Mark final" and "Share for feedback" to be guessed.
+        to `lg`, see SELECTION_ACTION). On phones it is fixed at the bottom of the screen (above
+        the player bar), within reach of the thumb, each action an icon over a short name:
+        tooltips do not open on touch, and bare icons would leave "Mark final" and "Share for
+        feedback" to be guessed.
       -->
       <div
         v-if="selecting"
@@ -520,7 +502,7 @@ async function confirmDelete() {
           />
           <!--
             Never cut: it keeps its width (`shrink-0`, one line) and the actions give way, their
-            short names up to `lg` leaving it room. With `truncate` a tablet read "2 sel…" (UI-28).
+            short names up to `lg` leaving it room. With `truncate` a tablet would read "2 sel…".
           -->
           <span
             class="shrink-0 whitespace-nowrap text-sm"

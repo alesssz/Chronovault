@@ -23,7 +23,6 @@ async function expectTooltip(page: Page, target: Locator, text: string) {
 
 /** Opens a library row's menu and picks an item. */
 async function rowAction(page: Page, title: string, action: string) {
-  // The library row of that track.
   const row = page.getByTestId('track-row').filter({ hasText: title })
   await row.getByRole('button', { name: `Actions for ${title}` }).click()
   await page.getByRole('menuitem', { name: action, exact: true }).click()
@@ -32,9 +31,8 @@ async function rowAction(page: Page, title: string, action: string) {
 test.describe('editable queue', () => {
   test('add, play next, reorder, remove, play now and clear', async ({ page }) => {
     await signUp(page)
-    // Three tracks named uniquely for this test. Two minutes long: a track that ends mid-test moves
-    // the queue on by itself (with 3-second tracks a slow CI runner saw "a" end before Remove, so
-    // Up next lost "c" too), and nothing here waits for a track to end.
+    // Two minutes long: a track that ends mid-test moves the queue on by itself (on a slow runner
+    // a 3-second "a" can end before Remove), and nothing here waits for a track to end.
     const id = uniqueId()
     const [a, b, c] = [`qa-${id}`, `qb-${id}`, `qc-${id}`]
     for (const title of [a, b, c]) await uploadTrack(page, title, { seconds: 120 })
@@ -42,7 +40,6 @@ test.describe('editable queue', () => {
 
     // The library shows the newest first (c, b, a): playing "a" leaves nothing after it.
     await page.getByTestId('track-row').filter({ hasText: a }).getByTestId('track-title').click()
-    // The player bar.
     const bar = page.getByTestId('player-bar')
     await expect(bar.getByTestId('player-title')).toHaveText(a)
 
@@ -56,7 +53,6 @@ test.describe('editable queue', () => {
     // --- The Up next panel ---
     await bar.getByTestId('player-queue').click()
     await expect(page.getByTestId('queue-current')).toHaveText(a)
-    // The titles listed in Up next.
     const titles = page.getByTestId('queue-item-title')
     await expect(titles).toHaveText([b, c])
 
@@ -86,8 +82,8 @@ test.describe('editable queue', () => {
 
   test('shuffle reorders the upcoming tracks and puts them back; repeat one restarts the track', async ({ page }) => {
     await signUp(page)
-    // Five tracks named uniquely for this test. The default 3 seconds on purpose, unlike the test
-    // above: playback is paused at once, and "repeat one" below needs the track to reach its end.
+    // The default 3 seconds on purpose, unlike the test above: playback is paused at once, and
+    // "repeat one" below needs the track to reach its end.
     const id = uniqueId()
     const titles = ['a', 'b', 'c', 'd', 'e'].map(letter => `s${letter}-${id}`)
     for (const title of titles) await uploadTrack(page, title)
@@ -116,10 +112,8 @@ test.describe('editable queue', () => {
     /** The Up next titles, read from the panel (opened, then closed again). */
     const upNext = async () => {
       await bar.getByTestId('player-queue').click()
-      // The titles listed in Up next, and their text.
       const items = page.getByTestId('queue-item-title')
       await expect(items).toHaveCount(rest.length)
-      // Their text.
       const texts = await items.allTextContents()
       await page.keyboard.press('Escape')
       await expect(page.getByTestId('queue-list')).toBeHidden()
@@ -158,10 +152,9 @@ test.describe('editable queue', () => {
     await expect(toggle).toHaveAttribute('aria-label', 'Pause')
     await toggle.click()
 
-    // --- Tablet width: the bar keeps a real waveform (it used to shrink to nothing) ---
+    // --- Tablet width: the bar keeps a real waveform (not shrunk to nothing) ---
     await page.setViewportSize({ width: 820, height: 1180 })
     await expect(shuffleButton).toBeVisible()
-    // Where the waveform is on a tablet-sized screen.
     const waveform = await bar.getByTestId('player-waveform').boundingBox()
     expect(waveform?.width).toBeGreaterThan(120)
 
@@ -199,18 +192,16 @@ test.describe('editable queue', () => {
     await expect(repeatButton).toHaveAttribute('aria-label', 'Repeat: one')
 
     await bar.getByTestId('player-queue').click()
-    // The rows drawn, and the button that draws more.
     const rows = page.getByTestId('queue-item')
     const more = page.getByTestId('queue-show-more')
     await expect(rows).toHaveCount(100)
     // Upcoming tracks in all: the hundred drawn plus the ones the button announces.
     const announced = Number((await more.textContent())!.match(/\((\d+) more/)![1])
     const total = 100 + announced
-    // The heading counts them all, not the rows drawn (it said "Next up · 100").
+    // The heading counts them all, not the rows drawn.
     await expect(page.getByRole('heading', { name: `Next up · ${total}` })).toBeVisible()
 
     // The last row drawn moves down, past what is drawn: the next track takes its place.
-    // The titles drawn, and the hundredth one, the last row before Show more.
     const titles = page.getByTestId('queue-item-title')
     const hundredth = (await titles.nth(99).textContent())!.trim()
     await page.getByRole('button', { name: `Queue actions for ${hundredth}` }).click()

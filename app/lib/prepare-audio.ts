@@ -8,9 +8,9 @@ import { formatBytes } from '~~/shared/utils/time'
  * upload (useTrackUploader) and a track's Replace audio (useAudioReplace)
  * both do before sending anything.
  *   1. analysis: tags, cover, duration and waveform peaks (audio-analysis.ts);
- *   2. WAV only: lossless conversion to FLAC, verified bit for bit
- *      (docs/07-data-flows.md 7.4); when it cannot be verified, or FLAC
- *      cannot hold the file exactly, the original WAV is kept.
+ *   2. WAV only: lossless conversion to FLAC, verified bit for bit; when it
+ *      cannot be verified, or FLAC cannot hold the file exactly, the
+ *      original WAV is kept.
  * A replace uses only what is measured from the file (format, size,
  * duration, peaks): its tags are the upload's, the track keeps its own.
  */
@@ -26,7 +26,6 @@ export type UploadConversion
  */
 export function conversionLabel(conversion: UploadConversion): string {
   if (conversion.kind === 'kept') return `Kept as WAV: ${conversion.reason}`
-  // Space saved, as a whole percentage.
   const saved = Math.round((1 - conversion.flacBytes / conversion.originalBytes) * 100)
   return `FLAC · lossless, verified bit for bit · ${formatBytes(conversion.originalBytes)} → ${formatBytes(conversion.flacBytes)} (−${saved}%)`
 }
@@ -58,13 +57,11 @@ export interface PrepareAudioHooks {
  * that cannot be done exactly). Throws only for formats the app does not take.
  */
 export async function prepareAudio(file: File, hooks: PrepareAudioHooks = {}): Promise<PreparedAudio> {
-  // Tags, cover, duration and waveform, read in the browser.
   const analysis = await analyzeAudioFile(file)
   hooks.onAnalyzed?.(analysis)
   if (!isWavFile(file)) return { file, mimeType: analysis.mimeType, analysis, conversion: null }
 
   hooks.onConverting?.()
-  // The verified FLAC, or the reason the WAV is kept.
   const result = await convertWavToFlac(file, fraction => hooks.onConversionProgress?.(fraction))
   if (result.status === 'converted') {
     return {

@@ -87,9 +87,9 @@ const TAG_START = /<([a-z][^\s/>]*)/iy
  * carries user text: a share page's title and description go into its link
  * preview tags (`<meta property="og:title" content="…">`), where unhead
  * escapes the `"` but leaves `<` as it is. A plain search for `<script`
- * found one in a title like `x<script a><script>…</script>`, and the `"` of
- * the nonce it wrote there closed the attribute: the text became a real
- * script, carrying the page's own nonce, which the policy then let run. So
+ * would find one in a title like `x<script a><script>…</script>`, and the `"`
+ * of the nonce written there would close the attribute: the text would become
+ * a real script carrying the page's own nonce, which the policy lets run. So
  * the chunks are read tag by tag, the way a browser does: attribute values,
  * comments and the contents of scripts and styles are copied as they are.
  */
@@ -101,9 +101,7 @@ export function addNonce(chunks: string[], nonce: string): string[] {
 function nonceScripts(html: string, nonce: string): string {
   // The chunk in lower case, to find closing tags whatever their case.
   const lower = html.toLowerCase()
-  // The chunk rewritten so far.
   let out = ''
-  // Where reading resumes.
   let i = 0
   while (i < html.length) {
     // The next `<`: everything before it is text, copied as is.
@@ -148,7 +146,6 @@ function nonceScripts(html: string, nonce: string): string {
 
 /** Just past the next `marker` from `from`, or the end of `html` when there is none. */
 function endOf(html: string, marker: string, from: number): number {
-  // Where the marker starts.
   const at = html.indexOf(marker, from)
   return at === -1 ? html.length : at + marker.length
 }
@@ -163,7 +160,6 @@ function tagEnd(html: string, from: number): number {
   // The last character that is not a space (an `=` there means a value starts).
   let previous = ''
   for (let i = from; i < html.length; i++) {
-    // The character read.
     const c = html[i]!
     if (c === '>') return i + 1
     if ((c === '"' || c === '\'') && previous === '=') {

@@ -13,10 +13,8 @@ import { seedLibrary, signUp } from './helpers'
 /** The user's tracks by title, and a new playlist holding the first of `titles` (through the API). */
 async function playlistOf(page: Page, titles: string[]) {
   return page.evaluate(async (titles) => {
-    // The tracks seeded for the test, by title.
     const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
     const ids = Object.fromEntries(tracks.map(t => [t.title, t.id]))
-    // A playlist holding the first track only.
     const response = await fetch('/api/playlists', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -29,7 +27,6 @@ async function playlistOf(page: Page, titles: string[]) {
 /** The playlist's track titles, in order, as the server has them. */
 async function savedTitles(page: Page, playlist: string): Promise<string[]> {
   return page.evaluate(async (id) => {
-    // The playlist as stored.
     const detail = await (await fetch(`/api/playlists/${id}`)).json() as { tracks: { title: string }[] }
     return detail.tracks.map(t => t.title)
   }, playlist)
@@ -44,7 +41,6 @@ test.describe('overlapping playlist writes', () => {
 
     // Both appends, sent together.
     const appends = await page.evaluate(async ({ playlist, add }) => {
-      // POST /api/playlists/:id/tracks with one track.
       const post = (trackId: string) => fetch(`/api/playlists/${playlist}/tracks`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -107,7 +103,6 @@ test.describe('overlapping playlist writes', () => {
     // 001 down (002, 001, 003), then at once 003 up (002, 003, 001), while the first save waits.
     await rowAction('Track 001', 'Move down')
     await rowAction('Track 003', 'Move up')
-    // The page's titles, as shown.
     const shown = page.getByTestId('playlist-track-title')
     await expect(shown).toContainText(['Track 002', 'Track 003', 'Track 001'])
 
@@ -122,14 +117,11 @@ test.describe('overlapping playlist writes', () => {
   test('a track that is not the user\'s is "not found" (404), and the list stays as it was', async ({ page }) => {
     await signUp(page)
     await seedLibrary(page, 1)
-    // A playlist holding the user's only track.
     const { playlist } = await playlistOf(page, ['Track 001'])
 
     // A made-up track id, appended and as part of a new order.
     const statuses = await page.evaluate(async (playlist) => {
-      // An id no track has.
       const missing = crypto.randomUUID()
-      /** Sends the track ids with `method` and answers the status. */
       const send = (method: string, trackIds: string[]) => fetch(`/api/playlists/${playlist}/tracks`, {
         method,
         headers: { 'content-type': 'application/json' },

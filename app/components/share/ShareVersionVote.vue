@@ -7,16 +7,15 @@ import { MAX_VOTE_COMMENT, MAX_VOTER_NAME } from '~~/shared/schemas/feedback'
  * The vote panel of a group's public page (/p/:id), under the list of
  * versions. The pick itself is made with the heart next to each version, and
  * how to vote is said under the page's title (`showVoteHint` there: here,
- * under the list, it was at the bottom edge of a desktop screen); this panel
- * says what happened:
+ * under the list, it would sit at the bottom edge of a desktop screen); this
+ * panel says what happened:
  *
  * - the group's owner: a note pointing to the Versions page (owners don't vote);
  * - voting closed: which version was chosen;
  * - no pick yet: nothing;
  * - a pick: which one, marked saved (it is stored as soon as the heart is
- *   chosen), and an optional name and comment for the owner, with their own
- *   "Save note". A bare "Your pick" above a disabled "Save" read as a pick
- *   still to be sent (UI-30).
+ *   chosen: a bare "Your pick" would read as still to be sent), and an
+ *   optional name and comment for the owner, with their own "Save note".
  *
  * Nothing shows until the vote state has loaded (it is per browser, so
  * after the server-rendered page).
@@ -30,7 +29,6 @@ const props = defineProps<{
   busy: boolean
 }>()
 
-// What the panel asks the page to do: save the note typed for the current pick.
 const emit = defineEmits<{
   /** Save the name and comment with the current pick. */
   save: [name: string, comment: string]

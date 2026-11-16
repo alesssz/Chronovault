@@ -9,9 +9,7 @@ import { createPlaylist } from '../../services/playlists.service'
  * the playlist is then not kept either, so nothing is created.
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
-  // The request body, validated against the schema (400 otherwise).
   const input = await readValidated(event, playlistCreateSchema)
   setResponseStatus(event, 201)
   return createPlaylist(db, userId, input)

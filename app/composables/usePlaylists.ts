@@ -10,7 +10,6 @@ import { getErrorMessage } from '~/utils/errors'
  * update the same 'playlist' list; the Versions pages the 'versions' one.
  */
 export function usePlaylistList(purpose: PlaylistPurpose) {
-  // One cache entry per purpose: every caller of the same purpose shares it.
   const { data, refresh, status } = useAsyncData(`playlists-${purpose}`, () => playlistsApi.list(purpose), {
     default: () => [] as PlaylistSummary[],
   })
@@ -41,7 +40,6 @@ export function usePlaylistList(purpose: PlaylistPurpose) {
  * "New playlist" dialog and "Add to playlist".
  */
 export function usePlaylists() {
-  // "Added to …" feedback.
   const toast = useToast()
   const { items: data, refresh, status, remember, forget } = usePlaylistList('playlist')
 
@@ -55,7 +53,6 @@ export function usePlaylists() {
 
   /** Creates a playlist (optionally with tracks) and adds it to the cached list. */
   async function createPlaylist(title: string, trackIds: string[] = []): Promise<PlaylistDetail> {
-    // The new playlist, as the server stored it.
     const created = await playlistsApi.create({ title, trackIds })
     remember(created)
     return created

@@ -19,21 +19,17 @@ test.describe('download with tags', () => {
     // A WAV: stored as a verified FLAC.
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
-    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page).toHaveURL(/\/tracks\/.+\/edit/)
-    // The track's id, from the edit page's address.
     const trackId = page.url().split('/tracks/')[1]!.split('/')[0]!
 
     // Metadata through the API (faster than filling the form), genre and subgenre by name.
     await page.evaluate(async (id) => {
-      // The genres with their subgenres, to pick them by name.
       const genres = await (await fetch('/api/genres')).json() as { id: string, name: string, subgenres: { id: string, name: string }[] }[]
       // Electronic › Ambient: the file's genre tag is the most specific name.
       const electronic = genres.find(g => g.name === 'Electronic')!
-      // The metadata saved through the API.
       const response = await fetch(`/api/tracks/${id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -59,22 +55,18 @@ test.describe('download with tags', () => {
     // --- Download (fast: no progress toast may flash before the final one) ---
     // Records whether "Preparing download…" ever appears, even for an instant.
     await page.evaluate(() => {
-      // Where the observer records it.
       const w = window as unknown as { progressToastSeen: boolean }
       w.progressToastSeen = false
       new MutationObserver(() => {
         if (document.body.textContent?.includes('Preparing download')) w.progressToastSeen = true
       }).observe(document.body, { childList: true, subtree: true, characterData: true })
     })
-    // The clock stops for the download: "Preparing download…" waits 700 ms of the page's time, and
-    // a slow runner could take that long for a download that is fast for any user, failing the
-    // test for nothing. Stopped, only a download that never ends could show it. (pauseAt jumps to a
-    // moment ahead, then stops: a second on, before the click, when no download timer exists yet.)
+    // The clock stops for the download: "Preparing download…" waits 700 ms of page time, which a
+    // slow runner could spend on a download that is fast for any user. (pauseAt jumps a second
+    // ahead, before the click, when no download timer exists yet, then stops.)
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1_000))
-    // The next download, started by the button below.
     const downloadEvent = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
-    // The file saved.
     const download = await downloadEvent
     // A second past the 700 ms: a progress timer left running (not cleared when the download ended)
     // would show "Preparing download…" now, and the observer above would see it. Then the clock
@@ -86,12 +78,10 @@ test.describe('download with tags', () => {
     // The toast lists exactly what went into the file.
     await expect(page.getByText('Written in: title, artist, album, year, genre, comment, lyrics, cover.').first()).toBeVisible()
 
-    // Its bytes.
     const file = await readFile((await download.path())!)
     expect(file.subarray(0, 4).toString('latin1')).toBe('fLaC')
     // The tags written in keep the SEEKTABLE right after STREAMINFO (block type 3).
     expect(file[42]! & 0x7f).toBe(3)
-    // Its tags and format, read back by music-metadata.
     const { common, format } = await parseBuffer(file, { mimeType: 'audio/flac' })
     expect(format.container).toBe('FLAC')
     expect(common.title).toBe(title)
@@ -113,10 +103,8 @@ test.describe('download with tags', () => {
       await new Promise(resolve => setTimeout(resolve, 1500))
       await route.continue()
     })
-    // The next download (slowed down by the route above).
     const slowDownload = page.waitForEvent('download')
     await page.getByTestId('download-track').click()
-    // The progress toast.
     const progress = page.locator('li', { hasText: 'Preparing download…' })
     await expect(progress).toBeVisible()
     await slowDownload

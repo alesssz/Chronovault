@@ -193,7 +193,6 @@ export function toTrackInsert(userId: string, input: TrackCreate): TablesInsert<
  * is a compile error.
  */
 export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
-  // Field → column; typed so a new schema field without a column fails to compile.
   const map: Record<keyof TrackUpdate, keyof TablesUpdate<'tracks'>> = {
     title: 'title',
     composers: 'composers',
@@ -211,7 +210,6 @@ export function toTrackUpdate(input: TrackUpdate): TablesUpdate<'tracks'> {
     syncNeedsReview: 'sync_needs_review',
     coverPath: 'cover_path',
   }
-  // Only fields actually sent (not undefined) are copied.
   const patch: Record<string, unknown> = {}
   for (const [key, column] of Object.entries(map) as [keyof TrackUpdate, string][]) {
     if (input[key] !== undefined) patch[column] = input[key]

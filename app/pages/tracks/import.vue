@@ -36,7 +36,6 @@ import { METADATA_FILE_ACCEPT, readMetadataFile, templateCsv, templateJson, temp
 import { saveFile } from '~/lib/save-file'
 import { tracksApi } from '~/services/api'
 
-// Browser tab title: "Metadata · Chronovault".
 usePageTitle('Metadata')
 
 const toast = useToast()
@@ -60,9 +59,8 @@ const building = ref<MetadataFormat | null>(null)
 async function downloadTemplate(format: MetadataFormat) {
   building.value = format
   try {
-    // Every track's fields as text, the genre and subgenre by name.
     const rows = templateRows(library.value, genreName, subgenreName)
-    // The file in the format asked for (the Excel one also lists the genres and subgenres on its Help sheet).
+    // The Excel file also lists the genres and subgenres on its Help sheet.
     const blob = format === 'xlsx' ? await templateXlsx(rows, genres.value) : format === 'csv' ? templateCsv(rows) : templateJson(rows)
     saveFile(blob, `chronovault-metadata.${format}`)
   }
@@ -141,7 +139,6 @@ function newSubgenreKey(subgenre: NewSubgenre): string {
  * genre without a subgenre: the server clears the old one.
  */
 function updateBody(update: ImportUpdate, created: Map<string, string>): TrackUpdateInput {
-  // The other fields as they are; the genre and subgenre added below when they change.
   const body: TrackUpdateInput = { ...update.fields }
   if (update.genreId) body.genreId = update.genreId
   if (update.subgenre) body.subgenreId = 'id' in update.subgenre ? update.subgenre.id : created.get(newSubgenreKey(update.subgenre))!
@@ -156,12 +153,10 @@ async function apply() {
   saved.value = 0
   const failed: { title: string, error: string }[] = []
   try {
-    // The new subgenres' ids by key, created first.
     const created = new Map<string, string>()
     for (const subgenre of p.newSubgenres) {
       created.set(newSubgenreKey(subgenre), (await createSubgenre(subgenre.genreId, subgenre.name)).id)
     }
-    // The tracks, a few at a time.
     const queue = [...p.updates]
     const worker = async () => {
       for (let update = queue.shift(); update; update = queue.shift()) {
@@ -424,7 +419,7 @@ async function apply() {
                   {{ change.column }}
                 </dt>
                 <dd class="min-w-0 break-words">
-                  <!-- Nothing before: "empty", not struck through (it read as a value being removed) -->
+                  <!-- Nothing before: "empty", not struck through (it would read as a value being removed) -->
                   <span
                     v-if="change.from"
                     class="text-dimmed line-through"

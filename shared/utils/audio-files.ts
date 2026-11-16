@@ -71,7 +71,6 @@ export function plausibleDuration(seconds: number | null | undefined): number | 
 
 /** Lower-cased extension without the dot (`'Song.FLAC'` → `'flac'`), or `''` when there is none. */
 export function getExtension(fileName: string): string {
-  // Position of the last dot (-1: no extension).
   const dot = fileName.lastIndexOf('.')
   return dot === -1 ? '' : fileName.slice(dot + 1).toLowerCase()
 }
@@ -93,7 +92,6 @@ export function resolveAudioMimeType(file: { name: string, type: string }): stri
  * then reject it, since `bin` is not an accepted extension).
  */
 export function storageExtension(file: { name: string, type: string }): string {
-  // The file's own extension, lower-cased.
   const ext = getExtension(file.name)
   if (ext in AUDIO_EXTENSIONS) return ext
   // Its audio type (from the browser, or from the extension).
@@ -109,7 +107,6 @@ export function storageExtension(file: { name: string, type: string }): string {
  * `'my_new__song.wav'` → `'my new song'`; an empty result becomes `'Untitled'`.
  */
 export function titleFromFileName(fileName: string): string {
-  // Position of the last dot: everything after it is the extension.
   const dot = fileName.lastIndexOf('.')
   // `dot > 0`: a name such as `.wav` (dot first) is kept whole instead of becoming empty.
   const base = dot > 0 ? fileName.slice(0, dot) : fileName

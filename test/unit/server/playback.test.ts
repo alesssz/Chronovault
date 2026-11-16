@@ -28,12 +28,10 @@ describe('playbackSource', () => {
   it('hands out the streaming address for SIGNED_URL_TTL and reports when it expires', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-22T10:00:00Z'))
-    // The storage's signer, answering a fixed address.
     const streamUrl = vi.fn(async () => '/api/stream?k=user%2Ftrack.flac&e=1&s=sig')
     // A storage client that only signs streaming addresses.
     const audio = { streamUrl } as unknown as AudioStorage
 
-    // The source handed to the player.
     const source = await playbackSource(audio, 'user/track.flac')
 
     expect(streamUrl).toHaveBeenCalledWith('user/track.flac', storageRepo.SIGNED_URL_TTL)

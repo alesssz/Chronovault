@@ -53,7 +53,6 @@ describe('tallyFeedback', () => {
   const drafts = [{ id: V1, status: 'draft' as const }, { id: V2, status: 'draft' as const }]
 
   it('counts votes and plays per version, in the group\'s order', () => {
-    // The feedback of three plays and three votes.
     const feedback = tallyFeedback(
       drafts,
       [play(V1, 'l1', true), play(V1, 'l2'), play(V2, 'l1')],
@@ -70,7 +69,6 @@ describe('tallyFeedback', () => {
   })
 
   it('leaves out votes and plays of versions no longer in the group', () => {
-    // Feedback with only a play and a vote for a track outside the group.
     const feedback = tallyFeedback(drafts, [play(OTHER, 'l9')], [vote(OTHER)], LONG_AGO)
     expect(feedback.votes).toBe(0)
     expect(feedback.unseen).toBe(0)
@@ -83,7 +81,6 @@ describe('tallyFeedback', () => {
   })
 
   it('lists the picks that came with a name or a comment, newest first', () => {
-    // Three votes, two of them with words.
     const feedback = tallyFeedback(drafts, [], [
       vote(V1, { name: 'Ada', updated_at: '2026-10-20T10:00:00Z' }),
       vote(V2),
@@ -120,7 +117,6 @@ describe('countUnseen', () => {
   const seen = [{ playlist_id: GROUP, seen_at: '2026-10-21T00:00:00+00:00' }]
 
   it('counts the votes after each group\'s last visit, or after its creation when never visited', () => {
-    // Unseen counts of four votes, before and after each reference instant.
     const unseen = countUnseen(groups, [
       { playlist_id: GROUP, track_id: V1, updated_at: '2026-10-20T09:00:00Z' },
       { playlist_id: GROUP, track_id: V2, updated_at: '2026-10-22T09:00:00Z' },
@@ -131,7 +127,6 @@ describe('countUnseen', () => {
   })
 
   it('ignores votes for versions no longer in the group, and leaves quiet groups out', () => {
-    // Unseen counts of a vote for a track that left the group.
     const unseen = countUnseen(groups, [
       { playlist_id: GROUP, track_id: OTHER, updated_at: '2026-10-22T09:00:00Z' },
     ], seen)
@@ -140,7 +135,6 @@ describe('countUnseen', () => {
 })
 
 describe('markFeedbackSeen', () => {
-  // "Now" for these tests: Oct 24, 12:00 UTC.
   const NOW = Date.parse('2026-10-24T12:00:00Z')
 
   it('records the visit up to the copy the owner saw', async () => {
@@ -190,7 +184,6 @@ describe('vote state', () => {
 
   it('returns the new state after a vote', async () => {
     vi.mocked(feedbackRepo.findVoteState).mockResolvedValue({ open: true, is_owner: false, track_id: V2, name: null, comment: null })
-    // The state after the vote, read back.
     const state = await castVote(db, GROUP, { voterId: VOTER, trackId: V2, name: null, comment: null })
     expect(feedbackRepo.castVote).toHaveBeenCalledWith(db, GROUP, { voterId: VOTER, trackId: V2, name: null, comment: null })
     expect(state.pick?.trackId).toBe(V2)
@@ -219,7 +212,6 @@ describe('getVersionFeedback', () => {
     vi.mocked(feedbackRepo.listVoteRows).mockResolvedValue([vote(V1)])
     // Never visited: the group's creation is the reference, so the vote is new.
     vi.mocked(feedbackRepo.findSeenAt).mockResolvedValue(null)
-    // The feedback of that group.
     const feedback = await getVersionFeedback(db, USER, GROUP)
     expect(feedback.unseen).toBe(1)
     expect(feedbackRepo.listPlaylistPlayRows).toHaveBeenCalledWith(db, USER, GROUP)

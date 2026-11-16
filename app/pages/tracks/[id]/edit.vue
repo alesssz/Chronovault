@@ -5,16 +5,17 @@
  *   Lyrics  → plain lyrics with [Section] headers
  *   Sync    → tap-to-sync editor and detailed waveform (LyricsSyncEditor); after
  *             a Replace audio, a warning that the times may be off, until
- *             "Sync checked" (docs/07-data-flows.md 7.19)
+ *             "Sync checked"
  * Cover and deletion live in the side column (the cover above
  * TrackEditSidebar) and save immediately; the form saves everything else
  * with "Save" and warns about unsaved changes, the Status switches too
  * (mastered, draft/final), which sit in the left column under the cover.
  *
  * Below `lg` (1024px) the page is one column: the cover as a compact row at
- * the top, then the form, then status, file details, sharing and deletion (on
- * phones the side column first put about two screens of it before the Title
- * field; on tablets, beside the form, it left the form about 400px). Below
+ * the top, then the form, then status, file details, sharing and deletion
+ * (placed first, the side column would put about two screens before the Title
+ * field on phones; beside the form, it would leave the form about 400px on
+ * tablets). Below
  * `md` a Save bar at the bottom of the screen (SaveBar) also shows while there
  * are unsaved changes, the header's Save being out of reach once the form is
  * scrolled; from `md` the header keeps Save, as the one-column tablet layout
@@ -26,17 +27,14 @@ import { buildCoverPath } from '~~/shared/utils/storage-paths'
 import { trackMetadataSchema, type TrackMetadata, type TrackMetadataInput } from '~~/shared/schemas/track'
 import { tracksApi } from '~/services/api'
 
-// The track id comes from the route.
 const route = useRoute()
 /** Track id from the URL (/tracks/:id/edit). */
 const id = route.params.id as string
 
 // Edits are pushed to the player, and the Play button toggles this track.
 const player = usePlayerStore()
-// Success and failure messages.
 const toast = useToast()
 
-// The track (an error when missing or someone else's).
 const { data: track, error } = await useAsyncData(`track-${id}`, () => tracksApi.get(id))
 
 // Missing or someone else's track: the error page (404).
@@ -44,7 +42,6 @@ if (error.value || !track.value) {
   throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Track not found', fatal: true })
 }
 
-// Browser tab title, following the track's title: "Night drive · Edit · Chronovault".
 usePageTitle(() => `${track.value?.title ?? 'Track'} · Edit`)
 
 // --- Form state ------------------------------------------------------------------
@@ -135,7 +132,6 @@ const cover = useCoverEditor({
 async function save(values: TrackMetadata): Promise<boolean> {
   // The form as sent: what is changed while the request is on its way stays (see useEditForm).
   const sent = form.snapshot()
-  // False when it failed (the task showed the error).
   const saved = await saving.run(async () => {
     const updated = await tracksApi.update(id, values)
     applyServerTrack(updated)
@@ -216,8 +212,8 @@ const isCurrent = computed(() => player.current?.id === id)
       Header: back, title, Play/Pause, Download, Save. On phones Play and Download are icons only
       (their text shows from `sm`, and `aria-label` names them for screen readers meanwhile),
       so the title keeps most of the row instead of shrinking to a few letters. Save shows from
-      `md`, grey and disabled until something changed, then gold (a disabled gold button looked
-      the same as an active one); below `md` the Save bar (SaveBar) comes up whenever there is
+      `md`, grey and disabled until something changed, then gold (a disabled gold button would
+      look the same as an active one); below `md` the Save bar (SaveBar) comes up whenever there is
       something to save.
     -->
     <div class="mb-6 flex flex-wrap items-center gap-2">
@@ -269,8 +265,8 @@ const isCurrent = computed(() => player.current?.id === id)
       From `lg`, two columns: cover, then status and side column on the left, the form on the
       right across both rows (the first row as tall as the cover, the second taking the rest).
       Below `lg`, in the order written: cover (a small row, the buttons beside it), form, status
-      and side column. Not from `md`: on a tablet (820px) the 16rem column left the form about
-      400px, and the Sync tab's lines were cut (UI-27).
+      and side column. Not from `md`: on a tablet (820px) the 16rem column would leave the form
+      about 400px and cut the Sync tab's lines.
     -->
     <div class="grid gap-8 lg:grid-cols-[16rem_1fr] lg:grid-rows-[auto_1fr] lg:gap-y-6">
       <!-- Cover (saved at once) -->
@@ -304,10 +300,9 @@ const isCurrent = computed(() => player.current?.id === id)
             Details tab. A grid of six columns from `sm`, so each row is full: title and composers
             across it, album and year in halves, genre and subgenre in halves, then description,
             Suno prompt and visibility across it. Below `sm` two columns: album and year share a
-            row (a row each made the phone's form a screen longer), the rest across it (a
-            subgenre's name needs the width). (Mastering and version,
-            the track's state, are in the left column: as switches on a row of their own they left
-            it looking empty.)
+            row (a row each would make the phone's form a screen longer), the rest across it (a
+            subgenre's name needs the width). (Mastering and version, the track's state, are in
+            the left column: as switches on a row of their own they would leave it looking empty.)
           -->
           <template #details>
             <div class="grid grid-cols-2 gap-4 pt-4 sm:grid-cols-6">
@@ -353,8 +348,8 @@ const isCurrent = computed(() => player.current?.id === id)
                 class="min-w-0 sm:col-span-3"
               >
                 <!--
-                  No − / + buttons: a year is typed, not stepped to, and they took a third of the
-                  field (the arrow keys still step it). Text at the start, like the fields beside it.
+                  No − / + buttons: a year is typed, not stepped to, and they would take a third of
+                  the field (the arrow keys still step it). Text at the start, like the fields beside it.
                 -->
                 <UInputNumber
                   v-model="year"
@@ -372,7 +367,7 @@ const isCurrent = computed(() => player.current?.id === id)
               <!--
                 Genre: one of the fixed list. Subgenre: one of that genre's, built-in or the user's
                 own, or a new one typed in (the menu's search box says so, rather than a help line
-                that made the row taller); disabled until a genre is chosen. A new genre clears the
+                that would make the row taller); disabled until a genre is chosen. A new genre clears the
                 subgenre (setGenre): the old one belongs to the old genre.
               -->
               <UFormField
@@ -399,8 +394,8 @@ const isCurrent = computed(() => player.current?.id === id)
 
               <!--
                 Description: shown on the share page and in the full-screen player. It and the Suno
-                prompt start at four rows and grow with the text (at eight, empty, the two pushed
-                Visibility below the first screen).
+                prompt start at four rows and grow with the text (at eight, empty, the two would
+                push Visibility below the first screen).
               -->
               <UFormField
                 label="Description"
@@ -420,9 +415,9 @@ const isCurrent = computed(() => player.current?.id === id)
 
               <!--
                 Suno prompt: a private note, never shared. What it is for says its placeholder, as
-                the description's does (a help line under it was the form's only one). Same font as
-                the description: it used to be monospace, which only made the comma-separated tags
-                wrap sooner (monospace stays where columns must line up, as in the LRC dialog).
+                the description's does (a help line under it would be the form's only one). Same
+                font as the description: monospace would only make the comma-separated tags wrap
+                sooner (it stays where columns must line up, as in the LRC dialog).
               -->
               <UFormField
                 label="Suno prompt"
@@ -519,7 +514,7 @@ const isCurrent = computed(() => player.current?.id === id)
           Status: mastered or not, draft or final. Part of the form's state (Save saves them, an
           edit turns it gold) though outside its element: the switches are buttons, not inputs,
           so nothing of theirs is submitted by the browser. Here, beside the file's data, as the
-          track's state; in the Details grid they sat on a row of their own that looked empty.
+          track's state; in the Details grid they would sit on a row of their own that looks empty.
         -->
         <section
           class="space-y-3"
@@ -540,7 +535,7 @@ const isCurrent = computed(() => player.current?.id === id)
           <!--
             Draft (work in progress, e.g. one of several versions) or the final one. Fixed labels,
             named by what "on" means: the switch shows the state, and a label that changed with it
-            ("Not mastered") read as the switch's name.
+            ("Not mastered") would read as the switch's name.
           -->
           <USwitch
             :model-value="state.status === 'final'"

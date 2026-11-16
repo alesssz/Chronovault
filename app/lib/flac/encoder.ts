@@ -57,7 +57,6 @@ export async function encodeWavToFlac(
   const reason = flacIncompatibility(info)
   if (reason) throw new FlacVerificationError(reason)
 
-  // Samples are read straight from the WAV bytes through this view.
   const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength)
   const { channels, sampleRate, bitsPerSample, blockAlign, dataOffset, dataLength, frames } = info
   const bytesPerSample = bitsPerSample / 8
@@ -66,7 +65,6 @@ export async function encodeWavToFlac(
   const sourceMd5 = await md5OfWavAudio(wav.subarray(dataOffset, dataOffset + dataLength), bitsPerSample)
 
   // --- 1. Encode (with libFLAC verify mode) ------------------------------------------
-  // The encoded bytes, chunk by chunk as libFLAC writes them.
   const output: Uint8Array[] = []
   // MD5 libFLAC writes in STREAMINFO, compared with our own MD5 (check 2).
   let streamMd5: string | null = null
@@ -76,7 +74,6 @@ export async function encodeWavToFlac(
   if (!encoder) throw new FlacVerificationError('Could not create the FLAC encoder')
 
   try {
-    // Hands libFLAC our callbacks; anything but STATUS_OK is an error.
     const status = Flac.init_encoder_stream(
       encoder,
       // Write callback: libFLAC reuses its buffer, so copy every chunk.
@@ -93,9 +90,7 @@ export async function encodeWavToFlac(
     // Interleaved samples (L R L R…), read straight from the WAV bytes: no decoding, no resampling.
     const chunk = new Int32Array(CHUNK_FRAMES * channels)
     for (let frame = 0; frame < frames; frame += CHUNK_FRAMES) {
-      // Sample frames in this chunk (the last one may be shorter).
       const count = Math.min(CHUNK_FRAMES, frames - frame)
-      // Byte offset of the first sample of this chunk in the WAV.
       let byte = dataOffset + frame * blockAlign
       for (let i = 0; i < count * channels; i++, byte += bytesPerSample) {
         chunk[i] = readWavSample(view, byte, bitsPerSample)
@@ -145,15 +140,12 @@ function verifyByDecoding(
   info: WavInfo,
   onProgress: (fraction: number) => void,
 ): void {
-  // The WAV layout the decoded samples are compared against.
   const { bitsPerSample, blockAlign, dataOffset, frames } = info
   const bytesPerSample = bitsPerSample / 8
   // libflacjs hands decoded samples as little-endian int16 (≤ 16 bit) or int32 (24 bit).
   const decodedBytes = bitsPerSample <= 16 ? 2 : 4
 
-  // How much of the FLAC the decoder has consumed.
   let readOffset = 0
-  // Sample frames decoded and compared so far.
   let decodedFrames = 0
   // First mismatch or decoder error; set inside callbacks, thrown after decoding.
   let failure: string | null = null
@@ -164,14 +156,11 @@ function verifyByDecoding(
 
   try {
     Flac.FLAC__stream_decoder_set_md5_checking(decoder, true)
-    // Hands libFLAC our read, write and error callbacks; anything but STATUS_OK is an error.
     const status = Flac.init_decoder_stream(
       decoder,
       // Read callback: feed the in-memory FLAC to the decoder piece by piece.
       (numberOfBytes) => {
-        // One past the last byte this read hands over (never beyond the file).
         const end = Math.min(readOffset + numberOfBytes, flac.byteLength)
-        // The bytes handed to the decoder (a view: no copy).
         const buffer = flac.subarray(readOffset, end)
         readOffset = end
         return { buffer, readDataLength: buffer.byteLength, error: false }
@@ -179,21 +168,16 @@ function verifyByDecoding(
       // Write callback: one decoded block, one array per channel. Returning false aborts decoding.
       (channelData, frameInfo) => {
         if (failure) return false
-        // Sample frames in this decoded block.
         const blockSize = frameInfo.blocksize
         if (decodedFrames + blockSize > frames || channelData.length !== info.channels) {
           failure = 'Decoded stream does not match the WAV layout'
           return false
         }
         for (let ch = 0; ch < channelData.length; ch++) {
-          // This channel's decoded samples, as raw bytes.
           const data = channelData[ch]!
-          // The decoded samples of one channel, as little-endian integers.
           const decoded = new DataView(data.buffer, data.byteOffset, data.byteLength)
           for (let i = 0; i < blockSize; i++) {
-            // The decoded sample.
             const value = decodedBytes === 2 ? decoded.getInt16(i * 2, true) : decoded.getInt32(i * 4, true)
-            // The same sample in the WAV.
             const expected = readWavSample(source, dataOffset + (decodedFrames + i) * blockAlign + ch * bytesPerSample, bitsPerSample)
             if (value !== expected) {
               failure = `Sample mismatch at frame ${decodedFrames + i}, channel ${ch}`
@@ -233,7 +217,6 @@ function verifyByDecoding(
  * file bytes; 8-bit WAV is unsigned, so its bytes are shifted by 128 first.
  */
 async function md5OfWavAudio(audio: Uint8Array, bitsPerSample: number): Promise<string> {
-  // An incremental MD5 (hash-wasm, WebAssembly).
   const md5 = await createMD5()
   md5.init()
   // Hash in 4 MB blocks: no extra copy of the whole file (except the 8-bit sign shift).

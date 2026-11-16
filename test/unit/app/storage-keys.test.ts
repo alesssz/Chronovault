@@ -8,11 +8,9 @@ import { LEGACY_PREFIX, migrateLegacyKeys, STORAGE_KEYS } from '~/lib/storage-ke
 
 /** An in-memory Storage, with the indexes migrateLegacyKeys walks (`length`, `key`). */
 function memoryStorage(initial: Record<string, string> = {}): Storage & { items: Map<string, string> } {
-  // The stored values, by key.
   const items = new Map(Object.entries(initial))
   return {
     items,
-    // How many keys are stored.
     get length() {
       return items.size
     },
@@ -26,7 +24,6 @@ function memoryStorage(initial: Record<string, string> = {}): Storage & { items:
 
 describe('migrateLegacyKeys', () => {
   it('moves every old key to its new name and removes the old one', () => {
-    // A browser with three keys saved under the old names.
     const storage = memoryStorage({
       'chronoplayer:volume': '0.4',
       'chronoplayer:listener-id': 'a1b2c3d4-0000-4000-8000-000000000000',

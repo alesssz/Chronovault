@@ -1,7 +1,7 @@
 /**
  * End-to-end: the theme's colours read as text in both themes. main.css picks
- * which step of each scale the light and dark themes use; Nuxt UI's own steps
- * (500 light, 400 dark) left gold, yellow, green, blue and red too faint on
+ * which step of each scale the light and dark themes use; Nuxt UI's default steps
+ * (500 light, 400 dark) leave gold, yellow, green, blue and red too faint on
  * white. Measured on the colours the browser really resolves, on the page's
  * background and, for the status colours, on the 10% tint of a subtle alert
  * or badge, the palest background they sit on.

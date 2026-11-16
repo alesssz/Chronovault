@@ -148,6 +148,8 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `copyText` | `app/utils/clipboard.ts` | Clipboard with a fallback (share links, LRC export) |
 | `saveFile` | `app/lib/save-file.ts` | Hands a file built in the browser to the user (downloads, LRC export) |
 | `haptic`, `HAPTIC` | `app/lib/haptics.ts` | A short vibration as touch feedback, silent where unsupported |
+| `useScreenWakeLock(active)` | composable | The screen kept on while listening without touching: the lyrics sync editor, the phones' lyrics view |
+| `useTrackSwipe` | composable | Swipe left / right / up on a player's track area, with the `style` that makes it follow the finger: the player bar and the share pages' mini player |
 | `concatBytes`, `asciiAt` | `app/lib/bytes.ts` | WAV parser, FLAC encoder, tag writers, streamed downloads |
 | `waveformColors` | `app/lib/theme.ts` | Colors of every waveform, from the current theme (the played part in spectral blue) |
 | `<IconButton>` | component | Every button that shows only an icon: one `label` is both its `aria-label` and its tooltip; all other props go to `UButton` (menu triggers included) |
@@ -176,7 +178,11 @@ In the app (`<AppMark>`) the strokes take the theme's colours (`--ui-primary`, `
 | `secondary` | `spectral` | `#66d6ff` (400) | the played part of every waveform, the progress lines of the phones' bar and the share pages' mini player, the logo's strings |
 | `neutral` | `night` | `#0b1024` (900) | backgrounds, surfaces, borders and text: the dark theme's background is the night of the artwork |
 
-Nuxt UI would use step 500 in the light theme and 400 in the dark one. Gold 500 on white reads at only 3.2:1, so `main.css` takes **700 in the light theme** (6.2:1 for gold, 4.7:1 for spectral blue: above the 4.5:1 text needs) and the brand colours themselves, **400, in the dark theme** (8.6:1 and 11:1 on the night). The status colours had the same problem in the light theme: at 500 they read on white at 1.9:1 (warning, yellow), 2.2:1 (success, green), 3.8:1 (info, blue) and 3.8:1 (error, red), so warning alerts were yellow on pale yellow, the "mastered" tick pale green, error lines faint. Each takes the first step whose text still reads above 4.5:1 on the 10% tint of a subtle alert or badge, the palest background it sits on: **warning and success 800, info and error 700** (5.4:1 to 6.1:1 there; info 600 would sit right on 4.5:1). The dark theme keeps Nuxt UI's 400 for all four, 6.5:1 to 12:1 on the night. `theme-contrast.spec.ts` measures every one of these colours, in both themes, as the browser resolves them. `BRAND_COLORS` in `shared/brand.ts` repeats the brand values for the manifest and the icons; a unit test (`test/unit/config/brand.test.ts`) checks the two copies agree.
+Nuxt UI's default is step 500 in the light theme and 400 in the dark one. Step 500 is too faint for text on white (text needs 4.5:1), so `main.css` overrides the light theme:
+
+- **Brand colours:** gold 500 reads at only 3.2:1 on white, so the light theme takes **700** (6.2:1 for gold, 4.7:1 for spectral blue); the dark theme takes the brand colours themselves, **400** (8.6:1 and 11:1 on the night).
+- **Status colours:** at 500 they read on white at 1.9:1 (warning, yellow), 2.2:1 (success, green), 3.8:1 (info, blue) and 3.8:1 (error, red): yellow on pale yellow in a warning alert, a pale green "mastered" tick, faint error lines. Each takes the first step whose text reads above 4.5:1 on the 10% tint of a subtle alert or badge, the palest background it sits on: **warning and success 800, info and error 700** (5.4:1 to 6.1:1 there; info 600 would sit right on 4.5:1). The dark theme keeps Nuxt UI's 400 for all four, 6.5:1 to 12:1 on the night.
+- **Checked by tests:** `theme-contrast.spec.ts` measures every one of these colours, in both themes, as the browser resolves them. `BRAND_COLORS` in `shared/brand.ts` repeats the brand values for the manifest and the icons; a unit test (`test/unit/config/brand.test.ts`) checks the two copies agree.
 
 **Images** (`public/`, committed, made by `pnpm generate:brand` with `scripts/generate-brand.mjs`):
 

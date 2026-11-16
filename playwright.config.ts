@@ -23,8 +23,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
-    // Debugging aids, kept only for failed tests (see test-results/ and playwright-report/).
     locale: 'en-US',
+    // Debugging aids, kept only for failed tests (in test-results/ and playwright-report/).
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

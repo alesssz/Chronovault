@@ -49,28 +49,22 @@ const FLAC_MAX_CHANNELS = 8
  * is not a well-formed WAV.
  */
 export function parseWav(bytes: Uint8Array): WavInfo {
-  // DataView: little-endian integer reads at any offset of the file.
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   if (bytes.byteLength < 12) throw new WavParseError('File too short to be a WAV')
 
-  // The container's signature: RIFF (or RF64 for very large files).
   const riff = asciiAt(bytes, 0)
   if (riff === 'RF64') throw new WavParseError('RF64 (very large) WAV files are not supported')
   if (riff !== 'RIFF' || asciiAt(bytes, 8) !== 'WAVE') throw new WavParseError('Not a WAV file')
 
   // Filled in when the `fmt ` and `data` chunks are met, in any order.
   let format: Omit<WavInfo, 'dataOffset' | 'dataLength' | 'frames'> | null = null
-  // Where the samples are (the `data` chunk), once found.
   let data: { offset: number, length: number } | null = null
 
   // Chunks start after the 12-byte header: "RIFF", size, "WAVE".
   let offset = 12
   while (offset + 8 <= bytes.byteLength && (!format || !data)) {
-    // This chunk's four-letter id.
     const id = asciiAt(bytes, offset)
-    // Its body size in bytes (little-endian).
     const size = view.getUint32(offset + 4, true)
-    // Where its body starts, after the id and the size.
     const body = offset + 8
 
     if (id === 'fmt ') {
@@ -85,7 +79,6 @@ export function parseWav(bytes: Uint8Array): WavInfo {
       if (formatTag === WAVE_FORMAT_EXTENSIBLE && size >= 40 && body + 26 <= bytes.byteLength) {
         formatTag = view.getUint16(body + 24, true)
       }
-      // What the format tag says the samples are.
       const encoding = formatTag === WAVE_FORMAT_PCM ? 'pcm' : formatTag === WAVE_FORMAT_IEEE_FLOAT ? 'float' : 'other'
       format = { encoding, channels, sampleRate, bitsPerSample, blockAlign }
     }

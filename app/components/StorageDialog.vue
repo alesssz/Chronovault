@@ -204,9 +204,8 @@ function fileName(orphan: OrphanFile) {
           @click="open = false"
         />
         <!--
-          Only when there is something to delete: disabled, "Nothing to delete" was still a red
-          button at 75% opacity and read as a live destructive action (UI-33); the report above
-          already says there is nothing.
+          Only when there is something to delete: a disabled red button still reads as a live
+          destructive action, and the report above already says there is nothing.
         -->
         <UButton
           v-if="deletable.length"

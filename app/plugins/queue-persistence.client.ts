@@ -15,9 +15,7 @@ import { endStartupRead, readLibrary } from '~/lib/library-request'
  * and never touch the saved queue (not even from another tab).
  */
 export default defineNuxtPlugin((nuxtApp) => {
-  // The queue to save and restore.
   const player = usePlayerStore()
-  // The saved queue belongs to this user.
   const user = useSupabaseUser()
   // Navigation triggers a restore when the app opened on a page without one.
   const router = useRouter()
@@ -36,7 +34,6 @@ export default defineNuxtPlugin((nuxtApp) => {
    * closed. Skipped while a restore is running.
    */
   function persist() {
-    // Whose queue it is (the signed-in user's id).
     const userId = user.value?.sub
     // Signed out, or a restore is writing its own state: nothing to save now.
     if (!userId || restoring) return
@@ -46,7 +43,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       return
     }
     if (!player.queueEditable || player.index < 0) return
-    // Ids only, the current track and the position (see queue-storage.ts).
     saveQueue({
       userId,
       trackIds: player.queue.map(t => t.id),
@@ -65,7 +61,6 @@ export default defineNuxtPlugin((nuxtApp) => {
    * /login (expired session) restores right after signing in instead.
    */
   function maybeRestore(path: string) {
-    // Nothing to restore for a signed-out visitor.
     const userId = user.value?.sub
     if (!userId || restoredFor === userId || NO_RESTORE.test(path)) return
     restoredFor = userId
@@ -74,7 +69,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   /** Reads the saved queue, matches it with the current library and loads it paused. */
   async function restore(userId: string) {
-    // This user's saved queue, if any.
     const saved = readSavedQueue(userId)
     if (!saved) return
     restoring = true
@@ -83,7 +77,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       const library = await readLibrary()
       // The user may have started something while the library loaded.
       if (player.isActive) return
-      // The saved ids matched with the library (deleted tracks dropped).
       const resolved = resolveSavedQueue(saved, library)
       if (!resolved || !(await player.restoreQueue(resolved.items, resolved.index, resolved.position, resolved.originalIds, saved.from))) {
         clearSavedQueue()

@@ -7,7 +7,6 @@
  */
 import type { AnalyticsBreakdownRow } from '~~/shared/types/analytics'
 
-// The breakdown's title, its rows and how to label a row's key.
 const props = defineProps<{
   title: string
   rows: AnalyticsBreakdownRow[]

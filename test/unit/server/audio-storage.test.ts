@@ -16,7 +16,6 @@ const config = {
 
 describe('AudioStorage', () => {
   it('builds path-style object URLs', () => {
-    // The client under test (no request is made).
     const storage = new AudioStorage(config)
     expect(storage.objectUrl('user-1/track 1.flac'))
       .toBe('https://account123.r2.cloudflarestorage.com/chronovault-audio/user-1/track%201.flac')
@@ -25,7 +24,6 @@ describe('AudioStorage', () => {
   it('refuses to sign or touch a key that URL parsing would resolve to another file', async () => {
     // Every request is mocked: none may be sent.
     const fetchImpl = vi.fn()
-    // The client under test, on the fake fetch.
     const storage = new AudioStorage(config, fetchImpl)
     // Another user's file, reached through a dot segment.
     const forged = 'user-1/../user-2/track-2.flac'
@@ -41,9 +39,7 @@ describe('AudioStorage', () => {
   })
 
   it('presigns URLs with query-string SigV4 and the requested lifetime', async () => {
-    // The client under test (presigning is local: no request).
     const storage = new AudioStorage(config)
-    // Parse the presigned URL to check each SigV4 query parameter.
     const url = new URL(await storage.presign('PUT', 'user-1/track-1.flac', 3600))
 
     expect(url.origin + url.pathname).toBe('https://account123.r2.cloudflarestorage.com/chronovault-audio/user-1/track-1.flac')
@@ -56,7 +52,6 @@ describe('AudioStorage', () => {
   })
 
   it('signs an upload\'s size and type into the URL, so the storage takes only that file', async () => {
-    // The client under test (presigning is local: no request).
     const storage = new AudioStorage(config)
     // An upload URL for a 1234-byte FLAC, and a plain one.
     const upload = new URL(await storage.presign('PUT', 'user-1/track-1.flac', 3600, { size: 1234, contentType: 'audio/flac' }))
@@ -71,12 +66,10 @@ describe('AudioStorage', () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status: 200, headers: { 'content-length': '42', 'content-type': 'audio/flac' } }))
       .mockResolvedValueOnce(new Response(null, { status: 404 }))
-    // The client under test, on the fake fetch.
     const storage = new AudioStorage(config, fetchImpl)
 
     expect(await storage.head('a.flac')).toEqual({ size: 42, contentType: 'audio/flac' })
     expect(await storage.head('missing.flac')).toBeNull()
-    // The first request, as sent.
     const request = fetchImpl.mock.calls[0]![0] as Request
     expect(request.method).toBe('HEAD')
     expect(request.headers.get('authorization')).toMatch(/^AWS4-HMAC-SHA256 /)
@@ -87,7 +80,6 @@ describe('AudioStorage', () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status: 500 }))
       .mockRejectedValueOnce(new Error('offline'))
-    // The client under test, on the fake fetch.
     const storage = new AudioStorage(config, fetchImpl)
     // The failures are logged: silenced here, restored at the end.
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -110,10 +102,8 @@ describe('AudioStorage', () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(page(['user-1/a.flac', 'user-1/b&amp;c.flac'], 'token&amp;2'))
       .mockResolvedValueOnce(page(['user-1/d.flac']))
-    // The client under test, on the fake fetch.
     const storage = new AudioStorage(config, fetchImpl)
 
-    // Every object of the folder, both pages together.
     const objects = await storage.list('user-1/')
 
     expect(objects.map(o => o.key)).toEqual(['user-1/a.flac', 'user-1/b&c.flac', 'user-1/d.flac'])
@@ -123,7 +113,6 @@ describe('AudioStorage', () => {
     expect(first.pathname).toBe('/chronovault-audio')
     expect(first.searchParams.get('list-type')).toBe('2')
     expect(first.searchParams.get('prefix')).toBe('user-1/')
-    // The second request: it carries the decoded continuation token.
     const second = new URL((fetchImpl.mock.calls[1]![0] as Request).url)
     expect(second.searchParams.get('continuation-token')).toBe('token&2')
   })
@@ -153,7 +142,6 @@ describe('AudioStorage streaming addresses', () => {
     const url = await new AudioStorage(config).streamUrl('user-1/track 1.flac', 3600)
 
     expect(url.startsWith('/api/stream?')).toBe(true)
-    // Its three parts.
     const { k, e, s } = parts(url)
     expect(k).toBe('user-1/track 1.flac')
     expect(Number(e)).toBe(Date.parse('2026-10-24T11:00:00Z') / 1000)
@@ -164,9 +152,7 @@ describe('AudioStorage streaming addresses', () => {
   it('accepts its own addresses until they expire', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-24T10:00:00Z'))
-    // The client that signs and checks the address.
     const storage = new AudioStorage(config)
-    // The parts of an address valid one hour.
     const { k, e, s } = parts(await storage.streamUrl('user-1/track.flac', 3600))
 
     expect(await storage.verifyStream(k, e, s)).toBe(true)
@@ -175,17 +161,15 @@ describe('AudioStorage streaming addresses', () => {
   })
 
   it('refuses a changed file, a later expiry, a forged signature or another secret', async () => {
-    // The client that signs and checks the address.
     const storage = new AudioStorage(config)
     // The parts of a genuine address, altered one by one below.
     const { k, e, s } = parts(await storage.streamUrl('user-1/track.flac', 3600))
 
     expect(await storage.verifyStream('user-2/track.flac', e, s)).toBe(false)
     expect(await storage.verifyStream(k, String(Number(e) + 3600), s)).toBe(false)
-    // A forged signature: its first character changed. Not the last one: in a 32-byte
-    // signature the last base64url character carries only 4 bits, its other 2 are padding
-    // the decoder ignores, so swapping e.g. A and B there gives the very same bytes (the
-    // same, valid signature), and the test failed on 1 run in 16.
+    // A forged signature: its first character changed, never the last. In a 32-byte signature
+    // the last base64url character carries only 4 bits (the other 2 are padding the decoder
+    // ignores), so swapping A and B there can decode to the same, valid signature.
     expect(await storage.verifyStream(k, e, `${s.startsWith('A') ? 'B' : 'A'}${s.slice(1)}`)).toBe(false)
     expect(await storage.verifyStream(k, e, 'not base64!')).toBe(false)
     expect(await storage.verifyStream(k, 'soon', s)).toBe(false)

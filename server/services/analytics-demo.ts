@@ -40,7 +40,6 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
   for (const target of visited) {
     // Some items are much more popular than others (0.3-3.3 views a day on average).
     const popularity = 0.3 + 3 * random(target.id)
-    // This item's totals over the period.
     const sum = zeroCount()
     period.dates.forEach((date, i) => {
       // Weekends get more visits.
@@ -58,7 +57,6 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
     byPath.set(target.path, sum)
   }
 
-  // Page views of the whole period, all items together.
   const pageviews = daily.reduce((n, d) => n + d.pageviews, 0)
   // Over a whole period some visitors come back on other days: fewer unique visitors than the daily sum.
   const visitors = Math.round(daily.reduce((n, d) => n + d.visitors, 0) * 0.8)
@@ -77,7 +75,6 @@ export function demoNumbers(targets: AnalyticsTarget[], period: AnalyticsPeriodD
  * (largest remainders get the leftover units); empty parts are dropped.
  */
 function split(total: number, shares: [string | null, number][]): AnalyticsBreakdownRow[] {
-  // Each key's exact (fractional) part of the total.
   const exact = shares.map(([key, share]) => ({ key, value: total * share }))
   // Rounded down: the leftover units are handed out below.
   const rows = exact.map(({ key, value }) => ({ key, pageviews: Math.floor(value) }))

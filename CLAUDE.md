@@ -21,7 +21,7 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 
 ## Conventions
 
-- **English** everywhere in the repository: code, comments, docs, UI text, commit messages. Replies to the maintainer are in Italian. The name is written "Chronovault", one capital, never "ChronoVault"; lowercase `chronovault` stays in identifiers.
+- **English** everywhere in the repository: code, comments, docs, UI text, commit messages. The name is written "Chronovault", one capital, never "ChronoVault"; lowercase `chronovault` stays in identifiers.
 - **A branch per task** from `main` (`feat/…`, `fix/…`, `docs/…`, `chore/…`); commit messages follow Conventional Commits (`feat: …`, `fix: …`); nothing reaches `main` without a green CI ([14.1](docs/14-conventions.md#141-git-workflow)).
 - **Layered backend:** a route only authenticates, validates and calls a service; rules live in services (unit-tested without Nuxt), queries in repositories, conversions in mappers.
 - **The server acts as the user**: never use the Supabase service key; Row Level Security decides what each request can reach.
@@ -30,12 +30,7 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 - **Docs follow the code:** a change updates the section of `docs/` it touches in the same commit, describing the current state.
 - **A new origin the browser must reach** goes into the Content Security Policy (`server/utils/content-security-policy.ts`).
 
-## Working with the maintainer
+## Working on a task
 
-- **Two computers, one set of rules:** the project is worked on from a Windows PC and a Mac. A new working preference or rule goes into this file (or the conventions it points to) in the same branch, never into Claude's memory, which stays on one computer.
-- **At the start of a task**, create its branch from an up-to-date `main` and say its name. If the working tree holds uncommitted changes from an earlier task, say so before branching.
-- **Never commit, push or merge unless asked**: the maintainer does it. Before a commit, this clone's `git config --local user.email` must be the GitHub noreply address; a computer's global address must never reach the public history.
-- **No AI attribution** anywhere: no `Co-Authored-By`, no "Generated with Claude Code", in commits, pull requests or commit message drafts.
-- **Experiments stay off `main`**: a diagnostic page or a spike lives on its own branch. Agent design specs and implementation plans are kept outside the repository, never in `docs/`; a decision worth keeping gets a few lines in the docs section it concerns.
-- **Casting from Chrome on Android does not work yet** ([16](docs/16-troubleshooting.md#16-troubleshooting)): a change to it starts from the `/cast-test` results on the real phone and TV, not from a guess.
-- **At the end of a task**: check the comments, docs and README it touched against [14.2](docs/14-conventions.md#142-code-conventions); give a ready-to-paste commit message, only its text in a code block (English, Conventional Commits, a body when the why is not obvious; no `git` or `pnpm` commands, no heredoc); list briefly the commands that were run.
+- **Casting from Chrome on Android does not work yet** ([16](docs/16-troubleshooting.md#16-troubleshooting)): a change to it starts from the `/cast-test` results on a real phone and TV, not from a guess.
+- **Before handing over**, check the comments, docs and README the task touched against [14.2](docs/14-conventions.md#142-code-conventions), and run `pnpm check`.

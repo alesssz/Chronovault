@@ -62,7 +62,6 @@ const ready = computed(() => natural.width > 0 && natural.height > 0)
 
 /** Image decoded: read its natural size and start on the centered square. */
 function onImageLoad(event: Event) {
-  // The preview image.
   const img = event.target as HTMLImageElement
   natural.width = img.naturalWidth
   natural.height = img.naturalHeight
@@ -115,7 +114,6 @@ const dragging = ref(false)
 
 /** Distance between the two active pointers (pinch), 0 with fewer. */
 function distance(): number {
-  // The two pointers (fewer than two: no pinch).
   const [a, b] = [...pointers.values()]
   return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0
 }
@@ -144,7 +142,6 @@ function onPointerMove(event: PointerEvent) {
   // Two fingers: the zoom follows the change of distance between them.
   const before = distance()
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-  // Their distance after the move.
   const after = distance()
   if (before > 0 && after > 0) zoomBy(after / before)
 }

@@ -6,7 +6,6 @@ const isTest = process.env.VITEST === 'true'
 /** What the app is, for the default page description and the PWA's install prompt. */
 const APP_DESCRIPTION = `${APP_TAGLINE}: ${APP_NAME}'s music library.`
 
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
     '@nuxt/ui',
@@ -18,8 +17,7 @@ export default defineNuxtConfig({
   ],
 
   // Development only: /sw.js answers with a service worker that unregisters
-  // itself, so one left on localhost by a production build stops running
-  // (see server/dev/stale-service-worker.ts).
+  // itself, so one left on localhost by a production build stops running.
   $development: {
     nitro: {
       handlers: [{ route: '/sw.js', handler: '~~/server/dev/stale-service-worker.ts' }],
@@ -142,11 +140,10 @@ export default defineNuxtConfig({
   nitro: {
     vercel: {
       // The app's functions run in London, next to the Supabase project (eu-west-2): every API
-      // call reaches the database several times, and each streaming address is signed there.
-      // In Vercel's default region (Washington, iad1) each of those trips crosses the Atlantic,
-      // which slows down starting a track, on a phone most of all. Written into the function's
-      // own .vc-config.json: Nitro builds the Build Output API directly, so a `regions` key in
-      // vercel.json would not reach it.
+      // call reaches the database several times, and in Vercel's default region (iad1) each of
+      // those trips would cross the Atlantic, delaying the start of a track. Set here, not in
+      // vercel.json: Nitro writes the Build Output API itself, so a `regions` key there would
+      // not reach the function's .vc-config.json.
       functions: { regions: ['lhr1'] },
     },
   },
@@ -190,12 +187,10 @@ export default defineNuxtConfig({
   },
 
   // Lucide icons (@iconify-json/lucide, installed locally). `scan`: every icon
-  // the code names goes into the client bundle, so none is fetched at runtime
-  // (only Nuxt UI's own were bundled: the header's icons came later, one
-  // request per session). One the scan misses comes from the app's own
-  // /api/_nuxt_icon; never from Iconify's public API (`fallbackToApi`), which
-  // the Content Security Policy blocks and which is a request to a third party:
-  // when the app's endpoint answered slowly, icons went missing that way.
+  // the code names goes into the client bundle, so none is fetched at runtime;
+  // one the scan misses comes from the app's own /api/_nuxt_icon. Never from
+  // Iconify's public API (`fallbackToApi`): the Content Security Policy blocks
+  // it, and it would be a request to a third party.
   icon: {
     clientBundle: { scan: true },
     fallbackToApi: false,

@@ -12,9 +12,8 @@ import type { FeedbackSeenInput, PlayRecordInput, VersionVoteInput } from '~~/sh
  * Typed client for the server API. The only place where the frontend
  * knows the backend URLs.
  *
- * `$fetch` (ofetch) sends the session cookies, parses JSON and throws on
- * non-2xx responses; the error's `data.message` is the server's message
- * (see app/utils/errors.ts). Response types are the shared domain types.
+ * A non-2xx response throws, with the server's message in `data.message`
+ * (read by getErrorMessage). Response types are the shared domain types.
  */
 
 /** The user's library (sign-in required). */

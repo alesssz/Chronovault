@@ -204,7 +204,7 @@ select results_eq(
             ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/a3333333-3333-4333-8333-333333333333.mp3') $$,
   'B only reads audio files of A''s non-private tracks, to sign them'
 );
--- Before: the same rows came back to Storage's list endpoint, naming A's shared tracks.
+-- The same rows must not reach Storage's list endpoint, which would name A's shared tracks.
 select set_config('storage.operation', 'storage.object.list', true);
 select is_empty(
   $$ select 1 from storage.objects where bucket_id = 'audio' and name like 'aaaaaaaa%' $$,
@@ -274,7 +274,7 @@ select results_eq(
   $$ values (2) $$,
   'an anonymous visitor only reads files of non-private tracks, to sign them'
 );
--- Before: listing with the public key alone named every user's folder and shared files.
+-- Listing with the public key alone must name no user's folder and no shared file.
 select set_config('storage.operation', 'storage.object.list', true);
 select is_empty(
   $$ select 1 from storage.objects where bucket_id in ('audio', 'covers') $$,

@@ -17,7 +17,7 @@ describe('parseMinAgeHours', () => {
 
   it('falls back to 24 hours for a blank variable and other values that hold no number', () => {
     // What `destr` makes of '', ' ', 'null', 'true' and 'false', and a missing setting.
-    // Before: '', ' ', null and false became 0 (delete at once), true became 1.
+    // A plain Number() would read '', ' ', null and false as 0 (delete at once), and true as 1.
     for (const raw of ['', ' ', null, true, false, undefined, 'soon']) {
       expect(parseMinAgeHours(raw), String(raw)).toBe(24)
     }

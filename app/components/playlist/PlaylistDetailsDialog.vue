@@ -21,7 +21,6 @@ const props = defineProps<{
   playlist: PlaylistDetail
 }>()
 
-/** `v-model:open`. */
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{
   /** Saved: the playlist as the server stored it. */

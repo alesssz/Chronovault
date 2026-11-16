@@ -3,10 +3,7 @@
 // @nuxtjs/supabase): Supabase creates the session from the URL, we wait
 // for the user and redirect to the saved page (or the library).
 definePageMeta({ layout: 'auth' })
-// Browser tab title: "Confirm · Chronovault".
 usePageTitle('Confirm')
-
-// Session ready (created from the link): go where the user wanted, or the library.
 useSignedInRedirect()
 </script>
 

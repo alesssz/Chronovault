@@ -44,7 +44,6 @@ const input = ref<HTMLInputElement | null>(null)
 
 /** A file was picked: open the crop editor with it. */
 function onChange(event: Event) {
-  // The hidden file input.
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   // Reset the input, so picking the same file again still fires `change`.
@@ -112,10 +111,6 @@ function onChange(event: Event) {
           @click="emit('remove')"
         />
       </div>
-      <!--
-        No note of the picker's own: "You choose the square to keep; saved at up to 800×800" said
-        what the crop editor shows anyway, once an image is picked.
-      -->
       <!-- A note of the page's own (a playlist's mosaic) -->
       <slot />
     </div>

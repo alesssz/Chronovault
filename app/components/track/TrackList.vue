@@ -9,8 +9,9 @@ import { HAPTIC, haptic } from '~/lib/haptics'
  * The library list: cover (play/pause on click), title (play, or open the
  * full-screen view for the current track), composers, a "Draft" badge,
  * genre, icons (mastered; lyrics, synced, or synced but to check after a
- * replaced audio; visibility), duration and the "⋮" menu: Edit, Download, Add to playlist, Mark as final/draft, Copy share
- * link / Open share page, Delete.
+ * replaced audio; visibility), duration and the "⋮" menu: Edit, Download,
+ * Add to playlist, Mark as final/draft, Copy share link / Open share page,
+ * Delete.
  * Playing, deleting and status changes are delegated to the page through events.
  *
  * Selection mode (`selectable`): each row gets a checkbox, and clicking the
@@ -26,7 +27,7 @@ import { HAPTIC, haptic } from '~/lib/haptics'
  * of twenty. The list keeps the height of all its rows, so the page scrolls
  * (and comes back to where it was) as if they were all there; every row
  * measures its real height as it appears. Everything else works on the
- * whole list as before: search, filters and sorting (the page), "select
+ * whole list: search, filters and sorting (the page), "select
  * all", and playing from a row with the visible list as the queue. The
  * browser's own find (Ctrl+F) only sees the rows in the page: the library
  * has its own search. Screen readers hear each row's place in the whole
@@ -44,7 +45,6 @@ const props = defineProps<{
 /** Ids of the selected tracks (selection mode). */
 const selected = defineModel<string[]>('selected', { default: () => [] })
 
-// What the rows ask the page to do: play a track, delete it, change its draft/final status.
 const emit = defineEmits<{
   /** Play this track with the visible list as the queue (or toggle it). */
   play: [track: TrackSummary]
@@ -193,7 +193,7 @@ function measureRow(el: Element | ComponentPublicInstance | null) {
 /**
  * The lyrics icon's tooltip and colour: plain lyrics muted, synced lyrics in
  * the primary colour, and synced lyrics to check (the audio was replaced
- * since they were synced, docs 7.19) in the warning colour.
+ * since they were synced) in the warning colour.
  */
 function lyricsIcon(track: TrackSummary): { text: string, color: string } {
   if (!track.hasSyncedLyrics) return { text: 'Lyrics', color: 'text-muted' }
@@ -240,7 +240,7 @@ useLongPress(listEl, {
       class="group absolute inset-x-0 top-0 flex items-center gap-3 px-2 py-2.5 transition-colors [-webkit-touch-callout:none] hover:bg-elevated/50 pointer-coarse:select-none sm:px-3"
       :class="{
         'bg-primary/5': isCurrent(track) || (selectable && isSelected(track)),
-        // A divider between rows, as before (none under the last one: the card's own edge is there).
+        // A divider between rows (none under the last one: the card's own edge is there).
         'border-b border-default': index < rows.length - 1,
       }"
       :style="{ transform: `translateY(${top}px)` }"
@@ -274,10 +274,10 @@ useLongPress(listEl, {
           <!--
             Play/pause overlay: always on for the current track; for the others it
             appears on hover or keyboard focus. Touch screens have no hover, so there only the
-            current track has it: on every cover it darkened the whole list with the
+            current track has it: on every cover it would darken the whole list with the
             same icon, while a tap anywhere on the row plays already. Only keyboard focus
             (`:focus-visible`): a tap focuses the title too, and a row just ticked in selection
-            mode showed play over its cover as if it were playing.
+            mode would show play over its cover as if it were playing.
           -->
           <span
             class="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 text-white transition-opacity"
@@ -330,7 +330,7 @@ useLongPress(listEl, {
       <!--
         From `md`: the genre, then the mastered, lyrics and visibility icons, in columns: the genre
         as plain text of a fixed width, each icon in a slot of its own (an empty one for a track
-        without lyrics). As a badge as wide as its name, the genre moved the icons from row to row.
+        without lyrics). As a badge as wide as its name, the genre would shift the icons from row to row.
         The most specific name (the subgenre, else the genre); the whole path on hover.
       -->
       <div class="hidden items-center gap-3 md:flex">

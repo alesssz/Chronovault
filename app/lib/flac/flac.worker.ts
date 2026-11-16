@@ -36,7 +36,6 @@ interface WorkerScope {
   addEventListener: (type: 'unhandledrejection', listener: (event: PromiseRejectionEvent) => void) => void
 }
 
-// The worker's global scope, typed with just what is used.
 const scope = self as unknown as WorkerScope
 
 // libflac.js looks up its .wasm file through FLAC_SCRIPT_LOCATION: on the global
@@ -44,7 +43,6 @@ const scope = self as unknown as WorkerScope
 // defines one inside workers). Point both at the URL emitted by Vite.
 const wasmLocation = { 'libflac.wasm.wasm': wasmUrl }
 scope.FLAC_SCRIPT_LOCATION = wasmLocation
-// `process` exists only in some environments (the Vite dev server shims it in workers).
 const workerProcess = (globalThis as { process?: { env?: Record<string, unknown> } }).process
 if (workerProcess?.env) workerProcess.env.FLAC_SCRIPT_LOCATION = wasmLocation
 
@@ -61,7 +59,6 @@ function loadFlac(): Promise<FlacLib> {
     const Flac = ((mod as { default?: FlacLib }).default ?? mod) as FlacLib
     if (Flac.isReady()) return Flac
     return new Promise<FlacLib>((resolve, reject) => {
-      // Gives up when libFLAC never says it is ready.
       const timer = setTimeout(() => reject(new Error('The FLAC encoder could not be loaded')), LOAD_TIMEOUT_MS)
       Flac.on('ready', () => {
         clearTimeout(timer)
@@ -75,7 +72,6 @@ function loadFlac(): Promise<FlacLib> {
 // Failures inside libFLAC's own async code (e.g. its WebAssembly not loading)
 // surface as unhandled rejections: report them so the WAV is kept.
 scope.addEventListener('unhandledrejection', (event) => {
-  // The failure's message, whatever was thrown.
   const reason = event.reason instanceof Error ? event.reason.message : String(event.reason)
   scope.postMessage({ type: 'kept', reason: `FLAC encoder error: ${reason}` })
 })
@@ -83,7 +79,6 @@ scope.addEventListener('unhandledrejection', (event) => {
 /** One conversion per message: parse → check compatibility → encode + verify → reply. */
 scope.onmessage = async (event) => {
   try {
-    // The transferred WAV file, as bytes.
     const wav = new Uint8Array(event.data.buffer)
     const info = parseWav(wav)
     const reason = flacIncompatibility(info)
@@ -92,9 +87,7 @@ scope.onmessage = async (event) => {
       return
     }
 
-    // libFLAC, loaded once its WebAssembly is ready.
     const Flac = await loadFlac()
-    // The verified FLAC and its MD5, reporting progress as it goes.
     const { flac, md5 } = await encodeWavToFlac(Flac, wav, info, (value) => {
       scope.postMessage({ type: 'progress', value })
     })

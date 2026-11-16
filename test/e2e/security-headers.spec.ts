@@ -34,7 +34,6 @@ test.describe('security headers', () => {
   test('an app page and a share page: fixed headers, and a policy whose nonce every script carries', async ({ request }) => {
     // The app's shell (client-rendered) and a share page (server-rendered; this id shares nothing).
     for (const path of ['/login', '/t/00000000-0000-4000-8000-000000000000']) {
-      // The page as the browser receives it.
       const response = await request.get(path, { failOnStatusCode: false })
       const headers = response.headers()
       expect(headers, path).toMatchObject(FIXED_HEADERS)
@@ -49,14 +48,12 @@ test.describe('security headers', () => {
   })
 
   test('each response draws a new nonce', async ({ request }) => {
-    // Two loads of the same page.
     const [first, second] = await Promise.all([request.get('/login'), request.get('/login')])
     expect(nonceOf(first.headers()['content-security-policy'])).not.toBe(nonceOf(second.headers()['content-security-policy']))
   })
 
   test('API answers and static files carry the fixed headers, without a policy of their own', async ({ request }) => {
     for (const path of ['/api/health', '/favicon.svg']) {
-      // A response that is not a page.
       const headers = (await request.get(path)).headers()
       expect(headers, path).toMatchObject(FIXED_HEADERS)
       expect(headers['content-security-policy'], path).toBeUndefined()
@@ -75,7 +72,6 @@ test.describe('the policy on the share pages', () => {
     const title = 'x<script a><script>window.__xss = 1</script>'
     // The track, renamed and shared through the API; its id.
     const id = await page.evaluate(async (title) => {
-      // The seeded track.
       const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
       const response = await fetch(`/api/tracks/${track!.id}`, {
         method: 'PATCH',
@@ -92,7 +88,7 @@ test.describe('the policy on the share pages', () => {
       const visitor = await visitorContext.newPage()
       await visitor.goto(`/t/${id}`)
       await waitForHydration(visitor)
-      // Before the fix the nonce went into the preview's `content`, and the script in the title ran with it.
+      // A nonce written into the preview's `content` would let the script in the title run.
       expect(await visitor.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined()
       await expect(visitor.locator('meta[property="og:title"]')).toHaveAttribute('content', title)
       await expect(visitor.getByTestId('shared-title')).toHaveText(title)
@@ -104,11 +100,9 @@ test.describe('the policy on the share pages', () => {
 
   test('a shared track shows its cover', async ({ page, browser }) => {
     await signUp(page)
-    // A title unique to this test.
     const title = `cover-${uniqueId()}`
     await uploadTrack(page, title)
     await page.getByRole('link', { name: 'Go to library' }).click()
-    // The library row of the new track.
     const row = page.getByTestId('track-row').filter({ hasText: title })
     await row.getByRole('button', { name: `Actions for ${title}` }).click()
     await page.getByRole('menuitem', { name: 'Edit' }).click()
@@ -123,7 +117,6 @@ test.describe('the policy on the share pages', () => {
 
     const visitorContext = await browser.newContext()
     try {
-      // A visitor opening the share link.
       const visitor = await visitorContext.newPage()
       await visitor.goto(`/t/${id}`)
       // The cover (the page's and, once hydrated, the player's), at a signed Supabase Storage URL:

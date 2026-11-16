@@ -2,8 +2,7 @@ import { APP_NAME } from '~~/shared/brand'
 
 /**
  * The browser tab title of a page: what the page shows, then the app's name
- * ("Library · Chronovault", "Night drive · Chronovault"). The name comes from
- * shared/brand.ts, so no page spells it.
+ * ("Library · Chronovault", "Night drive · Chronovault").
  *
  * `title` can be a getter or a ref, for titles that follow the data (a track
  * or a playlist being renamed).

@@ -16,7 +16,7 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  * `size="large"`: one step bigger, for the phones' lyrics view of the
  * full-screen player, where the lyrics have the whole screen to themselves.
  * `size="compact"`: two steps smaller, for a narrow panel (the playlist share
- * page's, beside the list), where the default size wrapped nearly every line.
+ * page's, beside the list), where the default size would wrap nearly every line.
  *
  * It has no side padding of its own: a framed panel around it gives it to
  * the box itself (`*:px-…` on the panel, TrackShowcase and the playlist share
@@ -25,8 +25,8 @@ import { findActiveLineIndex, isSectionHeader } from '~~/shared/utils/lyrics'
  * both sides, so the lines stay on the panel's middle (see the template).
  *
  * While there is more to scroll below, the box's bottom edge fades out: a
- * box ending on a cut line (or a lone section header) gave no hint that it
- * scrolled. Gone once the end is reached, so the last line reads whole.
+ * box ending on a cut line (or a lone section header) gives no hint that it
+ * scrolls. Gone once the end is reached, so the last line reads whole.
  *
  * `shared`: on a share page's full-screen view, a track without lyrics shows
  * "No lyrics" alone: the hint to add some is for the owner, who alone can.
@@ -40,8 +40,8 @@ const props = withDefaults(defineProps<{
   /** Shown to a share page's visitor: no hint to add lyrics, which only the owner can do. */
   shared?: boolean
   /**
-   * Every line centred (the track page's wide panel, where left-aligned lines left its right
-   * half empty). The scrollbar's room is then kept on both sides, so the lines stay centred on
+   * Every line centred (the track page's wide panel, where left-aligned lines would leave its
+   * right half empty). The scrollbar's room is then kept on both sides, so the lines stay centred on
    * the panel where a scrollbar takes room (see the template).
    */
   centered?: boolean
@@ -49,8 +49,8 @@ const props = withDefaults(defineProps<{
    * Room after the last synced line (45vh), so the last lines also scroll up
    * to the middle while they are sung. Made for boxes nearly as tall as the
    * screen (full-screen view, phones' lyrics view); the track page's panel,
-   * shorter, turns it off: there it was some 330px of nothing after the last
-   * line, and the last lines simply stop lower as the scroll ends.
+   * shorter, turns it off: there it would be some 330px of nothing after the
+   * last line, and the last lines simply stop lower as the scroll ends.
    */
   endRoom?: boolean
 }>(), { size: 'default', shared: false, centered: false, endRoom: true })
@@ -74,9 +74,9 @@ function measure() {
 /**
  * The list of synced lines: the active one is found by its place in it, to
  * scroll it into view. Not v-for refs: Vue does not keep that array in list
- * order, and when another track's lyrics replaced these (the full-screen
- * player moving on) it held their lines in reverse, so the box scrolled to
- * the mirror line of the one sung.
+ * order. When another track's lyrics replace these (the full-screen player
+ * moving on), it can hold their lines in reverse, and the box would scroll
+ * to the mirror line of the one sung.
  */
 const listEl = ref<HTMLOListElement | null>(null)
 
@@ -95,7 +95,7 @@ const activeIndex = computed(() => (hasSynced.value ? findActiveLineIndex(props.
  * one it is pale grey on near-white, below what text needs, so the lines to
  * come are muted there. Before the first line (a share page before Play, an
  * intro) every line is readable text: all dimmed, a visitor reading the
- * lyrics got the whole of them in pale grey.
+ * lyrics would get the whole of them in pale grey.
  */
 function lineClass(i: number): string {
   if (i === activeIndex.value) return 'text-highlighted'
@@ -145,8 +145,8 @@ watch(activeIndex, (index) => {
   <!--
     The scrolling box. Centred, it keeps the scrollbar's room on both sides
     (`scrollbar-gutter: stable both-edges`): where the scrollbar takes room (Windows, macOS set
-    to always show it, Linux), it narrowed the box on the right only, and every centred line sat
-    half a scrollbar left of the panel's middle. Overlay scrollbars (phones, macOS by default)
+    to always show it, Linux), it narrows the box on the right only, and every centred line would
+    sit half a scrollbar left of the panel's middle. Overlay scrollbars (phones, macOS by default)
     take none, so nothing changes there. A box's side padding comes from its panel (`*:px-…`).
   -->
   <div

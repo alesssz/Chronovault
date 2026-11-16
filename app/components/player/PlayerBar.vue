@@ -14,23 +14,22 @@ import { ariaShortcut } from '~/lib/keyboard-shortcuts'
  *   full-screen view, and like the phones' progress line on top; on the
  *   right the volume, Cast (always on touch screens, otherwise only when a
  *   TV or speaker can be offered, see PlayerCastButton), Up next, expand and
- *   close. From `md` the bar is also
- *   taller (`--player-bar-height`, see main.css), so the two rows have room
- *   around them;
+ *   close. From `md` the bar is also taller (`--player-bar-height`, see
+ *   main.css), so the two rows have room around them;
  * - tablets (`md` to `lg`): the volume is a single speaker button opening a
  *   small popover with the slider (no room for an inline one), when there
  *   is a slider at all: on touch screens the hardware buttons own the
  *   volume and the button only mutes (PlayerVolume); from `lg` the slider
- *   sits inline. The Expand button is left out there too: Cast
- *   is always shown on touch screens, and a fifth icon squeezed the title
- *   to a few letters again, while the title area (tap, or swipe up) already
- *   opens the full-screen view. From `lg` there is room for both.
+ *   sits inline. The Expand button is left out there too: Cast is always
+ *   shown on touch screens, and a fifth icon would squeeze the title to a
+ *   few letters, while the title area (tap, or swipe up) already opens the
+ *   full-screen view. From `lg` there is room for both.
  *
  * From `lg` the side columns share the room left over by the middle one at
  * a 1:2 ratio (`flex-1` / `flex-[2]`, all from a zero basis), so the
  * waveform keeps a real width at every size instead of being the only thing
  * that shrinks, and the middle column stays centred; the title truncates
- * first. On tablets that ratio left the title a few letters wide, so there
+ * first. On tablets that ratio would leave the title a few letters wide, so there
  * the right column only takes the width of its buttons (`flex-none`) and
  * the middle one is a bit narrower (`flex-[1.5]`, still wide enough for
  * the six controls): the title gets the difference. Tapping the title area
@@ -49,22 +48,12 @@ const player = usePlayerStore()
 /** The title area (cover and title): tap to open the full-screen view, swipe to change track. */
 const trackArea = ref<HTMLElement | null>(null)
 /** Swipes on the title area, touch only. */
-const swipe = useTrackSwipe(trackArea, {
+const { style: swipeStyle } = useTrackSwipe(trackArea, {
   canNext: () => player.hasNext,
   onNext: () => void player.next(),
   onPrevious: () => void player.previous(),
   onOpen: () => player.setExpanded(true),
 })
-/**
- * Cover and title while swiped: moved with the finger and fading the
- * further they go; no transition while dragging (they stick to the finger),
- * a short one on release (back in place).
- */
-const swipeStyle = computed(() => ({
-  transform: swipe.offset.value ? `translateX(${swipe.offset.value}px)` : undefined,
-  opacity: swipe.offset.value ? Math.max(0.3, 1 - Math.abs(swipe.offset.value) / 250) : undefined,
-  transition: swipe.dragging.value ? 'none' : 'transform 200ms ease-out, opacity 200ms ease-out',
-}))
 
 /** What the bar shows (the queued summary while the full data loads). */
 const track = computed(() => player.displayTrack)
@@ -187,7 +176,7 @@ const track = computed(() => player.displayTrack)
             compact
             class="lg:hidden"
           />
-          <!-- Cast to a TV or speaker: only rendered when the browser can offer a device -->
+          <!-- Cast to a TV or speaker (always on touch screens, otherwise when a device can be offered) -->
           <PlayerCastButton />
           <IconButton
             v-if="player.queueEditable"

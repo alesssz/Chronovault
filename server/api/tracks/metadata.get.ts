@@ -8,7 +8,6 @@ import { listTrackMetadata } from '../../services/tracks.service'
  * 200 → TrackMetadata[]
  */
 export default defineEventHandler(async (event) => {
-  // The signed-in user, and a database client acting as them (RLS applies); 401 without a session.
   const { db, userId } = await requireAuth(event)
   return listTrackMetadata(db, userId)
 })

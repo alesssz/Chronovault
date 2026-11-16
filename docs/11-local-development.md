@@ -12,77 +12,7 @@
 
 **Setting up a computer, from installing these tools to the first start, stopping and wiping:** [0. Setup](00-setup.md#0-setup), with the steps for macOS and Windows in [0.2](00-setup.md#02-from-a-blank-computer). `node scripts/doctor.mjs` checks every item of this table and prints the fix for your system.
 
-The Supabase CLI is a dev dependency: no global install needed. pnpm keeps its package store in the project (`.pnpm-store/`, git-ignored, see `pnpm-workspace.yaml`); `node_modules` holds hard links to it, so the space is not used twice even if Explorer counts it twice.
-
-### Updating a computer set up before the port change
-
-The app used to answer on **3000** (dev), **8080** (Docker) and **3100** (e2e); it now uses **3100**, **8180** and **3200** ([11.4](#114-local-services)). A computer that ran the old ports needs these steps once. The commands are the same on **macOS** (Terminal) and **Windows** (Git Bash), run in the project folder; where the two differ, both are given.
-
-The port change itself loses no data: accounts, tracks, playlists and audio files live in Supabase's Docker volumes, named after the Supabase project, not after any port. What can leave them behind is the project's earlier rename from `chronoplayer` to `chronovault`: step 3 finds out and moves them.
-
-1. **Stop everything, before pulling:**
-   ```bash
-   pnpm stop
-   ```
-   The Supabase ports did not change, so a stack left running would be reused as it is, with Auth still on the old `site_url`: `supabase/config.toml` is read only when Supabase starts. `pnpm stop` also removes the Docker-mode app container, still published on 8080. Data is kept.
-2. **Update the code and the dependencies:**
-   ```bash
-   git switch main && git pull
-   pnpm install
-   ```
-3. **The project's old name: stack and data.** Before the rename the Supabase project was `chronoplayer`, and its stack used volumes of its own: `supabase_db_chronoplayer` (the database) and `supabase_storage_chronoplayer` (audio files and covers). The `chronovault` stack does not see them.
-   1. **Stop the old stack, if it is still there.** Its containers hold the same ports, and `pnpm local` would fail with `Bind for 0.0.0.0:54322 failed: port is already allocated`.
-      ```bash
-      docker ps -a --format "{{.Names}}" | grep chronoplayer
-      ```
-      If it prints anything:
-      ```bash
-      pnpm exec supabase stop --project-id chronoplayer
-      ```
-      This keeps the volumes.
-   2. **Find where the data is.** List the Supabase volumes with their size:
-      ```bash
-      docker system df -v | grep -E "^supabase_(db|storage)_"
-      ```
-      A database nobody used is about 70 MB, with an empty storage volume (0 B). The volumes with your tracks are the ones whose storage holds hundreds of MB or more.
-      - **No `chronoplayer` volumes**, or nothing in them you need: the data is already in the `chronovault` volumes, or there is none. Go to step 4.
-      - **The data is in the `chronoplayer` volumes, and `chronovault` has nothing you need** (missing, or a fresh database): copy it across, step 3.3.
-      - **Both hold data you need**: stop here. The copy replaces the target, and merging two databases is not covered by these steps.
-   3. **Copy the data into the `chronovault` volumes.** Both stacks must be stopped (step 1 and step 3.1). For each volume the command empties the `chronovault` one, then copies the `chronoplayer` one into it with owners and permissions, which Postgres needs. The source is mounted read-only (`:ro`) and stays untouched, so the copy can be repeated.
-      ```bash
-      pnpm db:start && pnpm db:stop    # creates the chronovault volumes, if missing, the way Supabase labels them
-      for v in db storage; do
-        MSYS_NO_PATHCONV=1 docker run --rm \
-          -v supabase_${v}_chronoplayer:/from:ro \
-          -v supabase_${v}_chronovault:/to \
-          alpine sh -c 'find /to -mindepth 1 -delete && cp -a /from/. /to/'
-      done
-      ```
-      `MSYS_NO_PATHCONV=1` is for Git Bash on Windows, which would otherwise rewrite `/from` and `/to` as Windows paths. On macOS it does nothing. Starting and stopping Supabase first matters: a volume that `docker run` creates has no Supabase labels, and `supabase stop --no-backup` (below) would not find it.
-
-      Then check, in step 5, that the tracks are there and play. If Supabase does not start, the old volumes are unchanged: `pnpm exec supabase stop --no-backup` deletes the `chronovault` volumes, and `pnpm local` starts afresh.
-4. **Free port 3100.** It used to be the e2e port: a production server left running by `make test-e2e` would still hold it, and Nuxt would then quietly start on another port, where sign-in redirects do not work.
-   - **macOS:** `lsof -nP -iTCP:3100 -sTCP:LISTEN` lists it; stop it with `kill <PID>`.
-   - **Windows:** `netstat -ano | findstr :3100` gives its PID (last column); stop it with `taskkill /PID <PID> /F`.
-5. **Start:**
-   ```bash
-   pnpm local           # → http://localhost:3100
-   ```
-   `.env` holds no app port, and `pnpm local` rewrites it anyway. Docker mode: `pnpm docker` → http://localhost:8180.
-
-   If you copied the data in step 3.3, check it now: sign in with your own account, open the library, play a track and look at a cover. Supabase Studio (http://127.0.0.1:54323) → *Table Editor* → `tracks` shows the rows too.
-6. **In the browser:**
-   - Update bookmarks: `localhost:3000` → `localhost:3100`, `localhost:8080` → `localhost:8180`.
-   - What the app keeps in `localStorage` is tied to the port, so on the new address it starts afresh: play queue, volume, shuffle and repeat, lyrics view. The session is a cookie, which ignores the port: you stay signed in if the database is the same one, otherwise sign in again.
-   - If you installed the PWA from the old address, uninstall it (Chrome or Edge: open the installed app → **⋮** → *Uninstall*) and install it again from http://localhost:3100.
-   - Clear the old addresses, so their service worker cannot serve stale Chronovault files to another project that now uses 3000 or 8080: open http://localhost:3000 (and :8080) → DevTools → *Application* → *Storage* → **Clear site data**. Or, in Chrome or Edge, `chrome://serviceworker-internals` (`edge://serviceworker-internals`) → *Unregister* next to those addresses.
-7. **R2 (only if local development uses R2):** add `"http://localhost:3100"` to `AllowedOrigins` in the bucket's CORS policy ([13.2](13-deployment.md#132-cloudflare-r2-audio-files)), then `pnpm r2:check`. The bucket is shared: once is enough for every computer.
-8. **Delete the old volumes, last.** Only once step 5 showed your tracks in the new stack, or you know nothing in the old volumes is needed. There is no way back:
-   ```bash
-   docker volume rm supabase_db_chronoplayer supabase_storage_chronoplayer
-   ```
-
-Nothing else changes: the hosts-file entry for `host.docker.internal`, Node, pnpm and Docker stay as they are.
+The Supabase CLI is a dev dependency: no global install needed. pnpm keeps its package store in the project (`.pnpm-store/`, git-ignored, see `pnpm-workspace.yaml`); `node_modules` holds hard links to it, so the space is not used twice even if a file manager counts it twice.
 
 ## 11.2 Step by step (what `pnpm local` automates)
 
@@ -102,9 +32,9 @@ or `make setup` followed by `make dev`.
 
 Supabase always runs in the containers managed by the Supabase CLI; only the second piece, Nuxt (pages and API), changes place. `pnpm docker` builds the app image from the `Dockerfile` (multi-stage: dependencies and build in the first stage, only the self-contained `.output/` in the final `node:24-alpine` image, run as the unprivileged `node` user, with a health check on `/api/health`) and starts it with `compose.yaml` on port 8180.
 
-**Rebuilds skip what did not change.** The pnpm store is a BuildKit cache (packages are never downloaded twice), and `.dockerignore` leaves out of the build context everything the build does not read: documentation, tests, migrations, the brand's source artwork, `*.md`, and the Dockerfile, `compose.yaml` and `Makefile` themselves. Editing any of them no longer invalidates the image's `pnpm install` and `pnpm build` steps, so the next `pnpm docker` reuses the image as it was; a change to the code or the dependencies rebuilds as before. The pnpm the image installs and its Node major are pinned in the Dockerfile; a unit test checks they agree with `packageManager` and `.nvmrc` (`test/unit/config/tool-versions.test.ts`).
+**The image is rebuilt on every `pnpm docker`, skipping what did not change.** The pnpm store is a BuildKit cache (packages are never downloaded twice), and `.dockerignore` leaves out of the build context everything the build does not read: documentation, tests, migrations, the brand's source artwork, `*.md`, and the Dockerfile, `compose.yaml` and `Makefile` themselves. Editing any of them does not invalidate the image's `pnpm install` and `pnpm build` steps, so the next `pnpm docker` reuses the image; a change to the code or the dependencies rebuilds them. The pnpm the image installs and its Node major are pinned in the Dockerfile; a unit test checks they agree with `packageManager` and `.nvmrc` (`test/unit/config/tool-versions.test.ts`).
 
-Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. The browser uses the same URLs (including the presigned audio URLs), so the host must resolve that name too: Docker Desktop on Windows adds it to the hosts file, on macOS it has to be added once by hand (see [Troubleshooting](16-troubleshooting.md#16-troubleshooting)). The script writes them to `.env.docker`. The image is rebuilt on every `pnpm docker` (the pnpm store is a build cache, so rebuilds are fast).
+Inside a container `127.0.0.1` is the container itself, so the app reaches Supabase through `host.docker.internal`. The browser uses the same URLs (including the presigned audio URLs), so the host must resolve that name too: Docker Desktop on Windows adds it to the hosts file, on macOS it has to be added once by hand (see [Troubleshooting](16-troubleshooting.md#16-troubleshooting)). The script writes them to `.env.docker`.
 
 ## 11.4 Local services
 
@@ -118,7 +48,7 @@ Inside a container `127.0.0.1` is the container itself, so the app reaches Supab
 
 `pnpm db:status` prints all URLs and keys.
 
-The app's ports are the common defaults plus 100, so they do not collide with other local projects that keep 3000 or 8080: **3100** dev (was 3000), **8180** Docker (was 8080), **3200** e2e (was 3100). A computer that ran the old ones: see [Updating a computer set up before the port change](#updating-a-computer-set-up-before-the-port-change). To change one, update every place it is written:
+The app's ports are the common defaults plus 100, so they do not collide with other local projects that keep 3000 or 8080: **3100** dev, **8180** Docker, **3200** e2e. To change one, update every place it is written:
 
 | Port | Where |
 |---|---|
@@ -142,7 +72,11 @@ Plus the `Makefile` help texts, the README and these docs. The dev port goes on 
 2. Then `pnpm check`, and the end-to-end tests on a production build (`pnpm test:e2e`): the waveform (wavesurfer.js), tag reading (music-metadata) and the PWA are only really exercised there.
 3. Major versions one at a time, each with the same checks.
 
-**Security advisories: `pnpm audit`.** It checks the lockfile against the advisory database, and `.github/workflows/audit.yml` runs it on GitHub every Monday at 06:00 UTC and on every push, to any branch, that changes `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml` (also by hand, from the Actions tab). The branch's own push counts: a vulnerable version added on a branch fails its run there, next to the CI, before the merge (audited on `main` only, it was reported once already in production). The pull request `pnpm merge:main` opens reads that run, so a failed audit stops the script and nothing is merged; a pull request from a fork, whose branch is not pushed here, is audited on its own (`pull_request`), while one from a branch here skips that second run. A new advisory fails the run, and GitHub emails you about a failed scheduled run; its job summary also lists the outdated packages. Then, on a branch: `pnpm update` when the fix is within the ranges (an indirect dependency included, e.g. `pnpm update serialize-javascript`), or a version change as in steps 1–3. When no fix is within reach and the issue cannot be exploited here, list the advisory under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with its reason and the condition to remove it, as for the four there now:
+**Security advisories: `pnpm audit`** checks the lockfile against the advisory database.
+
+- **When it runs:** `.github/workflows/audit.yml` runs it on GitHub every Monday at 06:00 UTC, on every push, to any branch, that changes `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, and by hand from the Actions tab. The branch's own push counts: a vulnerable version added on a branch fails its run there, next to the CI, before it can reach production. The pull request `pnpm merge:main` opens reads that run, so a failed audit stops the script and nothing is merged; a pull request from a fork, whose branch is not pushed here, is audited on its own (`pull_request`), while one from a branch here skips that second run.
+- **When it fails:** a new advisory fails the run, and GitHub emails you about a failed scheduled run; its job summary also lists the outdated packages. Then, on a branch: `pnpm update` when the fix is within the ranges (an indirect dependency included, e.g. `pnpm update serialize-javascript`), or a version change as in steps 1–3.
+- **When no fix is within reach** and the issue cannot be exploited here, list the advisory under `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` with its reason and the condition to remove it, as for these four:
 
 | Advisory | Package | Why it is left out | Remove when |
 |---|---|---|---|
@@ -153,7 +87,7 @@ Plus the `Makefile` help texts, the README and these docs. The dev port goes on 
 
 None of these packages reaches the production build (`.output`).
 
-**Why not GitHub's Dependabot alerts:** GitHub's dependency graph does not read pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version first, then the packages), so it sees no npm dependency and raises no alert, and Dependabot could not open npm updates either. It is set up (`.github/dependabot.yml`) for the GitHub Actions only, those of the workflows and those of the setup they share (`.github/actions/setup`): one grouped pull request a week, checked by CI. The actions are pinned to a commit hash with the release in a comment (`@<sha> # v7.0.1`), and the pull request moves both. npm updates stay manual, as above.
+**Why not GitHub's Dependabot alerts:** GitHub's dependency graph does not read pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version first, then the packages), so it sees no npm dependency and raises no alert, nor can Dependabot open npm updates. It is set up (`.github/dependabot.yml`) for the GitHub Actions only, those of the workflows and those of the setup they share (`.github/actions/setup`): one grouped pull request a week, checked by CI. The actions are pinned to a commit hash with the release in a comment (`@<sha> # v7.0.1`), and the pull request moves both. npm updates stay manual, as above.
 
 **Versions younger than a day are not installed.** pnpm 12 has a supply-chain protection on by default (`minimumReleaseAge`, 24 hours): a compromised release is usually found and pulled within hours, so pnpm waits. A new release (e.g. of the Supabase CLI, which announces itself in the terminal) is simply skipped by `pnpm update` until it is a day old. Asking for it by name (`pnpm add -D pkg@x.y.z`) installs it anyway, but pnpm then writes a `minimumReleaseAgeExclude` list into `pnpm-workspace.yaml`: do not commit it, wait a day instead.
 
@@ -168,7 +102,7 @@ None of these packages reaches the production build (`.output`).
 
 ## 11.7 The README's screenshots
 
-The screenshots in `docs/screenshots/` are taken from the local stack, signed in as the seeded demo user with tracks of the project's own music uploaded to it; never from production, and never showing another account.
+The screenshots in `docs/screenshots/` are taken from the local stack, signed in as the seeded demo user with tracks whose rights the project holds uploaded to it; never from production, and never showing another account.
 
 1. `pnpm local`; `pnpm db:migrate` first if a pull brought new migrations.
 2. Playwright (a dev dependency) driving Chromium: phone screens at 390 × 844, desktop at 1440 × 900, `deviceScaleFactor: 2`, `colorScheme: 'dark'`, `locale: 'en-US'`; a track playing for a few seconds, so the waveform shows progress.
