@@ -7,11 +7,10 @@
 # Runs on every push to any branch, not only main. A branch reaches main (which
 # deploys to production) only through a pull request GitHub merges once these
 # two jobs pass: main's ruleset requires them by name, so renaming a job means
-# updating the ruleset too (docs/13-deployment.md, 13.8). `pnpm merge:main`
-# opens the pull request and waits. The pull request reads this push's results:
-# no second run on pull_request.
+# updating the ruleset too. `pnpm merge:main` # opens the pull request and waits.
+# The pull request reads this push's results: no second run on pull_request.
 #
-# Third-party actions are pinned to a full commit hash, the release in the comment beside
+# Actions are pinned to a full commit hash, the release in the comment beside
 # it (a tag can be moved, a commit cannot); Dependabot updates both. The setup shared by
 # every job (pnpm, Node, dependencies) is .github/actions/setup.
 name: CI
@@ -117,8 +116,8 @@ jobs:
   # only, and only once both jobs above passed on main itself, so a migration reaches
   # production only after the merged code was tested against it. Vercel builds main at
   # the same moment; its Deployment Checks wait for this job before the new code goes
-  # live (docs/13-deployment.md, 13.5), so the schema always comes first. Migrations
-  # must still suit the code already live for those minutes: add first, remove later.
+  # live, so the schema always comes first. Migrations must still suit the code already
+  # live for those minutes: add first, remove later.
   # The job's name is what Vercel waits for: renaming it means updating Vercel too.
   # On branches it shows as skipped, which a pull request counts as passed.
   migrate:
