@@ -272,7 +272,11 @@ async function onDelete() {
     v-if="playlist"
     class="max-w-5xl py-6 sm:py-8"
   >
-    <!-- Header: back, title, Play all, Edit details (its name from `sm`, the icon alone on phones) -->
+    <!--
+      Header: back, title, Play all, Edit details. On phones both buttons are icons only (their
+      names show from `sm`, and `aria-label` names them meanwhile): with "Play all" spelt out, the
+      title kept a few letters at 375px.
+    -->
     <div class="flex flex-wrap items-center gap-2">
       <IconButton
         :to="info.path"
@@ -289,13 +293,15 @@ async function onDelete() {
       </h1>
       <UButton
         :icon="isPlayingHere && player.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-        :label="isPlayingHere && player.isPlaying ? 'Pause' : 'Play all'"
+        :aria-label="isPlayingHere && player.isPlaying ? 'Pause' : 'Play all'"
         :disabled="!tracks.length"
         color="neutral"
         variant="subtle"
         data-testid="playlist-play"
         @click="playAll"
-      />
+      >
+        <span class="hidden sm:inline">{{ isPlayingHere && player.isPlaying ? 'Pause' : 'Play all' }}</span>
+      </UButton>
       <UButton
         icon="i-lucide-pencil"
         color="neutral"

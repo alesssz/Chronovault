@@ -58,20 +58,6 @@ The entries below come from a review on 2026-11-06 that drove a production build
 
 **Recommended.** All three.
 
-### UI-38 On small phones a playlist's title shrinks to a few letters
-
-**Priority:** low · **Kind:** phones · **Found:** 2026-11-06
-
-**What is wrong.** At 375px a playlist's and a group's page put "Play all" (with its text) and the pencil beside the title, which keeps a few letters ("Punic Wa…", "Teutobur…"). The track editor avoids this by showing its buttons as icons on phones.
-
-**Where.** [PlaylistEditor.vue](../app/components/playlist/PlaylistEditor.vue), the header.
-
-**Options.**
-- A) "Play all" as an icon on phones, like the track editor's Play.
-- B) The title on its own line, the buttons under it.
-
-**Recommended.** A.
-
 ### UI-39 Statistics call a group of versions a "Playlist", and an empty chart says nothing
 
 **Priority:** low · **Kind:** wording · **Found:** 2026-11-06
