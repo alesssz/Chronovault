@@ -58,20 +58,6 @@ The entries below come from a review on 2026-11-06 that drove a production build
 
 **Recommended.** All three.
 
-### UI-37 The app's error page has no header or way around
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-06
-
-**What is wrong.** A playlist or track that does not exist ("404 · Playlist not found") opens the bare error page: a small "404", the message and "Back to library", without the header, the navigation or the player, so it looks like the app broke. The share pages' own "not available" page keeps the header.
-
-**Where.** [error.vue](../app/error.vue).
-
-**Options.**
-- A) The error page inside the default layout (header, navigation; the player bar if something plays).
-- B) The logo and a larger message, without the layout.
-
-**Recommended.** A for a signed-in user, B otherwise.
-
 ### UI-38 On small phones a playlist's title shrinks to a few letters
 
 **Priority:** low · **Kind:** phones · **Found:** 2026-11-06

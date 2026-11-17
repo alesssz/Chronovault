@@ -3,7 +3,7 @@
 ```
 Chronovault/
 ├── app/                              # Frontend (Nuxt 4 srcDir)
-│   ├── app.vue · error.vue           # Root component · fatal error page
+│   ├── app.vue · error.vue           # Root component · fatal error page (the app's layout when signed in, the sign-in frame for a visitor)
 │   ├── app.config.ts                 # Nuxt UI theme: gold, spectral blue, night blue (5.6)
 │   ├── assets/css/main.css           # Tailwind + Nuxt UI, fonts and colour scales, base scale, room for the player bar
 │   ├── components/
@@ -48,7 +48,7 @@ Chronovault/
 │   │                                 #   useVersionFeedback (a group's feedback on its owner page, the visit recorded: 7.17),
 │   │                                 #   useKeyboardShortcuts (useKeyboardClaim, useShortcutsHelp: 7.5),
 │   │                                 #   usePageTitle (browser tab titles: "Library · Chronovault")
-│   ├── layouts/                      # default (header + player), auth (sign-in), public (share pages + full-screen view)
+│   ├── layouts/                      # default (header + player), auth (sign-in, the error page's frame for a visitor), public (share pages + full-screen view)
 │   ├── lib/                          # Browser code without Vue
 │   │   ├── audio-engine.ts           #   the single <audio> element and its events
 │   │   ├── audio-analysis.ts         #   tags, cover, duration, peaks

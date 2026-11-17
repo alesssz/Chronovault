@@ -39,7 +39,7 @@ const { data: track, error } = await useAsyncData(`track-${id}`, () => tracksApi
 
 // Missing or someone else's track: the error page (404).
 if (error.value || !track.value) {
-  throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Track not found', fatal: true })
+  throw createError({ statusCode: error.value?.statusCode ?? 404, statusMessage: 'Track not found', fatal: true })
 }
 
 usePageTitle(() => `${track.value?.title ?? 'Track'} · Edit`)

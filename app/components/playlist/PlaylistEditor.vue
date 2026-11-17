@@ -54,7 +54,7 @@ const { data: playlist, error } = await useAsyncData(`playlist-${props.id}`, () 
 
 // Missing or someone else's playlist: the error page (404).
 if (error.value || !playlist.value) {
-  throw createError({ statusCode: error.value?.statusCode ?? 404, message: 'Playlist not found', fatal: true })
+  throw createError({ statusCode: error.value?.statusCode ?? 404, statusMessage: `${capitalize(PLAYLIST_PURPOSE_INFO[props.purpose].noun)} not found`, fatal: true })
 }
 
 // Wrong section for this purpose: same page, under its own address.
