@@ -568,6 +568,15 @@ test.describe('touch screens', () => {
     const plays = (await item.getByTestId('stats-item-plays').boundingBox())!
     expect(plays.y).toBeGreaterThanOrEqual(link.y + link.height)
     expect(link.width).toBeGreaterThan(200)
+
+    // The group's own page at 375px (an iPhone SE): Play all and Edit details are icons there, so
+    // the title keeps most of its row; with "Play all" spelt out it kept "Teutobur…".
+    await page.setViewportSize({ width: 375, height: page.viewportSize()!.height })
+    await page.goto(new URL(groupUrl).pathname.replace(/^\/p\//, '/versions/'))
+    const heading = page.getByTestId('playlist-title')
+    await expect(page.getByRole('button', { name: 'Play all' })).toBeVisible()
+    const headerRow = (await heading.locator('..').boundingBox())!
+    expect((await heading.boundingBox())!.width).toBeGreaterThan(headerRow.width / 2)
   })
 
   test('touch screens: a long press on a row starts selecting; a moving finger does not', async ({ page }) => {
