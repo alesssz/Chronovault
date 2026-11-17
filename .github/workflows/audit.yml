@@ -2,11 +2,10 @@
 # and whenever the dependencies change, on any branch. A new advisory fails
 # the run, and GitHub emails the repository owner about a failed scheduled run.
 #
-# Why not GitHub's Dependabot alerts: the dependency graph does not read
-# pnpm 12 lockfiles made of two YAML documents (ours: the pnpm version, then
-# the packages), so it sees no npm dependency at all and raises no alert.
-# pnpm reads its own lockfile. Advisories reviewed and left out, each with
-# its reason, are in pnpm-workspace.yaml (auditConfig.ignoreGhsas).
+# Alongside GitHub's Dependabot alerts, which never block a branch: this run
+# fails the branch that brings an advisory in, before it is merged. Advisories
+# reviewed and left out, each with its reason, are in pnpm-workspace.yaml
+# (auditConfig.ignoreGhsas).
 #
 # The job summary also lists the outdated packages, to plan updates; that
 # list never fails the run.
