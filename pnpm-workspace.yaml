@@ -39,11 +39,6 @@ auditConfig:
     # readdir-glob (lint and build tools) use 5, 9 and 10 with the project's
     # own patterns, never one from a user. Remove once they move to 11.0.1.
     - GHSA-g3hv-75wg-m249
-    # deepmerge ≤4.3.1, prototype poisoning of the merged object (low). No
-    # patched release exists. Only @rollup/plugin-node-resolve (Nitro's build,
-    # at its latest) uses it, merging its own options from the build config.
-    # Remove once deepmerge publishes a fix (or the plugin drops it).
-    - GHSA-gcqx-w48m-w2h4
     # esbuild <0.28.1, arbitrary file read through esbuild's own dev server
     # on Windows (low). Only fontless (fonts of @nuxt/ui, at build time) uses
     # esbuild here, and only its `transform`, never that server. @nuxt/ui
