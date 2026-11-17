@@ -135,6 +135,11 @@ export default defineNuxtConfig({
     '/api/**': { headers: { 'cache-control': 'no-store' } },
   },
 
+  // Named explicitly: left unset, the resolved option is an empty object, not a
+  // string, and @nuxt/cli 4.0.1 crashes on start-up ("options.hostname.toLowerCase
+  // is not a function"). localhost is the address `nuxt dev` binds by default.
+  devServer: { host: 'localhost' },
+
   compatibilityDate: '2026-10-01',
 
   nitro: {
