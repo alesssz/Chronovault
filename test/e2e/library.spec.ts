@@ -184,6 +184,26 @@ test.describe('library and player', () => {
     await expect(page.getByTestId('upload-conversion')).toContainText('Kept as WAV: Floating-point WAV')
   })
 
+  test('"Choose files" opens the file picker once, and the files go to the queue', async ({ page }) => {
+    await signUp(page)
+    await page.goto('/tracks/new')
+    const dropzone = page.getByTestId('upload-dropzone')
+    await expect(dropzone).toContainText('Drop audio files here')
+
+    // "Choose files" is part of the zone, the one control: one click, one picker.
+    let opened = 0
+    page.on('filechooser', (chooser) => {
+      opened++
+      if (opened === 1) void chooser.setFiles({ name: 'chosen.wav', mimeType: 'audio/wav', buffer: makeWav() })
+    })
+    await expect(dropzone.getByRole('button')).toHaveCount(1)
+    // The hand over the label too: it is a span, where the browser would show the text cursor.
+    await expect(dropzone.getByText('Choose files')).toHaveCSS('cursor', 'pointer')
+    await dropzone.getByText('Choose files').click()
+    await expect(page.locator('[data-testid="upload-item"][data-status="done"]')).toHaveCount(1, { timeout: 30_000 })
+    expect(opened).toBe(1)
+  })
+
   test('a non-audio file is rejected', async ({ page }) => {
     await signUp(page)
     await page.goto('/tracks/new')

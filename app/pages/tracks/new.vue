@@ -16,6 +16,13 @@ const { items, pending, completed, add, remove, clearFinished } = useTrackUpload
 /** Files chosen in the drop zone (moved to the queue right away). */
 const picked = ref<File[] | null>(null)
 
+/**
+ * A touch screen has nothing to drop files from, so there the zone only
+ * offers to choose them. The pointer decides, not the width: a tablet is as
+ * wide as a small laptop.
+ */
+const touchPointer = useMediaQuery('(pointer: coarse)')
+
 // The upload component is only used to pick files: they move to the queue right away.
 watch(picked, (files) => {
   if (!files?.length) return
@@ -69,19 +76,35 @@ onBeforeRouteLeave(async () => {
       </h1>
     </div>
 
-    <!-- Drop zone / file picker: files go straight to the upload queue -->
-    <UFileUpload
-      v-model="picked"
-      multiple
-      :accept="AUDIO_ACCEPT"
-      icon="i-lucide-audio-lines"
-      label="Drop your audio files here"
-      description="MP3, WAV, FLAC, AAC/M4A, OGG/Opus · max 500 MB per file"
-      layout="list"
-      :preview="false"
-      class="min-h-48 w-full"
-      data-testid="upload-dropzone"
-    />
+    <!--
+      Drop zone / file picker: files go straight to the upload queue. The whole zone is the
+      control that opens the picker; "Choose files" is a span that only looks like a button, to say
+      so, and its text names the zone for screen readers. A real button inside would nest one
+      control in another, and its click would open the picker twice. The test id is on a div:
+      UFileUpload hands its attributes to its hidden <input>.
+    -->
+    <div data-testid="upload-dropzone">
+      <UFileUpload
+        v-model="picked"
+        multiple
+        :accept="AUDIO_ACCEPT"
+        icon="i-lucide-audio-lines"
+        :label="touchPointer ? undefined : 'Drop audio files here'"
+        description="MP3, WAV, FLAC, AAC/M4A, OGG/Opus · max 500 MB per file"
+        layout="list"
+        :preview="false"
+        :ui="{ base: 'cursor-pointer border-2 border-accented hover:bg-elevated/25' }"
+        class="min-h-48 w-full"
+      >
+        <template #actions>
+          <UButton
+            as="span"
+            icon="i-lucide-folder-open"
+            :label="touchPointer ? 'Choose audio files' : 'Choose files'"
+          />
+        </template>
+      </UFileUpload>
+    </div>
 
     <!-- What is read from the files -->
     <p class="mt-3 text-sm text-muted">
