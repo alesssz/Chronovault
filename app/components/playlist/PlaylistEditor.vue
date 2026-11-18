@@ -3,13 +3,15 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PlaylistDetail, PlaylistPurpose } from '~~/shared/types/playlist'
 import type { TrackStatus, TrackSummary } from '~~/shared/types/track'
 import { buildPlaylistCoverPath } from '~~/shared/utils/storage-paths'
+import { groupSongName } from '~/lib/feedback-playlist'
 import { playlistsApi, tracksApi } from '~/services/api'
 import { getErrorMessage } from '~/utils/errors'
 
 /**
  * Owner page of a playlist or of a group of versions (client-rendered),
  * shown by pages/playlists/[id].vue and pages/versions/[id].vue: the
- * track list (drag to reorder, Move up/down, remove, click to play), Play
+ * track list (drag to reorder, Move up/down, remove, click to play, Add
+ * from the library: PlaylistAddTracksDialog), Play
  * all, cover (custom or mosaic), sharing box (with a warning when private
  * tracks are included) and deletion. Track list changes save immediately.
  * Title, description and visibility change in a dialog ("Edit details",
@@ -188,6 +190,21 @@ function removeTrack(track: TrackSummary) {
   void saveTracks(tracks.value.filter(t => t.id !== track.id), `${capitalize(info.trackNoun)} not removed`)
 }
 
+// --- Adding ----------------------------------------------------------------------------
+/** The "Add tracks / versions" dialog (PlaylistAddTracksDialog). */
+const addOpen = ref(false)
+
+/**
+ * Appends the tracks picked in the dialog through saveTracks, like any change
+ * to the list: one save at a time, so an add never races a reorder or a
+ * removal still being saved.
+ */
+function addTracks(picked: TrackSummary[]) {
+  const inside = new Set(tracks.value.map(t => t.id))
+  const fresh = picked.filter(t => !inside.has(t.id))
+  if (fresh.length) void saveTracks([...tracks.value, ...fresh], `${capitalize(info.trackNoun)}s not added`)
+}
+
 /**
  * "Mark as final / draft" (groups of versions): the track's own status, the
  * same switch as in the library. Only the row changes: the list order and
@@ -362,27 +379,40 @@ async function onDelete() {
       <div class="min-w-0 space-y-8 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <section>
           <!-- Track list: drag handle, cover, title (click to play), duration, menu -->
-          <!-- Heading ("Tracks" / "Versions") and the spinner while a change saves -->
+          <!-- Heading ("Tracks" / "Versions") with the spinner while a change saves, and Add -->
           <div class="mb-2 flex items-center justify-between gap-2">
-            <h2 class="text-xs font-semibold uppercase tracking-widest text-muted">
+            <h2 class="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted">
               {{ capitalize(info.trackNoun) }}s
+              <UIcon
+                v-if="savingOrder"
+                name="i-lucide-loader-circle"
+                class="size-4 animate-spin"
+              />
             </h2>
-            <UIcon
-              v-if="savingOrder"
-              name="i-lucide-loader-circle"
-              class="size-4 animate-spin text-muted"
+            <UButton
+              v-if="tracks.length"
+              icon="i-lucide-list-plus"
+              :label="`Add ${info.trackNoun}s`"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              data-testid="playlist-add-tracks"
+              @click="addOpen = true"
             />
           </div>
 
-          <!-- Empty: playlists are filled from the library's menus, groups by "Share for feedback" -->
+          <!-- Empty: Add (the heading's button, here where the eye goes), or the library -->
           <UEmpty
             v-if="!tracks.length"
             icon="i-lucide-list-plus"
             :title="`No ${info.trackNoun}s yet`"
             :description="isVersions
-              ? 'In the library, select the versions of a song and use “Share for feedback”.'
-              : 'Add tracks from the library with “Add to playlist” in their menu.'"
-            :actions="[{ label: 'Go to library', to: '/', icon: 'i-lucide-library' }]"
+              ? 'Add versions from your library, or use “Add to group” in a track’s menu.'
+              : 'Add tracks from your library, or use “Add to playlist” in a track’s menu.'"
+            :actions="[
+              { label: `Add ${info.trackNoun}s`, icon: 'i-lucide-list-plus', onClick: () => { addOpen = true } },
+              { label: 'Go to library', to: '/', icon: 'i-lucide-library', color: 'neutral', variant: 'subtle' },
+            ]"
           />
 
           <!-- Always in the DOM (v-show): drag and drop binds to it once, on mount. -->
@@ -480,6 +510,15 @@ async function onDelete() {
       v-model:open="detailsOpen"
       :playlist="playlist"
       @saved="applyServerPlaylist"
+    />
+
+    <!-- Tracks from the library, the ones already here left out (a group's search starts from its song); appended through saveTracks -->
+    <PlaylistAddTracksDialog
+      v-model:open="addOpen"
+      :purpose="purpose"
+      :exclude-ids="tracks.map(t => t.id)"
+      :suggestion="isVersions ? groupSongName(playlist.title) : undefined"
+      @add="addTracks"
     />
 
     <!-- Delete confirmation: the tracks themselves stay in the library -->
