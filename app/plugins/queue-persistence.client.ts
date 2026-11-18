@@ -67,6 +67,14 @@ export default defineNuxtPlugin((nuxtApp) => {
     void restore(userId)
   }
 
+  /** Resolves once the page on screen has hydrated (at once when it already has). */
+  function hydrated(): Promise<void> {
+    if (!nuxtApp.isHydrating) return Promise.resolve()
+    return new Promise((resolve) => {
+      nuxtApp.hooks.hookOnce('app:suspense:resolve', () => resolve())
+    })
+  }
+
   /** Reads the saved queue, matches it with the current library and loads it paused. */
   async function restore(userId: string) {
     const saved = readSavedQueue(userId)
@@ -75,6 +83,9 @@ export default defineNuxtPlugin((nuxtApp) => {
     try {
       // Current library: drops deleted tracks, brings current cover addresses (the library page's own read when it is asking too).
       const library = await readLibrary()
+      // The queue brings the player bar, which the server's HTML does not have: loaded while the
+      // page is still hydrating (its code not arrived yet, as for the error page), it is a mismatch.
+      await hydrated()
       // The user may have started something while the library loaded.
       if (player.isActive) return
       const resolved = resolveSavedQueue(saved, library)

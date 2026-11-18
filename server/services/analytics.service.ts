@@ -93,6 +93,7 @@ export async function listTargets(db: DbClient, userId: string): Promise<Analyti
   return [
     ...tracks.map(t => ({
       kind: 'track' as const,
+      purpose: null,
       id: t.id,
       title: t.title,
       visibility: t.visibility,
@@ -101,6 +102,7 @@ export async function listTargets(db: DbClient, userId: string): Promise<Analyti
     })),
     ...playlists.map(p => ({
       kind: 'playlist' as const,
+      purpose: p.purpose,
       id: p.id,
       title: p.title,
       visibility: p.visibility,

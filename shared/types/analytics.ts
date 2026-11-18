@@ -1,3 +1,4 @@
+import type { PlaylistPurpose } from './playlist'
 import type { TrackVisibility } from './track'
 
 /**
@@ -42,6 +43,8 @@ export interface AnalyticsDay extends AnalyticsCount {
 export interface AnalyticsItem extends AnalyticsCount {
   /** A track's page (/t/…) or a playlist's (/p/…). */
   kind: 'track' | 'playlist'
+  /** A playlist's purpose (a playlist, or a group of versions); null for a track. */
+  purpose: PlaylistPurpose | null
   /** The track's or playlist's id. */
   id: string
   /** Its current title. */

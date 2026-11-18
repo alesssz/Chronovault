@@ -82,13 +82,13 @@ export async function findPlaylistTrackIds(db: DbClient, userId: string, id: str
 }
 
 /** What the Statistics page shows of a playlist (and needs for its cover address). */
-export type PlaylistLabelRow = Pick<PlaylistRow, 'id' | 'title' | 'visibility' | 'cover_path' | 'updated_at'>
+export type PlaylistLabelRow = Pick<PlaylistRow, 'id' | 'title' | 'purpose' | 'visibility' | 'cover_path' | 'updated_at'>
 
-/** Title, visibility and custom cover of every playlist of the user (Statistics page), read in pages. */
+/** Title, purpose, visibility and custom cover of every playlist of the user (Statistics page), read in pages. */
 export async function listPlaylistLabels(db: DbClient, userId: string): Promise<PlaylistLabelRow[]> {
   return readAllPages((from, to) => db
     .from('playlists')
-    .select('id, title, visibility, cover_path, updated_at')
+    .select('id, title, purpose, visibility, cover_path, updated_at')
     .eq('user_id', userId)
     .order('id')
     .range(from, to), 'playlists.listLabels')

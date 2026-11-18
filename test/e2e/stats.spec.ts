@@ -11,6 +11,16 @@ test.describe('statistics', () => {
     await signUp(page)
     const title = `stats-${uniqueId()}`
     await uploadTrack(page, title)
+    // An unlisted group of versions holding it, as "Share for feedback" makes it.
+    const groupTitle = `${title} – versions`
+    await page.evaluate(async (group) => {
+      const [track] = await (await fetch('/api/tracks')).json() as { id: string }[]
+      await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: group, purpose: 'versions', visibility: 'unlisted', trackIds: [track!.id] }),
+      })
+    }, groupTitle)
     await page.getByRole('link', { name: 'Go to library' }).click()
 
     // --- Opened from the account menu ---
@@ -50,12 +60,15 @@ test.describe('statistics', () => {
     expect(contrast).toBeGreaterThanOrEqual(4.5)
     await page.evaluate(() => localStorage.removeItem('nuxt-color-mode'))
     await page.reload()
-    await expect(page.getByTestId('stats-item').filter({ hasText: title })).toBeVisible()
+    await expect(page.getByTestId('stats-item').filter({ hasText: title }).first()).toBeVisible()
+    // The group is named for what it is, not as a playlist.
+    await expect(page.getByTestId('stats-item').filter({ hasText: groupTitle })).toContainText('Versions')
     // One chart for views, one for plays: 30 days each.
     await expect(page.getByTestId('stats-views-chart').getByTestId('stats-day-bar')).toHaveCount(30)
     await expect(page.getByTestId('stats-plays-chart').getByTestId('stats-day-bar')).toHaveCount(30)
-    // Plays are the app's own count, real even here: nobody listened yet.
+    // Plays are the app's own count, real even here: nobody listened yet, and the chart says so.
     await expect(page.getByTestId('stats-plays')).toHaveText('0')
+    await expect(page.getByTestId('stats-chart-empty')).toHaveText('No plays in this period')
     // Not on Vercel: the analytics script (served only by Vercel) is not even loaded.
     await expect(page.locator('script[src*="/_vercel/insights"]')).toHaveCount(0)
 

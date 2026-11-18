@@ -88,8 +88,15 @@ const pages = computed<PageRow[]>(() => {
 })
 
 /** The identity fields of a plays item (what PageRow shares with AnalyticsItem). */
-function pageOf({ kind, id, title, visibility, coverUrl, path }: PlaysItem) {
-  return { kind, id, title, visibility, coverUrl, path }
+function pageOf({ kind, purpose, id, title, visibility, coverUrl, path }: PlaysItem) {
+  return { kind, purpose, id, title, visibility, coverUrl, path }
+}
+
+/** What a row counts, with its icon: a group of versions is told apart from a playlist, as on the Versions page. */
+function kindOf(page: PageRow): { label: string, icon: string } {
+  if (page.kind === 'track') return { label: 'Track', icon: 'i-lucide-music' }
+  const purpose = page.purpose ?? 'playlist'
+  return { label: purpose === 'versions' ? 'Versions' : 'Playlist', icon: PLAYLIST_PURPOSE_INFO[purpose].icon }
 }
 
 // UTC, like the server's days.
@@ -306,10 +313,10 @@ function isPrivateNow(visibility: string): boolean {
                 >{{ item.title }}</NuxtLink>
                 <p class="flex items-center gap-1.5 text-xs text-muted">
                   <UIcon
-                    :name="item.kind === 'track' ? 'i-lucide-music' : 'i-lucide-list-music'"
+                    :name="kindOf(item).icon"
                     class="size-3.5"
                   />
-                  {{ item.kind === 'track' ? 'Track' : 'Playlist' }}
+                  {{ kindOf(item).label }}
                   <UBadge
                     v-if="isPrivateNow(item.visibility)"
                     label="Private now"

@@ -67,7 +67,8 @@ describe('getAnalyticsReport', () => {
       track('c', { visibility: 'private' }),
     ])
     vi.mocked(playlistsRepo.listPlaylistLabels).mockResolvedValue([
-      { id: 'p', title: 'Mix', visibility: 'public', cover_path: null, updated_at: UPDATED_AT },
+      { id: 'p', title: 'Mix', purpose: 'playlist', visibility: 'public', cover_path: null, updated_at: UPDATED_AT },
+      { id: 'g', title: 'Takes', purpose: 'versions', visibility: 'unlisted', cover_path: null, updated_at: UPDATED_AT },
     ])
     const { client, aggregate } = fakeClient({
       environment: [{ key: 'production', pageviews: 10, visitors: 6 }],
@@ -82,7 +83,7 @@ describe('getAnalyticsReport', () => {
     expect(aggregate).toHaveBeenCalledTimes(6)
     // The filter of the first query (every query must use the same one).
     const filter = aggregate.mock.calls[0]![0].filter
-    expect(filter).toBe('environment eq \'production\' and requestPath in (\'/t/a\', \'/t/b\', \'/t/c\', \'/p/p\')')
+    expect(filter).toBe('environment eq \'production\' and requestPath in (\'/t/a\', \'/t/b\', \'/t/c\', \'/p/p\', \'/p/g\')')
     expect(aggregate.mock.calls.every(([q]) => q.since === '2026-10-15' && q.until === '2026-10-21' && q.filter === filter)).toBe(true)
 
     expect(report.source).toBe('vercel')
@@ -90,7 +91,9 @@ describe('getAnalyticsReport', () => {
     // Every day of the period, zero when Vercel has no row for it.
     expect(report.daily.map(d => d.pageviews)).toEqual([0, 0, 0, 0, 0, 10, 0])
     // Shared items always; private ones only with visits ("c" has none). Most viewed first.
-    expect(report.items.map(i => [i.path, i.pageviews])).toEqual([['/t/a', 7], ['/t/b', 3], ['/p/p', 0]])
+    expect(report.items.map(i => [i.path, i.pageviews])).toEqual([['/t/a', 7], ['/t/b', 3], ['/p/p', 0], ['/p/g', 0]])
+    // What each one is: the page names a group of versions apart from a playlist.
+    expect(report.items.map(i => i.purpose)).toEqual([null, null, 'playlist', 'versions'])
     expect(report.items[0]!.coverUrl).toMatch('/api/covers/tracks/a?v=')
     expect(report.items[2]!.coverUrl).toBeNull()
     expect(report.referrers).toEqual([{ key: null, pageviews: 6 }, { key: 'whatsapp.com', pageviews: 4 }])
