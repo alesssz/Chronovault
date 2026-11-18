@@ -46,18 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries below come from a review on 2026-11-06 that drove a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-34 The upload drop zone shows no way to pick files
-
-**Priority:** low · **Kind:** polish, touch screens · **Found:** 2026-11-06
-
-**What is wrong.** The upload page's zone says "Drop your audio files here" with a faint dashed border and no button: the zone is clickable, but nothing says so, and on a phone or tablet nothing can be dropped.
-
-**Where.** [pages/tracks/new.vue](../app/pages/tracks/new.vue), the `UFileUpload`.
-
-**Options.** A "Choose files" button in the zone, the text "Drop audio files here, or choose them" (just "Choose audio files" on touch screens), and a stronger border.
-
-**Recommended.** All three.
-
 ### UI-39 Statistics call a group of versions a "Playlist", and an empty chart says nothing
 
 **Priority:** low · **Kind:** wording · **Found:** 2026-11-06

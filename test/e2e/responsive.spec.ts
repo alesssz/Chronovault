@@ -281,6 +281,12 @@ test.describe('touch screens', () => {
     // the Save bar (with their text the title would shrink to a few letters).
     const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!
     expect(heading.width).toBeGreaterThan(150)
+
+    // The upload zone offers to choose files, never to drop them: there is nothing to drop from.
+    await page.goto('/tracks/new')
+    const dropzone = page.getByTestId('upload-dropzone')
+    await expect(dropzone.getByRole('button')).toHaveAccessibleName(/Choose audio files$/)
+    await expect(dropzone).not.toContainText('Drop')
   })
 
   test('tablet: player bar with a readable title, and mute alone for the volume', async ({ page }, testInfo) => {
