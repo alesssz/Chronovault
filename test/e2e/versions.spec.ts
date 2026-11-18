@@ -3,8 +3,12 @@
  * sent to friends in one "Share for feedback" link (marked "WIP" there);
  * the group shows up on the Versions page, not among the playlists; the
  * chosen one is marked final from the group; the others are deleted in one go.
+ * A version made later joins the group from the library's "Add to group", or
+ * from the group's own "Add versions"; "Remove from group" takes one out.
+ * Only drafts can join: a final track is offered by neither. The group's song
+ * comes first: on top of the menu, and in the search the dialog starts from.
  */
-import { expect, test } from './fixtures'
+import { expect, test, type Page } from './fixtures'
 import { signUp, uploadTrack } from './helpers'
 
 /** Three Suno versions of the same song (the WAV file name becomes the title). */
@@ -107,4 +111,87 @@ test.describe('draft versions', () => {
     const left = await page.evaluate(async () => (await (await fetch('/api/tracks')).json() as { title: string, status: string }[]))
     expect(left).toEqual([expect.objectContaining({ title: 'Night drive v2', status: 'final' })])
   })
+
+  test('a group gains and loses versions after it was shared', async ({ page }) => {
+    test.setTimeout(90_000)
+    await signUp(page)
+    for (const title of [...VERSIONS, 'Morning light', 'Rainbow']) await uploadTrack(page, title)
+    // The group as "Share for feedback" makes it, with v1 and v2 (its link was sent);
+    // another song, already final, is no version to vote on; a newer group of another song.
+    const group = await page.evaluate(async (titles) => {
+      const tracks = await (await fetch('/api/tracks')).json() as { id: string, title: string }[]
+      const ids = titles.map(title => tracks.find(t => t.title === title)!.id)
+      const final = tracks.find(t => t.title === 'Morning light')!.id
+      await fetch(`/api/tracks/${final}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'final' }),
+      })
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Night drive – versions', purpose: 'versions', visibility: 'unlisted', trackIds: ids }),
+      })
+      await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Rain – versions', purpose: 'versions', visibility: 'unlisted' }),
+      })
+      return await response.json() as { id: string }
+    }, VERSIONS.slice(0, 2))
+
+    // --- v3, made later, joins it from the library; the final track cannot ---
+    await page.goto('/')
+    const finalRow = page.getByTestId('track-row').filter({ hasText: 'Morning light' })
+    await finalRow.getByRole('button', { name: 'Actions for Morning light' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Add to playlist' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Add to group' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    const libraryRow = page.getByTestId('track-row').filter({ hasText: 'Night drive v3' })
+    await libraryRow.getByRole('button', { name: 'Actions for Night drive v3' }).click()
+    await page.getByRole('menuitem', { name: 'Add to group' }).click()
+    // Its own song's group first, though "Rain" is newer.
+    await expect(page.getByRole('menu').last().getByRole('menuitem')).toHaveText(['Night drive – versions', 'Rain – versions'])
+    await page.getByRole('menuitem', { name: 'Night drive – versions' }).click()
+    await expect(page.getByText('Added to Night drive – versions').first()).toBeVisible()
+
+    await page.goto(`/versions/${group.id}`)
+    await expectVersions(page, ['Night drive v1', 'Night drive v2', 'Night drive v3'])
+
+    // --- v3 out from its menu, then back through the group's own "Add versions" ---
+    const versionRow = page.getByTestId('playlist-track').filter({ hasText: 'Night drive v3' })
+    await versionRow.getByRole('button', { name: 'Actions for Night drive v3' }).click()
+    await page.getByRole('menuitem', { name: 'Remove from group' }).click()
+    await expectVersions(page, ['Night drive v1', 'Night drive v2'])
+    await page.getByTestId('playlist-add-tracks').click()
+    const dialog = page.getByRole('dialog')
+    // The search starts from the group's song; cleared, it offers every draft not in the
+    // group yet (not the final track).
+    const search = dialog.getByTestId('add-tracks-search')
+    await expect(search).toHaveValue('Night drive')
+    await expect(dialog.getByTestId('add-tracks-option')).toHaveText([/Night drive v3/])
+    await search.fill('')
+    await expect(dialog.getByTestId('add-tracks-option')).toHaveText([/Rainbow/, /Night drive v3/])
+    await search.fill('v1')
+    await expect(dialog.getByTestId('add-tracks-empty')).toHaveText('No track matches the search.')
+    await search.fill('drive')
+    await dialog.getByRole('checkbox', { name: 'Night drive v3' }).click()
+    await dialog.getByRole('button', { name: 'Add 1 version' }).click()
+    await expectVersions(page, ['Night drive v1', 'Night drive v2', 'Night drive v3'])
+
+    // Every version of the song is in: the search starts empty, not from a name finding nothing.
+    await page.getByTestId('playlist-add-tracks').click()
+    await expect(search).toHaveValue('')
+    await expect(dialog.getByTestId('add-tracks-option')).toHaveText([/Rainbow/])
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+
+    // Saved, not only on screen.
+    await page.reload()
+    await expectVersions(page, ['Night drive v1', 'Night drive v2', 'Night drive v3'])
+  })
 })
+
+/** The group's versions on its page, in order (waits for the list to settle). */
+async function expectVersions(page: Page, titles: string[]) {
+  await expect(page.getByTestId('playlist-track-title')).toHaveText(titles.map(title => new RegExp(`^${title}`)))
+}

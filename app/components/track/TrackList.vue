@@ -10,8 +10,8 @@ import { HAPTIC, haptic } from '~/lib/haptics'
  * full-screen view for the current track), composers, a "Draft" badge,
  * genre, icons (mastered; lyrics, synced, or synced but to check after a
  * replaced audio; visibility), duration and the "⋮" menu: Edit, Download,
- * Add to playlist, Mark as final/draft, Copy share link / Open share page,
- * Delete.
+ * Add to playlist, Add to group (drafts, once there is one), Mark as final/draft,
+ * Copy share link / Open share page, Delete.
  * Playing, deleting and status changes are delegated to the page through events.
  *
  * Selection mode (`selectable`): each row gets a checkbox, and clicking the
@@ -76,6 +76,7 @@ const player = usePlayerStore()
 // "Share link" (the device's share sheet on touch screens) or "Copy share link" in the menu.
 const { shareLink, nativeShare } = useShareLink()
 const { addToPlaylistMenu } = usePlaylists()
+const { addToGroupMenu } = useVersionGroups()
 // "Play next" / "Add to queue" in the menu.
 const queue = useQueueActions()
 // "Download": the file with its metadata written in.
@@ -103,6 +104,16 @@ function onTitleClick(track: TrackSummary) {
   else emit('play', track)
 }
 
+/**
+ * "Add to group" (a new version joining the ones already shared), for a
+ * draft: a final track is a version already chosen, not one to vote on.
+ */
+function groupItem(track: TrackSummary): DropdownMenuItem[] {
+  if (track.status !== 'draft') return []
+  const groups = addToGroupMenu(track.title, () => [track.id])
+  return groups.length ? [{ label: 'Add to group', icon: PLAYLIST_PURPOSE_INFO.versions.icon, children: groups }] : []
+}
+
 /** The "⋮" menu of a row; groups are separated by dividers. */
 function menuFor(track: TrackSummary): DropdownMenuItem[][] {
   return [
@@ -111,6 +122,8 @@ function menuFor(track: TrackSummary): DropdownMenuItem[][] {
       { label: 'Edit', icon: 'i-lucide-pencil', to: `/tracks/${track.id}/edit` },
       { label: 'Download', icon: 'i-lucide-download', onSelect: () => void download(track.id) },
       { label: 'Add to playlist', icon: 'i-lucide-list-plus', children: addToPlaylistMenu(() => [track.id]) },
+      // Drafts only, and once a group exists: an empty submenu would be a dead end.
+      ...groupItem(track),
       // Draft ⇄ final in one click (also a switch on the edit page).
       track.status === 'draft'
         ? { label: 'Mark as final', icon: 'i-lucide-circle-check', onSelect: () => emit('status', track, 'final') }

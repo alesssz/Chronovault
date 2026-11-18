@@ -136,7 +136,7 @@ Logic that more than one page, component or service needs lives in one place. Ch
 | `useSortableList` + `<DragHandle>` | composable + component | Drag and drop of the playlist page and the "Up next" panel |
 | `useSharedItem`, `useShareMeta` | composables | Public pages: SSR load with `404`/`500`, link-preview tags |
 | `<SharePlayer>`, `<ShareUnavailable>`, `<ShareLinkBox>` | components | Public pages' player and "not available" state; the "Sharing" box of the editors |
-| `useQueueActions().menuItems`, `usePlaylists().addToPlaylistMenu` | composables | "Play next / Add to queue" and "Add to playlist" menu entries (library, selection bar, playlist page) |
+| `useQueueActions().menuItems`, `usePlaylists().addToPlaylistMenu`, `useVersionGroups().addToGroupMenu` | composables | "Play next / Add to queue", "Add to playlist" and "Add to group" menu entries (library, selection bar, playlist page) |
 | `useSignedInRedirect` | composable | Sign-in and confirmation pages: enter the app once a session exists |
 | `useMountedMediaQuery` | composable | A layout chosen by window width on a server-rendered page (the share pages' player bar from `md`): false until mounted, so the browser's first pass matches the server's HTML (no hydration mismatch) |
 | `usePageTitle` | composable | Every page's browser tab title: "Library · Chronovault" (the name from `shared/brand.ts`) |

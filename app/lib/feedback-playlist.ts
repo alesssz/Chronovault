@@ -1,3 +1,5 @@
+import { foldCase } from '~~/shared/utils/text'
+
 /**
  * "Share for feedback" (library selection): the chosen versions of a track
  * go into a new unlisted playlist whose link is sent to friends. This module
@@ -47,4 +49,29 @@ export function feedbackPlaylistTitle(titles: string[]): string {
   }
   if (base.trim().length < 3) base = titles[0]!
   return `${base.trim().slice(0, MAX_TITLE - SUFFIX.length)}${SUFFIX}`
+}
+
+/**
+ * The song a group is about: its title without the " – versions" that
+ * "Share for feedback" appends (the whole title when it was renamed without it).
+ */
+export function groupSongName(groupTitle: string): string {
+  const title = groupTitle.trim()
+  return title.toLowerCase().endsWith(SUFFIX.toLowerCase()) ? title.slice(0, -SUFFIX.length).trim() : title
+}
+
+/**
+ * The track's title starts with the group's song name (case folded as in
+ * the search), and the name's last word ends there: "Rain 2",
+ * "Rain2", "Rain (Cover)" and "Rain-2" are versions of "Rain", "Rainbow" is
+ * not. A hint for sorting and pre-filling, never a rule: versions with
+ * another title can still join.
+ */
+export function isVersionOf(trackTitle: string, groupTitle: string): boolean {
+  const song = foldCase(groupSongName(groupTitle))
+  const title = foldCase(trackTitle)
+  if (!song || !title.startsWith(song)) return false
+  // A letter right after the name continues its last word ("Rain" → "Rainbow").
+  const next = title.charAt(song.length)
+  return !/\p{L}/u.test(next) || !/\p{L}$/u.test(song)
 }
