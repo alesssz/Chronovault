@@ -46,18 +46,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 The entries below come from a review on 2026-11-06 that drove a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
 
-### UI-39 Statistics call a group of versions a "Playlist", and an empty chart says nothing
-
-**Priority:** low · **Kind:** wording · **Found:** 2026-11-06
-
-**What is wrong.** In the list of items each one is "Track" or "Playlist": a group of versions is labelled "Playlist". "Plays per day" with no plays shows bare axes, with no "No plays yet".
-
-**Where.** [pages/stats.vue](../app/pages/stats.vue) (the item's kind), [StatsDailyChart.vue](../app/components/stats/StatsDailyChart.vue).
-
-**Options.** "Versions" for groups (from the purpose, as elsewhere); an empty-state line in the chart.
-
-**Recommended.** Both.
-
 ### UI-41 The password-reset messages differ from the forms around them
 
 **Priority:** low · **Kind:** polish · **Found:** 2026-11-06

@@ -535,7 +535,7 @@ sequenceDiagram
 | Not on Vercel (local, Docker, e2e) and not configured | `demo` | **Made-up numbers** around your real tracks and playlists, deterministic, under a yellow "Demo data" banner |
 | On Vercel without token or project id | `unconfigured` | How to configure it ([13.6](13-deployment.md#136-statistics-vercel-web-analytics)); never demo data, which could be mistaken for real |
 
-- The page lists every shared item (even without visits) and every item visited in the period; "Private now" marks a page no longer shared.
+- The page lists every shared item (even without visits) and every item visited in the period, each named for what it is: Track, Playlist, or Versions for a group of versions (the report carries each playlist's `purpose`); "Private now" marks a page no longer shared. A chart with nothing to draw says so ("No plays in this period") instead of showing bare axes.
 
 **Plays** are counted by the app itself (table `plays`), so they are real everywhere, local development included, and visitors with an ad blocker count too:
 

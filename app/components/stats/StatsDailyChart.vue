@@ -45,6 +45,9 @@ const scaleMax = computed(() => {
   return [2, 4, 6, 10].map(m => m * magnitude).find(n => n >= max)!
 })
 
+/** Nothing to draw: bare axes would read as a chart that failed to load. */
+const empty = computed(() => props.daily.every(d => !d.value))
+
 /** Gridlines from the top down: top, half, zero. */
 const gridlines = computed(() => [scaleMax.value, scaleMax.value / 2, 0])
 
@@ -86,9 +89,10 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact' })
 <template>
   <div>
     <div class="flex gap-2">
-      <!-- Scale labels, aligned with the gridlines -->
+      <!-- Scale labels, aligned with the gridlines; kept in place but unseen with nothing to scale -->
       <div
         class="flex h-44 flex-col justify-between text-right text-xs tabular-nums text-dimmed"
+        :class="{ invisible: empty }"
         aria-hidden="true"
       >
         <span
@@ -132,6 +136,19 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact' })
               />
             </div>
           </UTooltip>
+        </div>
+
+        <!-- On the card's background: across the middle gridline it would read as struck through. -->
+        <div
+          v-if="empty"
+          class="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <p
+            class="bg-default px-2 text-sm text-muted"
+            data-testid="stats-chart-empty"
+          >
+            No {{ noun }}s in this period
+          </p>
         </div>
       </div>
     </div>

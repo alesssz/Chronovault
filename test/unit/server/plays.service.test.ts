@@ -31,8 +31,8 @@ const period = periodOf(7, new Date('2026-10-24T12:00:00Z'))
 
 /** The share pages of the user (what listTargets returns). */
 const targets: AnalyticsTarget[] = [
-  { kind: 'track', id: TRACK, title: 'Song', visibility: 'unlisted', coverUrl: null, path: `/t/${TRACK}` },
-  { kind: 'playlist', id: LIST, title: 'List', visibility: 'unlisted', coverUrl: null, path: `/p/${LIST}` },
+  { kind: 'track', purpose: null, id: TRACK, title: 'Song', visibility: 'unlisted', coverUrl: null, path: `/t/${TRACK}` },
+  { kind: 'playlist', purpose: 'playlist', id: LIST, title: 'List', visibility: 'unlisted', coverUrl: null, path: `/p/${LIST}` },
 ]
 
 /** A play on a day, by a listener; `playlist` null for the track's own page. */
