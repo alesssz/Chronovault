@@ -23,6 +23,12 @@ const mode = ref<'login' | 'register' | 'forgot'>(useRoute().query.forgot === un
 const loading = ref(false)
 /** An email was sent (sign-up confirmation, or reset link to that address): "check your inbox" instead of the form. */
 const emailSent = ref<{ kind: 'confirm' } | { kind: 'reset', to: string } | null>(null)
+/** The reset address in two pieces, the name and "@domain": a narrow line breaks between them (see the template). */
+const sentTo = computed(() => {
+  if (emailSent.value?.kind !== 'reset') return null
+  const at = emailSent.value.to.lastIndexOf('@')
+  return { name: emailSent.value.to.slice(0, at), domain: emailSent.value.to.slice(at) }
+})
 
 const email = z.email('Invalid email')
 const schema = z.object({
@@ -107,24 +113,38 @@ function setMode(value: typeof mode.value) {
 <template>
   <div
     v-if="emailSent"
-    class="space-y-4 text-center"
+    class="space-y-6 text-center"
+    data-testid="email-sent"
   >
-    <!-- An email is on its way: sign-up confirmation (production) or reset link -->
-    <UIcon
-      name="i-lucide-mail-check"
-      class="size-10 text-primary"
-    />
-    <h1 class="text-lg font-semibold">
-      Check your email
-    </h1>
-    <p class="text-sm text-muted">
-      <template v-if="emailSent.kind === 'confirm'">
-        We sent you a link to confirm your account.
-      </template>
-      <template v-else>
-        If an account exists for {{ emailSent.to }}, we sent it a link to choose a new password.
-      </template>
-    </p>
+    <!--
+      An email is on its way: sign-up confirmation (production) or reset link. Its icon, title and
+      text in the classes of UAuthForm's header, so the message reads as the next step of the form
+      it replaces rather than as a smaller note. The address is two inline blocks, the name and
+      "@domain": each moves to the next line whole, so a narrow line breaks at the @, never at a
+      hyphen, where it read as two addresses. A block is split (anywhere) only when longer than a
+      line. The comma is inside the second, or a line could start with it.
+    -->
+    <div class="flex flex-col">
+      <UIcon
+        name="i-lucide-mail-check"
+        class="mx-auto mb-2 size-8 text-primary"
+      />
+      <h1 class="text-xl font-semibold text-pretty text-highlighted">
+        Check your email
+      </h1>
+      <p class="mt-1 text-base text-pretty text-muted">
+        <template v-if="emailSent.kind === 'confirm'">
+          We sent you a link to confirm your account.
+        </template>
+        <template v-else-if="sentTo">
+          If an account exists for <span
+            class="text-default"
+            data-testid="email-sent-address"
+          ><span class="inline-block max-w-full break-all">{{ sentTo.name }}</span><wbr><span class="inline-block max-w-full break-all">{{ sentTo.domain }}<span class="text-muted">,</span></span></span>
+          we sent it a link to choose a new password.
+        </template>
+      </p>
+    </div>
     <UButton
       variant="link"
       label="Back to sign in"

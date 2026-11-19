@@ -1,11 +1,12 @@
 /**
  * End-to-end: "Forgot password?" sends an email whose link, opened in another
  * browser, lets the user choose a new password; the old one stops working,
- * the link works once, and a broken link offers a new one.
+ * the link works once, and a broken link offers a new one. Both messages look
+ * like the forms they stand in for, and the address stays on one line.
  * The email is read from the local Auth's mail catcher (Mailpit).
  */
 import type { APIRequestContext } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { expect, test, type Locator } from './fixtures'
 import { signIn, signUp } from './helpers'
 
 /** Mailpit's API: the `[inbucket]` port in supabase/config.toml. */
@@ -28,6 +29,11 @@ async function resetLink(request: APIRequestContext, email: string): Promise<str
   return href!.replaceAll('&amp;', '&')
 }
 
+/** The computed font size of an element, e.g. `20px`. */
+async function fontSize(locator: Locator): Promise<string> {
+  return locator.evaluate(el => getComputedStyle(el).fontSize)
+}
+
 test.describe('password reset', () => {
   test('a forgotten password is replaced through the emailed link, opened in another browser', async ({ page, browser, request }) => {
     const email = await signUp(page)
@@ -37,10 +43,22 @@ test.describe('password reset', () => {
 
     await page.getByRole('button', { name: 'Forgot password?' }).click()
     await expect(page.getByText('Reset your password')).toBeVisible()
+    // The size the messages below must match.
+    const formTitleSize = await fontSize(page.getByText('Reset your password'))
     await page.getByRole('textbox', { name: 'Email' }).fill(email)
     await page.getByRole('button', { name: 'Send link' }).click()
-    await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+    const sent = page.getByRole('heading', { name: 'Check your email' })
+    await expect(sent).toBeVisible()
     await expect(page.getByText(`If an account exists for ${email}`)).toBeVisible()
+    // A form title's size, and the address never split at its hyphen ("e2e-…"): each of its
+    // two pieces, the name and "@domain", on one line.
+    expect(await fontSize(sent)).toBe(formTitleSize)
+    const address = page.getByTestId('email-sent-address')
+    await expect(address).toHaveText(`${email},`)
+    expect(await address.evaluate((el) => {
+      const line = Number.parseFloat(getComputedStyle(el).lineHeight)
+      return [...el.children].every(piece => piece.getBoundingClientRect().height <= line * 1.2)
+    })).toBe(true)
 
     const link = await resetLink(request, email)
     expect(link).toMatch(/\/reset-password\?token_hash=.+&type=recovery$/)
@@ -61,7 +79,9 @@ test.describe('password reset', () => {
     const third = await browser.newContext()
     const again = await third.newPage()
     await again.goto(link)
-    await expect(again.getByRole('heading', { name: 'This link no longer works' })).toBeVisible()
+    const expired = again.getByRole('heading', { name: 'This link no longer works' })
+    await expect(expired).toBeVisible()
+    expect(await fontSize(expired)).toBe(formTitleSize)
     await third.close()
 
     // Back in the first browser: the old password is refused, the new one signs in.

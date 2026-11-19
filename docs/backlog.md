@@ -42,22 +42,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 **Recommended.** Which option, why, and how to check it is done.
 ```
 
-## Interface (UI)
-
-The entries below come from a review on 2026-11-06 that drove a production build with Playwright on the local stack, with a library of 24 tracks, 6 playlists (one empty) and a group of versions with two votes, at desktop 1440×900 and 1280×720, tablet 820×1180 (touch), phone 390×844 and 375×667 (touch), in the dark and the light theme, signed in and as a visitor; no page scrolled sideways and no page raised an error. Widths are CSS pixels.
-
-### UI-41 The password-reset messages differ from the forms around them
-
-**Priority:** low · **Kind:** polish · **Found:** 2026-11-06
-
-**What is wrong.** "Check your email" and "This link no longer works" use a smaller, paler heading than the forms' titles ("Welcome back", "Reset your password"), and the email address in "If an account exists for …" wraps at its hyphen ("ui-review- / mw4…").
-
-**Where.** [pages/login.vue](../app/pages/login.vue), [pages/reset-password.vue](../app/pages/reset-password.vue).
-
-**Options.** The forms' title style for those headings; the address in a `whitespace-nowrap` (or `break-all`) span.
-
-**Recommended.** Both.
-
 ## Tooling (OPS)
 
 ### OPS-2 `pnpm doctor` does not check the GitHub CLI
