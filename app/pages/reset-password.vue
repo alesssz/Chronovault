@@ -90,19 +90,24 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
   <div
     v-else-if="status === 'invalid'"
-    class="space-y-4 text-center"
+    class="space-y-6 text-center"
   >
-    <!-- Used, expired, or opened without a token: only a new email helps -->
-    <UIcon
-      name="i-lucide-link-2-off"
-      class="size-10 text-muted"
-    />
-    <h1 class="text-lg font-semibold">
-      This link no longer works
-    </h1>
-    <p class="text-sm text-muted">
-      A reset link works once, and only for a while.
-    </p>
+    <!--
+      Used, expired, or opened without a token: only a new email helps. Its icon, title and text in
+      the classes of UAuthForm's header, like the form it stands in for.
+    -->
+    <div class="flex flex-col">
+      <UIcon
+        name="i-lucide-link-2-off"
+        class="mx-auto mb-2 size-8 text-muted"
+      />
+      <h1 class="text-xl font-semibold text-pretty text-highlighted">
+        This link no longer works
+      </h1>
+      <p class="mt-1 text-base text-pretty text-muted">
+        A reset link works once, and only for a while.
+      </p>
+    </div>
     <UButton
       label="Get a new link"
       to="/login?forgot"
