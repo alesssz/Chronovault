@@ -1,5 +1,5 @@
 /**
- * Pure helpers of `pnpm doctor` (scripts/doctor.mjs): version checks, where
+ * Pure helpers of `pnpm run doctor` (scripts/doctor.mjs): version checks, where
  * Playwright keeps its browsers, and the fix to suggest on each operating
  * system. No side effects here, so they are unit-tested
  * (test/unit/scripts/doctor.test.ts).
@@ -103,9 +103,16 @@ export function fixFor(problem, platform, details = {}) {
       return 'Only for pnpm docker: echo "127.0.0.1 host.docker.internal" | sudo tee -a /etc/hosts'
     case 'playwright':
       return 'Only for e2e tests: pnpm exec playwright install chromium   (make test-e2e does it for you)'
+    case 'gh-missing':
+      if (mac) return 'Only to merge branches (pnpm merge:main): brew install gh, then sign it in: gh auth login'
+      if (windows) return 'Only to merge branches (pnpm merge:main): winget install GitHub.cli, then in a new terminal: gh auth login'
+      return 'Only to merge branches (pnpm merge:main): install GitHub CLI (https://cli.github.com), then gh auth login'
+    case 'gh-signed-out':
+      // A yes makes gh git's credential helper for every github.com repository on the computer.
+      return 'Only to merge branches: gh auth login (GitHub.com → HTTPS → web browser, the account that pushes here), answering No to "Authenticate Git with your GitHub credentials?" (docs/00-setup.md, 0.3)'
     case 'make':
       return windows
-        ? 'Optional: winget install ezwinports.make (from Git Bash), or use the pnpm commands (pnpm local, pnpm docker, pnpm doctor…)'
+        ? 'Optional: winget install ezwinports.make (from Git Bash), or use the pnpm commands (pnpm local, pnpm docker, pnpm run doctor…)'
         : 'Optional: xcode-select --install (macOS) or your package manager; every make target has a pnpm equivalent'
     case 'supabase':
       return 'pnpm local (or pnpm db:start) starts it; the first time it downloads a few GB of Docker images'

@@ -20,10 +20,10 @@ About 10 GB free: the Supabase Docker images take about 6 GB, the dependencies a
 **Not sure what is missing?** Once Git and any Node are there, clone the project (0.3) and run, in its folder:
 
 ```bash
-node scripts/doctor.mjs     # later also: pnpm doctor · make doctor
+node scripts/doctor.mjs     # later also: pnpm run doctor · make doctor
 ```
 
-It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwright's Chromium, Make and the local stack, and prints the command that fixes each missing item for the system you are on. It only reads: nothing is installed or changed. Run it again after each step until it says **Ready**.
+It checks Node, pnpm, Docker, the dependencies, `host.docker.internal`, Playwright's Chromium, the GitHub CLI (installed and signed in), Make and the local stack, and prints the command that fixes each missing item for the system you are on. It only reads: nothing is installed or changed. Run it again after each step until it says **Ready**.
 
 ## 0.2 From a blank computer
 

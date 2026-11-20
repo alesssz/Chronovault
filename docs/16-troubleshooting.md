@@ -48,7 +48,7 @@
 | Browser console: errors from `VM123:…` scripts (e.g. `reading 'startTime'` in `reportAllChanges`) | A browser extension, not the app (app files are `/_nuxt/….js`). A private window, without extensions, confirms it |
 | `git commit`: "Permission denied" on Windows | An antivirus may lock files in `.git`: add the project folder to its exclusions |
 | `make` not found on Windows | `winget install ezwinports.make`, then reopen Git Bash; or use the equivalent `pnpm` commands |
-| Not sure what is missing on a new computer | `node scripts/doctor.mjs` (or `pnpm doctor`, `make doctor`): checks every prerequisite and prints the fix for your system |
+| Not sure what is missing on a new computer | `node scripts/doctor.mjs` (or `pnpm run doctor`, `make doctor`): checks every prerequisite and prints the fix for your system |
 
 ---
 

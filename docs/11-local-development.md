@@ -7,6 +7,7 @@
 | Node.js | **24.11+** (or 22.21+) | `.nvmrc` pins 24; older versions make Nuxt print a warning |
 | pnpm | 12 | `npm i -g pnpm@12.14.0` (pinned in `packageManager`); `corepack enable` also works where Node ships Corepack (Homebrew's Node does not) |
 | Docker Desktop | recent | Runs the local Supabase stack (and the app in Docker mode) |
+| GitHub CLI (`gh`) | to merge branches only | `pnpm merge:main` opens the pull request and waits for CI through it; signed in once ([0.3](00-setup.md#03-getting-the-code)) |
 | GNU Make | optional | macOS: comes with `xcode-select --install`. Windows: `winget install ezwinports.make` (not part of Git for Windows). Every target has a `pnpm` equivalent |
 | Playwright's Chromium | for e2e tests only | Not your own Chrome: Playwright downloads its own (~150 MB, in `~/Library/Caches/ms-playwright` on macOS). `make test-e2e` installs it when missing |
 
