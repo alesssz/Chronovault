@@ -3,12 +3,14 @@
  * Checks that this computer has everything Chronovault needs, and says how
  * to fix what is missing, on macOS, Windows or Linux:
  *
- *   node scripts/doctor.mjs     works before anything is installed (only Node needed)
- *   pnpm doctor · make doctor   the same, once pnpm (or make) is there
+ *   node scripts/doctor.mjs         works before anything is installed (only Node needed)
+ *   pnpm run doctor · make doctor   the same, once pnpm (or make) is there; `run` because
+ *                                   a bare `pnpm doctor` is pnpm's own check of itself
  *
  * Required (✖, exit code 1): a supported Node, pnpm, Docker running,
  * dependencies installed. Recommended (⚠): host.docker.internal for the
- * Docker mode, Playwright's Chromium for e2e tests, GNU Make. Informative
+ * Docker mode, Playwright's Chromium for e2e tests, the GitHub CLI signed in
+ * for merging, GNU Make. Informative
  * (ℹ): the local Supabase stack and the .env file.
  *
  * It only reads: nothing is installed or changed.
@@ -106,6 +108,13 @@ catch {
   // No node_modules yet: already reported above.
   report('info', 'Playwright: checked after pnpm install')
 }
+
+// --- GitHub CLI (merging only) -----------------------------------------------------------
+// A warning, not a failure: the app runs without gh, only pnpm merge:main needs it.
+if (!tryRun('gh --version', 10_000)) report('warn', 'GitHub CLI (gh) not found (pnpm merge:main needs it)', fixFor('gh-missing', platform))
+// It asks GitHub whether the token still works: offline, it reads as signed out.
+else if (!tryRun('gh auth status', 15_000)) report('warn', 'GitHub CLI not signed in, or GitHub not reachable (pnpm merge:main needs it)', fixFor('gh-signed-out', platform))
+else report('ok', 'GitHub CLI signed in')
 
 // --- GNU Make (optional) -----------------------------------------------------------------
 if (tryRun('make --version', 10_000)) report('ok', 'GNU Make')

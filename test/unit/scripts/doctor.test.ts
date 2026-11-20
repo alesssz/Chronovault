@@ -1,5 +1,5 @@
 /**
- * Pure helpers of `pnpm doctor` (scripts/doctor.mjs): Node version ranges, the pinned pnpm
+ * Pure helpers of `pnpm run doctor` (scripts/doctor.mjs): Node version ranges, the pinned pnpm
  * version, where Playwright keeps its browsers on each OS, and the fixes it suggests.
  */
 import { join } from 'node:path'
@@ -84,6 +84,14 @@ describe('fixFor', () => {
     expect(fixFor('node', 'win32')).toContain('winget install CoreyButler.NVMforWindows')
     expect(fixFor('hosts', 'darwin')).toContain('/etc/hosts')
     expect(fixFor('hosts', 'win32')).toContain('drivers\\etc\\hosts')
+  })
+
+  it('installs and signs in the GitHub CLI, keeping it out of git', () => {
+    expect(fixFor('gh-missing', 'darwin')).toContain('brew install gh')
+    expect(fixFor('gh-missing', 'win32')).toContain('winget install GitHub.cli')
+    expect(fixFor('gh-missing', 'linux')).toContain('https://cli.github.com')
+    expect(fixFor('gh-signed-out', 'darwin')).toContain('gh auth login')
+    expect(fixFor('gh-signed-out', 'win32')).toContain('answering No to "Authenticate Git')
   })
 
   it('pins the project pnpm version', () => {
