@@ -10,9 +10,9 @@
 | `NUXT_AUDIO_STORAGE_REGION` | server only | `auto` for R2, `local` locally |
 | `NUXT_AUDIO_STORAGE_BUCKET` | server only | `chronovault-audio` on R2, `audio` locally |
 | `NUXT_AUDIO_STORAGE_ACCESS_KEY_ID` | server only | R2 API token key id |
-| `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | server only | R2 API token secret — **never commit it** |
+| `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY` | server only | R2 API token secret. **Never commit it** |
 | `NUXT_STORAGE_CLEANUP_MIN_AGE_HOURS` | server only, optional | Orphaned files younger than this are never deleted (default `24`; the e2e server uses `0`). Only a number counts: left empty or set to anything else, the default holds |
-| `NUXT_ANALYTICS_TOKEN` | server only, optional | Vercel access token used to read Web Analytics (Statistics page) — **never commit it** |
+| `NUXT_ANALYTICS_TOKEN` | server only, optional | Vercel access token used to read Web Analytics (Statistics page). **Never commit it** |
 | `NUXT_ANALYTICS_PROJECT_ID` | server only, optional | The Vercel project id (`prj_…`) |
 | `NUXT_ANALYTICS_TEAM_ID` | server only, optional | The team id (`team_…`), only for a project owned by a team |
 | `NUXT_PUBLIC_WEB_ANALYTICS` | browser, optional | Forces loading the Vercel Analytics script on or off (default: on only for builds made on Vercel) |

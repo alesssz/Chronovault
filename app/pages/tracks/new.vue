@@ -128,8 +128,8 @@ onBeforeRouteLeave(async () => {
       <template #description>
         FLAC is lossless: it compresses the audio like a ZIP file, typically to about half the size, and decodes
         back to exactly the same samples. Every converted file is decoded again and compared with the original,
-        bit for bit, before uploading. If anything does not match — or the WAV uses a format FLAC cannot store
-        exactly, such as 32-bit floating point — the original WAV is uploaded unchanged.
+        bit for bit, before uploading. If anything does not match, or the WAV uses a format FLAC cannot store
+        exactly (such as 32-bit floating point), the original WAV is uploaded unchanged.
       </template>
     </UAlert>
 

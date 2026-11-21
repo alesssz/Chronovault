@@ -63,7 +63,7 @@ Plus the `Makefile` help texts, the README and these docs. The dev port goes on 
 
 - Data survives `pnpm stop` and restarts: it lives in Docker volumes.
 - The **demo user** (`demo@chronovault.local` / `chronovault`) is created by `supabase/seed.sql` when the database is first created or reset.
-- **New migrations: `pnpm db:migrate`** (or `make db-migrate`) applies them and keeps every account and track. `pnpm db:reset` rebuilds the database from scratch and **deletes all local data** — use it only when you mean it.
+- **New migrations: `pnpm db:migrate`** (or `make db-migrate`) applies them and keeps every account and track. `pnpm db:reset` rebuilds the database from scratch and **deletes all local data**, so use it only when you mean it.
 - Local and production data are separate (see [5.3](05-architecture.md#53-where-everything-runs)).
 - **Emails** the local Auth sends (sign-up confirmation when turned on, "Forgot password?") land in Mailpit (11.4), never in a real inbox. The reset email's text is in `supabase/templates/recovery.html`; Auth reads it, like the rest of `supabase/config.toml`, only when Supabase starts: after changing either, `pnpm stop` then `pnpm local`.
 
