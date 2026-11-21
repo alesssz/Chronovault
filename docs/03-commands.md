@@ -29,7 +29,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm check` | lint + typecheck + test:coverage (the tests, with the coverage floors) |
 | `pnpm db:start` · `db:stop` · `db:status` | Start / stop the local Supabase stack · print its URLs and keys |
 | `pnpm db:migrate` | **Apply new migrations to the local database, keeping its data** |
-| `pnpm db:reset` | Recreate the local database from migrations + seed — **deletes every local account and track** |
+| `pnpm db:reset` | Recreate the local database from migrations + seed. It **deletes every local account and track** |
 | `pnpm db:migration <name>` | Create a new, empty migration file |
 | `pnpm db:lint` | Type check of the SQL functions (plpgsql); fails on any warning |
 | `pnpm db:advisors` | Supabase's security and performance advisors on the local database (tables without RLS, unsafe functions, missing indexes…); fails on warnings, lists infos only |
