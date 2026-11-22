@@ -88,7 +88,7 @@ This page is not a numbered section of the docs: it changes all the time, and it
 - B) `supabase stop --no-backup`, then `supabase start`: the stack's Docker volumes (database and storage) are deleted and recreated from the migrations and the seed. Everything goes, orphans included; it takes as long as a stack restart.
 - C) A), plus deleting the bucket folders inside the storage container (`docker exec … rm -rf`). Tied to the container's internal layout, which can change with any Supabase version.
 
-**Recommended.** B), behind the existing names (`pnpm db:reset`, `make db-reset`), asking for confirmation first as Flowboard's `db-reset` does, since it deletes every local account, track and file. Done when, after `make db-reset`, the storage volume has no files left (`docker exec supabase_storage_chronovault find /mnt -type f | wc -l` prints 0), the existing `.env` still works (the local keys come from `config.toml`), the demo user signs in, and `pnpm test:e2e` passes on the fresh stack.
+**Recommended.** B), behind the existing names (`pnpm db:reset`, `make db-reset`), asking for confirmation first, since it deletes every local account, track and file. Done when, after `make db-reset`, the storage volume has no files left (`docker exec supabase_storage_chronovault find /mnt -type f | wc -l` prints 0), the existing `.env` still works (the local keys come from `config.toml`), the demo user signs in, and `pnpm test:e2e` passes on the fresh stack.
 
 ### OPS-4 Production cannot be emptied in one go (database, covers, R2)
 
@@ -103,31 +103,3 @@ This page is not a numbered section of the docs: it changes all the time, and it
 - B) A checklist of the three manual steps in 13-deployment. Nothing to maintain, but nothing makes sure they are all done, and emptying a large R2 bucket by hand is slow.
 
 **Recommended.** A). It refuses to run when `CI` is set or `.env.r2` is missing, and no other target calls it. Before writing it, check on a throwaway Supabase project and R2 bucket, never on production, what `supabase db reset --linked` does to `auth.users` and `storage.objects`, and that the `.env.r2` token (*Object Read & Write*) can list and delete. Done when, on that throwaway pair with a few uploads, the command leaves no users, no tracks and no objects in either bucket, `supabase migration list --linked` shows every migration applied, and a new account can sign up and upload.
-
-### OPS-5 Chronovault, Flowboard and AtleoPlan use different `make` names for the same actions
-
-**Priority:** low · **Kind:** tooling, across projects · **Found:** 2026-11-22
-
-**What is wrong.** The three projects each have a Makefile with `make help`, and `help`, `setup`, `install`, `check`, `lint`, `typecheck`, `audit`, `github-check` and `merge` (with `yes=1` and `checks=0`) already mean the same thing in all of them. The rest differ, so what works in one project fails in the next:
-
-| Action | Chronovault | Flowboard | AtleoPlan |
-|---|---|---|---|
-| Start everything to develop | `local` | `db-up`, then `dev` | `start` |
-| Stop, keeping the data | `stop` | `db-down` | `down` |
-| Print the local addresses | `db-status` (with the keys) | `urls` | `urls` |
-| Check the computer | `doctor` | none | `doctor` |
-| What is running | `db-status` | none | `ps` |
-| Follow the logs | `docker-logs` | none | `logs` |
-| Apply the migrations | `db-migrate` | `db-migrate` | `migrate` |
-| Empty and rebuild the dev database | `db-reset` (no question) | `db-reset` (asks) | `fresh` |
-| Automatic fixes | `lint-fix` | none | `fix`, `lint-fix` |
-| New branch, update main, push | none | `branch`, `sync`, `push` | `branch`, `sync`, `push` |
-| Remove the builds | `clean`, `clean-all` | `clean`, `clean-all` | none |
-
-**Where.** The [Makefile](../Makefile) of each repository (`../Flowboard/Makefile` and `../AtleoPlan/Makefile` sit next to this one) and the pages that list the commands: here [03-commands.md](03-commands.md), the [README](../README.md) and [CLAUDE.md](../CLAUDE.md); their equivalents in the other two.
-
-**Options.**
-- A) A shared list of names and meanings, the same table on each repository's commands page. Each Makefile renames its targets to match and keeps the ones only it has (Chronovault `docker`, `db-types`, `db-advisors`; Flowboard `dev-web`, `dev-api`; AtleoPlan `artisan`, `exercises-*`, `phone`). The repositories are separate, so the list is copied, not shared.
-- B) A `common.mk` with the targets that are truly identical (`help`, `branch`, `sync`, `push`, `merge`, `audit`, `github-check`), included by each Makefile and copied between the repositories or kept in a git submodule. Fewer copies to keep in step, but start, stop and the database differ per project anyway, and a submodule adds a step to every clone.
-
-**Recommended.** A), with this common core, each doing the project's own thing: `help`, `doctor`, `setup`, `install`, `urls`, `start` (everything needed to develop), `stop` (keeps the data), `status`, `logs`, `db-migrate`, `db-reset` (asks first; for Chronovault see OPS-3), `lint`, `lint-fix`, `fix`, `typecheck`, `test`, `check`, `audit`, `github-check`, `branch`, `sync`, `push`, `merge`, `clean`, `clean-all`. Old names are removed rather than kept as aliases, so `make help` stays short. One `chore/` branch per repository. Done when every core name works in all three, `make help` lists them under the same groups and in the same order, and no doc of the three still names a removed target.
