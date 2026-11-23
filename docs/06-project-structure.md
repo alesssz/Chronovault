@@ -29,7 +29,7 @@ Chronovault/
 │   │   ├── share/                    # ShareLinkBox (editors' sharing box), SharePlayer + ShareMiniPlayer, ShareUnavailable,
 │   │   │                             #   ShareVersionVote (a group's vote panel: the pick, saved, and its note), ShareLyrics (lyrics following the player) (public pages)
 │   │   ├── stats/                    # StatsDailyChart (one number per day: views, plays), StatsBreakdown (referrers, countries, devices)
-│   │   └── track/                    # TrackList, TrackCover, TrackCoverPicker, TrackShowcase (the share page's and the
+│   │   └── track/                    # TrackList, TrackCover, TrackTitle (a title cut before its last word), TrackCoverPicker, TrackShowcase (the share page's and the
 │   │                                 #   full-screen view's body), the editor's TrackEditSidebar (file,
 │   │                                 #   sharing, deletion) with TrackReplaceAudioDialog (Replace audio, 7.19),
 │   │                                 #   TrackGenreSelect (genre field, the fixed list) and
@@ -64,6 +64,7 @@ Chronovault/
 │   │   ├── lyrics-sync.ts            #   the sync editor's rows and actions: stamp, undo, replay, nudge… (7.9)
 │   │   ├── library-request.ts        #   the library read, shared while the app opens and by callers asking at once (7.2)
 │   │   ├── feedback-playlist.ts      #   name of the "Share for feedback" playlist
+│   │   ├── track-title.ts            #   where a title is cut on a narrow line: before its last word or closing (…)
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
 │   │   ├── listener-id.ts            #   this browser's random id, for plays and votes

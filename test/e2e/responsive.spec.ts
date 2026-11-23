@@ -17,7 +17,8 @@
  *
  * Layout checks measured on the pages: the header's section links never slide under "Add" (at
  * risk from 640 to about 890px), the library's search box keeps a readable width (not just its
- * icon), and on a short phone the full-screen view and a track's share page keep
+ * icon), a title too long for a phone is cut before its last word (the library row, the player
+ * bar, the full-screen view), and on a short phone the full-screen view and a track's share page keep
  * their play button in the first screen; the full-screen view's ✕ closes the player, the phones'
  * only way to. On phones the library's selection bar sits at the bottom with each action named,
  * the versions of a song keep the end of their titles, and statistics keep their titles readable.
@@ -44,6 +45,22 @@ async function expectNoSidewaysScroll(page: Page, path: string): Promise<void> {
     clientWidth: document.documentElement.clientWidth,
   }))
   expect(scrollWidth, `${path} scrolls sideways`).toBeLessThanOrEqual(clientWidth)
+}
+
+/**
+ * A title too long for its line (TrackTitle) is cut before its last word, which shows whole and
+ * on screen: the end is where versions of a song differ.
+ */
+async function expectTitleEndShown(page: Page, scope: Locator, end: string): Promise<void> {
+  const piece = scope.getByText(end, { exact: true })
+  await expect(piece).toBeVisible()
+  const cut = await piece.evaluate((el) => {
+    const head = el.previousElementSibling!
+    return { head: head.scrollWidth > head.clientWidth, end: el.scrollWidth > el.clientWidth }
+  })
+  expect(cut, 'only the head of the title is cut').toEqual({ head: true, end: false })
+  const box = (await piece.boundingBox())!
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
 }
 
 /** Id of the signed-in user's first track (newest first). */
@@ -423,19 +440,22 @@ test.describe('touch screens', () => {
     await signUp(page)
     // Long enough not to end during the test (the queue would move on by itself).
     await uploadTrack(page, 'Older song', { seconds: 30 })
-    // A long title: the full-screen view must truncate it, not grow wider than the screen.
+    // A long title: the full-screen view must truncate it, not grow wider than the screen, and
+    // every place keeps its last word in view.
     const newer = 'Newer song with a title far too long to fit on a phone screen'
     await uploadTrack(page, newer, { seconds: 30 })
     await page.goto('/')
     await expect(page.getByTestId('track-row')).toHaveCount(2)
 
     // Newest first: playing the first row queues both, "Older song" next.
+    await expectTitleEndShown(page, page.getByTestId('track-title').first(), 'screen')
     await page.getByTestId('track-title').first().tap()
     // The player bar, its title and its track area (where the swipes go).
     const bar = page.getByTestId('player-bar')
     const title = bar.getByTestId('player-title')
     const trackArea = bar.getByTestId('player-track-area')
     await expect(title).toHaveText(newer)
+    await expectTitleEndShown(page, title, 'screen')
 
     // Swipe left: the next track.
     await swipe(page, trackArea, -150, 0)
@@ -453,6 +473,7 @@ test.describe('touch screens', () => {
     // It fits the screen even with the long title (its column must not grow to the title's width).
     const heading = (await expanded.getByRole('heading', { name: newer }).boundingBox())!
     expect(heading.x + heading.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+    await expectTitleEndShown(page, expanded.getByRole('heading', { name: newer }), 'screen')
 
     // Pull it down from its top: it closes.
     await swipe(page, expanded.getByText('Now playing'), 0, 300)

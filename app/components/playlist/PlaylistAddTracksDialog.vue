@@ -175,7 +175,7 @@ function confirm() {
             />
             <span class="min-w-0 flex-1">
               <span class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-                <span class="truncate">{{ track.title }}</span>
+                <TrackTitle :title="track.title" />
                 <UBadge
                   v-if="track.status === 'draft'"
                   label="Draft"

@@ -11,9 +11,12 @@ import { seedLibrary, signUp } from './helpers'
 /** Tracks in the library: well beyond what a screen shows. */
 const COUNT = 300
 
-/** Titles of the rows currently in the page. */
+/**
+ * Titles of the rows currently in the page. Text content, not inner text: the latter breaks the
+ * line between a title's two pieces (TrackTitle), which are flex items.
+ */
 function renderedTitles(page: Page): Promise<string[]> {
-  return page.getByTestId('track-row').locator('[data-testid="track-title"] p:first-child').allInnerTexts()
+  return page.getByTestId('track-row').locator('[data-testid="track-title"] p:first-child').allTextContents()
 }
 
 /** The title of the first row whose top is below the sticky header (what the eye lands on). */

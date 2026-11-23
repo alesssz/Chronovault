@@ -320,10 +320,10 @@ useLongPress(listEl, {
         @click="onTitleClick(track)"
       >
         <p
-          class="truncate font-medium"
+          class="font-medium"
           :class="{ 'text-primary': isCurrent(track) }"
         >
-          {{ track.title }}
+          <TrackTitle :title="track.title" />
         </p>
         <!-- Details line, led by a "Draft" badge on work-in-progress versions (here it never squeezes the title, on phones too) -->
         <p class="flex min-w-0 items-center gap-1.5 text-sm text-muted">
