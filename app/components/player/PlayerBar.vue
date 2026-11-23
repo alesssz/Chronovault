@@ -97,10 +97,10 @@ const track = computed(() => player.displayTrack)
           />
           <div class="min-w-0">
             <p
-              class="truncate font-medium"
+              class="font-medium"
               data-testid="player-title"
             >
-              {{ track?.title }}
+              <TrackTitle :title="track?.title" />
             </p>
             <p
               v-if="player.status === 'error'"

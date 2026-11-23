@@ -44,20 +44,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 ## Interface (UI)
 
-### UI-42 The versions of a song look the same in narrow lists
-
-**Priority:** medium · **Kind:** phones, versions · **Found:** 2026-11-20
-
-**What is wrong.** Versions differ only at the end of their title ("The Silver Mask of Hierusalem 1" and "… 2", "The Marble and the Flames" and "… (Cover)"), and the end is what a cut title loses. At 375px the library shows "The Silver Mask of Hier…" twice, and so does the group's "Add versions" dialog, the one place where versions are picked one by one. The player bar on every screen (on desktop too: its title column is about 200px), the full-screen player on phones ("The Silver Mask of Hierus…", under a cover with room to spare), and the statistics' "Shared pages" list on phones cut them the same way.
-
-**Where.** The title in [TrackList.vue](../app/components/track/TrackList.vue) (the row), [PlaylistAddTracksDialog.vue](../app/components/playlist/PlaylistAddTracksDialog.vue), [PlayerBar.vue](../app/components/player/PlayerBar.vue), the phone title of [PlayerExpanded.vue](../app/components/player/PlayerExpanded.vue), the "Shared pages" list in [stats.vue](../app/pages/stats.vue).
-
-**Options.**
-- A) Titles on two lines (`line-clamp-2`): most fit whole, but rows get uneven heights, and a long title still loses its end on the second line.
-- B) Keep the end in sight: the title in two pieces, everything but its last word (which truncates) and the last word (which never does), so a narrow line reads "The Silver Mask of Hi… 2" and "The Marble and the… (Cover)". Rows keep one line.
-
-**Recommended.** B), in one small component used by the five places. Done when, at 375px, the library, the "Add versions" dialog and both players tell every pair of versions of the demo account apart, and a title that fits is shown whole; an e2e check on a phone viewport that the last word of a cut title is visible.
-
 ### UI-48 Dropping files to upload shows nothing where the user is looking
 
 **Priority:** medium · **Kind:** feedback, uploads · **Found:** 2026-11-21

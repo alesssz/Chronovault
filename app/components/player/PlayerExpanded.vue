@@ -247,8 +247,8 @@ const meta = computed(() => {
               class="size-14 shrink-0"
             />
             <div class="min-w-0">
-              <h2 class="truncate text-lg font-bold tracking-tight">
-                {{ track?.title }}
+              <h2 class="text-lg font-bold tracking-tight">
+                <TrackTitle :title="track?.title" />
               </h2>
               <p class="truncate text-sm text-muted">
                 {{ track?.composers || '—' }}
@@ -256,9 +256,13 @@ const meta = computed(() => {
             </div>
           </div>
 
-          <!-- The lines fade out at the top and bottom edges of their box instead of being cut off -->
+          <!--
+            The lines fade out at the box's top edge instead of being cut off. The bottom edge is
+            LyricsView's own fade, which goes once the end is reached: a fixed one here would keep
+            the last line dimmed for good.
+          -->
           <div
-            class="min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_1.5rem,black_calc(100%-2.5rem),transparent)]"
+            class="min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_1.5rem)]"
             data-swipe-ignore
           >
             <!-- One view per track (key): a new track's lyrics start at the top, not where the last ones were scrolled -->
@@ -417,8 +421,8 @@ const meta = computed(() => {
             />
 
             <div class="min-w-0">
-              <h2 class="truncate text-2xl font-bold tracking-tight">
-                {{ track?.title }}
+              <h2 class="text-2xl font-bold tracking-tight">
+                <TrackTitle :title="track?.title" />
               </h2>
               <p class="truncate text-muted">
                 {{ track?.composers || '—' }}

@@ -309,8 +309,8 @@ function isPrivateNow(visibility: string): boolean {
                 <NuxtLink
                   :to="item.path"
                   target="_blank"
-                  class="block truncate font-medium hover:underline"
-                >{{ item.title }}</NuxtLink>
+                  class="block font-medium hover:underline"
+                ><TrackTitle :title="item.title" /></NuxtLink>
                 <p class="flex items-center gap-1.5 text-xs text-muted">
                   <UIcon
                     :name="kindOf(item).icon"
