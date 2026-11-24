@@ -3,7 +3,8 @@
 -- Creates a demo user:  demo@chronovault.local / chronovault
 --
 -- A reset wipes the local database (every account and track): it only runs
--- with an explicit `pnpm db:reset` / `make db-reset`. New migrations are
+-- with an explicit `pnpm db:reset` / `pnpm db:reset:database` (or their make
+-- targets), each asking first. New migrations are
 -- applied with `pnpm db:migrate`, which keeps the data.
 -- The user is inserted straight into Supabase's auth schema (password hashed
 -- with bcrypt, email already confirmed) plus its email identity.
