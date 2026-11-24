@@ -68,7 +68,7 @@ export function uniqueId(): string {
 
 /** Signs up a new user (email confirmation is disabled locally). */
 export async function signUp(page: Page): Promise<string> {
-  // A throwaway account, unique per test.
+  // A throwaway account, unique per test, at the domain test-accounts.ts deletes after the run.
   const email = `e2e-${uniqueId()}@chronovault.test`
   await page.goto('/login')
   await page.getByRole('button', { name: 'Sign up' }).click()

@@ -1,5 +1,6 @@
 /**
- * The local Storage's files on disk, for `pnpm storage:clean` (scripts/reset-local.mjs).
+ * The local Storage's files on disk, for `pnpm storage:clean` (scripts/reset-local.mjs) and
+ * the deletion of the e2e tests' accounts (test/e2e/test-accounts.ts).
  *
  * Locally, Supabase Storage keeps each object as a file in its container, at
  * <root>/<bucket>/<object name>/<version> (the `file` backend), and the object's

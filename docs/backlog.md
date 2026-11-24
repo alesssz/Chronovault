@@ -42,6 +42,22 @@ This page is not a numbered section of the docs: it changes all the time, and it
 **Recommended.** Which option, why, and how to check it is done.
 ```
 
+## Features (FEAT)
+
+### FEAT-3 Signing in takes a password: no "Continue with Google"
+
+**Priority:** low · **Kind:** sign-in, missing feature · **Found:** 2026-11-24
+
+**What is wrong.** The only way in is an email and a password ([login.vue](../app/pages/login.vue): `signInWithPassword`, `signUp`): one more password to keep for the owner and for anyone given an account. Locally this costs nothing (sign up at `localhost:3100`, no confirmation email), so the point is production.
+
+**Where.** [login.vue](../app/pages/login.vue) (the button, `signInWithOAuth` with `redirectTo` back to the page asked for, as `useSignedInRedirect` does after a password sign-in); `[auth.external.google]` in [config.toml](../supabase/config.toml), its client id and secret from the environment so the local stack still starts without them; the Google provider in the production project's Supabase dashboard and an OAuth client in Google Cloud (its redirect URI is Supabase's `/auth/v1/callback`); [7.1](07-data-flows.md#71-authentication-and-route-protection), [13-deployment.md](13-deployment.md) for the setup, [01-features.md](01-features.md).
+
+**Options.**
+- A) Google through Supabase Auth: one button, Supabase handles the exchange and the session as for a password. An account already made with a password and the same (confirmed) email gets Google as a second identity rather than a second account.
+- B) A sign-in link by email (magic link, `signInWithOtp`): no password and no Google Cloud set-up, but every sign-in waits for an email, and production then needs an SMTP service that delivers reliably (the default one has a low hourly limit).
+
+**Recommended.** A). The button shows only where the provider is set (a runtime setting), so a local stack or a fork without Google credentials keeps the plain form. Done when, in production, "Continue with Google" signs in and lands on the page that was asked for; signing in with Google as the owner of an existing password account opens that same library; and the local stack starts and the e2e tests pass with no Google credentials at all.
+
 ## Tooling (OPS)
 
 ### OPS-4 Production cannot be emptied in one go (database, covers, R2)

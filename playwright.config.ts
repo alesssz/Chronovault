@@ -18,6 +18,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  // The accounts the tests sign up are deleted, with their tracks and files, before and after a run.
+  globalSetup: './test/e2e/test-accounts.ts',
+  globalTeardown: './test/e2e/test-accounts.ts',
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
