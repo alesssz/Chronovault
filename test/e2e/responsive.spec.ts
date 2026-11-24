@@ -304,6 +304,12 @@ test.describe('touch screens', () => {
     const dropzone = page.getByTestId('upload-dropzone')
     await expect(dropzone.getByRole('button')).toHaveAccessibleName(/Choose audio files$/)
     await expect(dropzone).not.toContainText('Drop')
+    // On a small phone (375×667) a chosen file's row is in view at once, refused files included.
+    if (testInfo.project.name === 'phone') {
+      await page.setViewportSize({ width: 375, height: 667 })
+      await page.locator('input[type="file"]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not audio') })
+      await expect(page.getByTestId('upload-item').first()).toBeInViewport()
+    }
   })
 
   test('tablet: player bar with a readable title, and mute alone for the volume', async ({ page }, testInfo) => {

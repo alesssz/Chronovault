@@ -174,7 +174,8 @@ test.describe('library and player', () => {
   test('a floating-point WAV is uploaded unchanged', async ({ page }) => {
     await signUp(page)
     await page.goto('/tracks/new')
-    await expect(page.getByTestId('flac-notice')).toBeVisible()
+    // The upload page says so before any drop.
+    await expect(page.getByTestId('flac-notice')).toContainText('WAV files become lossless FLAC')
     await page.locator('input[type="file"]').setInputFiles({
       name: 'float-master.wav',
       mimeType: 'audio/wav',
@@ -200,6 +201,8 @@ test.describe('library and player', () => {
     // The hand over the label too: it is a span, where the browser would show the text cursor.
     await expect(dropzone.getByText('Choose files')).toHaveCSS('cursor', 'pointer')
     await dropzone.getByText('Choose files').click()
+    // The queue's row shows up right under the zone, in view without scrolling (1280×720).
+    await expect(page.getByTestId('upload-item').first()).toBeInViewport()
     await expect(page.locator('[data-testid="upload-item"][data-status="done"]')).toHaveCount(1, { timeout: 30_000 })
     expect(opened).toBe(1)
   })

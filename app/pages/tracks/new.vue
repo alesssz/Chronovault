@@ -106,37 +106,35 @@ onBeforeRouteLeave(async () => {
       </UFileUpload>
     </div>
 
-    <!-- What is read from the files -->
-    <p class="mt-3 text-sm text-muted">
-      Title, composers, album, year, genre, lyrics and cover are read from the file tags (a file without tags
-      takes its name as title). You can edit them later, one by one or many at once with
-      <ULink
-        to="/tracks/import"
-        class="text-primary underline-offset-2 hover:underline"
-      >Export & import metadata</ULink>.
-    </p>
-
-    <!-- What happens to WAV files (lossless FLAC conversion) -->
-    <UAlert
-      icon="i-lucide-shield-check"
-      color="neutral"
-      variant="subtle"
-      title="WAV files are converted to FLAC"
-      class="mt-4"
+    <!--
+      What happens to WAV files, right under the zone that lists them: whoever drops a master wants
+      to know beforehand that it is not degraded. Closed to its title, which says the essential (how
+      that is checked matters once), so it takes one line above the queue; each row then says how
+      its own file went.
+    -->
+    <UAccordion
+      :items="[{ label: 'WAV files become lossless FLAC', icon: 'i-lucide-shield-check', slot: 'flac' }]"
+      :unmount-on-hide="false"
+      class="mt-3 rounded-lg bg-elevated/50 px-4 text-highlighted ring ring-accented ring-inset"
+      :ui="{ trigger: 'gap-2.5 py-3', body: 'ps-7.5 pb-3.5 pt-0 text-sm opacity-90' }"
       data-testid="flac-notice"
     >
-      <template #description>
+      <template #flac-body>
         FLAC is lossless: it compresses the audio like a ZIP file, typically to about half the size, and decodes
         back to exactly the same samples. Every converted file is decoded again and compared with the original,
         bit for bit, before uploading. If anything does not match, or the WAV uses a format FLAC cannot store
         exactly (such as 32-bit floating point), the original WAV is uploaded unchanged.
       </template>
-    </UAlert>
+    </UAccordion>
 
-    <!-- The upload queue: status, progress and outcome of every file -->
+    <!--
+      The upload queue: status, progress and outcome of every file. Right under the drop zone (only
+      the one-line WAV panel between them), where the eye already is: out of sight, a drop seems to
+      do nothing, and files dropped again are uploaded again, as new tracks.
+    -->
     <section
       v-if="items.length"
-      class="mt-8"
+      class="mt-6 mb-8"
     >
       <!-- The queue's title with how many are left, and Clear list once nothing is running -->
       <div class="mb-3 flex items-center justify-between">
@@ -256,5 +254,15 @@ onBeforeRouteLeave(async () => {
         />
       </div>
     </section>
+
+    <!-- What is read from the files -->
+    <p class="mt-4 text-sm text-muted">
+      Title, composers, album, year, genre, lyrics and cover are read from the file tags (a file without tags
+      takes its name as title). You can edit them later, one by one or many at once with
+      <ULink
+        to="/tracks/import"
+        class="text-primary underline-offset-2 hover:underline"
+      >Export & import metadata</ULink>.
+    </p>
   </UContainer>
 </template>
