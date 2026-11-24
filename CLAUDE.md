@@ -17,7 +17,7 @@ Chronovault is a music library and player: Nuxt 4 (Vue 3, TypeScript strict) ser
 | Regenerate the database types after a migration | `pnpm db:types` |
 | Merge the current branch through a pull request once CI passes | `pnpm merge:main` |
 
-`pnpm db:reset` deletes every local account and track: never run it unasked. Every command: [3](docs/03-commands.md).
+`pnpm db:reset` deletes every local account, track and uploaded file (`db:reset:database` the accounts and tracks, `storage:clean` the files nothing uses): never run them unasked. Every command: [3](docs/03-commands.md).
 
 ## Conventions
 

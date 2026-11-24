@@ -29,7 +29,9 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm check` | lint + typecheck + test:coverage (the tests, with the coverage floors) |
 | `pnpm db:start` · `db:stop` · `db:status` | Start / stop the local Supabase stack · print its URLs and keys |
 | `pnpm db:migrate` | **Apply new migrations to the local database, keeping its data** |
-| `pnpm db:reset` | Recreate the local database from migrations + seed. It **deletes every local account and track** |
+| `pnpm db:reset` | Start the local data afresh: the stack is stopped without a backup (its Docker volumes deleted) and started again, so the database comes back from the migrations and the seed and the storage comes back empty. It **deletes every local account, track and uploaded file**, and asks first (`--yes` answers) (`scripts/reset-local.mjs`) |
+| `pnpm db:reset:database` | The database only (`supabase db reset`, asks first): every account and track goes, the uploaded files stay on disk with nothing pointing to them |
+| `pnpm storage:clean` | The files only: deletes the local files no object of the database points to (what a database reset leaves), after saying how many; the database and the files in use stay |
 | `pnpm db:migration <name>` | Create a new, empty migration file |
 | `pnpm db:lint` | Type check of the SQL functions (plpgsql); fails on any warning |
 | `pnpm db:advisors` | Supabase's security and performance advisors on the local database (tables without RLS, unsafe functions, missing indexes…); fails on warnings, lists infos only |
@@ -54,7 +56,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make install` · `make env` · `make dev` · `make build` · `make preview` | Single steps |
 | `make db-start` · `db-stop` · `db-status` | Local Supabase stack |
 | `make db-migrate` | Apply new migrations locally, keeping the data |
-| `make db-reset` | Recreate the local database (**deletes local data**) |
+| `make db-reset` · `db-reset-database` · `storage-clean` | All the local data afresh (**deletes everything**) · the database only · the unused files only (each asks first; `yes=1` answers) |
 | `make db-migration name=<description>` | New migration file |
 | `make db-types` · `make db-types-check` · `make db-lint` · `make db-advisors` · `make db-test` | Types · types against the schema · SQL functions' types · Supabase advisors · pgTAP tests |
 | `make db-studio` | Prints the Supabase Studio address |

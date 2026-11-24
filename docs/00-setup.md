@@ -198,7 +198,7 @@ From the lightest to the most thorough. Each step deletes something that cannot 
 
 | To delete | Run | What is lost |
 |---|---|---|
-| The local data | `pnpm db:reset` (Supabase running) | Every local account, track and playlist; the database is rebuilt from the migrations, with the demo account |
+| The local data | `pnpm db:reset` | Every local account, track, playlist and uploaded file; the database is rebuilt from the migrations, with the demo account |
 | Builds and reports | `make clean` | `.nuxt`, `.output`, `coverage`, the Playwright reports (all rebuilt when needed) |
 | The dependencies too | `make clean-all` | `node_modules` (`pnpm install` brings it back) |
 | The whole local stack | `pnpm stop`, then `pnpm exec supabase stop --no-backup` | The Supabase volumes: database, audio files and covers. The next `pnpm local` starts afresh |

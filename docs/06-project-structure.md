@@ -130,6 +130,8 @@ Chronovault/
 ├── scripts/
 │   ├── stack.mjs                     # pnpm local / docker / stop
 │   ├── lib/local-stack.mjs           # Docker check, Supabase status, .env writing
+│   ├── reset-local.mjs               # pnpm db:reset / db:reset:database / storage:clean (11.5)
+│   ├── lib/local-storage.mjs         # the local Storage's files on disk, and which ones no row points to
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check

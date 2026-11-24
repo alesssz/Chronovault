@@ -8,7 +8,7 @@
 SHELL := bash
 .DEFAULT_GOAL := help
 .PHONY: help local docker stop docker-stop docker-logs setup install env dev build preview \
-        db-start db-stop db-status db-reset db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
+        db-start db-stop db-status db-reset db-reset-database storage-clean db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
         check ci clean clean-all merge doctor audit github-check
 
@@ -18,7 +18,7 @@ SUPABASE := $(PNPM) exec supabase
 help: ## Show this list
 	@echo "Chronovault - available commands:"
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 # --- One-command start --------------------------------------------------------
 # The app is two pieces:
@@ -81,8 +81,15 @@ db-stop: ## Stop the local Supabase stack
 db-status: ## Show URLs and keys of the local stack
 	$(SUPABASE) status
 
-db-reset: ## Recreate the local DB: migrations + seed (deletes data!)
-	$(SUPABASE) db reset
+# Each reset asks first; `yes=1` answers for it (make db-reset yes=1 → --yes).
+db-reset: ## Start the local data afresh: database (migrations + seed) AND uploaded files (deletes everything!)
+	$(PNPM) db:reset $(if $(yes),--yes)
+
+db-reset-database: ## Recreate the local DB only (deletes accounts and tracks); the files stay, for storage-clean
+	$(PNPM) db:reset:database $(if $(yes),--yes)
+
+storage-clean: ## Delete the local files no database object points to; the database and the files in use stay
+	$(PNPM) storage:clean $(if $(yes),--yes)
 
 db-migrate: ## Apply new migrations to the local DB, keeping its data
 	$(PNPM) db:migrate

@@ -44,21 +44,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 ## Tooling (OPS)
 
-### OPS-3 Resetting the local data leaves the audio and covers behind
-
-**Priority:** medium · **Kind:** local stack, storage · **Found:** 2026-11-22
-
-**What is wrong.** `pnpm db:reset` (`make db-reset`) rebuilds the database from the migrations and the seed, but the files uploaded to the local Storage stay in the `supabase_storage_chronovault` volume with nothing pointing to them: the `audio` bucket, which stands in for R2 locally, and `covers`. On 2026-11-22 the volume held about 39,700 audio files (2 GB) against 21 rows in `storage.objects`. They take disk space and survive every reset, so starting from scratch never does for the files. Production needs the same operation (OPS-4).
-
-**Where.** The `db-reset` target in the [Makefile](../Makefile) and the `db:reset` script in [package.json](../package.json); [stack.mjs](../scripts/stack.mjs), which already starts and stops the stack; [03-commands.md](03-commands.md) and [11-local-development.md](11-local-development.md), which describe the reset.
-
-**Options.**
-- A) Empty both buckets through the local Storage (its S3 endpoint, with the keys `pnpm env:local` writes to `.env`), then `supabase db reset`. Storage lists only the files that have a row, so the 39,700 orphans already there stay.
-- B) `supabase stop --no-backup`, then `supabase start`: the stack's Docker volumes (database and storage) are deleted and recreated from the migrations and the seed. Everything goes, orphans included; it takes as long as a stack restart.
-- C) A), plus deleting the bucket folders inside the storage container (`docker exec … rm -rf`). Tied to the container's internal layout, which can change with any Supabase version.
-
-**Recommended.** B), behind the existing names (`pnpm db:reset`, `make db-reset`), asking for confirmation first, since it deletes every local account, track and file. Done when, after `make db-reset`, the storage volume has no files left (`docker exec supabase_storage_chronovault find /mnt -type f | wc -l` prints 0), the existing `.env` still works (the local keys come from `config.toml`), the demo user signs in, and `pnpm test:e2e` passes on the fresh stack.
-
 ### OPS-4 Production cannot be emptied in one go (database, covers, R2)
 
 **Priority:** low · **Kind:** deployment, storage · **Found:** 2026-11-22
