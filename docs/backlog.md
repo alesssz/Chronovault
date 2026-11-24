@@ -42,23 +42,6 @@ This page is not a numbered section of the docs: it changes all the time, and it
 **Recommended.** Which option, why, and how to check it is done.
 ```
 
-## Interface (UI)
-
-### UI-48 Dropping files to upload shows nothing where the user is looking
-
-**Priority:** medium · **Kind:** feedback, uploads · **Found:** 2026-11-21
-
-**What is wrong.** On the upload page, dropped or chosen files go straight into the queue, but the queue ("Uploads · 0/3", one row per file) is drawn at the bottom of the page, after the drop zone, the note on tags and the FLAC notice. The drop zone looks the same as before and no toast appears, so nothing seems to happen until the user scrolls down. Files refused at once (too large, or not audio), failed uploads and the final "Go to library" button are out of sight too. A user who thinks the drop did not work may drop the same files again, and each drop becomes a new track.
-
-**Where.** [new.vue](../app/pages/tracks/new.vue), where the "Uploads" section comes after the notes; the queue itself is in [useTrackUploader.ts](../app/composables/useTrackUploader.ts).
-
-**Options.**
-- A) Scroll down to the "Uploads" section when files are added. The list is seen, but the page jumps away from the drop zone on every drop.
-- B) Move the "Uploads" section right under the drop zone, with the tags note and the FLAC notice after it. The rows appear where the files were dropped.
-- C) Show a toast when files are added ("3 files added") and when the queue ends ("3 uploaded, 1 failed"). The user knows something happened, but still has to scroll to see the progress and the errors.
-
-**Recommended.** B), since the list belongs with the drop zone and A and C are then not needed. Done when the first row of the queue is in view right after a drop, without scrolling, at 1280×720 and at 375px. An e2e check makes sure the first `upload-item` is in the viewport after choosing files.
-
 ## Tooling (OPS)
 
 ### OPS-3 Resetting the local data leaves the audio and covers behind
