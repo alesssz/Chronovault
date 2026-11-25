@@ -79,7 +79,7 @@ sequenceDiagram
   B->>R: PUT the file (progress bar, up to 3 attempts)
   opt cover found in the tags
     B->>B: center crop + resize → WebP, at most 800×800 (never upscaled)
-    B->>S: upload covers/<userId>/<trackId>.webp (RLS: own folder only)
+    B->>S: upload covers/<userId>/<trackId>.webp (RLS: own folder, this name shape, WebP ≤ 3 MB)
   end
   B->>N: POST /api/tracks {id, metadata, audioPath, coverPath, peaks…}
   N->>N: Zod validation · paths must be <userId>/<trackId>.*

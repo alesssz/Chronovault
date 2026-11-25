@@ -185,12 +185,12 @@ select throws_ok(
 
 -- Storage
 select lives_ok(
-  $$ insert into storage.objects (bucket_id, name) values ('audio', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1.mp3') $$,
-  'B uploads files into own folder'
+  $$ insert into storage.objects (bucket_id, name) values ('covers', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/b1111111-1111-4111-8111-111111111111.webp') $$,
+  'B uploads a cover into own folder'
 );
 
 select throws_ok(
-  $$ insert into storage.objects (bucket_id, name) values ('audio', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/intruder.mp3') $$,
+  $$ insert into storage.objects (bucket_id, name) values ('covers', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/b1111111-1111-4111-8111-111111111111.webp') $$,
   '42501', null,
   'B cannot upload files into A''s folder'
 );

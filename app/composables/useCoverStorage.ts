@@ -4,8 +4,9 @@ import { toSquareWebp, type CropRect } from '~/lib/image'
 /**
  * Covers go straight from the browser to Supabase Storage (the private
  * `covers` bucket), into the user's own folder: storage RLS refuses any
- * other folder. The server only stores the path (PATCH coverPath) and
- * deletes files it no longer references.
+ * other folder and any name but `<uuid>.webp` or `playlists/<uuid>.webp`,
+ * and the bucket anything but WebP up to 3 MB. The server only stores the
+ * path (PATCH coverPath) and deletes files it no longer references.
  *
  * Used by the upload queue (covers found in the tags) and by the cover
  * pickers of the track and playlist pages (useCoverEditor).
