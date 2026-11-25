@@ -68,6 +68,7 @@ Chronovault/
 │   │   ├── play-tracker.ts           #   when listening becomes a play (30 s or half; completed at 90%)
 │   │   ├── keyboard-shortcuts.ts     #   the player's shortcuts: which key does what, and when a key is someone else's
 │   │   ├── listener-id.ts            #   this browser's random id, for plays and votes
+│   │   ├── reset-session.ts          #   whether a session may choose a new password: opened by a reset link a moment ago
 │   │   ├── storage-keys.ts           #   every localStorage key, and the move of keys under the legacy chronoplayer: prefix
 │   │   ├── web-analytics.ts          #   which pages Vercel Web Analytics may count
 │   │   ├── save-file.ts              #   hands a file built in the browser to the user

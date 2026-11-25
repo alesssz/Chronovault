@@ -1,6 +1,6 @@
 import { createError, type H3Event } from 'h3'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+import { isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js'
+import { serverSupabaseClient } from '#supabase/server'
 import type { Database } from '~~/shared/types/database.types'
 
 /**
@@ -27,16 +27,25 @@ export interface AuthContext {
 /**
  * Returns the user and an authenticated client, or responds with 401.
  * The claims are verified from the session cookie (JWT signature and expiry).
+ *
+ * Not through `serverSupabaseUser`: it answers any failure with a 500 carrying the auth
+ * library's message, so a cookie holding a broken or forged token, or a session revoked
+ * elsewhere (its refresh refused), would be a server error rather than "sign in again".
+ * Only Auth being unreachable is the server's problem (503).
  */
 export async function requireAuth(event: H3Event): Promise<AuthContext> {
-  // The session's claims, verified (null without a valid session).
-  const claims = await serverSupabaseUser(event)
-  if (!claims?.sub) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized', message: 'Sign-in required' })
-  }
   // A client carrying the user's token: RLS sees them as themselves.
   const db = await serverSupabaseClient<Database>(event)
-  return { userId: claims.sub, db }
+  const { data, error } = await db.auth.getClaims()
+  if (isAuthRetryableFetchError(error)) {
+    console.error('[auth.claims]', error)
+    throw createError({ statusCode: 503, statusMessage: 'Service Unavailable', message: 'Sign-in could not be checked' })
+  }
+  const userId = error ? undefined : data?.claims.sub
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized', message: 'Sign-in required' })
+  }
+  return { userId, db }
 }
 
 /**

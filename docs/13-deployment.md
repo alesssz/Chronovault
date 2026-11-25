@@ -65,7 +65,11 @@ Dashboard labels may change slightly over time.
    - Supabase's built-in email sender delivers only to the project team's addresses, a few per hour: enough for the owner of a personal deployment ("Forgot password?" for their own account). Anyone else needs a custom SMTP server (Authentication → Emails → SMTP Settings).
 2. Add `https://<your-domain>` to the R2 CORS origins (if not done yet) and run `pnpm r2:check https://<your-domain>`.
 3. **Personal use:** create your account from the Supabase dashboard (Authentication → Users → Add user, *Auto Confirm User*), then turn off **Allow new users to sign up** (Authentication → Sign In / Providers). Nobody else can then create an account; shared links keep working without one.
-4. Upload a track online and open it in a private window via its share link.
+4. **Sign-in hardening** (the account is what an attacker wants; `supabase/config.toml` sets the same locally where it can):
+   - Authentication → Sign In / Providers: *Allow anonymous sign-ins* and *Allow manual linking* off, Email the only provider. Under **Email**: *Secure password change* on (a session over a day old must sign in again before choosing a password, whatever page or API asks: `/reset-password` itself already takes one only from a fresh reset link, [8.5](08-data-model-and-security.md#85-security-guarantees)), *Secure email change* on, *Minimum password length* 8 or more (the dashboard's default is 6, the app's forms ask for 8), *Email OTP Length* 10 and *Email OTP Expiration* 900 seconds: the email's link carries a `token_hash`, but Auth also accepts the code it stands for, and 6 digits valid for an hour can be guessed from enough addresses despite the per-IP limits.
+   - Authentication → URL Configuration: the two *Redirect URLs* above exactly, no `*`: a reset link carries its token to whichever address is allowed.
+   - Vercel → the project → **Firewall**: one *Rate Limit* rule (the Hobby plan allows one) on the anonymous API, *Request Path* starting with `/api/shared` or equal to `/api/plays`, 120 requests per 60 seconds per IP, answered `429`; `/api/covers` stays out (the library loads one per track). Then *Publish*. **Settings → Deployment Protection**: *Standard Protection* (previews need a Vercel login; the production domain stays public).
+5. Upload a track online and open it in a private window via its share link.
 
 ## 13.5 Updating production
 

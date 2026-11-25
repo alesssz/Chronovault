@@ -1,8 +1,9 @@
 /**
  * End-to-end: "Forgot password?" sends an email whose link, opened in another
  * browser, lets the user choose a new password; the old one stops working,
- * the link works once, and a broken link offers a new one. Both messages look
- * like the forms they stand in for, and the address stays on one line.
+ * the link works once, and a broken link offers a new one. Signed in with the
+ * password, the page takes no new password but emails the link. Both messages
+ * look like the forms they stand in for, and the address stays on one line.
  * The email is read from the local Auth's mail catcher (Mailpit).
  */
 import type { APIRequestContext } from '@playwright/test'
@@ -91,6 +92,18 @@ test.describe('password reset', () => {
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText('Sign-in failed').first()).toBeVisible()
     await signIn(page, email, 'password-new-456')
+  })
+
+  test('signed in with the password, the page emails a link instead of taking a new password', async ({ page, request }) => {
+    const email = await signUp(page)
+    await page.goto('/reset-password')
+    await expect(page.getByRole('heading', { name: 'A new password takes an emailed link' })).toBeVisible()
+    await expect(page.getByText(`sent to ${email}`)).toBeVisible()
+    await expect(page.locator('input[name="password"]')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Email me a link' }).click()
+    await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible()
+    expect(await resetLink(request, email)).toMatch(/\/reset-password\?token_hash=.+&type=recovery$/)
   })
 
   test('a broken link offers a new one', async ({ page }) => {
