@@ -73,3 +73,17 @@ This page is not a numbered section of the docs: it changes all the time, and it
 - B) A checklist of the three manual steps in 13-deployment. Nothing to maintain, but nothing makes sure they are all done, and emptying a large R2 bucket by hand is slow.
 
 **Recommended.** A). It refuses to run when `CI` is set or `.env.r2` is missing, and no other target calls it. Before writing it, check on a throwaway Supabase project and R2 bucket, never on production, what `supabase db reset --linked` does to `auth.users` and `storage.objects`, and that the `.env.r2` token (*Object Read & Write*) can list and delete. Done when, on that throwaway pair with a few uploads, the command leaves no users, no tracks and no objects in either bucket, `supabase migration list --linked` shows every migration applied, and a new account can sign up and upload.
+
+### OPS-6 The production R2 token may reach more than its bucket, and preview builds get it
+
+**Priority:** medium · **Kind:** deployment, secrets · **Found:** 2026-11-25
+
+**What is wrong.** The R2 token that Vercel uses (`NUXT_AUDIO_STORAGE_ACCESS_KEY_ID`, `NUXT_AUDIO_STORAGE_SECRET_ACCESS_KEY`) was set at the first deploy, and nothing says what it may do: if it is not limited to `chronovault-audio`, a leak exposes every bucket of the account. Both variables also apply to *Preview*, so every branch build (Dependabot's included) runs the dependencies' code during `nuxt build` with the key that writes the production audio. They are *Sensitive*, so Vercel cannot show them again, and their environments cannot be edited, only the variables deleted and added again. The local `.env` holds the local Storage's keys (`pnpm local` writes them), not R2's: the only copy may be a `.env.r2` from the first set-up.
+
+**Where.** Cloudflare: R2 → *Manage API tokens*, and the bucket's *Settings → CORS Policy*. Vercel: the project's *Settings → Environment Variables*. [13.2](13-deployment.md#132-cloudflare-r2-audio-files) and [13.3](13-deployment.md#133-vercel), which should say how to scope both.
+
+**Options.**
+- A) Keep the token if the old `.env.r2` turns up and Cloudflare shows it is *Object Read & Write* on `chronovault-audio` only: delete the two variables and add them again with the same values, *Production* only.
+- B) A new token, *Object Read & Write* on `chronovault-audio` only: add it as the two variables, *Production* only, redeploy, play a track, then revoke the old one.
+
+**Recommended.** A) if the old token is found and already scoped, else B); either way the CORS origins are checked (the production domain and `localhost`, no `*`), and 13.2 and 13.3 say to scope the token to the bucket and the two variables to *Production*. Done when the two variables show only *Production*, a track plays in production after a redeploy, and Cloudflare lists one token for the bucket, scoped to it alone.
