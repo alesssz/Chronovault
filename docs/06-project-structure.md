@@ -137,6 +137,7 @@ Chronovault/
 │   ├── setup-env.mjs                 # pnpm env:local
 │   ├── gen-types.mjs                 # pnpm db:types
 │   ├── check-r2.mjs                  # pnpm r2:check
+│   ├── urls.mjs                      # pnpm urls: the main addresses · lib/project-urls.mjs
 │   ├── doctor.mjs                    # pnpm run doctor (prerequisites check) · lib/doctor-checks.mjs
 │   ├── merge-main.mjs                # pnpm merge:main (pull request, CI, merge, clean-up)
 │   ├── lib/merge-message.mjs         # cumulative merge commit message
