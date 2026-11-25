@@ -10,7 +10,7 @@ SHELL := bash
 .PHONY: help local docker stop docker-stop docker-logs setup install env dev build preview \
         db-start db-stop db-status db-reset db-reset-database storage-clean db-migrate db-types db-types-check db-migration db-lint db-advisors db-test db-studio \
         db-link db-push lint lint-fix typecheck test test-unit test-nuxt test-e2e test-coverage \
-        check ci clean clean-all merge doctor audit github-check
+        check ci clean clean-all merge doctor audit github-check r2-check urls
 
 PNPM     := pnpm
 SUPABASE := $(PNPM) exec supabase
@@ -159,6 +159,16 @@ audit: ## Known vulnerabilities in the packages (report only, changes nothing)
 
 github-check: ## The repository's settings on GitHub and its last runs, against the ones decided (needs gh)
 	$(PNPM) github:check
+
+# The deployed site (README): the bucket's CORS must let it upload and stream. Another deployment
+# passes its own: make r2-check site=https://<your-domain>.
+site ?= https://chronovault-music.vercel.app
+
+r2-check: ## The R2 token in .env.r2: upload, streaming, delete, CORS from localhost and the site (site=... for another)
+	$(PNPM) r2:check http://localhost:3100 $(site)
+
+urls: ## The main addresses: local app, Studio, Mailpit; the site, Supabase, Cloudflare R2, Vercel, GitHub
+	@$(PNPM) --silent urls $(site)
 
 # --- Git ----------------------------------------------------------------------
 

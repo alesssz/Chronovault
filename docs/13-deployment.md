@@ -45,13 +45,19 @@ Dashboard labels may change slightly over time.
    ]
    ```
    Origins must include the scheme (`https://`) and no trailing slash.
-4. **Manage API tokens → Create API token**: permission *Object Read & Write*, restricted to `chronovault-audio`. Copy the *Access Key ID*, the *Secret Access Key* (shown once) and the S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The "Token value" is not needed.
-5. Copy `.env.r2.example` to `.env.r2`, fill it in and run `pnpm r2:check`: every line must be ✔.
+4. **R2 Overview → Account Details → API Tokens → Manage → Create Account API token** (an *Account* token, not a *User* one: it does not stop working with the user who made it):
+   - *Permissions* **Object Read & Write**, *Specify bucket(s)* **Apply to specific buckets only** → `chronovault-audio`. Not *Admin*, not *All buckets*: a leaked token then reaches the audio and nothing else of the account.
+   - *TTL* **Forever**: an expiry would stop production on that day. No *Client IP Address Filtering*: Vercel's functions have no fixed address.
+   - Copy the *Access Key ID*, the *Secret Access Key* (shown once: keep it in a password manager) and the *Default* S3 endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`. The *Token value* is not needed.
+5. Copy `.env.r2.example` to `.env.r2`, fill it in and run `make r2-check` (`site=https://<your-domain>` for a deployment of your own): every line must be ✔. It uploads, streams and deletes a test file with the token, and asks the bucket's CORS about `http://localhost:3100` and the site.
+6. **Replacing the token** (lost, leaked, or of unknown scope): create a new one as in step 4, put it in `.env.r2` and run `make r2-check`; set it on Vercel (13.3, step 2) and redeploy production; play a track; only then delete the old token in the same list, and play a track again after reloading the page (the addresses it had were signed with the old key). The list must end with one token for the bucket.
 
 ## 13.3 Vercel
 
 1. Import the GitHub repository: the Nuxt preset is detected automatically.
-2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY` and the five `NUXT_AUDIO_STORAGE_*` values from `.env.r2`.
+2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY` and the five `NUXT_AUDIO_STORAGE_*` values from `.env.r2` (pasting the file's content into the *Key* field fills the five rows).
+   - The five `NUXT_AUDIO_STORAGE_*` for **Production only**, marked *Sensitive*. A preview build runs any branch's dependencies (Dependabot's included) during `nuxt build`; with them it would hold the key that writes the production audio. Previews then play no audio, and need none to check the pages.
+   - A variable's environments cannot be changed once it is *Sensitive*: delete it and add it again. Changed variables reach only the next deployment: redeploy production (*Deployments* → the current one → *⋯ → Redeploy*).
 3. *Settings → Node.js Version* (under "Build and Deployment" or "General", depending on the dashboard version): 24.x.
 4. pnpm is pinned in `packageManager`; if Vercel does not pick it up, add `ENABLE_EXPERIMENTAL_COREPACK=1`.
 5. Deploy and open `https://<your-domain>/api/health`. Every push to `main` deploys again automatically.
@@ -63,7 +69,7 @@ Dashboard labels may change slightly over time.
 1. Supabase → **Authentication → URL Configuration**: *Site URL* `https://<your-domain>`, *Redirect URLs* `https://<your-domain>/confirm` and `https://<your-domain>/reset-password` (an address not listed sends the email's link to the Site URL instead).
    - **Authentication → Emails → Reset Password**: subject `Reset your Chronovault password`, body the content of `supabase/templates/recovery.html`. Its link opens `/reset-password` straight away, so it works on any device; Supabase's default one works only in the browser that asked for it. Local Supabase reads the same file from `config.toml`; the project's dashboard is the only copy online, so change both together.
    - Supabase's built-in email sender delivers only to the project team's addresses, a few per hour: enough for the owner of a personal deployment ("Forgot password?" for their own account). Anyone else needs a custom SMTP server (Authentication → Emails → SMTP Settings).
-2. Add `https://<your-domain>` to the R2 CORS origins (if not done yet) and run `pnpm r2:check https://<your-domain>`.
+2. Add `https://<your-domain>` to the R2 CORS origins (if not done yet) and run `make r2-check site=https://<your-domain>`.
 3. **Personal use:** create your account from the Supabase dashboard (Authentication → Users → Add user, *Auto Confirm User*), then turn off **Allow new users to sign up** (Authentication → Sign In / Providers). Nobody else can then create an account; shared links keep working without one.
 4. **Sign-in hardening** (the account is what an attacker wants; `supabase/config.toml` sets the same locally where it can):
    - Authentication → Sign In / Providers: *Allow anonymous sign-ins* and *Allow manual linking* off, Email the only provider. Under **Email**: *Secure password change* on (a session over a day old must sign in again before choosing a password, whatever page or API asks: `/reset-password` itself already takes one only from a fresh reset link, [8.5](08-data-model-and-security.md#85-security-guarantees)), *Secure email change* on, *Minimum password length* 8 or more (the dashboard's default is 6, the app's forms ask for 8), *Email OTP Length* 10 and *Email OTP Expiration* 900 seconds: the email's link carries a `token_hash`, but Auth also accepts the code it stands for, and 6 digits valid for an hour can be guessed from enough addresses despite the per-IP limits.

@@ -30,7 +30,7 @@
 | `Audio format not supported` | The browser lacks that codec (e.g. some OGG files on older Safari). The file stays saved. |
 | `Audio storage is not configured` (HTTP 500) | A `NUXT_AUDIO_STORAGE_*` variable is missing (Vercel settings, or `make env` locally) |
 | Console: `Refused to load … because it violates the following Content Security Policy directive` (production build only) | The page reached an origin the policy does not list. A new service the browser talks to belongs in `server/utils/content-security-policy.ts`; for Supabase or the audio storage, check `NUXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` and `NUXT_AUDIO_STORAGE_ENDPOINT`, which the policy is built from |
-| Upload fails online with a CORS error | Add the site's origin (with `https://`) to the R2 CORS policy, then `pnpm r2:check https://<your-domain>` |
+| Upload fails online with a CORS error | Add the site's origin (with `https://`) to the R2 CORS policy, then `make r2-check site=https://<your-domain>` |
 | R2 says "JSON not well formatted" when saving CORS | Paste exactly the JSON array of 13.2, with straight quotes |
 | Sign-up email link leads to localhost | Set Site URL and Redirect URLs in Supabase (13.4) |
 | A share link answers "not available" | The item is private (or the saved visibility is still private): set Unlisted/Public and **save** |

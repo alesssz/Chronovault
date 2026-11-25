@@ -40,6 +40,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm db:push` | Apply pending migrations to the linked Supabase Cloud project, by hand: CI does it on every merge into `main` ([13.5](13-deployment.md#135-updating-production)) |
 | `pnpm env:local` | Write `.env` from the running local stack |
 | `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete |
+| `pnpm urls [site]` | Print the main addresses: the local app, Supabase Studio and Mailpit (ports read from `supabase/config.toml`); the site and the dashboards of Supabase (the project `supabase link` recorded), Cloudflare R2, Vercel and GitHub (from the git remote). Read-only, needs nothing running |
 | `pnpm generate:brand` | Regenerate the brand images in `public/` (favicon, PWA icons, fallback cover) from `shared/brand.ts` and `brand/chronovault.jpg` ([5.6](05-architecture.md#56-brand-and-theme)) |
 | `pnpm run doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, the GitHub CLI signed in, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs`. With `run`: pnpm's own `pnpm doctor` checks pnpm itself |
 | `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, open its pull request, wait for CI and get it merged into `main` (auto-merge, or from the terminal), then delete the branch locally and on GitHub and end on an up-to-date `main`; needs `gh` signed in ([14.1](14-conventions.md#141-git-workflow)) |
@@ -68,6 +69,8 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `make doctor` | `pnpm run doctor` |
 | `make merge` · `make merge yes=1` · `make merge checks=0` | `pnpm merge:main`: run `pnpm check`, merge the current branch into `main` through a pull request once CI passes, and clean up · without the confirmation question · without the checks (make cannot take `--yes`: it would read it as its own option) |
 | `make audit` · `make github-check` | `pnpm audit` · `pnpm github:check` |
+| `make urls` | `pnpm urls` with the deployed site |
+| `make r2-check` · `make r2-check site=https://<your-domain>` | `pnpm r2:check` with the token in `.env.r2`, its CORS checked from `http://localhost:3100` and the deployed site, [chronovault-music.vercel.app](https://chronovault-music.vercel.app) · another deployment's ([13.2](13-deployment.md#132-cloudflare-r2-audio-files)) |
 | `make clean` · `make clean-all` | Remove builds and reports · also `node_modules` |
 
 ---
