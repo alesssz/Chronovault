@@ -11,6 +11,34 @@ allowBuilds:
   unrs-resolver: true
   vue-demi: true
 
+# A compromised release is usually found and unpublished within hours, so
+# pnpm installs nothing younger than a day (1440 minutes). pnpm 12 does this
+# by default, but leniently: when only a younger version fits, it installs it
+# and quietly lists it under minimumReleaseAgeExclude here. Set explicitly,
+# the rule is strict: pnpm asks first, and fails where it cannot ask (CI,
+# Docker, Vercel).
+minimumReleaseAge: 1440
+
+# A version published with less proof of origin than an earlier one (no
+# trusted publishing or provenance where the package had it) is refused: it is
+# what a release pushed with a stolen npm token looks like.
+trustPolicy: no-downgrade
+# Versions refused by trustPolicy that are known and old, not a takeover.
+# Exact versions only, so a later release of the same package is checked.
+trustPolicyExclude:
+  # Published by hand in July 2023 by a maintainer of npm's own team, as a
+  # fix for the 5.x and 6.x lines, after the 7.x releases with provenance.
+  # Babel (through Nuxt and workbox-build) depends on 6.x.
+  - semver@6.3.1
+  # workbox-build 7.4 (the PWA plugin) depends on this prerelease of its
+  # maintainer's fork, published without provenance on the same day as 2.5.0
+  # with it. Remove once workbox-build depends on a later version.
+  - '@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1'
+
+# A dependency's own dependencies come from the registry only, never from a
+# git repository or a tarball URL, which no release-age or trust check covers.
+blockExoticSubdeps: true
+
 # Peer dependency ranges pnpm should accept although a package does not
 # declare them yet.
 # - @vercel/analytics 2.0.1 (the latest stable) declares vue-router ^4, while
