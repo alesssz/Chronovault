@@ -1,7 +1,8 @@
 /**
  * End-to-end, the daily keep-alive (/api/keepalive) against the real local database: called
  * like Vercel Cron calls it (no session cookie), it gets through to Postgres as the anonymous
- * role and answers 200.
+ * role and answers 200. The local server has no CRON_SECRET, so the route is open here; the
+ * secret's check is unit-tested (cron-auth.test.ts).
  */
 import { expect, test } from './fixtures'
 

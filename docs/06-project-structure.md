@@ -108,7 +108,7 @@ Chronovault/
 │   ├── mappers/                      # track.ts · playlist.ts (rows ↔ domain types) · cover-urls.ts (cacheable cover addresses)
 │   ├── plugins/                      # content-security-policy.ts (the pages' CSP and its nonce, 8.5)
 │   ├── dev/stale-service-worker.ts   # development only: a /sw.js that unregisters a production service worker left on the port
-│   └── utils/                        # auth (requireAuth, visitorClient) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
+│   └── utils/                        # auth (requireAuth, visitorClient) · cron-auth (Vercel Cron's secret) · validation · errors · audio-storage · covers (cache headers) · web-analytics (data source)
 │                                     #   · storage-cleanup (the orphans' minimum age, from the runtime config)
 │                                     #   · content-security-policy (the policy, built from the runtime config)
 ├── shared/                           # Pure code used by client and server

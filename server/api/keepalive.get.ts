@@ -7,12 +7,13 @@ import { pingDatabase } from '../repositories/keepalive.repository'
  * until it is restored by hand); Vercel Cron calls this once a day
  * (vercel.json). /api/health cannot do it: it never reaches the database.
  *
- * Auth: none, on purpose. It runs as the anonymous role and reads one
- * genre, which anyone holding the public Supabase key can already
- * read straight from Supabase: a secret would protect nothing.
- * 200 → { status: "ok", time: ISO timestamp } · 500 when the database does not answer
+ * Auth: the cron secret (requireCronSecret), not a session. The query
+ * itself runs as the anonymous role and reads one genre.
+ * 200 → { status: "ok", time: ISO timestamp } · 401 without the secret ·
+ * 500 when the database does not answer, or on Vercel without CRON_SECRET
  */
 export default defineEventHandler(async (event) => {
+  requireCronSecret(event)
   // No session cookie on a cron request: the anonymous role.
   await pingDatabase(await visitorClient(event))
   return { status: 'ok', time: new Date().toISOString() }

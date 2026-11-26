@@ -5,7 +5,7 @@
 - **The queue is per device:** it is saved in the browser, not in the account. A choice: listening does not move between devices mid-queue.
 - **Not gapless:** the next track is ready before the end, but the new file still takes a few tens of ms to start ([7.5](07-data-flows.md#75-playback)).
 - **Storage clean-up is manual** (Storage dialog): nothing removes orphaned files on a schedule.
-- **The Supabase project stays awake only through a daily job** on Vercel ([13.7](13-deployment.md#137-keeping-supabase-awake)): a deployment elsewhere (Docker on a server) has no cron, and needs its own daily call to `/api/keepalive`.
+- **The Supabase project stays awake only through a daily job** on Vercel ([13.7](13-deployment.md#137-keeping-supabase-awake)): a deployment elsewhere (Docker on a server) has no cron, and needs its own daily call to `/api/keepalive` (with `CRON_SECRET` set there, sending `Authorization: Bearer <secret>`).
 - **The whole library loads at once** (read in pages, drawn with a virtual scroll: [7.2](07-data-flows.md#72-loading-the-library)): about 0.4 KB per track, comfortable up to several thousand. Beyond that, the search, filters and sorting would have to move to the server.
 - **No offline mode** (downloading tracks for listening without a connection).
 - **Downloads of OGG/Opus, M4A/AAC and WebM files carry no tags**, and WAV downloads have no cover or lyrics (no standard place for them).
