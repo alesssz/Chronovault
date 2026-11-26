@@ -4,7 +4,7 @@
  * where it is written.
  */
 import { describe, expect, it } from 'vitest'
-import { addNonce, contentSecurityPolicy, createNonce, originOf } from '~~/server/utils/content-security-policy'
+import { addNonce, contentSecurityPolicy, createNonce, loadsCastSdk, originOf } from '~~/server/utils/content-security-policy'
 
 /** The origins of a local stack: Supabase and its S3 endpoint share a host. */
 const LOCAL = { supabaseUrl: 'http://127.0.0.1:54321', audioEndpoint: 'http://127.0.0.1:54321/storage/v1/s3' }
@@ -29,6 +29,21 @@ describe('originOf', () => {
   })
 })
 
+describe('loadsCastSdk', () => {
+  it('is true for /cast-test, with a query string or a trailing slash', () => {
+    expect(loadsCastSdk('/cast-test')).toBe(true)
+    expect(loadsCastSdk('/cast-test?debug=1')).toBe(true)
+    expect(loadsCastSdk('/cast-test/')).toBe(true)
+  })
+
+  it('is false for every other page, even one whose address contains it', () => {
+    expect(loadsCastSdk('/')).toBe(false)
+    expect(loadsCastSdk('/t/abc?x=/cast-test')).toBe(false)
+    expect(loadsCastSdk('/cast-test-other')).toBe(false)
+    expect(loadsCastSdk('/p/cast-test')).toBe(false)
+  })
+})
+
 describe('createNonce', () => {
   it('draws 16 random bytes, different every time', () => {
     const [a, b] = [createNonce(), createNonce()]
@@ -38,12 +53,16 @@ describe('createNonce', () => {
 })
 
 describe('contentSecurityPolicy', () => {
-  it('allows scripts from the site and with the nonce only (and the temporary Cast SDK)', () => {
+  it('allows scripts from the site and with the nonce only', () => {
     const d = directivesOf(contentSecurityPolicy('abc123', LOCAL))
-    expect(d['script-src']).toEqual(['\'self\'', '\'nonce-abc123\'', 'https://www.gstatic.com'])
+    expect(d['script-src']).toEqual(['\'self\'', '\'nonce-abc123\''])
     expect(d['script-src']).not.toContain('\'unsafe-inline\'')
     expect(d['object-src']).toEqual(['\'none\''])
     expect(d['frame-ancestors']).toEqual(['\'none\''])
+  })
+
+  it('adds the Cast SDK\'s origin to the scripts of /cast-test only', () => {
+    expect(directivesOf(contentSecurityPolicy('n', LOCAL, true))['script-src']).toEqual(['\'self\'', '\'nonce-n\'', 'https://www.gstatic.com'])
   })
 
   it('lets the page reach Supabase and the audio storage, listed once when they share an origin', () => {

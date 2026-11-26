@@ -24,8 +24,23 @@ export interface CspOrigins {
 /**
  * Google's Cast sender library, loaded only by the temporary diagnostic
  * page /cast-test (app/lib/google-cast.ts): drop it with that page.
+ * Allowed on that page's own response only. Every other page would
+ * otherwise let a script injected there load whatever gstatic.com serves,
+ * a host shared by all of Google's products. No link leads to /cast-test:
+ * it is opened by its address, a full page load that gets this policy (a
+ * move from another page inside the app keeps that page's policy, and
+ * the SDK would not load).
  */
 const GOOGLE_CAST_SDK = 'https://www.gstatic.com'
+
+/** The page that loads the Cast SDK. */
+const CAST_TEST_PATH = '/cast-test'
+
+/** Whether the page at `path` (query string allowed) is /cast-test, the only one that loads the Cast SDK. */
+export function loadsCastSdk(path: string): boolean {
+  const pathname = path.split(/[?#]/, 1)[0]!.replace(/\/+$/, '')
+  return pathname === CAST_TEST_PATH
+}
 
 /** The origin (scheme, host, port) of a URL; null when it is empty or not a URL. */
 export function originOf(url: string): string | null {
@@ -42,8 +57,11 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))))
 }
 
-/** The policy of one page, allowing inline scripts that carry `nonce`. */
-export function contentSecurityPolicy(nonce: string, origins: CspOrigins): string {
+/**
+ * The policy of one page, allowing inline scripts that carry `nonce`;
+ * `castSdk` adds the Cast SDK's origin, for /cast-test only (loadsCastSdk).
+ */
+export function contentSecurityPolicy(nonce: string, origins: CspOrigins, castSdk = false): string {
   // Supabase and the audio storage; a missing or malformed setting is left out.
   const backends = [originOf(origins.supabaseUrl), originOf(origins.audioEndpoint)].filter(o => o !== null)
   // The audio storage alone: <audio> follows /api/stream's redirect there.
@@ -53,7 +71,7 @@ export function contentSecurityPolicy(nonce: string, origins: CspOrigins): strin
 
   const directives: Record<string, string[]> = {
     'default-src': ['\'self\''],
-    'script-src': ['\'self\'', `'nonce-${nonce}'`, GOOGLE_CAST_SDK],
+    'script-src': ['\'self\'', `'nonce-${nonce}'`, ...(castSdk ? [GOOGLE_CAST_SDK] : [])],
     // Vue's :style bindings and Nuxt UI's inline styles: not worth a nonce each.
     'style-src': ['\'self\'', '\'unsafe-inline\''],
     // blob: the cover crop editor previews the picked file; data: small inlined icons;
