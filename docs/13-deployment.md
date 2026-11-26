@@ -57,7 +57,7 @@ Dashboard labels may change slightly over time.
 1. Import the GitHub repository: the Nuxt preset is detected automatically.
 2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY` and the five `NUXT_AUDIO_STORAGE_*` values from `.env.r2` (pasting the file's content into the *Key* field fills the five rows).
    - The five `NUXT_AUDIO_STORAGE_*` for **Production only**, marked *Sensitive*. A preview build runs any branch's dependencies (Dependabot's included) during `nuxt build`; with them it would hold the key that writes the production audio. Previews then play no audio, and need none to check the pages.
-   - `CRON_SECRET`, **Production only**, *Sensitive*: a random value of at least 16 characters (`openssl rand -hex 32`, kept nowhere else). Vercel Cron sends it to `/api/keepalive` (13.7); without it that route answers `500` on Vercel.
+   - `CRON_SECRET`, **Production only**, *Sensitive*: a random value of at least 16 characters, kept nowhere else: the steps are in 13.7. Vercel Cron sends it to `/api/keepalive` (13.7); without it that route answers `500` on Vercel.
    - A variable's environments cannot be changed once it is *Sensitive*: delete it and add it again. Changed variables reach only the next deployment: redeploy production (*Deployments* → the current one → *⋯ → Redeploy*).
 3. *Settings → Node.js Version* (under "Build and Deployment" or "General", depending on the dashboard version): 24.x.
 4. pnpm is pinned in `packageManager`; if Vercel does not pick it up, add `ENABLE_EXPERIMENTAL_COREPACK=1`.
@@ -111,9 +111,14 @@ Supabase **pauses a Free-plan project after a week without database activity** (
 
 **Only Vercel Cron gets through** (`server/utils/cron-auth.ts`): with `CRON_SECRET` set (13.3, step 2), Vercel sends it as `Authorization: Bearer …` and the route refuses any other request with `401`. What it reads is public anyway; the secret keeps a stranger from spending the project's function invocations and database queries in a loop. On Vercel without the variable the route answers `500` to everyone, the cron included, so a forgotten variable shows in the cron logs instead of leaving the route open; elsewhere (development, the e2e tests, Docker) it stays open without one.
 
-- **Set it up once:** the `CRON_SECRET` variable (13.3, step 2), then redeploy production. Then open `https://<your-domain>/api/keepalive` in the browser: `401` is right (the browser has no secret); `500` means the variable has not reached the deployment.
+- **Set it up once**, all in one terminal window: the secret stays in a shell variable, so copying the next command does not replace it on the clipboard, and it never shows on screen.
+  1. `S=$(openssl rand -hex 32)`, then `printf %s "$S" | pbcopy` (macOS; no newline at the end).
+  2. Vercel → *Settings → Environment Variables*: add `CRON_SECRET` (or *⋯ → Edit* an existing one) and paste the value, with nothing copied in between.
+  3. *Deployments* → the deployment marked *Production* / *Current* (the top one may be a branch preview) → *⋯ → Redeploy*, and wait for *Ready*.
+  4. Back in the same window: `curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $S" https://<your-domain>/api/keepalive` answers `200`; without the header (or in the browser) `401` is right; `500` means the variable has not reached the deployment.
+  5. `unset S; echo -n | pbcopy`.
 
-- **Check it:** Vercel → the project → **Settings → Cron Jobs** lists the job, with *Run* to try it at once and a link to its logs. Cron jobs run on the production deployment only.
+- **Check it:** Vercel → the project → **Settings → Cron Jobs** lists the job, with *Run* and a link to its logs. Cron jobs run on the production deployment only. In the logs, open a `/api/keepalive` row: the cron's has the user agent `vercel-cron/1.0` and status `200`; rows with a browser's user agent are visits, `401`. *Run* may send nothing at all (no new row): then the `curl` above is the check, since Vercel Cron sends the same variable. Runtime logs are kept briefly on the Hobby plan, so the daily call (06:00–07:00 UTC) is seen only soon after it runs.
 - **If Supabase pauses the project anyway** (an email warns about a week before, and another confirms the pause): Supabase dashboard → the project → *Restore*. Then check the Cron Jobs page: a failing job means the database was not reached (`500` in its logs; with `CRON_SECRET is not set` next to it, the variable is missing) or the secret does not match (`401`: set the variable again and redeploy).
 
 ## 13.8 The GitHub repository

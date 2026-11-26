@@ -73,3 +73,17 @@ This page is not a numbered section of the docs: it changes all the time, and it
 - B) A checklist of the three manual steps in 13-deployment. Nothing to maintain, but nothing makes sure they are all done, and emptying a large R2 bucket by hand is slow.
 
 **Recommended.** A). It refuses to run when `CI` is set or `.env.r2` is missing, and no other target calls it. Before writing it, check on a throwaway Supabase project and R2 bucket, never on production, what `supabase db reset --linked` does to `auth.users` and `storage.objects`, and that the `.env.r2` token (*Object Read & Write*) can list and delete. Done when, on that throwaway pair with a few uploads, the command leaves no users, no tracks and no objects in either bucket, `supabase migration list --linked` shows every migration applied, and a new account can sign up and upload.
+
+### OPS-7 The Supabase CLI is one major version behind (2.122, while 3.x is out)
+
+**Priority:** low · **Kind:** dependencies, local stack, CI · **Found:** 2026-11-26
+
+**What is wrong.** Every `supabase` command announces "A new version of Supabase CLI is available: v3.4.0 (currently installed v2.122.0)". The range in [package.json](../package.json) (`^2.122.0`) never moves to 3, so nothing breaks today, but 2.122.1 (2026-11-02, the day 3.0.0 came out) is the last 2.x release: fixes and support for newer Supabase services now land in 3.x only, and the gap grows with each release.
+
+**Where.** `supabase` in [package.json](../package.json) and the commands that use it: the `db:*`, `test:db` and `db:types` scripts; [ci.yml](../.github/workflows/ci.yml) (`supabase start -x …`, `db lint`, `db advisors`, `gen types` for `db:types:check`, `test db`, and `db push --db-url … --skip-vault --yes` in the job that migrates production); [scripts/](../scripts/) (`db reset`, `stop --no-backup`, `status` read by `env:local`, the disk layout `storage:clean` reads from the Storage container); [config.toml](../supabase/config.toml), which a new major may read differently; [03-commands.md](03-commands.md), [11-local-development.md](11-local-development.md), [13-deployment.md](13-deployment.md).
+
+**Options.**
+- A) Move to 3.x on its own branch (`chore/supabase-cli-3`): read the 3.0 changelog for removed or renamed commands and flags and changes to `config.toml`, adjust what is listed above, then run the whole local stack and CI.
+- B) Stay on 2.122 until something needs 3.x. No work now, but the eventual move crosses more releases at once, and a fix that only ships in 3.x has to wait for it.
+
+**Recommended.** A), once 3.x has a few patch releases behind it (3.4 today). `pnpm update` within 2.x first is not worth a separate step. Done when, on the branch: `pnpm local` starts the stack and the app; `pnpm db:migrate`, `pnpm test:db`, `pnpm db:types` (no diff), `pnpm db:lint`, `pnpm db:advisors` and `pnpm storage:clean` work; `pnpm test:e2e` passes; CI is green; and, after the merge, the *Migrate production database* job passes on `main` (it is the only one that runs `db push` against production).
