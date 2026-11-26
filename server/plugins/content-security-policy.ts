@@ -26,6 +26,6 @@ export default defineNitroPlugin((nitroApp) => {
     setResponseHeader(event, 'content-security-policy', contentSecurityPolicy(nonce, {
       supabaseUrl: config.public.supabase.url,
       audioEndpoint: config.audioStorage.endpoint,
-    }))
+    }, loadsCastSdk(event.path)))
   })
 })

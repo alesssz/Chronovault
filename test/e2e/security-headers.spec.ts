@@ -52,6 +52,19 @@ test.describe('security headers', () => {
     expect(nonceOf(first.headers()['content-security-policy'])).not.toBe(nonceOf(second.headers()['content-security-policy']))
   })
 
+  test('only /cast-test lets scripts come from the Cast SDK\'s host', async ({ page }) => {
+    // Signed in: /cast-test sends anyone else to /login, whose policy a plain request would read.
+    await signUp(page)
+    for (const path of ['/', '/login', '/t/00000000-0000-4000-8000-000000000000']) {
+      const policy = (await page.request.get(path, { failOnStatusCode: false })).headers()['content-security-policy']
+      expect(policy, `${path}: a policy`).toBeTruthy()
+      expect(policy, path).not.toContain('gstatic.com')
+    }
+    const castTest = await page.request.get('/cast-test', { maxRedirects: 0 })
+    expect(castTest.status()).toBe(200)
+    expect(castTest.headers()['content-security-policy']).toMatch(/script-src [^;]*https:\/\/www\.gstatic\.com/)
+  })
+
   test('API answers and static files carry the fixed headers, without a policy of their own', async ({ request }) => {
     for (const path of ['/api/health', '/favicon.svg']) {
       const headers = (await request.get(path)).headers()
