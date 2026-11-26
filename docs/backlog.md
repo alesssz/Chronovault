@@ -87,3 +87,17 @@ This page is not a numbered section of the docs: it changes all the time, and it
 - B) Stay on 2.122 until something needs 3.x. No work now, but the eventual move crosses more releases at once, and a fix that only ships in 3.x has to wait for it.
 
 **Recommended.** A), once 3.x has a few patch releases behind it (3.4 today). `pnpm update` within 2.x first is not worth a separate step. Done when, on the branch: `pnpm local` starts the stack and the app; `pnpm db:migrate`, `pnpm test:db`, `pnpm db:types` (no diff), `pnpm db:lint`, `pnpm db:advisors` and `pnpm storage:clean` work; `pnpm test:e2e` passes; CI is green; and, after the merge, the *Migrate production database* job passes on `main` (it is the only one that runs `db push` against production).
+
+### OPS-8 The sync editor's e2e test fails about once in a hundred runs, with the page frozen
+
+**Priority:** low · **Kind:** e2e test, possibly performance · **Found:** 2026-11-26
+
+**What is wrong.** "a line stamped while a save is on its way is kept, and still unsaved" ([unsaved-changes.spec.ts](../test/e2e/unsaved-changes.spec.ts)) failed once in 100 runs of the file (`--repeat-each 20 --workers 4`, a laptop also running the local stack): "Changes saved" did not show within 15 s of the held save being released. The trace says the save is not the cause: the PATCH answered `200` some 70 ms after the release. What stalls is the page: for about 14 s its frames do not change, with the Sync tab at "Loading the detailed waveform… 65%" and the player at 0:00 although it is playing; then everything moves again, the toast included. Something kept the page's main thread busy, or the frames stopped updating while the waveform was loading. CI retries a failed test once, so it would rarely show there; a real stall of that length would also be felt by a person syncing lyrics on a slow device.
+
+**Where.** [LyricsSyncTimeline.vue](../app/components/lyrics/LyricsSyncTimeline.vue) (wavesurfer fetches and decodes the whole file for the detailed waveform, `normalize: true`, on the player's own `<audio>`); the test, which plays a 60-second WAV while the timeline loads.
+
+**Options.**
+- A) Reproduce it with `pnpm test:e2e test/e2e/unsaved-changes.spec.ts -g "stamped" --repeat-each 50 --workers 4` and a performance trace of the page (Chrome DevTools Protocol `Tracing`, or Playwright's `page.context().tracing` with screenshots) to see what runs during the freeze: wavesurfer's decoding and normalising, the regions' rendering, or plain CPU starvation of a loaded machine.
+- B) Make the test independent of it: wait for the timeline to be ready (the waveform drawn) before stamping and saving. Cheap, but it hides a stall a person could meet, if it is one.
+
+**Recommended.** A) first: if the freeze is the app's own work on the main thread, move it off (wavesurfer accepts precomputed peaks, and the app already keeps 1000 per track, though the sync timeline wants more detail); if it is only an overloaded machine, B). Done when 100 runs of the test pass with 4 workers.

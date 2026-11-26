@@ -9,7 +9,7 @@
  * answer, and stays unsaved until saved in turn.
  */
 import { expect, test, type Page } from './fixtures'
-import { signUp, uploadTrack } from './helpers'
+import { clickAndWaitForApi, signUp, uploadTrack } from './helpers'
 
 /** Opens the edit page of the only track in the library. */
 async function openEditor(page: Page, title: string) {
@@ -133,7 +133,9 @@ test.describe('unsaved changes', () => {
     // The browser's Back while the details are being edited.
     await page.goBack()
     const question = page.getByRole('dialog', { name: 'Unsaved changes' })
-    await question.getByRole('button', { name: 'Save and leave' }).click()
+    // The browser's Back moves the address before the router even asks, so the URL alone does
+    // not mean the save is done: the PATCH's answer does.
+    await clickAndWaitForApi(page, question.getByRole('button', { name: 'Save and leave' }), { method: 'PATCH', path: new RegExp(`^/api/playlists/${id}$`) })
     await expect(page).toHaveURL(/\/playlists$/)
     const saved = await page.evaluate(async id => (await (await fetch(`/api/playlists/${id}`)).json() as { title: string }).title, id)
     expect(saved).toBe('Road trip, renamed')
