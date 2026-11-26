@@ -57,6 +57,7 @@ Dashboard labels may change slightly over time.
 1. Import the GitHub repository: the Nuxt preset is detected automatically.
 2. *Environment Variables*: `SUPABASE_URL`, `SUPABASE_KEY` and the five `NUXT_AUDIO_STORAGE_*` values from `.env.r2` (pasting the file's content into the *Key* field fills the five rows).
    - The five `NUXT_AUDIO_STORAGE_*` for **Production only**, marked *Sensitive*. A preview build runs any branch's dependencies (Dependabot's included) during `nuxt build`; with them it would hold the key that writes the production audio. Previews then play no audio, and need none to check the pages.
+   - `CRON_SECRET`, **Production only**, *Sensitive*: a random value of at least 16 characters (`openssl rand -hex 32`, kept nowhere else). Vercel Cron sends it to `/api/keepalive` (13.7); without it that route answers `500` on Vercel.
    - A variable's environments cannot be changed once it is *Sensitive*: delete it and add it again. Changed variables reach only the next deployment: redeploy production (*Deployments* → the current one → *⋯ → Redeploy*).
 3. *Settings → Node.js Version* (under "Build and Deployment" or "General", depending on the dashboard version): 24.x.
 4. pnpm is pinned in `packageManager`; if Vercel does not pick it up, add `ENABLE_EXPERIMENTAL_COREPACK=1`.
@@ -106,10 +107,14 @@ On the Hobby plan Web Analytics includes 50,000 events a month and keeps one mon
 
 Supabase **pauses a Free-plan project after a week without database activity** ([Supabase: Project Pausing](https://supabase.com/docs/guides/platform/project-pausing)): sign-in, the library and the share links stop working (the audio stays on R2, but nobody can get its addresses) until the project is restored by hand. A quiet week, with nobody signed in and no visitors on the share links, is enough.
 
-Nothing to set up: `vercel.json` declares a **Vercel Cron** job that calls `GET /api/keepalive` every day at 06:00 UTC (the Hobby plan allows daily jobs, run at some point within that hour). The route reads one genre as the anonymous role, which is real database activity; `/api/health` would not do, since it never reaches the database. The route needs no secret: anyone holding the public Supabase key can already read the built-in genres straight from Supabase.
+`vercel.json` declares a **Vercel Cron** job that calls `GET /api/keepalive` every day at 06:00 UTC (the Hobby plan allows daily jobs, run at some point within that hour). The route reads one genre as the anonymous role, which is real database activity; `/api/health` would not do, since it never reaches the database.
+
+**Only Vercel Cron gets through** (`server/utils/cron-auth.ts`): with `CRON_SECRET` set (13.3, step 2), Vercel sends it as `Authorization: Bearer …` and the route refuses any other request with `401`. What it reads is public anyway; the secret keeps a stranger from spending the project's function invocations and database queries in a loop. On Vercel without the variable the route answers `500` to everyone, the cron included, so a forgotten variable shows in the cron logs instead of leaving the route open; elsewhere (development, the e2e tests, Docker) it stays open without one.
+
+- **Set it up once:** the `CRON_SECRET` variable (13.3, step 2), then redeploy production. Then open `https://<your-domain>/api/keepalive` in the browser: `401` is right (the browser has no secret); `500` means the variable has not reached the deployment.
 
 - **Check it:** Vercel → the project → **Settings → Cron Jobs** lists the job, with *Run* to try it at once and a link to its logs. Cron jobs run on the production deployment only.
-- **If Supabase pauses the project anyway** (an email warns about a week before, and another confirms the pause): Supabase dashboard → the project → *Restore*. Then check the Cron Jobs page: a failing job (500 in its logs) means the database was not reached.
+- **If Supabase pauses the project anyway** (an email warns about a week before, and another confirms the pause): Supabase dashboard → the project → *Restore*. Then check the Cron Jobs page: a failing job means the database was not reached (`500` in its logs; with `CRON_SECRET is not set` next to it, the variable is missing) or the secret does not match (`401`: set the variable again and redeploy).
 
 ## 13.8 The GitHub repository
 
