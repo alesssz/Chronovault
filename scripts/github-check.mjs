@@ -152,7 +152,15 @@ else warn(`${dependabot} open Dependabot alert(s)`, 'Security → Dependabot')
 
 // --- Last runs on main -------------------------------------------------------
 console.log('Last runs on main')
-for (const workflow of ['ci.yml', 'audit.yml']) {
+// The scheduled ones: GitHub disables them after 60 days without activity, and a disabled
+// one fails nothing, it just stops running.
+for (const workflow of ['audit.yml', 'database-size.yml']) {
+  const state = api(`${repo}/actions/workflows/${workflow}`)?.state
+  if (state === 'active') ok(`${workflow}: enabled`)
+  else if (!state) warn(`${workflow}: not on GitHub yet`, 'it appears once merged into main')
+  else fail(`${workflow}: ${state}`, `gh workflow enable ${workflow}`)
+}
+for (const workflow of ['ci.yml', 'audit.yml', 'database-size.yml']) {
   const output = gh(['run', 'list', '--workflow', workflow, '--branch', 'main', '--status', 'completed', '--limit', '1', '--json', 'conclusion,createdAt,url'])
   const run = output ? JSON.parse(output)[0] : undefined
   if (!run) warn(`${workflow}: no finished run on main yet`)

@@ -1,0 +1,88 @@
+# The production database's size, every week: the Free plan holds 500 MB, and
+# past that every write of the app fails. Plays are kept forever (backlog,
+# DATA-1), so the table only grows. Above either limit below the run fails,
+# and GitHub emails the repository owner about a failed scheduled run: that
+# email is the alert, and the sizes are in the run's summary.
+#
+# A second job keeps the scheduled workflows (this one and audit.yml) enabled:
+# GitHub disables them in a public repository after 60 days without activity,
+# which would silence both alerts when the project is quiet, exactly when
+# nobody looks.
+name: Database size
+
+on:
+  schedule:
+    # Mondays at 07:00 UTC, an hour after the Audit.
+    - cron: '0 7 * * 1'
+  # Run by hand from the Actions tab.
+  workflow_dispatch:
+
+# No token permissions by default: each job states its own.
+permissions: {}
+
+jobs:
+  size:
+    name: Production database size
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The database's address (secret SUPABASE_DB_URL), as CI's migrate job reads it; the
+    # environment lets only main read it, and scheduled runs run on main.
+    environment: production
+    env:
+      # MiB. 400 is 80% of the plan's 500 MB, room to act. 100 for plays: the size at which
+      # DATA-1 recommends deleting old plays.
+      DATABASE_LIMIT_MB: 400
+      PLAYS_LIMIT_MB: 100
+    steps:
+      # No checkout and no dependencies: nothing but psql (already on the runner) gets the
+      # address. The query is fixed text and only reads.
+      - name: Measure
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # GitHub hides the whole secret in the log; the password alone, should an error
+          # print it, is hidden too: the text between "user:" and "@" in the address.
+          password="${SUPABASE_DB_URL#*://*:}"
+          echo "::add-mask::${password%%@*}"
+          sizes=$(psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -F ' ' -c \
+            "select pg_database_size(current_database()), pg_total_relation_size('public.plays'), (select count(*) from public.plays)")
+          read -r database plays rows <<< "$sizes"
+          # Bytes to MiB, one decimal, for the messages; the comparisons stay in bytes.
+          mib() { awk -v bytes="$1" 'BEGIN { printf "%.1f", bytes / 1048576 }'; }
+          {
+            echo '### Production database'
+            echo '| | Size | Limit |'
+            echo '|---|---|---|'
+            echo "| Database | $(mib "$database") MiB | ${DATABASE_LIMIT_MB} MiB (plan: 500 MB) |"
+            echo "| plays ($rows rows) | $(mib "$plays") MiB | ${PLAYS_LIMIT_MB} MiB |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          over=0
+          if (( database > DATABASE_LIMIT_MB * 1048576 )); then
+            echo "::error::The database takes $(mib "$database") MiB, over ${DATABASE_LIMIT_MB}: the plan's limit is 500 MB"
+            over=1
+          fi
+          if (( plays > PLAYS_LIMIT_MB * 1048576 )); then
+            echo "::error::plays takes $(mib "$plays") MiB, over ${PLAYS_LIMIT_MB}: time for DATA-1 (docs/backlog.md)"
+            over=1
+          fi
+          exit "$over"
+
+  keep-enabled:
+    name: Keep the scheduled workflows enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Enabling a workflow is the only write this token can make.
+    permissions:
+      actions: write
+    steps:
+      # Enabling an enabled workflow restarts its 60-day count (not documented by GitHub; the
+      # way tools such as gh-workflow-immortality keep workflows alive). Through the API, not
+      # `gh workflow enable`, which only looks among disabled workflows and fails on an
+      # enabled one.
+      - name: Enable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for workflow in audit.yml database-size.yml; do
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/enable"
+          done

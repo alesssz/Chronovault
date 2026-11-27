@@ -155,7 +155,7 @@ Chronovault/
 ├── nuxt.config.ts · vitest.config.ts · playwright.config.ts · eslint.config.mjs · tsconfig.json
 ├── .env.example · .env.r2.example    # Templates (the real .env files are git-ignored)
 └── .github/                          # workflows/ci.yml (checks, 12; production migrations, 13.5) · workflows/audit.yml (dependency audit: weekly and on every branch that changes them, 11.6)
-                                      #   · actions/setup (the setup every job shares, 12) · dependabot.yml (weekly GitHub Actions updates, 11.6)
+                                      #   · workflows/database-size.yml (production database size, weekly, 13.9) · actions/setup (the setup every job shares, 12) · dependabot.yml (weekly GitHub Actions updates, 11.6)
 ```
 
 ---

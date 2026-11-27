@@ -44,7 +44,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm generate:brand` | Regenerate the brand images in `public/` (favicon, PWA icons, fallback cover) from `shared/brand.ts` and `brand/chronovault.jpg` ([5.6](05-architecture.md#56-brand-and-theme)) |
 | `pnpm run doctor` | Check this computer's prerequisites (Node, pnpm, Docker, dependencies, `host.docker.internal`, Playwright's Chromium, the GitHub CLI signed in, Make, local stack) and print the fix for each missing one, on macOS, Windows or Linux. Read-only; works before `pnpm install` as `node scripts/doctor.mjs`. With `run`: pnpm's own `pnpm doctor` checks pnpm itself |
 | `pnpm merge:main [--yes] [--no-checks]` | Run `pnpm check` on the current (pushed) branch, open its pull request, wait for CI and get it merged into `main` (auto-merge, or from the terminal), then delete the branch locally and on GitHub and end on an up-to-date `main`; needs `gh` signed in ([14.1](14-conventions.md#141-git-workflow)) |
-| `pnpm github:check` | Compare the repository's settings on GitHub (ruleset, Actions, security features) with the decided ones, and report open alerts and the last runs on `main`; read-only, needs `gh` ([13.8](13-deployment.md#138-the-github-repository)) |
+| `pnpm github:check` | Compare the repository's settings on GitHub (ruleset, Actions, security features) with the decided ones, and report open alerts, whether the scheduled workflows are still enabled, and the last runs on `main`; read-only, needs `gh` ([13.8](13-deployment.md#138-the-github-repository)) |
 
 ## 3.3 Makefile
 
