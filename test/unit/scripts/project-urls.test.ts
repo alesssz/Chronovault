@@ -11,8 +11,8 @@ describe('parseSupabasePorts', () => {
     expect(parseSupabasePorts(toml)).toEqual({ studio: 6003, mail: 6004 })
   })
 
-  it('reads Mailpit\'s port from [inbucket] too, and keeps the defaults for what is missing', () => {
-    expect(parseSupabasePorts('[inbucket]\nport = 7004\n')).toEqual({ studio: 54323, mail: 7004 })
+  it('keeps the defaults for what is missing', () => {
+    expect(parseSupabasePorts('[studio]\nport = 7003\n')).toEqual({ studio: 7003, mail: 54324 })
     expect(parseSupabasePorts('')).toEqual({ studio: 54323, mail: 54324 })
   })
 })

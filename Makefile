@@ -120,8 +120,8 @@ db-link: ## Link the remote Supabase project: make db-link ref=<project-ref>
 	@test -n "$(ref)" || { echo "Usage: make db-link ref=<project-ref>"; exit 1; }
 	$(SUPABASE) link --project-ref $(ref)
 
-db-push: ## Apply migrations to the linked remote project
-	$(SUPABASE) db push
+db-push: ## Apply migrations to the linked remote project (asks first)
+	$(SUPABASE) db push --remote
 
 # --- Quality and tests --------------------------------------------------------
 

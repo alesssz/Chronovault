@@ -37,7 +37,7 @@ Docker Desktop is never started automatically: when it is not running, the comma
 | `pnpm db:advisors` | Supabase's security and performance advisors on the local database (tables without RLS, unsafe functions, missing indexes…); fails on warnings, lists infos only |
 | `pnpm db:types` | Regenerate `shared/types/database.types.ts` (written only when generation succeeds) |
 | `pnpm db:types:check` | Fail when the committed `database.types.ts` differs from the schema (a migration added without `pnpm db:types`); writes nothing |
-| `pnpm db:push` | Apply pending migrations to the linked Supabase Cloud project, by hand: CI does it on every merge into `main` ([13.5](13-deployment.md#135-updating-production)) |
+| `pnpm db:push` | Apply pending migrations to the linked Supabase Cloud project (`--remote`; it asks first), by hand: CI does it on every merge into `main` ([13.5](13-deployment.md#135-updating-production)) |
 | `pnpm env:local` | Write `.env` from the running local stack |
 | `pnpm r2:check [origin…]` | Check the Cloudflare R2 setup in `.env.r2`: upload (on an address signed for that file, and a file of another size refused), range streaming, size check, CORS, delete |
 | `pnpm urls [site]` | Print the main addresses: the local app, Supabase Studio and Mailpit (ports read from `supabase/config.toml`); the site and the dashboards of Supabase (the project `supabase link` recorded), Cloudflare R2, Vercel and GitHub (from the git remote). Read-only, needs nothing running |
