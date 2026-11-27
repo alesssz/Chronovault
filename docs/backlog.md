@@ -58,6 +58,22 @@ This page is not a numbered section of the docs: it changes all the time, and it
 
 **Recommended.** A). The button shows only where the provider is set (a runtime setting), so a local stack or a fork without Google credentials keeps the plain form. Sign-ups stay closed ([13.4](13-deployment.md#134-after-the-first-deploy)): the setting covers every provider, so Google only signs in accounts that already exist, and the OAuth consent screen stays in *Testing* with the owner alone as test user, so Google itself turns other accounts away first. Done when, in production, "Continue with Google" signs in and lands on the page that was asked for; signing in with Google as the owner of an existing password account opens that same library; another Google account is refused; and the local stack starts and the e2e tests pass with no Google credentials at all.
 
+## Database (DATA)
+
+### DATA-1 Plays are kept forever, though the statistics read 30 days
+
+**Priority:** low, until the size check fails · **Kind:** data growth · **Found:** 2026-11-26
+
+**What is wrong.** Every play is a row of `plays`, kept for good. The statistics read the last 7 or 30 days ([plays.service.ts](../server/services/plays.service.ts)); only a group of versions reads all of its plays, for its whole story ([feedback.service.ts](../server/services/feedback.service.ts), `listPlaylistPlayRows`). Visitors' plays are capped at 100 different listeners per track and day ([8.5](08-data-model-and-security.md#85-security-guarantees)), which bounds abuse but not ordinary growth: the table only gets bigger, toward the Free plan's 500 MB database, past which every write of the app fails. The weekly *Database size* workflow fails, and GitHub emails, once `plays` passes 100 MiB ([13.9](13-deployment.md#139-watching-the-databases-size)): that is when this entry is picked up.
+
+**Where.** A migration: a function that deletes or rolls up old rows, run on a schedule; `listPlaylistPlayRows` and whatever reads a group's history; pgTAP tests; [7.16](07-data-flows.md#716-statistics), [8.1](08-data-model-and-security.md#81-entities).
+
+**Options.**
+- A) A daily job in the database (`pg_cron`, which Supabase offers on every plan) that deletes plays older than, say, 90 days, except those of groups of versions, whose story is read whole. The server never holds the service key, so the job has to live in Postgres, not behind a route.
+- B) The same, but old rows are first added up into a small daily table (track, playlist, kind of listener, day, plays, completed) that a group's history reads alongside the recent rows: nothing is lost, at the cost of a second read path.
+
+**Recommended.** A): nothing the app shows changes, and B)'s second read path is not worth it until someone wants all-time totals. Done when a pgTAP test shows the job deleting a visitor's 91-day-old play of a plain playlist and keeping a recent one and an old one of a group, the job is listed by `select * from cron.job`, and the next *Database size* run passes.
+
 ## Tooling (OPS)
 
 ### OPS-4 Production cannot be emptied in one go (database, covers, R2)
