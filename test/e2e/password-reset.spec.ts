@@ -10,7 +10,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { expect, test, type Locator } from './fixtures'
 import { signIn, signUp } from './helpers'
 
-/** Mailpit's API: the `[inbucket]` port in supabase/config.toml. */
+/** Mailpit's API: the `[local_smtp]` port in supabase/config.toml. */
 const MAILPIT = 'http://127.0.0.1:54324/api/v1'
 
 /** The link of the reset email last sent to `email`, once it has arrived. */

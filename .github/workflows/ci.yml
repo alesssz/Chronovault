@@ -150,4 +150,4 @@ jobs:
           password="${SUPABASE_DB_URL#*://*:}"
           echo "::add-mask::${password%%@*}"
           # Lists what it applies (nothing to do is a success); --yes: no one to answer its question.
-          pnpm exec supabase db push --db-url "$SUPABASE_DB_URL" --skip-vault --yes
+          pnpm exec supabase db push --remote="$SUPABASE_DB_URL" --skip-vault --yes

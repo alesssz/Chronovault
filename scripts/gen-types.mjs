@@ -23,7 +23,7 @@ const target = resolve(process.cwd(), 'shared/types/database.types.ts')
 // The generated TypeScript, kept in memory until we know it is valid.
 let output
 try {
-  output = execSync('pnpm exec supabase gen types typescript --local', {
+  output = execSync('pnpm exec supabase gen types typescript', {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 10 * 1024 * 1024,

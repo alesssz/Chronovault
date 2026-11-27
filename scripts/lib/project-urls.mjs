@@ -7,8 +7,8 @@
 /** The ports `supabase start` uses when config.toml says nothing. */
 const DEFAULT_PORTS = { studio: 54323, mail: 54324 }
 
-/** The config.toml section holding each port (`[local_smtp]` is Mailpit, `[inbucket]` in older CLIs). */
-const PORT_SECTIONS = { studio: ['studio'], mail: ['local_smtp', 'inbucket'] }
+/** The config.toml section holding each port (`[local_smtp]` is Mailpit). */
+const PORT_SECTIONS = { studio: ['studio'], mail: ['local_smtp'] }
 
 /**
  * Studio's and Mailpit's ports from supabase/config.toml's text: the `port` line of each one's

@@ -7,10 +7,10 @@
    ```bash
    pnpm exec supabase login
    make db-link ref=<project-ref>      # the ref is in the dashboard URL
-   make db-push
-   pnpm exec supabase migration list --linked   # every migration Local = Remote
+   make db-push                        # answer y: it asks before changing a hosted project
+   pnpm exec supabase migration list --remote   # every migration Local = Remote
    ```
-   `seed.sql` (demo user) is **not** applied in production.
+   `seed.sql` (demo user) is **not** applied in production. The CLI (3.x) targets the local stack unless told otherwise: `--remote` is the linked project, `--remote=<address>` a database by its address.
 3. Copy the *Project URL* and the *publishable key* (Project Settings → API).
 4. Storage needs no setup: the migrations create the `covers` bucket and its policies. Only small WebP covers are stored here, so the 50 MB per-file limit of the free plan does not matter.
 5. **Let CI apply the next migrations** (13.5). It needs only the database's address, password included:
@@ -19,12 +19,12 @@
      ```bash
      read -rs SUPABASE_DB_URL      # paste the address, Enter (nothing shows)
      echo ${#SUPABASE_DB_URL}      # its length, about 110: not 0
-     pnpm exec supabase migration list --db-url "$SUPABASE_DB_URL"   # every migration Local = Remote
+     pnpm exec supabase migration list --remote="$SUPABASE_DB_URL"   # every migration Local = Remote
      unset SUPABASE_DB_URL
      ```
    - GitHub → *Settings → Environments → New environment* **`production`**: *Deployment branches and tags* → *Selected branches and tags* → rule `main` (only `main`'s runs can read it; no required reviewers, no wait timer). Add the **environment secret `SUPABASE_DB_URL`** with the address.
 
-   No access token: without `supabase link`, `db push --db-url` needs nothing else, and a token able to link would also read the project's secret key. A new database password means updating the secret.
+   No access token: without `supabase link`, `db push --remote=<address>` needs nothing else, and a token able to link would also read the project's secret key. A new database password means updating the secret.
 
 ## 13.2 Cloudflare R2 (audio files)
 
@@ -82,7 +82,7 @@ Dashboard labels may change slightly over time.
 
 - **Code and migrations alike:** push the branch and run `pnpm merge:main`. Once CI passes, GitHub merges it into `main`, and then, in this order:
   1. CI runs again on `main` (the merged code: lint, types, unit, database and end-to-end tests);
-  2. its **Migrate production database** job applies the migrations of `supabase/migrations` that production lacks (`supabase db push --db-url`, with the `production` environment's secret, 13.1), none most of the time; the seed is never applied;
+  2. its **Migrate production database** job applies the migrations of `supabase/migrations` that production lacks (`supabase db push --remote=<address>`, with the `production` environment's secret, 13.1), none most of the time; the seed is never applied;
   3. Vercel, which built the deployment at the merge, puts it online once that job passed (Deployment Checks, 13.3).
 
   About ten minutes from merge to live. Vercel never touches the database. A failed check or migration leaves the previous deployment live; after a failed migration, `migration list` shows which ones production has (16).
