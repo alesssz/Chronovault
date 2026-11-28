@@ -32,6 +32,19 @@ function wavSamples(wav: Buffer, bitsPerSample: number): Int32Array {
 
 test.describe('library and player', () => {
   test('upload, playback, editing, synced lyrics and deletion', async ({ page }) => {
+    // Every AudioContext the page creates, counted: creating one opens the audio output on the
+    // main thread, which froze the page for seconds while a track played. Decoding uses an
+    // OfflineAudioContext, and playing needs none.
+    await page.addInitScript(() => {
+      const counted = window as unknown as { audioContextsCreated: number }
+      counted.audioContextsCreated = 0
+      window.AudioContext = class extends window.AudioContext {
+        constructor(options?: AudioContextOptions) {
+          super(options)
+          counted.audioContextsCreated++
+        }
+      }
+    })
     await signUp(page)
     await expect(page.getByText('Your library is empty')).toBeVisible()
 
@@ -125,6 +138,8 @@ test.describe('library and player', () => {
 
     const markers = page.getByTestId('sync-timeline').getByTestId('sync-marker')
     await expect(markers).toHaveCount(2)
+    // Upload, playback and the detailed waveform, all without an AudioContext.
+    expect(await page.evaluate(() => (window as unknown as { audioContextsCreated: number }).audioContextsCreated)).toBe(0)
     const secondRow = page.getByTestId('sync-rows').locator('li').filter({ hasText: 'Second line' })
     await expect(secondRow).toContainText('00:01.50')
     // Drag the second marker to the right: the line now starts later.
