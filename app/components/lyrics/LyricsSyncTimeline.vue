@@ -2,6 +2,7 @@
 import WaveSurfer from 'wavesurfer.js'
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js'
 import type { SyncRow } from '~~/shared/utils/lyrics'
+import { decodeAudio } from '~/lib/audio-analysis'
 import { getAudioEngine } from '~/lib/audio-engine'
 import { waveformColors } from '~/lib/theme'
 
@@ -44,6 +45,35 @@ const failed = ref(false)
 let wavesurfer: WaveSurfer | null = null
 /** The Regions plugin instance: one region per marker. */
 let regions: ReturnType<typeof RegionsPlugin.create> | null = null
+/** Stops the download and decoding under way when the timeline goes or starts over. */
+let loading: AbortController | null = null
+
+/**
+ * Downloads and decodes the track, showing the progress: its samples per
+ * channel and its duration, for wavesurfer to draw.
+ *
+ * Done here because wavesurfer's own decoder creates an AudioContext
+ * (decodeAudio says why that freezes the page while the player plays).
+ */
+async function decodeTrack(url: string, signal: AbortSignal): Promise<{ peaks: Float32Array[], duration: number }> {
+  const response = await fetch(url, { signal })
+  if (!response.ok || !response.body) throw new Error(`The audio could not be downloaded (${response.status})`)
+  const total = Number(response.headers.get('content-length')) || 0
+  const reader = response.body.getReader()
+  const chunks: Uint8Array<ArrayBuffer>[] = []
+  let received = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    received += value.length
+    if (total) loadingPercent.value = Math.round((received / total) * 100)
+  }
+  const audio = await decodeAudio(await new Blob(chunks).arrayBuffer())
+  if (!audio) throw new Error('The audio could not be decoded')
+  const peaks = Array.from({ length: audio.numberOfChannels }, (_, channel) => audio.getChannelData(channel))
+  return { peaks, duration: audio.duration }
+}
 
 /** A synced lyric line drawn on the waveform. */
 interface Marker {
@@ -139,7 +169,7 @@ function indexOf(regionId: string): number {
 }
 
 /** Builds the waveform on the shared audio element (rebuilt from scratch every time). */
-function create() {
+async function create() {
   // The app's single <audio>: the timeline follows the same playback.
   const media = getAudioEngine().element
   if (!container.value || !media) return
@@ -148,12 +178,29 @@ function create() {
   failed.value = false
   loadingPercent.value = 0
 
+  const url = media.currentSrc || media.src
+  const controller = new AbortController()
+  loading = controller
+  let decoded: Awaited<ReturnType<typeof decodeTrack>>
+  try {
+    if (!url) throw new Error('No track in the player')
+    decoded = await decodeTrack(url, controller.signal)
+  }
+  catch {
+    // Aborted: the timeline was destroyed or started over, and shows nothing of this attempt.
+    if (!controller.signal.aborted) failed.value = true
+    return
+  }
+  if (controller.signal.aborted || !container.value) return
+
   regions = RegionsPlugin.create()
   wavesurfer = WaveSurfer.create({
     container: container.value,
-    // Same audio element as the player: no peaks given, so wavesurfer fetches
-    // and decodes the file itself for a detailed waveform.
+    // Same audio element as the player, already playing this file: wavesurfer
+    // only draws the samples decoded above and follows the playback.
     media,
+    peaks: decoded.peaks,
+    duration: decoded.duration,
     height: 112,
     minPxPerSec: zoom.value,
     autoScroll: true,
@@ -165,9 +212,6 @@ function create() {
     plugins: [regions],
   })
 
-  wavesurfer.on('loading', (percent) => {
-    loadingPercent.value = percent
-  })
   wavesurfer.on('ready', () => {
     ready.value = true
     renderMarkers()
@@ -190,6 +234,8 @@ function create() {
 
 /** Removes the waveform; the shared audio element itself is left untouched. */
 function destroy() {
+  loading?.abort()
+  loading = null
   wavesurfer?.destroy()
   wavesurfer = null
   regions = null

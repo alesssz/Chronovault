@@ -159,25 +159,33 @@ async function readTags(file: File): Promise<Tags> {
 }
 
 /**
- * Decodes the audio at a low sample rate (enough for the waveform shape,
- * and ~5x less memory than the original 44.1 kHz).
+ * Decodes an audio file at a low sample rate (enough for a waveform's shape,
+ * and ~5x less memory than the original 44.1 kHz); null when the browser
+ * cannot decode it.
+ *
+ * An OfflineAudioContext, never an AudioContext: creating an AudioContext
+ * opens the audio output, synchronously on the main thread, and with the
+ * player playing through it that froze the whole page for seconds.
  */
-async function decodePeaks(file: File): Promise<{ peaks: number[], duration: number } | null> {
-  const buffer = await file.arrayBuffer()
+export async function decodeAudio(buffer: ArrayBuffer): Promise<AudioBuffer | null> {
   // Some browsers reject very low sample rates: step up until one works.
   // `buffer.slice(0)`: decodeAudioData detaches (empties) the buffer it gets,
   // so each attempt needs its own copy.
   for (const sampleRate of [8000, 22050, 44100]) {
     try {
-      // A minimal offline context: only used to decode, never to play.
-      const context = new OfflineAudioContext(1, 1, sampleRate)
-      const audio = await context.decodeAudioData(buffer.slice(0))
-      const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i))
-      return { peaks: computePeaks(channels), duration: audio.duration }
+      return await new OfflineAudioContext(1, 1, sampleRate).decodeAudioData(buffer.slice(0))
     }
     catch {
       continue
     }
   }
   return null
+}
+
+/** The stored waveform peaks and the decoded duration of an uploaded file. */
+async function decodePeaks(file: File): Promise<{ peaks: number[], duration: number } | null> {
+  const audio = await decodeAudio(await file.arrayBuffer())
+  if (!audio) return null
+  const channels = Array.from({ length: audio.numberOfChannels }, (_, i) => audio.getChannelData(i))
+  return { peaks: computePeaks(channels), duration: audio.duration }
 }
