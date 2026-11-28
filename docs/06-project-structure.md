@@ -80,7 +80,7 @@ Chronovault/
 │   │   └── flac/                     #   wav.ts (parser) · encoder.ts (encode + verify) · seektable.ts · flac.worker.ts · convert.ts
 │   ├── pages/
 │   │   ├── index.vue                 # Library
-│   │   ├── login.vue · confirm.vue   # Sign-in / sign-up / forgot password · auth callback
+│   │   ├── login.vue · confirm.vue   # Sign-in / sign-up / Google / forgot password · auth callback
 │   │   ├── reset-password.vue        # New password, from the reset email's link
 │   │   ├── tracks/new.vue            # Upload
 │   │   ├── tracks/import.vue         # Export & import metadata: every track's metadata in one file, and back (7.18)
