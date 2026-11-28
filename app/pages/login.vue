@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
  * Sign in / sign up with email and password (Supabase Auth, in the browser),
- * and "Forgot password?": an email with a link to choose a new one
- * (reset-password.vue). `/login?forgot` opens on that form.
+ * or with Google where it is set up, and "Forgot password?": an email with a
+ * link to choose a new one (reset-password.vue). `/login?forgot` opens on
+ * that form.
  * Client-rendered only (see nuxt.config.ts → routeRules): a form submitted
  * before hydration would send the password in the URL.
  * After sign-in, the user goes back to the page they were trying to open.
  */
 import { z } from 'zod'
-import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
+import type { AuthFormField, ButtonProps, FormSubmitEvent } from '@nuxt/ui'
 
 definePageMeta({ layout: 'auth' })
 usePageTitle('Sign in')
@@ -48,6 +49,32 @@ const fields: AuthFormField[] = [
   emailField,
   { name: 'password', type: 'password', label: 'Password', placeholder: '••••••••', required: true },
 ]
+
+/**
+ * "Continue with Google", above the form, only where the provider is set up
+ * (runtimeConfig.public.googleSignIn): elsewhere Supabase would answer that
+ * the provider is not enabled.
+ */
+const providers = computed<ButtonProps[]>(() => useRuntimeConfig().public.googleSignIn
+  ? [{ label: 'Continue with Google', icon: 'i-logos-google-icon', color: 'neutral', variant: 'subtle', block: true, loading: loading.value, onClick: signInWithGoogle }]
+  : [])
+
+/**
+ * Leaves for Google's consent screen; Supabase brings the user back to
+ * /confirm, which enters the app. The page asked for before sign-in is in a
+ * cookie (useSignedInRedirect), so it survives the round trip.
+ */
+async function signInWithGoogle() {
+  loading.value = true
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: `${window.location.origin}/confirm` },
+  })
+  // On success the browser is already leaving the page: keep the button busy.
+  if (!error) return
+  loading.value = false
+  toast.add({ title: 'Sign-in failed', description: getErrorMessage(error), color: 'error', icon: 'i-lucide-circle-alert' })
+}
 
 /** Signs in (useSignedInRedirect then enters the app) or signs up. */
 async function onSubmit(event: FormSubmitEvent<Schema>) {
@@ -180,6 +207,7 @@ function setMode(value: typeof mode.value) {
     :key="mode"
     :schema="schema"
     :fields="fields"
+    :providers="providers"
     :loading="loading"
     :title="mode === 'login' ? 'Welcome back' : 'Create an account'"
     :description="mode === 'login' ? 'Sign in to your music library.' : 'Your music library, everywhere.'"

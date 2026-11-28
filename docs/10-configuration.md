@@ -15,6 +15,7 @@
 | `NUXT_ANALYTICS_TOKEN` | server only, optional | Vercel access token used to read Web Analytics (Statistics page). **Never commit it** |
 | `NUXT_ANALYTICS_PROJECT_ID` | server only, optional | The Vercel project id (`prj_…`) |
 | `NUXT_ANALYTICS_TEAM_ID` | server only, optional | The team id (`team_…`), only for a project owned by a team |
+| `NUXT_PUBLIC_GOOGLE_SIGN_IN` | browser, optional | `true` shows "Continue with Google" on the sign-in page; only where the Supabase project has the Google provider on ([13.10](13-deployment.md#1310-signing-in-with-google)) |
 | `NUXT_PUBLIC_WEB_ANALYTICS` | browser, optional | Forces loading the Vercel Analytics script on or off (default: on only for builds made on Vercel) |
 
 In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` / `NUXT_PUBLIC_SUPABASE_KEY` (runtime overrides of the build-time values). A missing audio storage variable makes audio routes answer `500 Audio storage is not configured` and logs which one is missing.
@@ -39,12 +40,13 @@ In the Docker mode the Supabase variables are named `NUXT_PUBLIC_SUPABASE_URL` /
 - `runtimeConfig.audioStorage`: server-only audio storage settings, filled from `NUXT_AUDIO_STORAGE_*`.
 - `runtimeConfig.storageCleanup.minAgeHours`: minimum age of a deletable orphan (24 h).
 - `runtimeConfig.analytics`: server-only Vercel Analytics token and project; `runtimeConfig.public.webAnalytics`: load the counting script (builds on Vercel only).
+- `runtimeConfig.public.googleSignIn`: show "Continue with Google" (off by default, so a stack without Google credentials keeps the plain form).
 - `supabase.redirectOptions`: login at `/login`, callback at `/confirm`, public pages excluded; `types` points to the generated database types.
 - `build.transpile: ['pinia']`: one copy of Pinia in the server bundle (without it, server-rendered pages fail with "no active Pinia").
 - `vite.worker.format: 'es'`: the FLAC worker is an ES module worker.
 - `vite.optimizeDeps.include`: every package the browser imports (FLAC worker included), pre-bundled when the dev server starts. A package missing from it is discovered on the first visit to a page that imports it, and Vite reloads that page. The list is kept by hand, and **checked by a unit test** (`test/unit/config/optimize-deps.test.ts`): it reads the runtime imports of `app/` and `shared/` (type-only imports, local and aliased paths and `?url` assets left out) and fails, naming the package and the files importing it, when one is missing, or when the list names a package nothing imports. `vue`, `vue-router` and `pinia` are not listed on purpose: Nuxt and `@pinia/nuxt` exclude them from pre-bundling themselves, so they never cause a reload.
 - `typescript.appTsConfig.vueCompilerOptions.checkUnknownComponents`: a misnamed component is a type error.
-- `icon`: every Lucide icon the code names is bundled into the client (`clientBundle.scan`), so none is fetched at runtime; one the scan misses comes from the app's own `/api/_nuxt_icon`, never from Iconify's public API (`fallbackToApi: false`), which the Content Security Policy blocks and which would be a request to a third party: a fallback to it when the app's endpoint answers slowly would leave icons missing.
+- `icon`: every icon the code names (Lucide, and the Google mark from Logos) is bundled into the client (`clientBundle.scan`), so none is fetched at runtime; one the scan misses comes from the app's own `/api/_nuxt_icon`, never from Iconify's public API (`fallbackToApi: false`), which the Content Security Policy blocks and which would be a request to a third party: a fallback to it when the app's endpoint answers slowly would leave icons missing.
 - `app.head` and `pwa.manifest`: name, description and night-blue theme colour from `shared/brand.ts` ([5.6](05-architecture.md#56-brand-and-theme)).
 - `pwa`: manifest and a Workbox service worker that caches static assets only (audio comes from signed URLs, covers use the browser cache, the analytics script is left alone); `webp` is among them for the fallback cover.
 - `app/assets/css/main.css`: base font size 125% (20 px); on phones (below `sm`, 640 px) 106.25% (17 px, the standard body size on iPhone) everywhere, full-screen player included, so about 15% more fits on a line. Form fields stay at 17 px there (`text-base`), above the 16 px under which iPhones zoom the page on focus.

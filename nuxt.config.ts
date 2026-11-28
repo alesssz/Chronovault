@@ -85,6 +85,10 @@ export default defineNuxtConfig({
       // (Vercel sets VERCEL=1 at build time): elsewhere the script does not
       // exist and would only fail. NUXT_PUBLIC_WEB_ANALYTICS overrides it.
       webAnalytics: process.env.VERCEL === '1',
+      // Show "Continue with Google" on the sign-in page: NUXT_PUBLIC_GOOGLE_SIGN_IN=true
+      // where the Supabase project has the Google provider on. Off, a local stack or a
+      // fork without Google credentials keeps the plain email and password form.
+      googleSignIn: false,
     },
   },
 
@@ -191,7 +195,7 @@ export default defineNuxtConfig({
     },
   },
 
-  // Lucide icons (@iconify-json/lucide, installed locally). `scan`: every icon
+  // Lucide icons, and the Google mark from Logos (@iconify-json/*, installed locally). `scan`: every icon
   // the code names goes into the client bundle, so none is fetched at runtime;
   // one the scan misses comes from the app's own /api/_nuxt_icon. Never from
   // Iconify's public API (`fallbackToApi`): the Content Security Policy blocks
